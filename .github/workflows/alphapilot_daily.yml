@@ -1,4 +1,4 @@
-name: AlphaPilot Daily Taiwan Market Data V3.3
+name: AlphaPilot Daily Taiwan Market Data V3.4
 
 on:
   workflow_dispatch:
@@ -38,12 +38,17 @@ jobs:
           import json
           import re
           import time
+          from collections import Counter
           from datetime import datetime, timedelta
           from pathlib import Path
           from zoneinfo import ZoneInfo
 
           import requests
 
+
+          # ============================================================
+          # BASIC
+          # ============================================================
 
           TZ = ZoneInfo("Asia/Taipei")
           now = datetime.now(TZ)
@@ -102,7 +107,7 @@ jobs:
 
 
           # ============================================================
-          # BASIC HELPERS
+          # VALUE HELPERS
           # ============================================================
 
           def norm_key(value):
@@ -136,6 +141,7 @@ jobs:
 
               try:
                   return float(s)
+
               except Exception:
                   return None
 
@@ -167,46 +173,10 @@ jobs:
               return None
 
 
-          def fuzzy_value(
-              d,
-              required_groups,
-              excluded=(),
-          ):
-              if not isinstance(d, dict):
-                  return None
-
-              for key, value in d.items():
-                  nk = norm_key(key)
-
-                  if any(
-                      norm_key(x) in nk
-                      for x in excluded
-                  ):
-                      continue
-
-                  ok = True
-
-                  for group in required_groups:
-                      if isinstance(group, str):
-                          group = [group]
-
-                      if not any(
-                          norm_key(x) in nk
-                          for x in group
-                      ):
-                          ok = False
-                          break
-
-                  if ok:
-                      return value
-
-              return None
-
-
           def write_csv(path, rows):
               if not rows:
                   raise RuntimeError(
-                      f"empty normalized dataset: {path}"
+                      f"empty dataset: {path}"
                   )
 
               fields = list(rows[0].keys())
@@ -216,6 +186,7 @@ jobs:
                   newline="",
                   encoding="utf-8-sig",
               ) as f:
+
                   writer = csv.DictWriter(
                       f,
                       fieldnames=fields,
@@ -226,10 +197,102 @@ jobs:
 
 
           # ============================================================
-          # T86 TABLE FINDER
+          # DATE PARSER
+          # ============================================================
+
+          def parse_date(value):
+              if value is None:
+                  return None
+
+              s = re.sub(
+                  r"[^\d]",
+                  "",
+                  str(value),
+              )
+
+              # YYYYMMDD
+              if len(s) == 8:
+                  try:
+                      return datetime.strptime(
+                          s,
+                          "%Y%m%d",
+                      ).date()
+
+                  except Exception:
+                      return None
+
+              # ROC YYYMMDD
+              if len(s) == 7:
+                  try:
+                      roc = int(s[:3])
+
+                      return datetime.strptime(
+                          f"{roc + 1911}{s[3:]}",
+                          "%Y%m%d",
+                      ).date()
+
+                  except Exception:
+                      return None
+
+              return None
+
+
+          def consensus_payload_date(payload):
+              """
+              Only accept a date when multiple rows agree.
+              This avoids V3.2's single-field false date detection.
+              """
+
+              dates = []
+
+              if not isinstance(payload, list):
+                  return None
+
+              for row in payload[:300]:
+
+                  if not isinstance(row, dict):
+                      continue
+
+                  for key, value in row.items():
+
+                      nk = norm_key(key)
+
+                      if nk not in {
+                          "date",
+                          "日期",
+                          "tradedate",
+                          "交易日期",
+                      }:
+                          continue
+
+                      d = parse_date(value)
+
+                      if d:
+                          dates.append(d)
+
+              if len(dates) < 5:
+                  return None
+
+              counter = Counter(dates)
+
+              best_date, count = (
+                  counter.most_common(1)[0]
+              )
+
+              ratio = count / len(dates)
+
+              if ratio < 0.80:
+                  return None
+
+              return best_date
+
+
+          # ============================================================
+          # TWSE T86 TABLE
           # ============================================================
 
           def find_t86_table(payload):
+
               if not isinstance(payload, dict):
                   return None
 
@@ -244,7 +307,10 @@ jobs:
                       continue
 
                   suffix = str(key)[6:]
-                  rows = payload.get("data" + suffix)
+
+                  rows = payload.get(
+                      "data" + suffix
+                  )
 
                   if not isinstance(rows, list):
                       continue
@@ -277,7 +343,7 @@ jobs:
                   ):
                       score += 10000
 
-                  code_rows = 0
+                  valid_codes = 0
 
                   for row in rows[:100]:
 
@@ -285,20 +351,21 @@ jobs:
                           continue
 
                       for value in row[:4]:
+
                           if re.fullmatch(
                               r"\d{4}",
                               str(value).strip(),
                           ):
-                              code_rows += 1
+                              valid_codes += 1
                               break
 
-                  score += code_rows * 1000
+                  score += valid_codes * 1000
 
                   candidates.append({
                       "score": score,
                       "fields": fields,
                       "rows": rows,
-                      "code_rows": code_rows,
+                      "valid_codes": valid_codes,
                   })
 
               if not candidates:
@@ -311,7 +378,7 @@ jobs:
 
               best = candidates[0]
 
-              if best["code_rows"] == 0:
+              if best["valid_codes"] == 0:
                   return None
 
               return (
@@ -321,14 +388,15 @@ jobs:
 
 
           # ============================================================
-          # FIND LATEST VALID TRADING DAY FROM T86
+          # FIND RECENT VALID TRADING DATE
           # ============================================================
 
-          def fetch_t86_for_date(target_date):
-              ymd = target_date.strftime("%Y%m%d")
+          def fetch_t86_date(day):
+
+              ymd = day.strftime("%Y%m%d")
 
               payload = get_json(
-                  "twse_institutional",
+                  "twse_t86_probe",
                   "https://www.twse.com.tw/rwd/zh/fund/T86",
                   {
                       "date": ymd,
@@ -343,12 +411,13 @@ jobs:
 
 
           def find_latest_trading_day():
-              start = now.date()
 
-              for days_back in range(0, 11):
+              today = now.date()
+
+              for days_back in range(11):
 
                   candidate = (
-                      start
+                      today
                       - timedelta(days=days_back)
                   )
 
@@ -362,10 +431,11 @@ jobs:
 
                   try:
                       payload, table = (
-                          fetch_t86_for_date(candidate)
+                          fetch_t86_date(candidate)
                       )
 
                       if table:
+
                           print(
                               f"[trade-date] selected {candidate}",
                               flush=True,
@@ -378,14 +448,17 @@ jobs:
                           )
 
                   except Exception as exc:
+
                       print(
-                          f"[trade-date] {candidate} failed: {exc}",
+                          f"[trade-date] "
+                          f"{candidate} "
+                          f"failed={exc}",
                           flush=True,
                       )
 
               raise RuntimeError(
-                  "Unable to find valid trading day "
-                  "within last 10 calendar days"
+                  "no valid trading date found "
+                  "within last 10 days"
               )
 
 
@@ -400,14 +473,6 @@ jobs:
               "%Y-%m-%d"
           )
 
-          ymd = trade_day.strftime(
-              "%Y%m%d"
-          )
-
-          slash = trade_day.strftime(
-              "%Y/%m/%d"
-          )
-
 
           print(
               f"[selected] trade_date={trade_date}",
@@ -416,7 +481,7 @@ jobs:
 
 
           # ============================================================
-          # OUTPUT DIR
+          # OUTPUT
           # ============================================================
 
           base = Path("data") / trade_date
@@ -435,27 +500,21 @@ jobs:
 
 
           # ============================================================
-          # FETCH SAME-DAY DATA
+          # OFFICIAL SOURCES
           # ============================================================
+
+          # These two OHLCV sources are the pair that already
+          # successfully produced real CSVs in V2.
 
           twse_ohlcv_payload = get_json(
               "twse_ohlcv",
-              "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
-              {
-                  "date": ymd,
-                  "type": "ALLBUT0999",
-                  "response": "json",
-              },
+              "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
           )
 
 
           tpex_ohlcv_payload = get_json(
               "tpex_ohlcv",
-              "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
-              {
-                  "date": slash,
-                  "response": "json",
-              },
+              "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
           )
 
 
@@ -481,6 +540,7 @@ jobs:
 
 
           for name, payload in payloads.items():
+
               (
                   raw_dir
                   / f"{name}.json"
@@ -495,142 +555,26 @@ jobs:
 
 
           # ============================================================
-          # GENERIC TWSE TABLE FINDER
-          # ============================================================
-
-          def find_best_stock_table(
-              payload,
-              require_ohlc=False,
-          ):
-              if not isinstance(payload, dict):
-                  return None
-
-              candidates = []
-
-              for key, fields in payload.items():
-
-                  if not (
-                      str(key).startswith("fields")
-                      and isinstance(fields, list)
-                  ):
-                      continue
-
-                  suffix = str(key)[6:]
-                  rows = payload.get("data" + suffix)
-
-                  if not isinstance(rows, list):
-                      continue
-
-                  if not rows:
-                      continue
-
-                  joined = "|".join(
-                      str(x)
-                      for x in fields
-                  )
-
-                  score = len(rows)
-
-                  if "證券代號" in joined:
-                      score += 100000
-
-                  if "證券名稱" in joined:
-                      score += 50000
-
-                  if require_ohlc:
-                      for term in (
-                          "開盤價",
-                          "最高價",
-                          "最低價",
-                          "收盤價",
-                      ):
-                          if term in joined:
-                              score += 10000
-
-                  code_rows = 0
-
-                  for row in rows[:100]:
-
-                      if not isinstance(row, list):
-                          continue
-
-                      for value in row[:4]:
-
-                          if re.fullmatch(
-                              r"\d{4}",
-                              str(value).strip(),
-                          ):
-                              code_rows += 1
-                              break
-
-                  score += code_rows * 1000
-
-                  candidates.append({
-                      "score": score,
-                      "fields": fields,
-                      "rows": rows,
-                      "code_rows": code_rows,
-                  })
-
-              if not candidates:
-                  return None
-
-              candidates.sort(
-                  key=lambda x: x["score"],
-                  reverse=True,
-              )
-
-              best = candidates[0]
-
-              if best["code_rows"] == 0:
-                  return None
-
-              return (
-                  best["fields"],
-                  best["rows"],
-              )
-
-
-          # ============================================================
-          # NORMALIZE TWSE MI_INDEX
+          # TWSE OHLCV
           # ============================================================
 
           def normalize_twse_ohlcv(payload):
 
-              table = find_best_stock_table(
-                  payload,
-                  require_ohlc=True,
-              )
-
-              if not table:
+              if not isinstance(payload, list):
                   raise RuntimeError(
-                      "TWSE MI_INDEX stock table not found"
+                      "TWSE STOCK_DAY_ALL "
+                      "payload is not list"
                   )
-
-              fields, rows = table
 
               out = []
 
-              for row in rows:
-
-                  if not isinstance(row, list):
-                      continue
-
-                  d = {
-                      fields[i]:
-                          (
-                              row[i]
-                              if i < len(row)
-                              else None
-                          )
-                      for i
-                      in range(len(fields))
-                  }
+              for r in payload:
 
                   code = str(
-                      fuzzy_value(
-                          d,
-                          [["證券代號", "代號"]],
+                      pick(
+                          r,
+                          "Code",
+                          "證券代號",
                       )
                       or ""
                   ).strip()
@@ -640,11 +584,6 @@ jobs:
                       code,
                   ):
                       continue
-
-                  name = fuzzy_value(
-                      d,
-                      [["證券名稱", "名稱"]],
-                  )
 
                   out.append({
                       "trade_date":
@@ -657,58 +596,69 @@ jobs:
                           code,
 
                       "name":
-                          name,
+                          pick(
+                              r,
+                              "Name",
+                              "證券名稱",
+                          ),
 
                       "open":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["開盤價"]],
+                              pick(
+                                  r,
+                                  "OpeningPrice",
+                                  "Open",
+                                  "開盤價",
                               )
                           ),
 
                       "high":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["最高價"]],
+                              pick(
+                                  r,
+                                  "HighestPrice",
+                                  "High",
+                                  "最高價",
                               )
                           ),
 
                       "low":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["最低價"]],
+                              pick(
+                                  r,
+                                  "LowestPrice",
+                                  "Low",
+                                  "最低價",
                               )
                           ),
 
                       "close":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["收盤價"]],
+                              pick(
+                                  r,
+                                  "ClosingPrice",
+                                  "Close",
+                                  "收盤價",
                               )
                           ),
 
                       "volume":
                           integer(
-                              fuzzy_value(
-                                  d,
-                                  [
-                                      [
-                                          "成交股數",
-                                          "成交量",
-                                      ]
-                                  ],
+                              pick(
+                                  r,
+                                  "TradeVolume",
+                                  "TradingShares",
+                                  "成交股數",
                               )
                           ),
 
                       "trading_value":
                           integer(
-                              fuzzy_value(
-                                  d,
-                                  [["成交金額"]],
+                              pick(
+                                  r,
+                                  "TradeValue",
+                                  "TransactionAmount",
+                                  "成交金額",
                               )
                           ),
                   })
@@ -717,122 +667,28 @@ jobs:
 
 
           # ============================================================
-          # NORMALIZE TPEX DAILY QUOTES
+          # TPEX OHLCV
           # ============================================================
 
           def normalize_tpex_ohlcv(payload):
 
-              if not isinstance(payload, dict):
+              if not isinstance(payload, list):
                   raise RuntimeError(
-                      "TPEx dailyQuotes payload is not dict"
+                      "TPEx OHLCV payload "
+                      "is not list"
                   )
-
-              table = None
-
-              for key, fields in payload.items():
-
-                  if not (
-                      str(key).startswith("fields")
-                      and isinstance(fields, list)
-                  ):
-                      continue
-
-                  suffix = str(key)[6:]
-                  rows = payload.get("data" + suffix)
-
-                  if not isinstance(rows, list):
-                      continue
-
-                  if not rows:
-                      continue
-
-                  joined = "|".join(
-                      str(x)
-                      for x in fields
-                  )
-
-                  if (
-                      "代號" in joined
-                      and "收盤" in joined
-                  ):
-                      table = (
-                          fields,
-                          rows,
-                      )
-
-                      break
-
-              if table is None:
-
-                  # common fallback
-                  fields = payload.get("tables")
-
-                  if isinstance(fields, list):
-
-                      best_rows = []
-
-                      best_fields = []
-
-                      for t in fields:
-
-                          if not isinstance(t, dict):
-                              continue
-
-                          fs = t.get("fields")
-                          ds = t.get("data")
-
-                          if (
-                              isinstance(fs, list)
-                              and isinstance(ds, list)
-                              and len(ds) > len(best_rows)
-                          ):
-                              best_fields = fs
-                              best_rows = ds
-
-                      if best_rows:
-                          table = (
-                              best_fields,
-                              best_rows,
-                          )
-
-              if table is None:
-                  raise RuntimeError(
-                      "TPEx dailyQuotes stock table not found"
-                  )
-
-              fields, rows = table
 
               out = []
 
-              for row in rows:
-
-                  if isinstance(row, dict):
-                      d = row
-
-                  elif isinstance(row, list):
-                      d = {
-                          fields[i]:
-                              (
-                                  row[i]
-                                  if i < len(row)
-                                  else None
-                              )
-                          for i
-                          in range(len(fields))
-                      }
-
-                  else:
-                      continue
+              for r in payload:
 
                   code = str(
-                      fuzzy_value(
-                          d,
-                          [
-                              [
-                                  "代號",
-                                  "證券代號",
-                              ]
-                          ],
+                      pick(
+                          r,
+                          "SecuritiesCompanyCode",
+                          "Code",
+                          "證券代號",
+                          "代號",
                       )
                       or ""
                   ).strip()
@@ -854,66 +710,68 @@ jobs:
                           code,
 
                       "name":
-                          fuzzy_value(
-                              d,
-                              [
-                                  [
-                                      "名稱",
-                                      "證券名稱",
-                                  ]
-                              ],
+                          pick(
+                              r,
+                              "CompanyName",
+                              "Name",
+                              "證券名稱",
+                              "名稱",
                           ),
 
                       "open":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["開盤"]],
+                              pick(
+                                  r,
+                                  "Open",
+                                  "開盤價",
                               )
                           ),
 
                       "high":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["最高"]],
+                              pick(
+                                  r,
+                                  "High",
+                                  "最高價",
                               )
                           ),
 
                       "low":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["最低"]],
+                              pick(
+                                  r,
+                                  "Low",
+                                  "最低價",
                               )
                           ),
 
                       "close":
                           num(
-                              fuzzy_value(
-                                  d,
-                                  [["收盤"]],
+                              pick(
+                                  r,
+                                  "Close",
+                                  "收盤價",
                               )
                           ),
 
                       "volume":
                           integer(
-                              fuzzy_value(
-                                  d,
-                                  [
-                                      [
-                                          "成交股數",
-                                          "成交量",
-                                      ]
-                                  ],
+                              pick(
+                                  r,
+                                  "TradingShares",
+                                  "TradeVolume",
+                                  "成交股數",
+                                  "成交量",
                               )
                           ),
 
                       "trading_value":
                           integer(
-                              fuzzy_value(
-                                  d,
-                                  [["成交金額"]],
+                              pick(
+                                  r,
+                                  "TransactionAmount",
+                                  "TradeValue",
+                                  "成交金額",
                               )
                           ),
                   })
@@ -922,13 +780,255 @@ jobs:
 
 
           # ============================================================
-          # NORMALIZE TWSE INSTITUTIONAL
+          # FIELD SELECTION HELPERS
           # ============================================================
 
-          def normalize_twse_inst(
-              fields,
-              rows,
+          def find_field(
+              d,
+              include_all=(),
+              include_any=(),
+              reject_prefixes=(),
+              prefer=(),
           ):
+              candidates = []
+
+              for key, value in d.items():
+
+                  nk = norm_key(key)
+
+                  if any(
+                      nk.startswith(
+                          norm_key(x)
+                      )
+                      for x in reject_prefixes
+                  ):
+                      continue
+
+                  if any(
+                      norm_key(x) not in nk
+                      for x in include_all
+                  ):
+                      continue
+
+                  if include_any:
+
+                      if not any(
+                          norm_key(x) in nk
+                          for x in include_any
+                      ):
+                          continue
+
+                  score = 0
+
+                  for term in prefer:
+
+                      if norm_key(term) in nk:
+                          score += 1000
+
+                  # Prefer simpler direct total fields.
+                  score -= len(nk)
+
+                  candidates.append(
+                      (
+                          score,
+                          value,
+                          key,
+                      )
+                  )
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  key=lambda x: x[0],
+                  reverse=True,
+              )
+
+              return candidates[0][1]
+
+
+          def foreign_value(d, action_terms):
+
+              # First choice: official 外陸資 / 外資及陸資
+              value = find_field(
+                  d,
+                  include_any=[
+                      "外陸資",
+                      "外資及陸資",
+                  ],
+                  prefer=action_terms,
+              )
+
+              # Need the action as well.
+              candidates = []
+
+              for key, v in d.items():
+
+                  nk = norm_key(key)
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in (
+                          "外陸資",
+                          "外資及陸資",
+                      )
+                  ):
+                      continue
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in action_terms
+                  ):
+                      continue
+
+                  candidates.append(
+                      (
+                          -len(nk),
+                          v,
+                      )
+                  )
+
+              if candidates:
+                  candidates.sort(
+                      reverse=True
+                  )
+
+                  return candidates[0][1]
+
+              # Fallback: 外資, but reject a field whose
+              # name actually begins with 外資自營商.
+              candidates = []
+
+              for key, v in d.items():
+
+                  nk = norm_key(key)
+
+                  if "外資" not in nk:
+                      continue
+
+                  if nk.startswith(
+                      norm_key("外資自營商")
+                  ):
+                      continue
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in action_terms
+                  ):
+                      continue
+
+                  candidates.append(
+                      (
+                          -len(nk),
+                          v,
+                      )
+                  )
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  reverse=True
+              )
+
+              return candidates[0][1]
+
+
+          def dealer_value(d, action_terms):
+
+              candidates = []
+
+              for key, value in d.items():
+
+                  nk = norm_key(key)
+
+                  if nk.startswith(
+                      norm_key(
+                          "外資自營商"
+                      )
+                  ):
+                      continue
+
+                  if not nk.startswith(
+                      norm_key(
+                          "自營商"
+                      )
+                  ):
+                      continue
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in action_terms
+                  ):
+                      continue
+
+                  score = -len(nk)
+
+                  # Prefer direct total over
+                  # 自行買賣 / 避險 subcomponents.
+                  if (
+                      "自行買賣" not in nk
+                      and "避險" not in nk
+                  ):
+                      score += 10000
+
+                  candidates.append(
+                      (
+                          score,
+                          value,
+                      )
+                  )
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  reverse=True
+              )
+
+              return candidates[0][1]
+
+
+          def trust_value(d, action_terms):
+
+              candidates = []
+
+              for key, value in d.items():
+
+                  nk = norm_key(key)
+
+                  if "投信" not in nk:
+                      continue
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in action_terms
+                  ):
+                      continue
+
+                  candidates.append(
+                      (
+                          -len(nk),
+                          value,
+                      )
+                  )
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  reverse=True
+              )
+
+              return candidates[0][1]
+
+
+          # ============================================================
+          # TWSE INSTITUTIONAL
+          # ============================================================
+
+          def normalize_twse_inst(fields, rows):
+
               out = []
 
               for row in rows:
@@ -949,24 +1049,26 @@ jobs:
 
                   code = ""
 
-                  for k, v in d.items():
+                  for key, value in d.items():
 
                       if (
                           "證券代號"
-                          in str(k)
-                          or "代號"
-                          in str(k)
+                          not in str(key)
+                          and "代號"
+                          not in str(key)
                       ):
-                          candidate = str(
-                              v
-                          ).strip()
+                          continue
 
-                          if re.fullmatch(
-                              r"\d{4}",
-                              candidate,
-                          ):
-                              code = candidate
-                              break
+                      candidate = str(
+                          value
+                      ).strip()
+
+                      if re.fullmatch(
+                          r"\d{4}",
+                          candidate,
+                      ):
+                          code = candidate
+                          break
 
                   if not code:
 
@@ -986,17 +1088,16 @@ jobs:
                   if not code:
                       continue
 
+
                   name = None
 
-                  for k, v in d.items():
+                  for key, value in d.items():
 
                       if (
                           "證券名稱"
-                          in str(k)
-                          or str(k).strip()
-                          == "名稱"
+                          in str(key)
                       ):
-                          name = v
+                          name = value
                           break
 
                   if (
@@ -1006,121 +1107,76 @@ jobs:
                       name = row[1]
 
 
-                  # NOTE:
-                  # do NOT exclude "自營商"
-                  # from foreign field names,
-                  # because TWSE official wording may include
-                  # "(不含外資自營商)".
-
                   foreign_buy = integer(
-                      fuzzy_value(
+                      foreign_value(
                           d,
-                          [
-                              [
-                                  "外陸資",
-                                  "外資及陸資",
-                                  "外資",
-                              ],
-                              ["買進"],
-                          ],
+                          ["買進"],
                       )
                   )
 
                   foreign_sell = integer(
-                      fuzzy_value(
+                      foreign_value(
                           d,
-                          [
-                              [
-                                  "外陸資",
-                                  "外資及陸資",
-                                  "外資",
-                              ],
-                              ["賣出"],
-                          ],
+                          ["賣出"],
                       )
                   )
 
                   foreign_net = integer(
-                      fuzzy_value(
+                      foreign_value(
                           d,
                           [
-                              [
-                                  "外陸資",
-                                  "外資及陸資",
-                                  "外資",
-                              ],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
+                              "買賣超",
+                              "差額",
                           ],
                       )
                   )
 
 
                   trust_buy = integer(
-                      fuzzy_value(
+                      trust_value(
                           d,
-                          [
-                              ["投信"],
-                              ["買進"],
-                          ],
+                          ["買進"],
                       )
                   )
 
                   trust_sell = integer(
-                      fuzzy_value(
+                      trust_value(
                           d,
-                          [
-                              ["投信"],
-                              ["賣出"],
-                          ],
+                          ["賣出"],
                       )
                   )
 
                   trust_net = integer(
-                      fuzzy_value(
+                      trust_value(
                           d,
                           [
-                              ["投信"],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
+                              "買賣超",
+                              "差額",
                           ],
                       )
                   )
 
 
                   dealer_buy = integer(
-                      fuzzy_value(
+                      dealer_value(
                           d,
-                          [
-                              ["自營商"],
-                              ["買進"],
-                          ],
+                          ["買進"],
                       )
                   )
 
                   dealer_sell = integer(
-                      fuzzy_value(
+                      dealer_value(
                           d,
-                          [
-                              ["自營商"],
-                              ["賣出"],
-                          ],
+                          ["賣出"],
                       )
                   )
 
                   dealer_net = integer(
-                      fuzzy_value(
+                      dealer_value(
                           d,
                           [
-                              ["自營商"],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
+                              "買賣超",
+                              "差額",
                           ],
                       )
                   )
@@ -1181,14 +1237,56 @@ jobs:
 
 
           # ============================================================
-          # NORMALIZE TPEX INSTITUTIONAL
+          # TPEX INSTITUTIONAL
           # ============================================================
+
+          def generic_institution_value(
+              row,
+              institution_terms,
+              action_terms,
+          ):
+
+              candidates = []
+
+              for key, value in row.items():
+
+                  nk = norm_key(key)
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in institution_terms
+                  ):
+                      continue
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in action_terms
+                  ):
+                      continue
+
+                  candidates.append(
+                      (
+                          -len(nk),
+                          value,
+                      )
+                  )
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  reverse=True
+              )
+
+              return candidates[0][1]
+
 
           def normalize_tpex_inst(payload):
 
               if not isinstance(payload, list):
                   raise RuntimeError(
-                      "TPEx institutional payload is not list"
+                      "TPEx institutional "
+                      "payload is not list"
                   )
 
               out = []
@@ -1213,6 +1311,147 @@ jobs:
                       continue
 
 
+                  foreign_buy = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "Foreign",
+                              "外資",
+                              "外陸資",
+                          ],
+                          [
+                              "Buy",
+                              "買進",
+                          ],
+                      )
+                  )
+
+                  foreign_sell = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "Foreign",
+                              "外資",
+                              "外陸資",
+                          ],
+                          [
+                              "Sell",
+                              "賣出",
+                          ],
+                      )
+                  )
+
+                  foreign_net = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "Foreign",
+                              "外資",
+                              "外陸資",
+                          ],
+                          [
+                              "Net",
+                              "Difference",
+                              "買賣超",
+                              "差額",
+                          ],
+                      )
+                  )
+
+
+                  trust_buy = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "InvestmentTrust",
+                              "Trust",
+                              "投信",
+                          ],
+                          [
+                              "Buy",
+                              "買進",
+                          ],
+                      )
+                  )
+
+                  trust_sell = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "InvestmentTrust",
+                              "Trust",
+                              "投信",
+                          ],
+                          [
+                              "Sell",
+                              "賣出",
+                          ],
+                      )
+                  )
+
+                  trust_net = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "InvestmentTrust",
+                              "Trust",
+                              "投信",
+                          ],
+                          [
+                              "Net",
+                              "Difference",
+                              "買賣超",
+                              "差額",
+                          ],
+                      )
+                  )
+
+
+                  dealer_buy = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "Dealer",
+                              "自營商",
+                          ],
+                          [
+                              "Buy",
+                              "買進",
+                          ],
+                      )
+                  )
+
+                  dealer_sell = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "Dealer",
+                              "自營商",
+                          ],
+                          [
+                              "Sell",
+                              "賣出",
+                          ],
+                      )
+                  )
+
+                  dealer_net = integer(
+                      generic_institution_value(
+                          r,
+                          [
+                              "Dealer",
+                              "自營商",
+                          ],
+                          [
+                              "Net",
+                              "Difference",
+                              "買賣超",
+                              "差額",
+                          ],
+                      )
+                  )
+
+
                   out.append({
                       "trade_date":
                           trade_date,
@@ -1233,166 +1472,31 @@ jobs:
                           ),
 
                       "foreign_buy":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "foreign",
-                                          "外資",
-                                      ],
-                                      [
-                                          "buy",
-                                          "買進",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          foreign_buy,
 
                       "foreign_sell":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "foreign",
-                                          "外資",
-                                      ],
-                                      [
-                                          "sell",
-                                          "賣出",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          foreign_sell,
 
                       "foreign_net":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "foreign",
-                                          "外資",
-                                      ],
-                                      [
-                                          "net",
-                                          "difference",
-                                          "買賣超",
-                                          "差額",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          foreign_net,
 
                       "trust_buy":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "trust",
-                                          "investmenttrust",
-                                          "投信",
-                                      ],
-                                      [
-                                          "buy",
-                                          "買進",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          trust_buy,
 
                       "trust_sell":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "trust",
-                                          "investmenttrust",
-                                          "投信",
-                                      ],
-                                      [
-                                          "sell",
-                                          "賣出",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          trust_sell,
 
                       "trust_net":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "trust",
-                                          "investmenttrust",
-                                          "投信",
-                                      ],
-                                      [
-                                          "net",
-                                          "difference",
-                                          "買賣超",
-                                          "差額",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          trust_net,
 
                       "dealer_buy":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "dealer",
-                                          "自營商",
-                                      ],
-                                      [
-                                          "buy",
-                                          "買進",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          dealer_buy,
 
                       "dealer_sell":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "dealer",
-                                          "自營商",
-                                      ],
-                                      [
-                                          "sell",
-                                          "賣出",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          dealer_sell,
 
                       "dealer_net":
-                          integer(
-                              fuzzy_value(
-                                  r,
-                                  [
-                                      [
-                                          "dealer",
-                                          "自營商",
-                                      ],
-                                      [
-                                          "net",
-                                          "difference",
-                                          "買賣超",
-                                          "差額",
-                                      ],
-                                  ],
-                              )
-                          ),
+                          dealer_net,
 
                       "raw_json":
                           json.dumps(
@@ -1409,7 +1513,7 @@ jobs:
 
 
           # ============================================================
-          # NORMALIZE ALL
+          # NORMALIZE
           # ============================================================
 
           normalized = {
@@ -1439,7 +1543,8 @@ jobs:
           for name, rows in normalized.items():
 
               write_csv(
-                  norm_dir / f"{name}.csv",
+                  norm_dir
+                  / f"{name}.csv",
                   rows,
               )
 
@@ -1476,9 +1581,60 @@ jobs:
               if count < minimum:
 
                   errors.append(
-                      f"{name}: row count "
-                      f"{count} < minimum "
+                      f"{name}: "
+                      f"row count "
+                      f"{count} "
+                      f"< minimum "
                       f"{minimum}"
+                  )
+
+
+          # ============================================================
+          # SAFE SNAPSHOT FRESHNESS
+          # ============================================================
+
+          source_dates = {}
+
+
+          for name, payload in {
+              "twse_ohlcv":
+                  twse_ohlcv_payload,
+
+              "tpex_ohlcv":
+                  tpex_ohlcv_payload,
+
+              "tpex_institutional":
+                  tpex_inst_payload,
+          }.items():
+
+              d = consensus_payload_date(
+                  payload
+              )
+
+              if d is None:
+
+                  source_dates[name] = None
+
+                  warnings.append(
+                      f"{name}: no reliable "
+                      f"consensus date field; "
+                      f"accepted by latest-"
+                      f"snapshot gate"
+                  )
+
+                  continue
+
+
+              source_dates[name] = str(d)
+
+              if d != trade_day:
+
+                  errors.append(
+                      f"{name}: "
+                      f"consensus date "
+                      f"{d} != "
+                      f"selected "
+                      f"{trade_day}"
                   )
 
 
@@ -1499,11 +1655,12 @@ jobs:
                   len(set(codes))
               )
 
-              if duplicate_count > 0:
+              if duplicate_count:
 
                   errors.append(
-                      f"{name}: duplicate "
-                      f"rows={duplicate_count}"
+                      f"{name}: "
+                      f"duplicates="
+                      f"{duplicate_count}"
                   )
 
 
@@ -1518,8 +1675,8 @@ jobs:
 
               rows = normalized[name]
 
-              bad_ohlc = 0
-              close_null = 0
+              bad = 0
+              null_close = 0
 
               for r in rows:
 
@@ -1529,7 +1686,7 @@ jobs:
                   c = r["close"]
 
                   if c is None:
-                      close_null += 1
+                      null_close += 1
                       continue
 
                   if (
@@ -1537,65 +1694,71 @@ jobs:
                       and l is not None
                       and h < l
                   ):
-                      bad_ohlc += 1
+                      bad += 1
 
                   if (
                       h is not None
                       and o is not None
                       and h < o
                   ):
-                      bad_ohlc += 1
+                      bad += 1
 
                   if (
                       h is not None
                       and c is not None
                       and h < c
                   ):
-                      bad_ohlc += 1
+                      bad += 1
 
                   if (
                       l is not None
                       and o is not None
                       and l > o
                   ):
-                      bad_ohlc += 1
+                      bad += 1
 
                   if (
                       l is not None
                       and c is not None
                       and l > c
                   ):
-                      bad_ohlc += 1
+                      bad += 1
 
-              if bad_ohlc > 0:
+
+              if bad:
 
                   errors.append(
-                      f"{name}: bad OHLC "
-                      f"rows={bad_ohlc}"
+                      f"{name}: "
+                      f"OHLC errors="
+                      f"{bad}"
                   )
 
 
               null_ratio = (
-                  close_null
-                  / max(
+                  null_close
+                  /
+                  max(
                       1,
                       len(rows),
                   )
               )
 
+
               if null_ratio > 0.05:
 
                   errors.append(
-                      f"{name}: null close "
-                      f"ratio={null_ratio:.1%}"
+                      f"{name}: "
+                      f"null close="
+                      f"{null_ratio:.1%}"
                   )
 
 
           # ============================================================
-          # INSTITUTIONAL COVERAGE
+          # COVERAGE
           # ============================================================
 
           coverage = {}
+
 
           for market in (
               "twse",
@@ -1618,8 +1781,7 @@ jobs:
 
               overlap = len(
                   price_codes
-                  &
-                  inst_codes
+                  & inst_codes
               )
 
               ratio = (
@@ -1631,9 +1793,8 @@ jobs:
                   )
               )
 
-              coverage[
-                  market
-              ] = {
+
+              coverage[market] = {
                   "price_codes":
                       len(price_codes),
 
@@ -1647,21 +1808,22 @@ jobs:
                       ratio,
               }
 
+
               if ratio < 0.65:
 
                   errors.append(
                       f"{market.upper()} "
-                      f"institutional coverage "
-                      f"too low: "
+                      f"coverage="
                       f"{ratio:.1%}"
                   )
 
 
           # ============================================================
-          # FLATTEN CHECK
+          # INSTITUTIONAL FLATTEN CHECK
           # ============================================================
 
           flattened_fields = {}
+
 
           for name in (
               "twse_institutional",
@@ -1672,32 +1834,34 @@ jobs:
 
               stats = {}
 
+
               for col in (
                   "foreign_net",
                   "trust_net",
                   "dealer_net",
               ):
 
-                  n = sum(
+                  count = sum(
                       1
                       for r in rows
                       if r.get(col)
                       is not None
                   )
 
-                  stats[col] = n
+                  stats[col] = count
 
-                  if n < 100:
+
+                  if count < 100:
 
                       warnings.append(
                           f"{name}: "
                           f"{col} "
-                          f"non-null={n}"
+                          f"non-null="
+                          f"{count}"
                       )
 
-              flattened_fields[
-                  name
-              ] = stats
+
+              flattened_fields[name] = stats
 
 
           # ============================================================
@@ -1706,7 +1870,7 @@ jobs:
 
           manifest = {
               "version":
-                  "AlphaPilot-Data-V3.3",
+                  "AlphaPilot-Data-V3.4",
 
               "execution_time":
                   now.isoformat(),
@@ -1724,6 +1888,9 @@ jobs:
               "row_counts":
                   row_counts,
 
+              "source_dates":
+                  source_dates,
+
               "coverage":
                   coverage,
 
@@ -1738,23 +1905,27 @@ jobs:
 
               "sources": {
                   "twse_ohlcv":
-                      "TWSE MI_INDEX",
+                      "TWSE STOCK_DAY_ALL",
 
                   "tpex_ohlcv":
-                      "TPEx dailyQuotes",
+                      "TPEx "
+                      "tpex_mainboard_"
+                      "daily_close_quotes",
 
                   "twse_institutional":
                       "TWSE T86",
 
                   "tpex_institutional":
                       "TPEx "
-                      "tpex_3insti_daily_trading",
+                      "tpex_3insti_"
+                      "daily_trading",
               },
           }
 
 
           (
-              base / "manifest.json"
+              base
+              / "manifest.json"
           ).write_text(
               json.dumps(
                   manifest,
@@ -1796,7 +1967,5 @@ jobs:
             exit 0
           fi
 
-          TRADE_DATE=$(find data -mindepth 1 -maxdepth 1 -type d | sort | tail -1 | xargs basename)
-
-          git commit -m "data: Taiwan market ${TRADE_DATE}"
+          git commit -m "data: AlphaPilot V3.4 $(TZ=Asia/Taipei date +%F)"
           git push
