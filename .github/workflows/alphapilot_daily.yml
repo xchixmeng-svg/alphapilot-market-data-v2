@@ -1629,13 +1629,22 @@ jobs:
 
               if d != trade_day:
 
-                  errors.append(
-                      f"{name}: "
-                      f"consensus date "
-                      f"{d} != "
-                      f"selected "
-                      f"{trade_day}"
-                  )
+    if name == "twse_ohlcv":
+        warnings.append(
+            f"{name}: payload date "
+            f"{d} != selected "
+            f"{trade_day}; "
+            f"STOCK_DAY_ALL snapshot date "
+            f"is informational only"
+        )
+    else:
+        errors.append(
+            f"{name}: "
+            f"consensus date "
+            f"{d} != "
+            f"selected "
+            f"{trade_day}"
+        )
 
 
           # ============================================================
