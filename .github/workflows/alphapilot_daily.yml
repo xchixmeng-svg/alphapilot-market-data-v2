@@ -26,25 +26,25 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests pandas
+        run: pip install requests
 
-      - name: Fetch and save Taiwan market data
+      - name: Fetch Taiwan market data
         shell: bash
         run: |
           cat > fetch_today.py <<'PY'
-          import json, os, re, time
+          import json
+          import time
           from datetime import datetime
           from pathlib import Path
           from zoneinfo import ZoneInfo
 
-          import pandas as pd
           import requests
 
           TZ = ZoneInfo("Asia/Taipei")
-          today = datetime.now(TZ)
-          date_iso = today.strftime("%Y-%m-%d")
-          ymd = today.strftime("%Y%m%d")
-          slash = today.strftime("%Y/%m/%d")
+          now = datetime.now(TZ)
+          date_iso = now.strftime("%Y-%m-%d")
+          ymd = now.strftime("%Y%m%d")
+          slash = now.strftime("%Y/%m/%d")
 
           out = Path("data") / date_iso
           out.mkdir(parents=True, exist_ok=True)
@@ -58,15 +58,26 @@ jobs:
           sources = {
               "twse_ohlcv": (
                   "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
-                  {"date": ymd, "type": "ALLBUT0999", "response": "json"},
+                  {
+                      "date": ymd,
+                      "type": "ALLBUT0999",
+                      "response": "json",
+                  },
               ),
               "tpex_ohlcv": (
                   "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
-                  {"date": slash, "response": "json"},
+                  {
+                      "date": slash,
+                      "response": "json",
+                  },
               ),
               "twse_institutional": (
                   "https://www.twse.com.tw/rwd/zh/fund/T86",
-                  {"date": ymd, "selectType": "ALLBUT0999", "response": "json"},
+                  {
+                      "date": ymd,
+                      "selectType": "ALLBUT0999",
+                      "response": "json",
+                  },
               ),
               "tpex_institutional": (
                   "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
@@ -75,74 +86,127 @@ jobs:
           }
 
           def get_json(name, url, params):
-              last = None
-              for i in range(6):
+              last_error = None
+
+              for attempt in range(6):
                   try:
-                      r = session.get(url, params=params, headers=headers, timeout=45)
-                      r.raise_for_status()
-                      return r.json()
-                  except Exception as e:
-                      last = e
-                      time.sleep(min(30, 2 ** i))
-              raise RuntimeError(f"{name} failed: {last}")
+                      response = session.get(
+                          url,
+                          params=params,
+                          headers=headers,
+                          timeout=45,
+                      )
+                      response.raise_for_status()
+                      return response.json()
+
+                  except Exception as exc:
+                      last_error = exc
+
+                      if attempt < 5:
+                          wait = min(30, 2 ** attempt)
+                          print(
+                              f"{name} attempt {attempt + 1} failed: {exc}; "
+                              f"retry in {wait}s"
+                          )
+                          time.sleep(wait)
+
+              raise RuntimeError(
+                  f"{name} failed after retries: {last_error}"
+              )
 
           payloads = {}
+
           for name, (url, params) in sources.items():
-              print("fetch", name, flush=True)
+              print(f"Fetching {name} ...")
               payload = get_json(name, url, params)
               payloads[name] = payload
-              (out / f"{name}.json").write_text(
-                  json.dumps(payload, ensure_ascii=False, indent=2),
+
+              path = out / f"{name}.json"
+              path.write_text(
+                  json.dumps(
+                      payload,
+                      ensure_ascii=False,
+                      indent=2,
+                  ),
                   encoding="utf-8",
               )
 
-          # Basic integrity checks
-          checks = {}
-          for name, payload in payloads.items():
+          def estimate_rows(payload):
               if isinstance(payload, list):
-                  n = len(payload)
-              elif isinstance(payload, dict):
-                  # TWSE/TPEx table payloads commonly use data/data1/data2...
-                  counts = [len(v) for k, v in payload.items()
-                            if str(k).startswith("data") and isinstance(v, list)]
-                  n = max(counts) if counts else 0
-              else:
-                  n = 0
-              checks[name] = n
+                  return len(payload)
 
-          # Conservative lower bounds: fail rather than silently accept bad data
-          mins = {
+              if isinstance(payload, dict):
+                  counts = []
+
+                  for key, value in payload.items():
+                      if (
+                          str(key).startswith("data")
+                          and isinstance(value, list)
+                      ):
+                          counts.append(len(value))
+
+                  if counts:
+                      return max(counts)
+
+              return 0
+
+          row_counts = {
+              name: estimate_rows(payload)
+              for name, payload in payloads.items()
+          }
+
+          minimum_rows = {
               "twse_ohlcv": 800,
               "tpex_ohlcv": 500,
               "twse_institutional": 700,
               "tpex_institutional": 400,
           }
+
           errors = []
-          for k, m in mins.items():
-              if checks.get(k, 0) < m:
-                  errors.append(f"{k}: {checks.get(k,0)} < {m}")
+
+          for name, minimum in minimum_rows.items():
+              count = row_counts.get(name, 0)
+
+              if count < minimum:
+                  errors.append(
+                      f"{name}: row count {count} < minimum {minimum}"
+                  )
 
           manifest = {
               "trade_date": date_iso,
               "generated_at": datetime.now(TZ).isoformat(),
-              "row_counts": checks,
               "status": "PASS" if not errors else "FAIL",
+              "row_counts": row_counts,
               "errors": errors,
               "sources": {
                   "twse_ohlcv": "TWSE MI_INDEX",
                   "tpex_ohlcv": "TPEx dailyQuotes",
                   "twse_institutional": "TWSE T86",
-                  "tpex_institutional": "TPEx tpex_3insti_daily_trading",
+                  "tpex_institutional":
+                      "TPEx tpex_3insti_daily_trading",
               },
           }
+
           (out / "manifest.json").write_text(
-              json.dumps(manifest, ensure_ascii=False, indent=2),
+              json.dumps(
+                  manifest,
+                  ensure_ascii=False,
+                  indent=2,
+              ),
               encoding="utf-8",
           )
-          print(json.dumps(manifest, ensure_ascii=False, indent=2))
+
+          print(
+              json.dumps(
+                  manifest,
+                  ensure_ascii=False,
+                  indent=2,
+              )
+          )
 
           if errors:
               raise SystemExit(2)
+
           PY
 
           python fetch_today.py
@@ -152,10 +216,13 @@ jobs:
         run: |
           git config user.name "AlphaPilot Data Bot"
           git config user.email "actions@users.noreply.github.com"
+
           git add data/
+
           if git diff --cached --quiet; then
-            echo "No changes"
+            echo "No changes to commit."
             exit 0
           fi
+
           git commit -m "data: Taiwan market $(TZ=Asia/Taipei date +%F)"
           git push
