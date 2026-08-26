@@ -1,9 +1,11 @@
-name: AlphaPilot Daily Taiwan Market Data V3.1
+name: AlphaPilot Daily Taiwan Market Data V3.2
 
 on:
   workflow_dispatch:
   schedule:
+    # Asia/Taipei 17:40
     - cron: "40 9 * * 1-5"
+    # Asia/Taipei 18:40 backup
     - cron: "40 10 * * 1-5"
 
 permissions:
@@ -38,56 +40,30 @@ jobs:
           import json
           import re
           import time
-          from datetime import datetime
+          from datetime import datetime, timedelta
           from pathlib import Path
           from zoneinfo import ZoneInfo
 
           import requests
 
+
+          # ============================================================
+          # BASIC
+          # ============================================================
+
           TZ = ZoneInfo("Asia/Taipei")
           now = datetime.now(TZ)
-          trade_date = now.strftime("%Y-%m-%d")
-          ymd = now.strftime("%Y%m%d")
-
-          base = Path("data") / trade_date
-          raw_dir = base / "raw"
-          norm_dir = base / "normalized"
-
-          raw_dir.mkdir(parents=True, exist_ok=True)
-          norm_dir.mkdir(parents=True, exist_ok=True)
 
           session = requests.Session()
 
-          headers = {
+          HEADERS = {
               "User-Agent": "Mozilla/5.0",
               "Accept": "application/json,text/plain,*/*",
           }
 
-          sources = {
-              "twse_ohlcv": (
-                  "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
-                  {},
-              ),
-              "tpex_ohlcv": (
-                  "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
-                  {},
-              ),
-              "twse_institutional": (
-                  "https://www.twse.com.tw/rwd/zh/fund/T86",
-                  {
-                      "date": ymd,
-                      "selectType": "ALLBUT0999",
-                      "response": "json",
-                  },
-              ),
-              "tpex_institutional": (
-                  "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
-                  {},
-              ),
-          }
 
-
-          def get_json(name, url, params):
+          def get_json(name, url, params=None):
+              params = params or {}
               last_error = None
 
               for attempt in range(6):
@@ -95,16 +71,16 @@ jobs:
                       r = session.get(
                           url,
                           params=params,
-                          headers=headers,
+                          headers=HEADERS,
                           timeout=(15, 60),
                       )
 
                       r.raise_for_status()
 
-                      text = r.text.strip()
-
-                      if not text:
-                          raise RuntimeError("empty response")
+                      if not r.text.strip():
+                          raise RuntimeError(
+                              "empty response"
+                          )
 
                       return r.json()
 
@@ -112,12 +88,16 @@ jobs:
                       last_error = exc
 
                       if attempt < 5:
-                          wait = min(30, 2 ** attempt)
+                          wait = min(
+                              30,
+                              2 ** attempt,
+                          )
 
                           print(
                               f"[retry] {name} "
-                              f"attempt {attempt + 1}: "
-                              f"{exc}; sleep {wait}s",
+                              f"attempt={attempt + 1} "
+                              f"error={exc} "
+                              f"sleep={wait}s",
                               flush=True,
                           )
 
@@ -129,24 +109,413 @@ jobs:
               )
 
 
-          payloads = {}
+          # ============================================================
+          # DATE HELPERS
+          # ============================================================
 
-          for name, (url, params) in sources.items():
-              print(
-                  f"[fetch] {name}",
-                  flush=True,
+          def parse_api_date(value):
+              if value is None:
+                  return None
+
+              s = str(value).strip()
+
+              s = re.sub(
+                  r"[^\d]",
+                  "",
+                  s,
+              )
+
+              # Gregorian YYYYMMDD
+              if len(s) == 8:
+                  try:
+                      return datetime.strptime(
+                          s,
+                          "%Y%m%d",
+                      ).date()
+                  except Exception:
+                      pass
+
+              # ROC YYYMMDD
+              if len(s) == 7:
+                  try:
+                      roc_year = int(
+                          s[:3]
+                      )
+
+                      year = (
+                          roc_year + 1911
+                      )
+
+                      return datetime.strptime(
+                          f"{year}{s[3:]}",
+                          "%Y%m%d",
+                      ).date()
+                  except Exception:
+                      pass
+
+              return None
+
+
+          def infer_payload_date(payload):
+              rows = []
+
+              if isinstance(
+                  payload,
+                  list,
+              ):
+                  rows = payload[:30]
+
+              elif isinstance(
+                  payload,
+                  dict,
+              ):
+                  for key, value in (
+                      payload.items()
+                  ):
+                      if (
+                          str(key).startswith(
+                              "data"
+                          )
+                          and isinstance(
+                              value,
+                              list,
+                          )
+                      ):
+                          rows.extend(
+                              value[:30]
+                          )
+
+              for row in rows:
+
+                  if isinstance(
+                      row,
+                      dict,
+                  ):
+                      for key, value in (
+                          row.items()
+                      ):
+                          nk = (
+                              str(key)
+                              .strip()
+                              .lower()
+                          )
+
+                          if nk in {
+                              "date",
+                              "日期",
+                              "trade_date",
+                              "tradedate",
+                          }:
+                              d = (
+                                  parse_api_date(
+                                      value
+                                  )
+                              )
+
+                              if d:
+                                  return d
+
+              return None
+
+
+          # ============================================================
+          # FIND MOST RECENT VALID T86 TRADING DAY
+          # ============================================================
+
+          def find_t86_table(payload):
+              if not isinstance(
+                  payload,
+                  dict,
+              ):
+                  return None
+
+              candidates = []
+
+              for key, fields in (
+                  payload.items()
+              ):
+
+                  if not (
+                      str(key).startswith(
+                          "fields"
+                      )
+                      and isinstance(
+                          fields,
+                          list,
+                      )
+                  ):
+                      continue
+
+                  suffix = str(key)[6:]
+
+                  rows = payload.get(
+                      "data" + suffix
+                  )
+
+                  if not isinstance(
+                      rows,
+                      list,
+                  ):
+                      continue
+
+                  if not rows:
+                      continue
+
+                  joined = "|".join(
+                      str(x)
+                      for x in fields
+                  )
+
+                  score = len(rows)
+
+                  if "證券代號" in joined:
+                      score += 100000
+
+                  if "證券名稱" in joined:
+                      score += 50000
+
+                  if "投信" in joined:
+                      score += 10000
+
+                  if "自營商" in joined:
+                      score += 10000
+
+                  if (
+                      "外資" in joined
+                      or "外陸資" in joined
+                  ):
+                      score += 10000
+
+                  code_rows = 0
+
+                  for row in rows[:100]:
+
+                      if not isinstance(
+                          row,
+                          list,
+                      ):
+                          continue
+
+                      for value in row[:4]:
+
+                          if re.fullmatch(
+                              r"\d{4}",
+                              str(value).strip(),
+                          ):
+                              code_rows += 1
+                              break
+
+                  score += (
+                      code_rows * 1000
+                  )
+
+                  candidates.append({
+                      "score": score,
+                      "fields": fields,
+                      "rows": rows,
+                      "code_rows":
+                          code_rows,
+                  })
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  key=lambda x:
+                      x["score"],
+                  reverse=True,
+              )
+
+              best = candidates[0]
+
+              if (
+                  best["code_rows"] == 0
+              ):
+                  return None
+
+              return (
+                  best["fields"],
+                  best["rows"],
+              )
+
+
+          def fetch_t86_for_date(
+              target_date
+          ):
+              ymd = target_date.strftime(
+                  "%Y%m%d"
               )
 
               payload = get_json(
-                  name,
-                  url,
-                  params,
+                  "twse_institutional",
+                  "https://www.twse.com.tw/rwd/zh/fund/T86",
+                  {
+                      "date": ymd,
+                      "selectType":
+                          "ALLBUT0999",
+                      "response":
+                          "json",
+                  },
               )
 
-              payloads[name] = payload
+              table = find_t86_table(
+                  payload
+              )
 
+              return payload, table
+
+
+          def find_latest_trading_day():
+              start = now.date()
+
+              for days_back in range(
+                  0,
+                  11,
+              ):
+                  candidate = (
+                      start
+                      - timedelta(
+                          days=days_back
+                      )
+                  )
+
+                  # Skip weekend quickly
+                  if (
+                      candidate.weekday()
+                      >= 5
+                  ):
+                      continue
+
+                  print(
+                      "[trade-date] "
+                      f"trying {candidate}",
+                      flush=True,
+                  )
+
+                  try:
+                      payload, table = (
+                          fetch_t86_for_date(
+                              candidate
+                          )
+                      )
+
+                      if table:
+                          print(
+                              "[trade-date] "
+                              f"selected "
+                              f"{candidate}",
+                              flush=True,
+                          )
+
+                          return (
+                              candidate,
+                              payload,
+                              table,
+                          )
+
+                  except Exception as exc:
+                      print(
+                          "[trade-date] "
+                          f"{candidate} failed: "
+                          f"{exc}",
+                          flush=True,
+                      )
+
+              raise RuntimeError(
+                  "Unable to find a valid "
+                  "TWSE trading day within "
+                  "the last 10 calendar days"
+              )
+
+
+          (
+              trade_day,
+              twse_inst_payload,
+              twse_inst_table,
+          ) = find_latest_trading_day()
+
+          trade_date = (
+              trade_day.strftime(
+                  "%Y-%m-%d"
+              )
+          )
+
+          print(
+              f"[selected] trade_date="
+              f"{trade_date}",
+              flush=True,
+          )
+
+
+          # ============================================================
+          # OUTPUT DIRECTORIES
+          # ============================================================
+
+          base = (
+              Path("data")
+              / trade_date
+          )
+
+          raw_dir = (
+              base / "raw"
+          )
+
+          norm_dir = (
+              base / "normalized"
+          )
+
+          raw_dir.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+          norm_dir.mkdir(
+              parents=True,
+              exist_ok=True,
+          )
+
+
+          # ============================================================
+          # FETCH LATEST SNAPSHOT SOURCES
+          # ============================================================
+
+          twse_ohlcv_payload = get_json(
+              "twse_ohlcv",
+              "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+          )
+
+          tpex_ohlcv_payload = get_json(
+              "tpex_ohlcv",
+              "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+          )
+
+          tpex_inst_payload = get_json(
+              "tpex_institutional",
+              "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+          )
+
+
+          payloads = {
+              "twse_ohlcv":
+                  twse_ohlcv_payload,
+
+              "tpex_ohlcv":
+                  tpex_ohlcv_payload,
+
+              "twse_institutional":
+                  twse_inst_payload,
+
+              "tpex_institutional":
+                  tpex_inst_payload,
+          }
+
+
+          for name, payload in (
+              payloads.items()
+          ):
               (
-                  raw_dir / f"{name}.json"
+                  raw_dir
+                  / f"{name}.json"
               ).write_text(
                   json.dumps(
                       payload,
@@ -157,12 +526,45 @@ jobs:
               )
 
 
-          def num(v):
-              if v is None:
+          # ============================================================
+          # HELPERS
+          # ============================================================
+
+          def norm_key(value):
+              return re.sub(
+                  r"[\s_\-()/（）]+",
+                  "",
+                  str(value or ""),
+              ).lower()
+
+
+          def pick(d, *keys):
+              if not isinstance(
+                  d,
+                  dict,
+              ):
+                  return None
+
+              mapping = {
+                  norm_key(k): v
+                  for k, v in d.items()
+              }
+
+              for key in keys:
+                  nk = norm_key(key)
+
+                  if nk in mapping:
+                      return mapping[nk]
+
+              return None
+
+
+          def num(value):
+              if value is None:
                   return None
 
               s = (
-                  str(v)
+                  str(value)
                   .strip()
                   .replace(",", "")
                   .replace("+", "")
@@ -182,44 +584,26 @@ jobs:
                   return None
 
 
-          def integer(v):
-              x = num(v)
+          def integer(value):
+              x = num(value)
 
               if x is None:
                   return None
 
-              return int(round(x))
+              return int(
+                  round(x)
+              )
 
 
-          def norm_key(s):
-              return re.sub(
-                  r"\s+",
-                  "",
-                  str(s),
-              ).lower()
-
-
-          def pick(d, *keys):
-              if not isinstance(d, dict):
-                  return None
-
-              normalized = {
-                  norm_key(k): v
-                  for k, v in d.items()
-              }
-
-              for key in keys:
-                  k = norm_key(key)
-
-                  if k in normalized:
-                      return normalized[k]
-
-              return None
-
-
-          def write_csv(path, rows):
+          def write_csv(
+              path,
+              rows,
+          ):
               if not rows:
-                  return
+                  raise RuntimeError(
+                      f"empty normalized "
+                      f"dataset: {path}"
+                  )
 
               fields = list(
                   rows[0].keys()
@@ -231,23 +615,78 @@ jobs:
                   encoding="utf-8-sig",
               ) as f:
 
-                  writer = csv.DictWriter(
-                      f,
-                      fieldnames=fields,
+                  writer = (
+                      csv.DictWriter(
+                          f,
+                          fieldnames=fields,
+                      )
                   )
 
                   writer.writeheader()
-                  writer.writerows(rows)
+                  writer.writerows(
+                      rows
+                  )
 
 
-          def normalize_twse_ohlcv(payload):
+          def fuzzy_value(
+              d,
+              required_groups,
+              excluded=(),
+          ):
+              if not isinstance(
+                  d,
+                  dict,
+              ):
+                  return None
 
+              for key, value in (
+                  d.items()
+              ):
+                  nk = norm_key(key)
+
+                  if any(
+                      norm_key(x) in nk
+                      for x in excluded
+                  ):
+                      continue
+
+                  ok = True
+
+                  for group in (
+                      required_groups
+                  ):
+                      if isinstance(
+                          group,
+                          str,
+                      ):
+                          group = [group]
+
+                      if not any(
+                          norm_key(x) in nk
+                          for x in group
+                      ):
+                          ok = False
+                          break
+
+                  if ok:
+                      return value
+
+              return None
+
+
+          # ============================================================
+          # NORMALIZE TWSE OHLCV
+          # ============================================================
+
+          def normalize_twse_ohlcv(
+              payload
+          ):
               if not isinstance(
                   payload,
                   list,
               ):
                   raise RuntimeError(
-                      "TWSE STOCK_DAY_ALL "
+                      "TWSE OHLCV "
                       "payload is not list"
                   )
 
@@ -351,14 +790,19 @@ jobs:
               return out
 
 
-          def normalize_tpex_ohlcv(payload):
+          # ============================================================
+          # NORMALIZE TPEX OHLCV
+          # ============================================================
 
+          def normalize_tpex_ohlcv(
+              payload
+          ):
               if not isinstance(
                   payload,
                   list,
               ):
                   raise RuntimeError(
-                      "TPEx close quotes "
+                      "TPEx OHLCV "
                       "payload is not list"
                   )
 
@@ -463,193 +907,14 @@ jobs:
               return out
 
 
-          def find_twse_t86_table(payload):
+          # ============================================================
+          # NORMALIZE TWSE T86
+          # ============================================================
 
-              if not isinstance(
-                  payload,
-                  dict,
-              ):
-                  raise RuntimeError(
-                      "TWSE T86 payload "
-                      "is not dict"
-                  )
-
-              candidates = []
-
-              for key, fields in payload.items():
-
-                  if not (
-                      str(key).startswith(
-                          "fields"
-                      )
-                      and isinstance(
-                          fields,
-                          list,
-                      )
-                  ):
-                      continue
-
-                  suffix = str(key)[6:]
-
-                  data_key = (
-                      "data" + suffix
-                  )
-
-                  rows = payload.get(
-                      data_key
-                  )
-
-                  if not isinstance(
-                      rows,
-                      list,
-                  ):
-                      continue
-
-                  if not rows:
-                      continue
-
-                  joined = "|".join(
-                      str(x)
-                      for x in fields
-                  )
-
-                  score = len(rows)
-
-                  # Prefer the actual
-                  # securities table,
-                  # but do NOT make
-                  # exact Chinese field
-                  # names mandatory.
-                  if "證券代號" in joined:
-                      score += 100000
-
-                  if "證券名稱" in joined:
-                      score += 50000
-
-                  if (
-                      "外陸資" in joined
-                      or "外資" in joined
-                  ):
-                      score += 10000
-
-                  if "投信" in joined:
-                      score += 10000
-
-                  if "自營商" in joined:
-                      score += 10000
-
-                  # A valid T86 security
-                  # table should have
-                  # rows whose first
-                  # columns contain
-                  # 4-digit stock codes.
-                  valid_code_rows = 0
-
-                  for row in rows[:100]:
-
-                      if not isinstance(
-                          row,
-                          list,
-                      ):
-                          continue
-
-                      for value in row[:3]:
-
-                          s = str(
-                              value
-                          ).strip()
-
-                          if re.fullmatch(
-                              r"\d{4}",
-                              s,
-                          ):
-                              valid_code_rows += 1
-                              break
-
-                  score += (
-                      valid_code_rows
-                      * 1000
-                  )
-
-                  candidates.append({
-                      "score":
-                          score,
-
-                      "fields":
-                          fields,
-
-                      "rows":
-                          rows,
-
-                      "fields_key":
-                          key,
-
-                      "data_key":
-                          data_key,
-
-                      "valid_code_rows":
-                          valid_code_rows,
-                  })
-
-
-              if not candidates:
-
-                  available = [
-                      str(k)
-                      for k in payload.keys()
-                  ]
-
-                  raise RuntimeError(
-                      "TWSE T86 table "
-                      "not found; "
-                      f"available keys="
-                      f"{available}"
-                  )
-
-
-              candidates.sort(
-                  key=lambda x:
-                      x["score"],
-                  reverse=True,
-              )
-
-              best = candidates[0]
-
-              print(
-                  "[T86] selected "
-                  f"{best['fields_key']} / "
-                  f"{best['data_key']} "
-                  f"rows="
-                  f"{len(best['rows'])} "
-                  f"code_rows="
-                  f"{best['valid_code_rows']}",
-                  flush=True,
-              )
-
-              print(
-                  "[T86] fields="
-                  + "|".join(
-                      str(x)
-                      for x in
-                      best["fields"]
-                  ),
-                  flush=True,
-              )
-
-              return (
-                  best["fields"],
-                  best["rows"],
-              )
-
-
-          def normalize_twse_inst(payload):
-
-              fields, rows = (
-                  find_twse_t86_table(
-                      payload
-                  )
-              )
-
+          def normalize_twse_inst(
+              fields,
+              rows,
+          ):
               out = []
 
               for row in rows:
@@ -661,89 +926,208 @@ jobs:
                       continue
 
                   d = {
-                      fields[idx]:
-                          row[idx]
-                          if idx < len(row)
-                          else None
-
-                      for idx in range(
+                      fields[i]:
+                          (
+                              row[i]
+                              if i < len(row)
+                              else None
+                          )
+                      for i
+                      in range(
                           len(fields)
                       )
                   }
 
-
                   code = ""
 
-                  # First try by field name.
-                  for k, v in d.items():
-
-                      key_text = str(k)
-
+                  for k, v in (
+                      d.items()
+                  ):
                       if (
                           "證券代號"
-                          in key_text
+                          in str(k)
                           or "代號"
-                          in key_text
+                          in str(k)
                       ):
-
-                          candidate = str(
-                              v
-                          ).strip()
+                          candidate = (
+                              str(v)
+                              .strip()
+                          )
 
                           if re.fullmatch(
                               r"\d{4}",
                               candidate,
                           ):
-                              code = candidate
+                              code = (
+                                  candidate
+                              )
                               break
 
-
-                  # Fallback:
-                  # search first few
-                  # columns for a
-                  # 4-digit stock code.
                   if not code:
-
-                      for value in row[:4]:
-
-                          candidate = str(
-                              value
-                          ).strip()
+                      for value in (
+                          row[:4]
+                      ):
+                          candidate = (
+                              str(value)
+                              .strip()
+                          )
 
                           if re.fullmatch(
                               r"\d{4}",
                               candidate,
                           ):
-                              code = candidate
+                              code = (
+                                  candidate
+                              )
                               break
-
 
                   if not code:
                       continue
 
-
                   name = None
 
-                  for k, v in d.items():
-
+                  for k, v in (
+                      d.items()
+                  ):
                       if (
                           "證券名稱"
                           in str(k)
                           or "名稱"
-                          in str(k)
+                          == str(k).strip()
                       ):
                           name = v
                           break
 
-
-                  # Usually second column
-                  # is security name.
                   if (
                       name is None
                       and len(row) > 1
                   ):
                       name = row[1]
 
+
+                  foreign_buy = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              [
+                                  "外陸資",
+                                  "外資及陸資",
+                                  "外資",
+                              ],
+                              [
+                                  "買進",
+                              ],
+                          ],
+                          excluded=[
+                              "自營商",
+                          ],
+                      )
+                  )
+
+                  foreign_sell = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              [
+                                  "外陸資",
+                                  "外資及陸資",
+                                  "外資",
+                              ],
+                              [
+                                  "賣出",
+                              ],
+                          ],
+                          excluded=[
+                              "自營商",
+                          ],
+                      )
+                  )
+
+                  foreign_net = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              [
+                                  "外陸資",
+                                  "外資及陸資",
+                                  "外資",
+                              ],
+                              [
+                                  "買賣超",
+                                  "差額",
+                              ],
+                          ],
+                          excluded=[
+                              "自營商",
+                          ],
+                      )
+                  )
+
+                  trust_buy = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              ["投信"],
+                              ["買進"],
+                          ],
+                      )
+                  )
+
+                  trust_sell = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              ["投信"],
+                              ["賣出"],
+                          ],
+                      )
+                  )
+
+                  trust_net = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              ["投信"],
+                              [
+                                  "買賣超",
+                                  "差額",
+                              ],
+                          ],
+                      )
+                  )
+
+                  dealer_buy = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              ["自營商"],
+                              ["買進"],
+                          ],
+                      )
+                  )
+
+                  dealer_sell = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              ["自營商"],
+                              ["賣出"],
+                          ],
+                      )
+                  )
+
+                  dealer_net = integer(
+                      fuzzy_value(
+                          d,
+                          [
+                              ["自營商"],
+                              [
+                                  "買賣超",
+                                  "差額",
+                              ],
+                          ],
+                      )
+                  )
 
                   out.append({
                       "trade_date":
@@ -758,6 +1142,33 @@ jobs:
                       "name":
                           name,
 
+                      "foreign_buy":
+                          foreign_buy,
+
+                      "foreign_sell":
+                          foreign_sell,
+
+                      "foreign_net":
+                          foreign_net,
+
+                      "trust_buy":
+                          trust_buy,
+
+                      "trust_sell":
+                          trust_sell,
+
+                      "trust_net":
+                          trust_net,
+
+                      "dealer_buy":
+                          dealer_buy,
+
+                      "dealer_sell":
+                          dealer_sell,
+
+                      "dealer_net":
+                          dealer_net,
+
                       "raw_json":
                           json.dumps(
                               d,
@@ -769,20 +1180,16 @@ jobs:
                           ),
                   })
 
-
-              if not out:
-                  raise RuntimeError(
-                      "TWSE T86 table "
-                      "was selected but "
-                      "zero stock rows "
-                      "were normalized"
-                  )
-
               return out
 
 
-          def normalize_tpex_inst(payload):
+          # ============================================================
+          # NORMALIZE TPEX INSTITUTIONAL
+          # ============================================================
 
+          def normalize_tpex_inst(
+              payload
+          ):
               if not isinstance(
                   payload,
                   list,
@@ -832,6 +1239,168 @@ jobs:
                               "名稱",
                           ),
 
+                      "foreign_buy":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "foreign",
+                                          "外資",
+                                      ],
+                                      [
+                                          "buy",
+                                          "買進",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "foreign_sell":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "foreign",
+                                          "外資",
+                                      ],
+                                      [
+                                          "sell",
+                                          "賣出",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "foreign_net":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "foreign",
+                                          "外資",
+                                      ],
+                                      [
+                                          "net",
+                                          "difference",
+                                          "買賣超",
+                                          "差額",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "trust_buy":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "trust",
+                                          "investmenttrust",
+                                          "投信",
+                                      ],
+                                      [
+                                          "buy",
+                                          "買進",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "trust_sell":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "trust",
+                                          "investmenttrust",
+                                          "投信",
+                                      ],
+                                      [
+                                          "sell",
+                                          "賣出",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "trust_net":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "trust",
+                                          "investmenttrust",
+                                          "投信",
+                                      ],
+                                      [
+                                          "net",
+                                          "difference",
+                                          "買賣超",
+                                          "差額",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "dealer_buy":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "dealer",
+                                          "自營商",
+                                      ],
+                                      [
+                                          "buy",
+                                          "買進",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "dealer_sell":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "dealer",
+                                          "自營商",
+                                      ],
+                                      [
+                                          "sell",
+                                          "賣出",
+                                      ],
+                                  ],
+                              )
+                          ),
+
+                      "dealer_net":
+                          integer(
+                              fuzzy_value(
+                                  r,
+                                  [
+                                      [
+                                          "dealer",
+                                          "自營商",
+                                      ],
+                                      [
+                                          "net",
+                                          "difference",
+                                          "買賣超",
+                                          "差額",
+                                      ],
+                                  ],
+                              )
+                          ),
+
                       "raw_json":
                           json.dumps(
                               r,
@@ -846,33 +1415,30 @@ jobs:
               return out
 
 
+          # ============================================================
+          # NORMALIZE ALL
+          # ============================================================
+
           normalized = {
               "twse_ohlcv":
                   normalize_twse_ohlcv(
-                      payloads[
-                          "twse_ohlcv"
-                      ]
+                      twse_ohlcv_payload
                   ),
 
               "tpex_ohlcv":
                   normalize_tpex_ohlcv(
-                      payloads[
-                          "tpex_ohlcv"
-                      ]
+                      tpex_ohlcv_payload
                   ),
 
               "twse_institutional":
                   normalize_twse_inst(
-                      payloads[
-                          "twse_institutional"
-                      ]
+                      twse_inst_table[0],
+                      twse_inst_table[1],
                   ),
 
               "tpex_institutional":
                   normalize_tpex_inst(
-                      payloads[
-                          "tpex_institutional"
-                      ]
+                      tpex_inst_payload
                   ),
           }
 
@@ -886,6 +1452,13 @@ jobs:
                   rows,
               )
 
+
+          # ============================================================
+          # VALIDATION
+          # ============================================================
+
+          errors = []
+          warnings = []
 
           row_counts = {
               name: len(rows)
@@ -909,31 +1482,183 @@ jobs:
           }
 
 
-          errors = []
-
-
           for name, minimum in (
               minimum_rows.items()
           ):
-
               count = row_counts.get(
                   name,
                   0,
               )
 
               if count < minimum:
-
                   errors.append(
                       f"{name}: "
-                      f"row count "
-                      f"{count} "
-                      f"< minimum "
+                      f"{count} < "
                       f"{minimum}"
                   )
 
 
-          coverage_report = {}
+          # ============================================================
+          # SNAPSHOT DATE VALIDATION
+          # ============================================================
 
+          source_dates = {}
+
+          for name, payload in {
+              "twse_ohlcv":
+                  twse_ohlcv_payload,
+
+              "tpex_ohlcv":
+                  tpex_ohlcv_payload,
+
+              "tpex_institutional":
+                  tpex_inst_payload,
+          }.items():
+
+              inferred = (
+                  infer_payload_date(
+                      payload
+                  )
+              )
+
+              if inferred:
+                  source_dates[
+                      name
+                  ] = str(
+                      inferred
+                  )
+
+                  if (
+                      inferred
+                      != trade_day
+                  ):
+                      errors.append(
+                          f"{name}: "
+                          f"source date "
+                          f"{inferred} "
+                          f"!= selected "
+                          f"{trade_day}"
+                      )
+
+
+          # ============================================================
+          # DUPLICATE VALIDATION
+          # ============================================================
+
+          for name, rows in (
+              normalized.items()
+          ):
+              codes = [
+                  r["stock_id"]
+                  for r in rows
+              ]
+
+              duplicate_count = (
+                  len(codes)
+                  - len(set(codes))
+              )
+
+              if (
+                  duplicate_count > 0
+              ):
+                  errors.append(
+                      f"{name}: "
+                      f"duplicate rows="
+                      f"{duplicate_count}"
+                  )
+
+
+          # ============================================================
+          # OHLC SANITY
+          # ============================================================
+
+          for name in (
+              "twse_ohlcv",
+              "tpex_ohlcv",
+          ):
+              bad_ohlc = 0
+              close_null = 0
+
+              rows = normalized[
+                  name
+              ]
+
+              for r in rows:
+
+                  o = r["open"]
+                  h = r["high"]
+                  l = r["low"]
+                  c = r["close"]
+
+                  if c is None:
+                      close_null += 1
+                      continue
+
+                  if (
+                      h is not None
+                      and l is not None
+                      and h < l
+                  ):
+                      bad_ohlc += 1
+
+                  if (
+                      h is not None
+                      and o is not None
+                      and h < o
+                  ):
+                      bad_ohlc += 1
+
+                  if (
+                      h is not None
+                      and c is not None
+                      and h < c
+                  ):
+                      bad_ohlc += 1
+
+                  if (
+                      l is not None
+                      and o is not None
+                      and l > o
+                  ):
+                      bad_ohlc += 1
+
+                  if (
+                      l is not None
+                      and c is not None
+                      and l > c
+                  ):
+                      bad_ohlc += 1
+
+              if bad_ohlc > 0:
+                  errors.append(
+                      f"{name}: "
+                      f"bad OHLC="
+                      f"{bad_ohlc}"
+                  )
+
+              null_ratio = (
+                  close_null
+                  / max(
+                      1,
+                      len(rows),
+                  )
+              )
+
+              if (
+                  null_ratio > 0.05
+              ):
+                  errors.append(
+                      f"{name}: "
+                      f"null close="
+                      f"{null_ratio:.1%}"
+                  )
+
+
+          # ============================================================
+          # INSTITUTIONAL COVERAGE
+          # ============================================================
+
+          coverage = {}
 
           for market in (
               "twse",
@@ -959,7 +1684,7 @@ jobs:
                   & inst_codes
               )
 
-              coverage = (
+              ratio = (
                   overlap
                   / max(
                       1,
@@ -967,51 +1692,114 @@ jobs:
                   )
               )
 
-              coverage_report[
+              coverage[
                   market
               ] = {
                   "price_codes":
-                      len(price_codes),
+                      len(
+                          price_codes
+                      ),
 
                   "institutional_codes":
-                      len(inst_codes),
+                      len(
+                          inst_codes
+                      ),
 
                   "overlap":
                       overlap,
 
                   "coverage":
-                      coverage,
+                      ratio,
               }
 
-              if coverage < 0.65:
-
+              if ratio < 0.65:
                   errors.append(
                       f"{market.upper()} "
                       f"institutional "
-                      f"coverage too low: "
-                      f"{coverage:.1%}"
+                      f"coverage="
+                      f"{ratio:.1%}"
                   )
 
 
+          # ============================================================
+          # FLATTENED FIELD CHECK
+          # ============================================================
+
+          flattened = {}
+
+          for name in (
+              "twse_institutional",
+              "tpex_institutional",
+          ):
+
+              rows = normalized[
+                  name
+              ]
+
+              stats = {}
+
+              for col in (
+                  "foreign_net",
+                  "trust_net",
+                  "dealer_net",
+              ):
+
+                  n = sum(
+                      1
+                      for r in rows
+                      if r.get(col)
+                      is not None
+                  )
+
+                  stats[col] = n
+
+                  if n < 100:
+                      warnings.append(
+                          f"{name}: "
+                          f"{col} "
+                          f"non-null={n}"
+                      )
+
+              flattened[
+                  name
+              ] = stats
+
+
+          # ============================================================
+          # MANIFEST
+          # ============================================================
+
           manifest = {
+              "version":
+                  "AlphaPilot-Data-V3.2",
+
+              "execution_time":
+                  now.isoformat(),
+
               "trade_date":
                   trade_date,
 
-              "generated_at":
-                  datetime.now(
-                      TZ
-                  ).isoformat(),
-
               "status":
-                  "PASS"
-                  if not errors
-                  else "FAIL",
+                  (
+                      "PASS"
+                      if not errors
+                      else "FAIL"
+                  ),
 
               "row_counts":
                   row_counts,
 
+              "source_dates":
+                  source_dates,
+
               "coverage":
-                  coverage_report,
+                  coverage,
+
+              "flattened_fields":
+                  flattened,
+
+              "warnings":
+                  warnings,
 
               "errors":
                   errors,
@@ -1037,7 +1825,8 @@ jobs:
 
 
           (
-              base / "manifest.json"
+              base
+              / "manifest.json"
           ).write_text(
               json.dumps(
                   manifest,
@@ -1079,5 +1868,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "data: Taiwan market $(TZ=Asia/Taipei date +%F)"
+          TRADE_DATE=$(find data -mindepth 1 -maxdepth 1 -type d | sort | tail -1 | xargs basename)
+
+          git commit -m "data: Taiwan market ${TRADE_DATE}"
           git push
