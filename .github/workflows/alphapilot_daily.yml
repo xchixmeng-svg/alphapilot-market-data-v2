@@ -1,4 +1,4 @@
-name: AlphaPilot Daily Taiwan Market Data V3
+name: AlphaPilot Daily Taiwan Market Data V3.1
 
 on:
   workflow_dispatch:
@@ -44,10 +44,8 @@ jobs:
 
           import requests
 
-
           TZ = ZoneInfo("Asia/Taipei")
           now = datetime.now(TZ)
-
           trade_date = now.strftime("%Y-%m-%d")
           ymd = now.strftime("%Y%m%d")
 
@@ -65,18 +63,15 @@ jobs:
               "Accept": "application/json,text/plain,*/*",
           }
 
-
-          SOURCES = {
+          sources = {
               "twse_ohlcv": (
                   "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
                   {},
               ),
-
               "tpex_ohlcv": (
                   "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
                   {},
               ),
-
               "twse_institutional": (
                   "https://www.twse.com.tw/rwd/zh/fund/T86",
                   {
@@ -85,7 +80,6 @@ jobs:
                       "response": "json",
                   },
               ),
-
               "tpex_institutional": (
                   "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
                   {},
@@ -122,24 +116,26 @@ jobs:
 
                           print(
                               f"[retry] {name} "
-                              f"attempt={attempt + 1} "
-                              f"error={exc} "
-                              f"sleep={wait}s",
+                              f"attempt {attempt + 1}: "
+                              f"{exc}; sleep {wait}s",
                               flush=True,
                           )
 
                           time.sleep(wait)
 
               raise RuntimeError(
-                  f"{name} failed after retries: {last_error}"
+                  f"{name} failed after retries: "
+                  f"{last_error}"
               )
 
 
           payloads = {}
 
-          for name, (url, params) in SOURCES.items():
-
-              print(f"[fetch] {name}", flush=True)
+          for name, (url, params) in sources.items():
+              print(
+                  f"[fetch] {name}",
+                  flush=True,
+              )
 
               payload = get_json(
                   name,
@@ -150,8 +146,7 @@ jobs:
               payloads[name] = payload
 
               (
-                  raw_dir /
-                  f"{name}.json"
+                  raw_dir / f"{name}.json"
               ).write_text(
                   json.dumps(
                       payload,
@@ -162,20 +157,12 @@ jobs:
               )
 
 
-          def norm_key(value):
-              return re.sub(
-                  r"[\s_\-()/（）]+",
-                  "",
-                  str(value or ""),
-              ).lower()
-
-
-          def num(value):
-              if value is None:
+          def num(v):
+              if v is None:
                   return None
 
               s = (
-                  str(value)
+                  str(v)
                   .strip()
                   .replace(",", "")
                   .replace("+", "")
@@ -186,20 +173,17 @@ jobs:
                   "--",
                   "---",
                   "----",
-                  "null",
-                  "None",
               }:
                   return None
 
               try:
                   return float(s)
-
               except Exception:
                   return None
 
 
-          def integer(value):
-              x = num(value)
+          def integer(v):
+              x = num(v)
 
               if x is None:
                   return None
@@ -207,7 +191,15 @@ jobs:
               return int(round(x))
 
 
-          def pick_exact(d, *keys):
+          def norm_key(s):
+              return re.sub(
+                  r"\s+",
+                  "",
+                  str(s),
+              ).lower()
+
+
+          def pick(d, *keys):
               if not isinstance(d, dict):
                   return None
 
@@ -217,57 +209,17 @@ jobs:
               }
 
               for key in keys:
-                  nk = norm_key(key)
+                  k = norm_key(key)
 
-                  if nk in normalized:
-                      return normalized[nk]
-
-              return None
-
-
-          def pick_contains(
-              d,
-              include_groups,
-              exclude_terms=(),
-          ):
-              if not isinstance(d, dict):
-                  return None
-
-              for key, value in d.items():
-
-                  nk = norm_key(key)
-
-                  if any(
-                      norm_key(x) in nk
-                      for x in exclude_terms
-                  ):
-                      continue
-
-                  matched = True
-
-                  for group in include_groups:
-
-                      if isinstance(group, str):
-                          group = [group]
-
-                      if not any(
-                          norm_key(term) in nk
-                          for term in group
-                      ):
-                          matched = False
-                          break
-
-                  if matched:
-                      return value
+                  if k in normalized:
+                      return normalized[k]
 
               return None
 
 
           def write_csv(path, rows):
               if not rows:
-                  raise RuntimeError(
-                      f"refusing to write empty CSV: {path}"
-                  )
+                  return
 
               fields = list(
                   rows[0].keys()
@@ -288,10 +240,6 @@ jobs:
                   writer.writerows(rows)
 
 
-          # =========================================================
-          # TWSE OHLCV
-          # =========================================================
-
           def normalize_twse_ohlcv(payload):
 
               if not isinstance(
@@ -299,7 +247,8 @@ jobs:
                   list,
               ):
                   raise RuntimeError(
-                      "TWSE STOCK_DAY_ALL payload is not list"
+                      "TWSE STOCK_DAY_ALL "
+                      "payload is not list"
                   )
 
               out = []
@@ -307,7 +256,7 @@ jobs:
               for r in payload:
 
                   code = str(
-                      pick_exact(
+                      pick(
                           r,
                           "Code",
                           "證券代號",
@@ -332,7 +281,7 @@ jobs:
                           code,
 
                       "name":
-                          pick_exact(
+                          pick(
                               r,
                               "Name",
                               "證券名稱",
@@ -340,7 +289,7 @@ jobs:
 
                       "open":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "OpeningPrice",
                                   "Open",
@@ -350,7 +299,7 @@ jobs:
 
                       "high":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "HighestPrice",
                                   "High",
@@ -360,7 +309,7 @@ jobs:
 
                       "low":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "LowestPrice",
                                   "Low",
@@ -370,7 +319,7 @@ jobs:
 
                       "close":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "ClosingPrice",
                                   "Close",
@@ -380,7 +329,7 @@ jobs:
 
                       "volume":
                           integer(
-                              pick_exact(
+                              pick(
                                   r,
                                   "TradeVolume",
                                   "TradingShares",
@@ -390,7 +339,7 @@ jobs:
 
                       "trading_value":
                           integer(
-                              pick_exact(
+                              pick(
                                   r,
                                   "TradeValue",
                                   "TransactionAmount",
@@ -402,10 +351,6 @@ jobs:
               return out
 
 
-          # =========================================================
-          # TPEx OHLCV
-          # =========================================================
-
           def normalize_tpex_ohlcv(payload):
 
               if not isinstance(
@@ -413,7 +358,8 @@ jobs:
                   list,
               ):
                   raise RuntimeError(
-                      "TPEx OHLCV payload is not list"
+                      "TPEx close quotes "
+                      "payload is not list"
                   )
 
               out = []
@@ -421,7 +367,7 @@ jobs:
               for r in payload:
 
                   code = str(
-                      pick_exact(
+                      pick(
                           r,
                           "SecuritiesCompanyCode",
                           "Code",
@@ -448,7 +394,7 @@ jobs:
                           code,
 
                       "name":
-                          pick_exact(
+                          pick(
                               r,
                               "CompanyName",
                               "Name",
@@ -458,7 +404,7 @@ jobs:
 
                       "open":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "Open",
                                   "開盤價",
@@ -467,7 +413,7 @@ jobs:
 
                       "high":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "High",
                                   "最高價",
@@ -476,7 +422,7 @@ jobs:
 
                       "low":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "Low",
                                   "最低價",
@@ -485,7 +431,7 @@ jobs:
 
                       "close":
                           num(
-                              pick_exact(
+                              pick(
                                   r,
                                   "Close",
                                   "收盤價",
@@ -494,7 +440,7 @@ jobs:
 
                       "volume":
                           integer(
-                              pick_exact(
+                              pick(
                                   r,
                                   "TradingShares",
                                   "TradeVolume",
@@ -505,7 +451,7 @@ jobs:
 
                       "trading_value":
                           integer(
-                              pick_exact(
+                              pick(
                                   r,
                                   "TransactionAmount",
                                   "TradeValue",
@@ -517,10 +463,6 @@ jobs:
               return out
 
 
-          # =========================================================
-          # TWSE T86
-          # =========================================================
-
           def find_twse_t86_table(payload):
 
               if not isinstance(
@@ -528,55 +470,175 @@ jobs:
                   dict,
               ):
                   raise RuntimeError(
-                      "TWSE T86 payload is not dict"
+                      "TWSE T86 payload "
+                      "is not dict"
                   )
 
               candidates = []
 
-              for key, value in payload.items():
+              for key, fields in payload.items():
+
+                  if not (
+                      str(key).startswith(
+                          "fields"
+                      )
+                      and isinstance(
+                          fields,
+                          list,
+                      )
+                  ):
+                      continue
+
+                  suffix = str(key)[6:]
+
+                  data_key = (
+                      "data" + suffix
+                  )
+
+                  rows = payload.get(
+                      data_key
+                  )
+
+                  if not isinstance(
+                      rows,
+                      list,
+                  ):
+                      continue
+
+                  if not rows:
+                      continue
+
+                  joined = "|".join(
+                      str(x)
+                      for x in fields
+                  )
+
+                  score = len(rows)
+
+                  # Prefer the actual
+                  # securities table,
+                  # but do NOT make
+                  # exact Chinese field
+                  # names mandatory.
+                  if "證券代號" in joined:
+                      score += 100000
+
+                  if "證券名稱" in joined:
+                      score += 50000
 
                   if (
-                      str(key).startswith("fields")
-                      and
-                      isinstance(value, list)
+                      "外陸資" in joined
+                      or "外資" in joined
                   ):
+                      score += 10000
 
-                      suffix = str(key)[6:]
+                  if "投信" in joined:
+                      score += 10000
 
-                      data = payload.get(
-                          "data" + suffix
-                      )
+                  if "自營商" in joined:
+                      score += 10000
+
+                  # A valid T86 security
+                  # table should have
+                  # rows whose first
+                  # columns contain
+                  # 4-digit stock codes.
+                  valid_code_rows = 0
+
+                  for row in rows[:100]:
 
                       if not isinstance(
-                          data,
+                          row,
                           list,
                       ):
                           continue
 
-                      joined = "|".join(
-                          map(str, value)
-                      )
+                      for value in row[:3]:
 
-                      if (
-                          "證券代號" in joined
-                          and
-                          "投信" in joined
-                      ):
-                          candidates.append(
-                              (
-                                  value,
-                                  data,
-                              )
-                          )
+                          s = str(
+                              value
+                          ).strip()
 
-              if not candidates:
-                  raise RuntimeError(
-                      "TWSE T86 table not found"
+                          if re.fullmatch(
+                              r"\d{4}",
+                              s,
+                          ):
+                              valid_code_rows += 1
+                              break
+
+                  score += (
+                      valid_code_rows
+                      * 1000
                   )
 
-              return max(
-                  candidates,
-                  key=lambda x: len(x[1]),
+                  candidates.append({
+                      "score":
+                          score,
+
+                      "fields":
+                          fields,
+
+                      "rows":
+                          rows,
+
+                      "fields_key":
+                          key,
+
+                      "data_key":
+                          data_key,
+
+                      "valid_code_rows":
+                          valid_code_rows,
+                  })
+
+
+              if not candidates:
+
+                  available = [
+                      str(k)
+                      for k in payload.keys()
+                  ]
+
+                  raise RuntimeError(
+                      "TWSE T86 table "
+                      "not found; "
+                      f"available keys="
+                      f"{available}"
+                  )
+
+
+              candidates.sort(
+                  key=lambda x:
+                      x["score"],
+                  reverse=True,
+              )
+
+              best = candidates[0]
+
+              print(
+                  "[T86] selected "
+                  f"{best['fields_key']} / "
+                  f"{best['data_key']} "
+                  f"rows="
+                  f"{len(best['rows'])} "
+                  f"code_rows="
+                  f"{best['valid_code_rows']}",
+                  flush=True,
+              )
+
+              print(
+                  "[T86] fields="
+                  + "|".join(
+                      str(x)
+                      for x in
+                      best["fields"]
+                  ),
+                  flush=True,
+              )
+
+              return (
+                  best["fields"],
+                  best["rows"],
               )
 
 
@@ -592,201 +654,96 @@ jobs:
 
               for row in rows:
 
-                  d = {
-                      fields[idx]:
-                          (
-                              row[idx]
-                              if idx < len(row)
-                              else None
-                          )
-
-                      for idx
-                      in range(len(fields))
-                  }
-
-                  code = str(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "證券代號",
-                              ],
-                          ],
-                      )
-                      or ""
-                  ).strip()
-
-                  if not re.fullmatch(
-                      r"\d{4}",
-                      code,
+                  if not isinstance(
+                      row,
+                      list,
                   ):
                       continue
 
-                  name = pick_contains(
-                      d,
-                      [
-                          [
-                              "證券名稱",
-                          ],
-                      ],
-                  )
+                  d = {
+                      fields[idx]:
+                          row[idx]
+                          if idx < len(row)
+                          else None
 
-                  foreign_buy = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "外陸資",
-                                  "外資及陸資",
-                              ],
-                              [
-                                  "買進",
-                              ],
-                          ],
-                          exclude_terms=[
-                              "自營商",
-                          ],
+                      for idx in range(
+                          len(fields)
                       )
-                  )
+                  }
 
-                  foreign_sell = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "外陸資",
-                                  "外資及陸資",
-                              ],
-                              [
-                                  "賣出",
-                              ],
-                          ],
-                          exclude_terms=[
-                              "自營商",
-                          ],
-                      )
-                  )
 
-                  foreign_net = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "外陸資",
-                                  "外資及陸資",
-                              ],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                          exclude_terms=[
-                              "自營商",
-                          ],
-                      )
-                  )
+                  code = ""
 
-                  trust_buy = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "投信",
-                              ],
-                              [
-                                  "買進",
-                              ],
-                          ],
-                      )
-                  )
+                  # First try by field name.
+                  for k, v in d.items():
 
-                  trust_sell = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "投信",
-                              ],
-                              [
-                                  "賣出",
-                              ],
-                          ],
-                      )
-                  )
+                      key_text = str(k)
 
-                  trust_net = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "投信",
-                              ],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
+                      if (
+                          "證券代號"
+                          in key_text
+                          or "代號"
+                          in key_text
+                      ):
 
-                  dealer_buy = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "自營商",
-                              ],
-                              [
-                                  "買進",
-                              ],
-                          ],
-                      )
-                  )
+                          candidate = str(
+                              v
+                          ).strip()
 
-                  dealer_sell = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "自營商",
-                              ],
-                              [
-                                  "賣出",
-                              ],
-                          ],
-                      )
-                  )
+                          if re.fullmatch(
+                              r"\d{4}",
+                              candidate,
+                          ):
+                              code = candidate
+                              break
 
-                  dealer_net = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "自營商",
-                              ],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
 
-                  total_inst_net = integer(
-                      pick_contains(
-                          d,
-                          [
-                              [
-                                  "三大法人",
-                                  "合計",
-                              ],
-                              [
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
+                  # Fallback:
+                  # search first few
+                  # columns for a
+                  # 4-digit stock code.
+                  if not code:
+
+                      for value in row[:4]:
+
+                          candidate = str(
+                              value
+                          ).strip()
+
+                          if re.fullmatch(
+                              r"\d{4}",
+                              candidate,
+                          ):
+                              code = candidate
+                              break
+
+
+                  if not code:
+                      continue
+
+
+                  name = None
+
+                  for k, v in d.items():
+
+                      if (
+                          "證券名稱"
+                          in str(k)
+                          or "名稱"
+                          in str(k)
+                      ):
+                          name = v
+                          break
+
+
+                  # Usually second column
+                  # is security name.
+                  if (
+                      name is None
+                      and len(row) > 1
+                  ):
+                      name = row[1]
+
 
                   out.append({
                       "trade_date":
@@ -801,36 +758,6 @@ jobs:
                       "name":
                           name,
 
-                      "foreign_buy":
-                          foreign_buy,
-
-                      "foreign_sell":
-                          foreign_sell,
-
-                      "foreign_net":
-                          foreign_net,
-
-                      "trust_buy":
-                          trust_buy,
-
-                      "trust_sell":
-                          trust_sell,
-
-                      "trust_net":
-                          trust_net,
-
-                      "dealer_buy":
-                          dealer_buy,
-
-                      "dealer_sell":
-                          dealer_sell,
-
-                      "dealer_net":
-                          dealer_net,
-
-                      "total_inst_net":
-                          total_inst_net,
-
                       "raw_json":
                           json.dumps(
                               d,
@@ -842,12 +769,17 @@ jobs:
                           ),
                   })
 
+
+              if not out:
+                  raise RuntimeError(
+                      "TWSE T86 table "
+                      "was selected but "
+                      "zero stock rows "
+                      "were normalized"
+                  )
+
               return out
 
-
-          # =========================================================
-          # TPEx Institutional
-          # =========================================================
 
           def normalize_tpex_inst(payload):
 
@@ -856,7 +788,8 @@ jobs:
                   list,
               ):
                   raise RuntimeError(
-                      "TPEx institutional payload is not list"
+                      "TPEx institutional "
+                      "payload is not list"
                   )
 
               out = []
@@ -864,7 +797,7 @@ jobs:
               for r in payload:
 
                   code = str(
-                      pick_exact(
+                      pick(
                           r,
                           "SecuritiesCompanyCode",
                           "Code",
@@ -880,190 +813,6 @@ jobs:
                   ):
                       continue
 
-                  name = pick_exact(
-                      r,
-                      "CompanyName",
-                      "Name",
-                      "證券名稱",
-                      "名稱",
-                  )
-
-                  foreign_buy = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "foreign",
-                                  "外資",
-                                  "外陸資",
-                              ],
-                              [
-                                  "buy",
-                                  "買進",
-                              ],
-                          ],
-                      )
-                  )
-
-                  foreign_sell = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "foreign",
-                                  "外資",
-                                  "外陸資",
-                              ],
-                              [
-                                  "sell",
-                                  "賣出",
-                              ],
-                          ],
-                      )
-                  )
-
-                  foreign_net = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "foreign",
-                                  "外資",
-                                  "外陸資",
-                              ],
-                              [
-                                  "difference",
-                                  "net",
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
-
-                  trust_buy = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "investmenttrust",
-                                  "trust",
-                                  "投信",
-                              ],
-                              [
-                                  "buy",
-                                  "買進",
-                              ],
-                          ],
-                      )
-                  )
-
-                  trust_sell = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "investmenttrust",
-                                  "trust",
-                                  "投信",
-                              ],
-                              [
-                                  "sell",
-                                  "賣出",
-                              ],
-                          ],
-                      )
-                  )
-
-                  trust_net = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "investmenttrust",
-                                  "trust",
-                                  "投信",
-                              ],
-                              [
-                                  "difference",
-                                  "net",
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
-
-                  dealer_buy = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "dealer",
-                                  "自營商",
-                              ],
-                              [
-                                  "buy",
-                                  "買進",
-                              ],
-                          ],
-                      )
-                  )
-
-                  dealer_sell = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "dealer",
-                                  "自營商",
-                              ],
-                              [
-                                  "sell",
-                                  "賣出",
-                              ],
-                          ],
-                      )
-                  )
-
-                  dealer_net = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "dealer",
-                                  "自營商",
-                              ],
-                              [
-                                  "difference",
-                                  "net",
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
-
-                  total_inst_net = integer(
-                      pick_contains(
-                          r,
-                          [
-                              [
-                                  "total",
-                                  "three",
-                                  "三大法人",
-                                  "合計",
-                              ],
-                              [
-                                  "difference",
-                                  "net",
-                                  "買賣超",
-                                  "差額",
-                              ],
-                          ],
-                      )
-                  )
-
                   out.append({
                       "trade_date":
                           trade_date,
@@ -1075,37 +824,13 @@ jobs:
                           code,
 
                       "name":
-                          name,
-
-                      "foreign_buy":
-                          foreign_buy,
-
-                      "foreign_sell":
-                          foreign_sell,
-
-                      "foreign_net":
-                          foreign_net,
-
-                      "trust_buy":
-                          trust_buy,
-
-                      "trust_sell":
-                          trust_sell,
-
-                      "trust_net":
-                          trust_net,
-
-                      "dealer_buy":
-                          dealer_buy,
-
-                      "dealer_sell":
-                          dealer_sell,
-
-                      "dealer_net":
-                          dealer_net,
-
-                      "total_inst_net":
-                          total_inst_net,
+                          pick(
+                              r,
+                              "CompanyName",
+                              "Name",
+                              "證券名稱",
+                              "名稱",
+                          ),
 
                       "raw_json":
                           json.dumps(
@@ -1120,10 +845,6 @@ jobs:
 
               return out
 
-
-          # =========================================================
-          # Normalize
-          # =========================================================
 
           normalized = {
               "twse_ohlcv":
@@ -1156,22 +877,15 @@ jobs:
           }
 
 
-          # =========================================================
-          # Write normalized CSV
-          # =========================================================
-
-          for name, rows in normalized.items():
-
+          for name, rows in (
+              normalized.items()
+          ):
               write_csv(
-                  norm_dir /
-                  f"{name}.csv",
+                  norm_dir
+                  / f"{name}.csv",
                   rows,
               )
 
-
-          # =========================================================
-          # Validation
-          # =========================================================
 
           row_counts = {
               name: len(rows)
@@ -1181,18 +895,26 @@ jobs:
 
 
           minimum_rows = {
-              "twse_ohlcv": 800,
-              "tpex_ohlcv": 500,
-              "twse_institutional": 700,
-              "tpex_institutional": 400,
+              "twse_ohlcv":
+                  800,
+
+              "tpex_ohlcv":
+                  500,
+
+              "twse_institutional":
+                  700,
+
+              "tpex_institutional":
+                  400,
           }
 
 
           errors = []
-          warnings = []
 
 
-          for name, minimum in minimum_rows.items():
+          for name, minimum in (
+              minimum_rows.items()
+          ):
 
               count = row_counts.get(
                   name,
@@ -1202,155 +924,16 @@ jobs:
               if count < minimum:
 
                   errors.append(
-                      f"{name}: row count "
-                      f"{count} < minimum "
+                      f"{name}: "
+                      f"row count "
+                      f"{count} "
+                      f"< minimum "
                       f"{minimum}"
                   )
 
 
-          # =========================================================
-          # Date validation
-          # =========================================================
+          coverage_report = {}
 
-          for name, rows in normalized.items():
-
-              bad_dates = sum(
-                  1
-                  for r in rows
-                  if r.get(
-                      "trade_date"
-                  ) != trade_date
-              )
-
-              if bad_dates:
-
-                  errors.append(
-                      f"{name}: bad trade_date "
-                      f"rows={bad_dates}"
-                  )
-
-
-          # =========================================================
-          # Duplicate stock validation
-          # =========================================================
-
-          for name, rows in normalized.items():
-
-              codes = [
-                  r.get("stock_id")
-                  for r in rows
-              ]
-
-              duplicates = (
-                  len(codes)
-                  -
-                  len(set(codes))
-              )
-
-              if duplicates > 0:
-
-                  errors.append(
-                      f"{name}: duplicate "
-                      f"stock rows={duplicates}"
-                  )
-
-
-          # =========================================================
-          # OHLC validation
-          # =========================================================
-
-          for name in (
-              "twse_ohlcv",
-              "tpex_ohlcv",
-          ):
-
-              rows = normalized[name]
-
-              null_close = 0
-              bad_ohlc = 0
-
-              for r in rows:
-
-                  o = r.get("open")
-                  h = r.get("high")
-                  l = r.get("low")
-                  c = r.get("close")
-
-                  if c is None:
-                      null_close += 1
-                      continue
-
-                  if (
-                      h is not None
-                      and
-                      l is not None
-                      and
-                      h < l
-                  ):
-                      bad_ohlc += 1
-
-                  if (
-                      h is not None
-                      and
-                      o is not None
-                      and
-                      h < o
-                  ):
-                      bad_ohlc += 1
-
-                  if (
-                      h is not None
-                      and
-                      c is not None
-                      and
-                      h < c
-                  ):
-                      bad_ohlc += 1
-
-                  if (
-                      l is not None
-                      and
-                      o is not None
-                      and
-                      l > o
-                  ):
-                      bad_ohlc += 1
-
-                  if (
-                      l is not None
-                      and
-                      c is not None
-                      and
-                      l > c
-                  ):
-                      bad_ohlc += 1
-
-              if bad_ohlc > 0:
-
-                  errors.append(
-                      f"{name}: OHLC sanity "
-                      f"errors={bad_ohlc}"
-                  )
-
-              null_ratio = (
-                  null_close /
-                  max(
-                      1,
-                      len(rows),
-                  )
-              )
-
-              if null_ratio > 0.05:
-
-                  errors.append(
-                      f"{name}: null close "
-                      f"ratio={null_ratio:.1%}"
-                  )
-
-
-          # =========================================================
-          # Institutional coverage
-          # =========================================================
 
           for market in (
               "twse",
@@ -1373,100 +956,42 @@ jobs:
 
               overlap = len(
                   price_codes
-                  &
-                  inst_codes
+                  & inst_codes
               )
 
               coverage = (
-                  overlap /
-                  max(
+                  overlap
+                  / max(
                       1,
                       len(price_codes),
                   )
               )
 
+              coverage_report[
+                  market
+              ] = {
+                  "price_codes":
+                      len(price_codes),
+
+                  "institutional_codes":
+                      len(inst_codes),
+
+                  "overlap":
+                      overlap,
+
+                  "coverage":
+                      coverage,
+              }
+
               if coverage < 0.65:
 
                   errors.append(
                       f"{market.upper()} "
-                      f"institutional coverage "
-                      f"too low: "
+                      f"institutional "
+                      f"coverage too low: "
                       f"{coverage:.1%}"
                   )
 
-              elif coverage < 0.80:
-
-                  warnings.append(
-                      f"{market.upper()} "
-                      f"institutional coverage "
-                      f"warning: "
-                      f"{coverage:.1%}"
-                  )
-
-
-          # =========================================================
-          # Institutional flattened-field validation
-          # =========================================================
-
-          for name in (
-              "twse_institutional",
-              "tpex_institutional",
-          ):
-
-              rows = normalized[name]
-
-              foreign_non_null = sum(
-                  1
-                  for r in rows
-                  if r.get(
-                      "foreign_net"
-                  ) is not None
-              )
-
-              trust_non_null = sum(
-                  1
-                  for r in rows
-                  if r.get(
-                      "trust_net"
-                  ) is not None
-              )
-
-              dealer_non_null = sum(
-                  1
-                  for r in rows
-                  if r.get(
-                      "dealer_net"
-                  ) is not None
-              )
-
-              if foreign_non_null < 100:
-
-                  warnings.append(
-                      f"{name}: foreign_net "
-                      f"non-null only "
-                      f"{foreign_non_null}"
-                  )
-
-              if trust_non_null < 100:
-
-                  warnings.append(
-                      f"{name}: trust_net "
-                      f"non-null only "
-                      f"{trust_non_null}"
-                  )
-
-              if dealer_non_null < 100:
-
-                  warnings.append(
-                      f"{name}: dealer_net "
-                      f"non-null only "
-                      f"{dealer_non_null}"
-                  )
-
-
-          # =========================================================
-          # Manifest
-          # =========================================================
 
           manifest = {
               "trade_date":
@@ -1485,34 +1010,34 @@ jobs:
               "row_counts":
                   row_counts,
 
+              "coverage":
+                  coverage_report,
+
               "errors":
                   errors,
-
-              "warnings":
-                  warnings,
 
               "sources": {
                   "twse_ohlcv":
                       "TWSE STOCK_DAY_ALL",
 
                   "tpex_ohlcv":
-                      "TPEx tpex_mainboard_daily_close_quotes",
+                      "TPEx "
+                      "tpex_mainboard_"
+                      "daily_close_quotes",
 
                   "twse_institutional":
                       "TWSE T86",
 
                   "tpex_institutional":
-                      "TPEx tpex_3insti_daily_trading",
+                      "TPEx "
+                      "tpex_3insti_"
+                      "daily_trading",
               },
-
-              "version":
-                  "AlphaPilot-Data-V3",
           }
 
 
           (
-              base /
-              "manifest.json"
+              base / "manifest.json"
           ).write_text(
               json.dumps(
                   manifest,
@@ -1528,7 +1053,8 @@ jobs:
                   manifest,
                   ensure_ascii=False,
                   indent=2,
-              )
+              ),
+              flush=True,
           )
 
 
