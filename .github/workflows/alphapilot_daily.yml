@@ -1,4 +1,4 @@
-name: AlphaPilot Daily Taiwan Market Data V3.4
+name: AlphaPilot Daily Taiwan Market Data V3.5
 
 on:
   workflow_dispatch:
@@ -46,10 +46,6 @@ jobs:
           import requests
 
 
-          # ============================================================
-          # BASIC
-          # ============================================================
-
           TZ = ZoneInfo("Asia/Taipei")
           now = datetime.now(TZ)
 
@@ -60,10 +56,6 @@ jobs:
               "Accept": "application/json,text/plain,*/*",
           }
 
-
-          # ============================================================
-          # HTTP
-          # ============================================================
 
           def get_json(name, url, params=None):
               params = params or {}
@@ -105,10 +97,6 @@ jobs:
                   f"{name} failed after retries: {last_error}"
               )
 
-
-          # ============================================================
-          # VALUE HELPERS
-          # ============================================================
 
           def norm_key(value):
               return re.sub(
@@ -196,10 +184,6 @@ jobs:
                   writer.writerows(rows)
 
 
-          # ============================================================
-          # DATE PARSER
-          # ============================================================
-
           def parse_date(value):
               if value is None:
                   return None
@@ -210,24 +194,21 @@ jobs:
                   str(value),
               )
 
-              # YYYYMMDD
               if len(s) == 8:
                   try:
                       return datetime.strptime(
                           s,
                           "%Y%m%d",
                       ).date()
-
                   except Exception:
                       return None
 
-              # ROC YYYMMDD
               if len(s) == 7:
                   try:
-                      roc = int(s[:3])
+                      roc_year = int(s[:3])
 
                       return datetime.strptime(
-                          f"{roc + 1911}{s[3:]}",
+                          f"{roc_year + 1911}{s[3:]}",
                           "%Y%m%d",
                       ).date()
 
@@ -238,11 +219,6 @@ jobs:
 
 
           def consensus_payload_date(payload):
-              """
-              Only accept a date when multiple rows agree.
-              This avoids V3.2's single-field false date detection.
-              """
-
               dates = []
 
               if not isinstance(payload, list):
@@ -286,10 +262,6 @@ jobs:
 
               return best_date
 
-
-          # ============================================================
-          # TWSE T86 TABLE
-          # ============================================================
 
           def find_t86_table(payload):
 
@@ -387,10 +359,6 @@ jobs:
               )
 
 
-          # ============================================================
-          # FIND RECENT VALID TRADING DATE
-          # ============================================================
-
           def fetch_t86_date(day):
 
               ymd = day.strftime("%Y%m%d")
@@ -480,10 +448,6 @@ jobs:
           )
 
 
-          # ============================================================
-          # OUTPUT
-          # ============================================================
-
           base = Path("data") / trade_date
           raw_dir = base / "raw"
           norm_dir = base / "normalized"
@@ -498,13 +462,6 @@ jobs:
               exist_ok=True,
           )
 
-
-          # ============================================================
-          # OFFICIAL SOURCES
-          # ============================================================
-
-          # These two OHLCV sources are the pair that already
-          # successfully produced real CSVs in V2.
 
           twse_ohlcv_payload = get_json(
               "twse_ohlcv",
@@ -553,10 +510,6 @@ jobs:
                   encoding="utf-8",
               )
 
-
-          # ============================================================
-          # TWSE OHLCV
-          # ============================================================
 
           def normalize_twse_ohlcv(payload):
 
@@ -665,10 +618,6 @@ jobs:
 
               return out
 
-
-          # ============================================================
-          # TPEX OHLCV
-          # ============================================================
 
           def normalize_tpex_ohlcv(payload):
 
@@ -779,90 +728,11 @@ jobs:
               return out
 
 
-          # ============================================================
-          # FIELD SELECTION HELPERS
-          # ============================================================
+          def foreign_value(d, action_terms):
 
-          def find_field(
-              d,
-              include_all=(),
-              include_any=(),
-              reject_prefixes=(),
-              prefer=(),
-          ):
               candidates = []
 
               for key, value in d.items():
-
-                  nk = norm_key(key)
-
-                  if any(
-                      nk.startswith(
-                          norm_key(x)
-                      )
-                      for x in reject_prefixes
-                  ):
-                      continue
-
-                  if any(
-                      norm_key(x) not in nk
-                      for x in include_all
-                  ):
-                      continue
-
-                  if include_any:
-
-                      if not any(
-                          norm_key(x) in nk
-                          for x in include_any
-                      ):
-                          continue
-
-                  score = 0
-
-                  for term in prefer:
-
-                      if norm_key(term) in nk:
-                          score += 1000
-
-                  # Prefer simpler direct total fields.
-                  score -= len(nk)
-
-                  candidates.append(
-                      (
-                          score,
-                          value,
-                          key,
-                      )
-                  )
-
-              if not candidates:
-                  return None
-
-              candidates.sort(
-                  key=lambda x: x[0],
-                  reverse=True,
-              )
-
-              return candidates[0][1]
-
-
-          def foreign_value(d, action_terms):
-
-              # First choice: official 外陸資 / 外資及陸資
-              value = find_field(
-                  d,
-                  include_any=[
-                      "外陸資",
-                      "外資及陸資",
-                  ],
-                  prefer=action_terms,
-              )
-
-              # Need the action as well.
-              candidates = []
-
-              for key, v in d.items():
 
                   nk = norm_key(key)
 
@@ -884,22 +754,22 @@ jobs:
                   candidates.append(
                       (
                           -len(nk),
-                          v,
+                          value,
                       )
                   )
 
               if candidates:
+
                   candidates.sort(
                       reverse=True
                   )
 
                   return candidates[0][1]
 
-              # Fallback: 外資, but reject a field whose
-              # name actually begins with 外資自營商.
+
               candidates = []
 
-              for key, v in d.items():
+              for key, value in d.items():
 
                   nk = norm_key(key)
 
@@ -920,61 +790,6 @@ jobs:
                   candidates.append(
                       (
                           -len(nk),
-                          v,
-                      )
-                  )
-
-              if not candidates:
-                  return None
-
-              candidates.sort(
-                  reverse=True
-              )
-
-              return candidates[0][1]
-
-
-          def dealer_value(d, action_terms):
-
-              candidates = []
-
-              for key, value in d.items():
-
-                  nk = norm_key(key)
-
-                  if nk.startswith(
-                      norm_key(
-                          "外資自營商"
-                      )
-                  ):
-                      continue
-
-                  if not nk.startswith(
-                      norm_key(
-                          "自營商"
-                      )
-                  ):
-                      continue
-
-                  if not any(
-                      norm_key(x) in nk
-                      for x in action_terms
-                  ):
-                      continue
-
-                  score = -len(nk)
-
-                  # Prefer direct total over
-                  # 自行買賣 / 避險 subcomponents.
-                  if (
-                      "自行買賣" not in nk
-                      and "避險" not in nk
-                  ):
-                      score += 10000
-
-                  candidates.append(
-                      (
-                          score,
                           value,
                       )
                   )
@@ -1023,11 +838,60 @@ jobs:
               return candidates[0][1]
 
 
-          # ============================================================
-          # TWSE INSTITUTIONAL
-          # ============================================================
+          def dealer_value(d, action_terms):
 
-          def normalize_twse_inst(fields, rows):
+              candidates = []
+
+              for key, value in d.items():
+
+                  nk = norm_key(key)
+
+                  if nk.startswith(
+                      norm_key("外資自營商")
+                  ):
+                      continue
+
+                  if not nk.startswith(
+                      norm_key("自營商")
+                  ):
+                      continue
+
+                  if not any(
+                      norm_key(x) in nk
+                      for x in action_terms
+                  ):
+                      continue
+
+                  score = -len(nk)
+
+                  if (
+                      "自行買賣" not in nk
+                      and
+                      "避險" not in nk
+                  ):
+                      score += 10000
+
+                  candidates.append(
+                      (
+                          score,
+                          value,
+                      )
+                  )
+
+              if not candidates:
+                  return None
+
+              candidates.sort(
+                  reverse=True
+              )
+
+              return candidates[0][1]
+
+
+          def normalize_twse_inst(
+              fields,
+              rows,
+          ):
 
               out = []
 
@@ -1054,7 +918,8 @@ jobs:
                       if (
                           "證券代號"
                           not in str(key)
-                          and "代號"
+                          and
+                          "代號"
                           not in str(key)
                       ):
                           continue
@@ -1235,10 +1100,6 @@ jobs:
 
               return out
 
-
-          # ============================================================
-          # TPEX INSTITUTIONAL
-          # ============================================================
 
           def generic_institution_value(
               row,
@@ -1512,10 +1373,6 @@ jobs:
               return out
 
 
-          # ============================================================
-          # NORMALIZE
-          # ============================================================
-
           normalized = {
               "twse_ohlcv":
                   normalize_twse_ohlcv(
@@ -1548,10 +1405,6 @@ jobs:
                   rows,
               )
 
-
-          # ============================================================
-          # VALIDATION
-          # ============================================================
 
           errors = []
           warnings = []
@@ -1589,10 +1442,6 @@ jobs:
                   )
 
 
-          # ============================================================
-          # SAFE SNAPSHOT FRESHNESS
-          # ============================================================
-
           source_dates = {}
 
 
@@ -1616,10 +1465,9 @@ jobs:
                   source_dates[name] = None
 
                   warnings.append(
-                      f"{name}: no reliable "
-                      f"consensus date field; "
-                      f"accepted by latest-"
-                      f"snapshot gate"
+                      f"{name}: "
+                      f"no reliable consensus "
+                      f"date field"
                   )
 
                   continue
@@ -1627,29 +1475,29 @@ jobs:
 
               source_dates[name] = str(d)
 
+
               if d != trade_day:
 
-    if name == "twse_ohlcv":
-        warnings.append(
-            f"{name}: payload date "
-            f"{d} != selected "
-            f"{trade_day}; "
-            f"STOCK_DAY_ALL snapshot date "
-            f"is informational only"
-        )
-    else:
-        errors.append(
-            f"{name}: "
-            f"consensus date "
-            f"{d} != "
-            f"selected "
-            f"{trade_day}"
-        )
+                  if name == "twse_ohlcv":
 
+                      warnings.append(
+                          f"{name}: payload date "
+                          f"{d} != selected "
+                          f"{trade_day}; "
+                          f"STOCK_DAY_ALL date "
+                          f"is informational only"
+                      )
 
-          # ============================================================
-          # DUPLICATES
-          # ============================================================
+                  else:
+
+                      errors.append(
+                          f"{name}: "
+                          f"consensus date "
+                          f"{d} != "
+                          f"selected "
+                          f"{trade_day}"
+                      )
+
 
           for name, rows in normalized.items():
 
@@ -1672,10 +1520,6 @@ jobs:
                       f"{duplicate_count}"
                   )
 
-
-          # ============================================================
-          # OHLC SANITY
-          # ============================================================
 
           for name in (
               "twse_ohlcv",
@@ -1700,36 +1544,46 @@ jobs:
 
                   if (
                       h is not None
-                      and l is not None
-                      and h < l
+                      and
+                      l is not None
+                      and
+                      h < l
                   ):
                       bad += 1
 
                   if (
                       h is not None
-                      and o is not None
-                      and h < o
+                      and
+                      o is not None
+                      and
+                      h < o
                   ):
                       bad += 1
 
                   if (
                       h is not None
-                      and c is not None
-                      and h < c
+                      and
+                      c is not None
+                      and
+                      h < c
                   ):
                       bad += 1
 
                   if (
                       l is not None
-                      and o is not None
-                      and l > o
+                      and
+                      o is not None
+                      and
+                      l > o
                   ):
                       bad += 1
 
                   if (
                       l is not None
-                      and c is not None
-                      and l > c
+                      and
+                      c is not None
+                      and
+                      l > c
                   ):
                       bad += 1
 
@@ -1762,10 +1616,6 @@ jobs:
                   )
 
 
-          # ============================================================
-          # COVERAGE
-          # ============================================================
-
           coverage = {}
 
 
@@ -1790,7 +1640,8 @@ jobs:
 
               overlap = len(
                   price_codes
-                  & inst_codes
+                  &
+                  inst_codes
               )
 
               ratio = (
@@ -1826,10 +1677,6 @@ jobs:
                       f"{ratio:.1%}"
                   )
 
-
-          # ============================================================
-          # INSTITUTIONAL FLATTEN CHECK
-          # ============================================================
 
           flattened_fields = {}
 
@@ -1873,13 +1720,9 @@ jobs:
               flattened_fields[name] = stats
 
 
-          # ============================================================
-          # MANIFEST
-          # ============================================================
-
           manifest = {
               "version":
-                  "AlphaPilot-Data-V3.4",
+                  "AlphaPilot-Data-V3.5",
 
               "execution_time":
                   now.isoformat(),
@@ -1976,5 +1819,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "data: AlphaPilot V3.4 $(TZ=Asia/Taipei date +%F)"
+          git commit -m "data: AlphaPilot V3.5 $(TZ=Asia/Taipei date +%F)"
           git push
