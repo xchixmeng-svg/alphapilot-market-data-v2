@@ -1,6 +1,7 @@
 {
+  "version": "AlphaPilot-Data-V3.5",
+  "execution_time": "2026-08-27T00:32:44.501784+08:00",
   "trade_date": "2026-08-26",
-  "generated_at": "2026-08-26T23:54:57.646739+08:00",
   "status": "PASS",
   "row_counts": {
     "twse_ohlcv": 1094,
@@ -8,6 +9,40 @@
     "twse_institutional": 1086,
     "tpex_institutional": 777
   },
+  "source_dates": {
+    "twse_ohlcv": "2026-08-25",
+    "tpex_ohlcv": "2026-08-26",
+    "tpex_institutional": "2026-08-26"
+  },
+  "coverage": {
+    "twse": {
+      "price_codes": 1094,
+      "institutional_codes": 1086,
+      "overlap": 1086,
+      "coverage": 0.9926873857404022
+    },
+    "tpex": {
+      "price_codes": 887,
+      "institutional_codes": 777,
+      "overlap": 777,
+      "coverage": 0.8759864712514093
+    }
+  },
+  "flattened_fields": {
+    "twse_institutional": {
+      "foreign_net": 1086,
+      "trust_net": 1086,
+      "dealer_net": 1086
+    },
+    "tpex_institutional": {
+      "foreign_net": 777,
+      "trust_net": 777,
+      "dealer_net": 777
+    }
+  },
+  "warnings": [
+    "twse_ohlcv: payload date 2026-08-25 != selected 2026-08-26; STOCK_DAY_ALL date is informational only"
+  ],
   "errors": [],
   "sources": {
     "twse_ohlcv": "TWSE STOCK_DAY_ALL",
