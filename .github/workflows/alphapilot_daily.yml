@@ -3,13 +3,15 @@ name: AlphaPilot Daily Taiwan Market Data
 on:
   workflow_dispatch:
   schedule:
-    # 17:40 Asia/Taipei = 09:40 UTC
     - cron: "40 9 * * 1-5"
-    # 18:40 Asia/Taipei = 10:40 UTC
     - cron: "40 10 * * 1-5"
 
 permissions:
   contents: write
+
+concurrency:
+  group: alphapilot-daily-market-data
+  cancel-in-progress: false
 
 jobs:
   fetch:
@@ -28,11 +30,13 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Fetch Taiwan market data
+      - name: Fetch and validate Taiwan market data
         shell: bash
         run: |
           cat > fetch_today.py <<'PY'
+          import csv
           import json
+          import re
           import time
           from datetime import datetime
           from pathlib import Path
@@ -42,14 +46,19 @@ jobs:
 
           TZ = ZoneInfo("Asia/Taipei")
           now = datetime.now(TZ)
-          date_iso = now.strftime("%Y-%m-%d")
-          ymd = now.strftime("%Y%m%d")
-          slash = now.strftime("%Y/%m/%d")
 
-          out = Path("data") / date_iso
-          out.mkdir(parents=True, exist_ok=True)
+          trade_date = now.strftime("%Y-%m-%d")
+          ymd = now.strftime("%Y%m%d")
+
+          base = Path("data") / trade_date
+          raw_dir = base / "raw"
+          norm_dir = base / "normalized"
+
+          raw_dir.mkdir(parents=True, exist_ok=True)
+          norm_dir.mkdir(parents=True, exist_ok=True)
 
           session = requests.Session()
+
           headers = {
               "User-Agent": "Mozilla/5.0",
               "Accept": "application/json,text/plain,*/*",
@@ -57,20 +66,15 @@ jobs:
 
           sources = {
               "twse_ohlcv": (
-                  "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
-                  {
-                      "date": ymd,
-                      "type": "ALLBUT0999",
-                      "response": "json",
-                  },
+                  "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+                  {},
               ),
+
               "tpex_ohlcv": (
-                  "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
-                  {
-                      "date": slash,
-                      "response": "json",
-                  },
+                  "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+                  {},
               ),
+
               "twse_institutional": (
                   "https://www.twse.com.tw/rwd/zh/fund/T86",
                   {
@@ -79,50 +83,78 @@ jobs:
                       "response": "json",
                   },
               ),
+
               "tpex_institutional": (
                   "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
                   {},
               ),
           }
 
+
           def get_json(name, url, params):
               last_error = None
 
               for attempt in range(6):
                   try:
-                      response = session.get(
+                      r = session.get(
                           url,
                           params=params,
                           headers=headers,
-                          timeout=45,
+                          timeout=(15, 60),
                       )
-                      response.raise_for_status()
-                      return response.json()
+
+                      r.raise_for_status()
+
+                      text = r.text.strip()
+
+                      if not text:
+                          raise RuntimeError("empty response")
+
+                      return r.json()
 
                   except Exception as exc:
                       last_error = exc
 
                       if attempt < 5:
                           wait = min(30, 2 ** attempt)
+
                           print(
-                              f"{name} attempt {attempt + 1} failed: {exc}; "
-                              f"retry in {wait}s"
+                              f"[retry] {name} "
+                              f"attempt {attempt + 1}: "
+                              f"{exc}; sleep {wait}s",
+                              flush=True,
                           )
+
                           time.sleep(wait)
 
               raise RuntimeError(
-                  f"{name} failed after retries: {last_error}"
+                  f"{name} failed after retries: "
+                  f"{last_error}"
               )
+
 
           payloads = {}
 
           for name, (url, params) in sources.items():
-              print(f"Fetching {name} ...")
-              payload = get_json(name, url, params)
+              print(
+                  f"[fetch] {name}",
+                  flush=True,
+              )
+
+              payload = get_json(
+                  name,
+                  url,
+                  params,
+              )
+
               payloads[name] = payload
 
-              path = out / f"{name}.json"
-              path.write_text(
+              raw_path = (
+                  raw_dir /
+                  f"{name}.json"
+              )
+
+              raw_path.write_text(
                   json.dumps(
                       payload,
                       ensure_ascii=False,
@@ -131,29 +163,553 @@ jobs:
                   encoding="utf-8",
               )
 
-          def estimate_rows(payload):
-              if isinstance(payload, list):
-                  return len(payload)
 
-              if isinstance(payload, dict):
-                  counts = []
+          def num(v):
+              if v is None:
+                  return None
 
-                  for key, value in payload.items():
-                      if (
-                          str(key).startswith("data")
-                          and isinstance(value, list)
+              s = (
+                  str(v)
+                  .strip()
+                  .replace(",", "")
+                  .replace("+", "")
+              )
+
+              if s in {
+                  "",
+                  "--",
+                  "---",
+                  "----",
+              }:
+                  return None
+
+              try:
+                  return float(s)
+
+              except Exception:
+                  return None
+
+
+          def integer(v):
+              x = num(v)
+
+              if x is None:
+                  return None
+
+              return int(round(x))
+
+
+          def norm_key(s):
+              return re.sub(
+                  r"\s+",
+                  "",
+                  str(s),
+              ).lower()
+
+
+          def pick(d, *keys):
+              if not isinstance(d, dict):
+                  return None
+
+              normalized = {
+                  norm_key(k): v
+                  for k, v in d.items()
+              }
+
+              for key in keys:
+                  k = norm_key(key)
+
+                  if k in normalized:
+                      return normalized[k]
+
+              return None
+
+
+          def write_csv(path, rows):
+              if not rows:
+                  return
+
+              fields = list(
+                  rows[0].keys()
+              )
+
+              with path.open(
+                  "w",
+                  newline="",
+                  encoding="utf-8-sig",
+              ) as f:
+
+                  writer = csv.DictWriter(
+                      f,
+                      fieldnames=fields,
+                  )
+
+                  writer.writeheader()
+                  writer.writerows(rows)
+
+
+          def normalize_twse_ohlcv(payload):
+              if not isinstance(
+                  payload,
+                  list,
+              ):
+                  raise RuntimeError(
+                      "TWSE STOCK_DAY_ALL "
+                      "payload is not list"
+                  )
+
+              out = []
+
+              for r in payload:
+
+                  code = str(
+                      pick(
+                          r,
+                          "Code",
+                          "證券代號",
+                      )
+                      or ""
+                  ).strip()
+
+                  if not re.fullmatch(
+                      r"\d{4}",
+                      code,
+                  ):
+                      continue
+
+                  out.append({
+                      "trade_date":
+                          trade_date,
+
+                      "market":
+                          "TWSE",
+
+                      "stock_id":
+                          code,
+
+                      "name":
+                          pick(
+                              r,
+                              "Name",
+                              "證券名稱",
+                          ),
+
+                      "open":
+                          num(
+                              pick(
+                                  r,
+                                  "OpeningPrice",
+                                  "Open",
+                                  "開盤價",
+                              )
+                          ),
+
+                      "high":
+                          num(
+                              pick(
+                                  r,
+                                  "HighestPrice",
+                                  "High",
+                                  "最高價",
+                              )
+                          ),
+
+                      "low":
+                          num(
+                              pick(
+                                  r,
+                                  "LowestPrice",
+                                  "Low",
+                                  "最低價",
+                              )
+                          ),
+
+                      "close":
+                          num(
+                              pick(
+                                  r,
+                                  "ClosingPrice",
+                                  "Close",
+                                  "收盤價",
+                              )
+                          ),
+
+                      "volume":
+                          integer(
+                              pick(
+                                  r,
+                                  "TradeVolume",
+                                  "TradingShares",
+                                  "成交股數",
+                              )
+                          ),
+
+                      "trading_value":
+                          integer(
+                              pick(
+                                  r,
+                                  "TradeValue",
+                                  "TransactionAmount",
+                                  "成交金額",
+                              )
+                          ),
+                  })
+
+              return out
+
+
+          def normalize_tpex_ohlcv(payload):
+              if not isinstance(
+                  payload,
+                  list,
+              ):
+                  raise RuntimeError(
+                      "TPEx close quotes "
+                      "payload is not list"
+                  )
+
+              out = []
+
+              for r in payload:
+
+                  code = str(
+                      pick(
+                          r,
+                          "SecuritiesCompanyCode",
+                          "Code",
+                          "證券代號",
+                          "代號",
+                      )
+                      or ""
+                  ).strip()
+
+                  if not re.fullmatch(
+                      r"\d{4}",
+                      code,
+                  ):
+                      continue
+
+                  out.append({
+                      "trade_date":
+                          trade_date,
+
+                      "market":
+                          "TPEX",
+
+                      "stock_id":
+                          code,
+
+                      "name":
+                          pick(
+                              r,
+                              "CompanyName",
+                              "Name",
+                              "證券名稱",
+                              "名稱",
+                          ),
+
+                      "open":
+                          num(
+                              pick(
+                                  r,
+                                  "Open",
+                                  "開盤價",
+                              )
+                          ),
+
+                      "high":
+                          num(
+                              pick(
+                                  r,
+                                  "High",
+                                  "最高價",
+                              )
+                          ),
+
+                      "low":
+                          num(
+                              pick(
+                                  r,
+                                  "Low",
+                                  "最低價",
+                              )
+                          ),
+
+                      "close":
+                          num(
+                              pick(
+                                  r,
+                                  "Close",
+                                  "收盤價",
+                              )
+                          ),
+
+                      "volume":
+                          integer(
+                              pick(
+                                  r,
+                                  "TradingShares",
+                                  "TradeVolume",
+                                  "成交股數",
+                                  "成交量",
+                              )
+                          ),
+
+                      "trading_value":
+                          integer(
+                              pick(
+                                  r,
+                                  "TransactionAmount",
+                                  "TradeValue",
+                                  "成交金額",
+                              )
+                          ),
+                  })
+
+              return out
+
+
+          def find_twse_table(payload):
+              if not isinstance(
+                  payload,
+                  dict,
+              ):
+                  raise RuntimeError(
+                      "TWSE T86 payload "
+                      "is not dict"
+                  )
+
+              candidates = []
+
+              for key, value in payload.items():
+
+                  if (
+                      str(key).startswith("fields")
+                      and
+                      isinstance(value, list)
+                  ):
+
+                      suffix = str(key)[6:]
+
+                      data = payload.get(
+                          "data" + suffix
+                      )
+
+                      if isinstance(
+                          data,
+                          list,
                       ):
-                          counts.append(len(value))
 
-                  if counts:
-                      return max(counts)
+                          joined = "|".join(
+                              map(str, value)
+                          )
 
-              return 0
+                          if "證券代號" in joined:
+                              candidates.append(
+                                  (
+                                      value,
+                                      data,
+                                  )
+                              )
+
+              if not candidates:
+                  raise RuntimeError(
+                      "TWSE T86 table "
+                      "not found"
+                  )
+
+              return max(
+                  candidates,
+                  key=lambda x: len(x[1]),
+              )
+
+
+          def normalize_twse_inst(payload):
+
+              fields, rows = (
+                  find_twse_table(payload)
+              )
+
+              out = []
+
+              for row in rows:
+
+                  d = {
+                      fields[idx]:
+                          row[idx]
+                          if idx < len(row)
+                          else None
+
+                      for idx
+                      in range(len(fields))
+                  }
+
+                  code = str(
+                      next(
+                          (
+                              v
+                              for k, v
+                              in d.items()
+                              if "證券代號"
+                              in str(k)
+                          ),
+                          "",
+                      )
+                  ).strip()
+
+                  if not re.fullmatch(
+                      r"\d{4}",
+                      code,
+                  ):
+                      continue
+
+                  out.append({
+                      "trade_date":
+                          trade_date,
+
+                      "market":
+                          "TWSE",
+
+                      "stock_id":
+                          code,
+
+                      "name":
+                          next(
+                              (
+                                  v
+                                  for k, v
+                                  in d.items()
+                                  if "證券名稱"
+                                  in str(k)
+                              ),
+                              None,
+                          ),
+
+                      "raw_json":
+                          json.dumps(
+                              d,
+                              ensure_ascii=False,
+                              separators=(
+                                  ",",
+                                  ":",
+                              ),
+                          ),
+                  })
+
+              return out
+
+
+          def normalize_tpex_inst(payload):
+
+              if not isinstance(
+                  payload,
+                  list,
+              ):
+                  raise RuntimeError(
+                      "TPEx institutional "
+                      "payload is not list"
+                  )
+
+              out = []
+
+              for r in payload:
+
+                  code = str(
+                      pick(
+                          r,
+                          "SecuritiesCompanyCode",
+                          "Code",
+                          "證券代號",
+                          "代號",
+                      )
+                      or ""
+                  ).strip()
+
+                  if not re.fullmatch(
+                      r"\d{4}",
+                      code,
+                  ):
+                      continue
+
+                  out.append({
+                      "trade_date":
+                          trade_date,
+
+                      "market":
+                          "TPEX",
+
+                      "stock_id":
+                          code,
+
+                      "name":
+                          pick(
+                              r,
+                              "CompanyName",
+                              "Name",
+                              "證券名稱",
+                              "名稱",
+                          ),
+
+                      "raw_json":
+                          json.dumps(
+                              r,
+                              ensure_ascii=False,
+                              separators=(
+                                  ",",
+                                  ":",
+                              ),
+                          ),
+                  })
+
+              return out
+
+
+          normalized = {
+              "twse_ohlcv":
+                  normalize_twse_ohlcv(
+                      payloads[
+                          "twse_ohlcv"
+                      ]
+                  ),
+
+              "tpex_ohlcv":
+                  normalize_tpex_ohlcv(
+                      payloads[
+                          "tpex_ohlcv"
+                      ]
+                  ),
+
+              "twse_institutional":
+                  normalize_twse_inst(
+                      payloads[
+                          "twse_institutional"
+                      ]
+                  ),
+
+              "tpex_institutional":
+                  normalize_tpex_inst(
+                      payloads[
+                          "tpex_institutional"
+                      ]
+                  ),
+          }
+
+
+          for name, rows in normalized.items():
+
+              write_csv(
+                  norm_dir /
+                  f"{name}.csv",
+                  rows,
+              )
+
 
           row_counts = {
-              name: estimate_rows(payload)
-              for name, payload in payloads.items()
+              name: len(rows)
+              for name, rows
+              in normalized.items()
           }
+
 
           minimum_rows = {
               "twse_ohlcv": 800,
@@ -162,32 +718,109 @@ jobs:
               "tpex_institutional": 400,
           }
 
+
           errors = []
 
+
           for name, minimum in minimum_rows.items():
-              count = row_counts.get(name, 0)
+
+              count = row_counts.get(
+                  name,
+                  0,
+              )
 
               if count < minimum:
+
                   errors.append(
-                      f"{name}: row count {count} < minimum {minimum}"
+                      f"{name}: row count "
+                      f"{count} < minimum "
+                      f"{minimum}"
                   )
 
+
+          for market in (
+              "twse",
+              "tpex",
+          ):
+
+              price_codes = {
+                  r["stock_id"]
+                  for r in normalized[
+                      f"{market}_ohlcv"
+                  ]
+              }
+
+              inst_codes = {
+                  r["stock_id"]
+                  for r in normalized[
+                      f"{market}_institutional"
+                  ]
+              }
+
+              overlap = len(
+                  price_codes
+                  &
+                  inst_codes
+              )
+
+              coverage = (
+                  overlap /
+                  max(
+                      1,
+                      len(price_codes),
+                  )
+              )
+
+              if coverage < 0.65:
+
+                  errors.append(
+                      f"{market.upper()} "
+                      f"institutional coverage "
+                      f"too low: "
+                      f"{coverage:.1%}"
+                  )
+
+
           manifest = {
-              "trade_date": date_iso,
-              "generated_at": datetime.now(TZ).isoformat(),
-              "status": "PASS" if not errors else "FAIL",
-              "row_counts": row_counts,
-              "errors": errors,
+              "trade_date":
+                  trade_date,
+
+              "generated_at":
+                  datetime.now(
+                      TZ
+                  ).isoformat(),
+
+              "status":
+                  "PASS"
+                  if not errors
+                  else "FAIL",
+
+              "row_counts":
+                  row_counts,
+
+              "errors":
+                  errors,
+
               "sources": {
-                  "twse_ohlcv": "TWSE MI_INDEX",
-                  "tpex_ohlcv": "TPEx dailyQuotes",
-                  "twse_institutional": "TWSE T86",
+                  "twse_ohlcv":
+                      "TWSE STOCK_DAY_ALL",
+
+                  "tpex_ohlcv":
+                      "TPEx tpex_mainboard_daily_close_quotes",
+
+                  "twse_institutional":
+                      "TWSE T86",
+
                   "tpex_institutional":
                       "TPEx tpex_3insti_daily_trading",
               },
           }
 
-          (out / "manifest.json").write_text(
+
+          (
+              base /
+              "manifest.json"
+          ).write_text(
               json.dumps(
                   manifest,
                   ensure_ascii=False,
@@ -195,6 +828,7 @@ jobs:
               ),
               encoding="utf-8",
           )
+
 
           print(
               json.dumps(
@@ -204,12 +838,14 @@ jobs:
               )
           )
 
+
           if errors:
               raise SystemExit(2)
 
           PY
 
           python fetch_today.py
+
 
       - name: Commit daily data
         shell: bash
