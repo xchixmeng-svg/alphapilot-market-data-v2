@@ -1,0 +1,161 @@
+name: AlphaPilot Daily Taiwan Market Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 17:40 Asia/Taipei = 09:40 UTC
+    - cron: "40 9 * * 1-5"
+    # 18:40 Asia/Taipei = 10:40 UTC
+    - cron: "40 10 * * 1-5"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests pandas
+
+      - name: Fetch and save Taiwan market data
+        shell: bash
+        run: |
+          cat > fetch_today.py <<'PY'
+          import json, os, re, time
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          import pandas as pd
+          import requests
+
+          TZ = ZoneInfo("Asia/Taipei")
+          today = datetime.now(TZ)
+          date_iso = today.strftime("%Y-%m-%d")
+          ymd = today.strftime("%Y%m%d")
+          slash = today.strftime("%Y/%m/%d")
+
+          out = Path("data") / date_iso
+          out.mkdir(parents=True, exist_ok=True)
+
+          session = requests.Session()
+          headers = {
+              "User-Agent": "Mozilla/5.0",
+              "Accept": "application/json,text/plain,*/*",
+          }
+
+          sources = {
+              "twse_ohlcv": (
+                  "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
+                  {"date": ymd, "type": "ALLBUT0999", "response": "json"},
+              ),
+              "tpex_ohlcv": (
+                  "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
+                  {"date": slash, "response": "json"},
+              ),
+              "twse_institutional": (
+                  "https://www.twse.com.tw/rwd/zh/fund/T86",
+                  {"date": ymd, "selectType": "ALLBUT0999", "response": "json"},
+              ),
+              "tpex_institutional": (
+                  "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+                  {},
+              ),
+          }
+
+          def get_json(name, url, params):
+              last = None
+              for i in range(6):
+                  try:
+                      r = session.get(url, params=params, headers=headers, timeout=45)
+                      r.raise_for_status()
+                      return r.json()
+                  except Exception as e:
+                      last = e
+                      time.sleep(min(30, 2 ** i))
+              raise RuntimeError(f"{name} failed: {last}")
+
+          payloads = {}
+          for name, (url, params) in sources.items():
+              print("fetch", name, flush=True)
+              payload = get_json(name, url, params)
+              payloads[name] = payload
+              (out / f"{name}.json").write_text(
+                  json.dumps(payload, ensure_ascii=False, indent=2),
+                  encoding="utf-8",
+              )
+
+          # Basic integrity checks
+          checks = {}
+          for name, payload in payloads.items():
+              if isinstance(payload, list):
+                  n = len(payload)
+              elif isinstance(payload, dict):
+                  # TWSE/TPEx table payloads commonly use data/data1/data2...
+                  counts = [len(v) for k, v in payload.items()
+                            if str(k).startswith("data") and isinstance(v, list)]
+                  n = max(counts) if counts else 0
+              else:
+                  n = 0
+              checks[name] = n
+
+          # Conservative lower bounds: fail rather than silently accept bad data
+          mins = {
+              "twse_ohlcv": 800,
+              "tpex_ohlcv": 500,
+              "twse_institutional": 700,
+              "tpex_institutional": 400,
+          }
+          errors = []
+          for k, m in mins.items():
+              if checks.get(k, 0) < m:
+                  errors.append(f"{k}: {checks.get(k,0)} < {m}")
+
+          manifest = {
+              "trade_date": date_iso,
+              "generated_at": datetime.now(TZ).isoformat(),
+              "row_counts": checks,
+              "status": "PASS" if not errors else "FAIL",
+              "errors": errors,
+              "sources": {
+                  "twse_ohlcv": "TWSE MI_INDEX",
+                  "tpex_ohlcv": "TPEx dailyQuotes",
+                  "twse_institutional": "TWSE T86",
+                  "tpex_institutional": "TPEx tpex_3insti_daily_trading",
+              },
+          }
+          (out / "manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+          print(json.dumps(manifest, ensure_ascii=False, indent=2))
+
+          if errors:
+              raise SystemExit(2)
+          PY
+
+          python fetch_today.py
+
+      - name: Commit daily data
+        shell: bash
+        run: |
+          git config user.name "AlphaPilot Data Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "data: Taiwan market $(TZ=Asia/Taipei date +%F)"
+          git push
