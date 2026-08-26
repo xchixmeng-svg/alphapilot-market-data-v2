@@ -1,0 +1,18 @@
+{
+  "trade_date": "2026-08-26",
+  "generated_at": "2026-08-26T23:54:57.646739+08:00",
+  "status": "PASS",
+  "row_counts": {
+    "twse_ohlcv": 1094,
+    "tpex_ohlcv": 887,
+    "twse_institutional": 1086,
+    "tpex_institutional": 777
+  },
+  "errors": [],
+  "sources": {
+    "twse_ohlcv": "TWSE STOCK_DAY_ALL",
+    "tpex_ohlcv": "TPEx tpex_mainboard_daily_close_quotes",
+    "twse_institutional": "TWSE T86",
+    "tpex_institutional": "TPEx tpex_3insti_daily_trading"
+  }
+}
