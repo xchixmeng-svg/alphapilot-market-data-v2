@@ -2,6 +2,10 @@ name: AlphaPilot Daily Taiwan Market Data V3.7
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/alphapilot_daily.yml"
+      - "scripts/fetch_today.py"
   schedule:
     # 17:40 Asia/Taipei
     - cron: "40 9 * * 1-5"
@@ -12,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: alphapilot-daily-market-data
+  group: alphapilot-daily-market-data-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -39,6 +43,7 @@ jobs:
         run: python scripts/fetch_today.py
 
       - name: Commit daily data
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           TRADE_DATE="$(cat .alphapilot_trade_date)"
