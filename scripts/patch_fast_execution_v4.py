@@ -19,12 +19,17 @@ new = '''                current_code=bt.value_of(positions,feat_idx,di,code=cod
                 rem_single=nav*bt.MAX_SINGLE-current_code; rem_global=nav*bt.MAX_TOTAL-base_exposure-reserved_exposure
                 base_target=nav*base_pct
                 target=base_target*bt.dd_multiplier(dd)
-                if strategy=="R7": target=min(target,nav*float(r7_state["exposure"])-base_r7-reserved_r7)
+                r7_cap=nav*float(r7_state["exposure"]) if strategy=="R7" else float("inf")
+                if strategy=="R7": target=min(target,r7_cap-base_r7-reserved_r7)
                 target=min(target,rem_single,rem_global)
                 if target<=0:return
                 shares,_=bt.size_shares(target,base_target,limit,float(row.avgvol20))
                 if shares<=0:return
                 reserve=shares*limit*(1+bt.BUY_FEE); notional=shares*limit
+                # Board-lot rounding must never punch through hard portfolio caps.
+                if notional>rem_single+1e-6:return
+                if notional>rem_global+1e-6:return
+                if strategy=="R7" and base_r7+reserved_r7+notional>r7_cap*1.03+1:return
 '''
 if old not in s:
     raise SystemExit("FAST sizing block not found")
