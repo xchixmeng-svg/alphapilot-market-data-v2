@@ -1,0 +1,237 @@
+name: AlphaPilot R10 2008-Now Five-Year Compound Withdrawal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_five_year_compound.yml"
+      - "scripts/r10_five_year_compound.py"
+      - "scripts/r10_five_year_aggregate.py"
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  calibration:
+    name: Institutional calibration gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-calibration-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - run: python -m py_compile scripts/r10_finmind_calibration.py scripts/r10_full_battery.py scripts/r10_five_year_compound.py
+      - name: Calibrate institutional source
+        run: python scripts/r10_finmind_calibration.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-calibration
+          path: stress_results/latest/finmind_calibration
+          retention-days: 90
+
+  regression:
+    name: Locked 2021-2025 regression gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-regression-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - name: Run locked regression
+        run: python scripts/r10_full_battery.py --scenario validation2021_2025
+      - name: Enforce regression PASS
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          p='stress_results/latest/validation2021_2025/summary.json'
+          q=json.load(open(p,encoding='utf-8'))
+          g=(q.get('regression_gate') or {}).get('grade')
+          print('Regression Gate:',g)
+          if g!='PASS': raise SystemExit(2)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-regression
+          path: stress_results/latest/validation2021_2025
+          retention-days: 90
+
+  cycle1:
+    name: 2008-2012 FULL R10
+    needs: [calibration, regression]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+    outputs:
+      next_capital: ${{ steps.cap.outputs.next_capital }}
+      next_start: ${{ steps.cap.outputs.next_start }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-2008-2012-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - name: Run first five-year cycle
+        run: python scripts/r10_five_year_compound.py --cycle 2008_2012 --initial-capital 1000000 --actual-start 2008-01-02
+      - id: cap
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          q=json.load(open('stress_results/five_year_compound/2008_2012/summary.json',encoding='utf-8'))
+          print(f"next_capital={q['next_cycle_capital']:.6f}")
+          print(f"next_start={q['next_cycle_start_date']}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-2008_2012
+          path: |
+            stress_results/five_year_compound/2008_2012
+            stress_results/latest/2008_2012
+          retention-days: 90
+
+  cycle2:
+    name: 2013-2017 FULL R10
+    needs: cycle1
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      next_capital: ${{ steps.cap.outputs.next_capital }}
+      next_start: ${{ steps.cap.outputs.next_start }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-2013-2017-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - name: Run second five-year cycle
+        run: python scripts/r10_five_year_compound.py --cycle 2013_2017 --initial-capital "${{ needs.cycle1.outputs.next_capital }}" --actual-start "${{ needs.cycle1.outputs.next_start }}"
+      - id: cap
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          q=json.load(open('stress_results/five_year_compound/2013_2017/summary.json',encoding='utf-8'))
+          print(f"next_capital={q['next_cycle_capital']:.6f}")
+          print(f"next_start={q['next_cycle_start_date']}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-2013_2017
+          path: |
+            stress_results/five_year_compound/2013_2017
+            stress_results/latest/2013_2017
+          retention-days: 90
+
+  cycle3:
+    name: 2018-2022 FULL R10
+    needs: cycle2
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      next_capital: ${{ steps.cap.outputs.next_capital }}
+      next_start: ${{ steps.cap.outputs.next_start }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-2018-2022-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - name: Run third five-year cycle
+        run: python scripts/r10_five_year_compound.py --cycle 2018_2022 --initial-capital "${{ needs.cycle2.outputs.next_capital }}" --actual-start "${{ needs.cycle2.outputs.next_start }}"
+      - id: cap
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          q=json.load(open('stress_results/five_year_compound/2018_2022/summary.json',encoding='utf-8'))
+          print(f"next_capital={q['next_cycle_capital']:.6f}")
+          print(f"next_start={q['next_cycle_start_date']}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-2018_2022
+          path: |
+            stress_results/five_year_compound/2018_2022
+            stress_results/latest/2018_2022
+          retention-days: 90
+
+  cycle4:
+    name: 2023-Now FULL R10
+    needs: cycle3
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-2023-now-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - name: Run current incomplete cycle
+        run: python scripts/r10_five_year_compound.py --cycle 2023_NOW --initial-capital "${{ needs.cycle3.outputs.next_capital }}" --actual-start "${{ needs.cycle3.outputs.next_start }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-2023_NOW
+          path: |
+            stress_results/five_year_compound/2023_NOW
+            stress_results/latest/2023_NOW
+          retention-days: 90
+
+  aggregate:
+    name: Aggregate capital path
+    needs: [cycle1, cycle2, cycle3, cycle4]
+    if: always() && needs.cycle1.result == 'success' && needs.cycle2.result == 'success' && needs.cycle3.result == 'success' && needs.cycle4.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: r10-fiveyear-20*
+          path: fiveyear_artifacts
+      - name: Aggregate
+        run: python scripts/r10_five_year_aggregate.py --input fiveyear_artifacts --output stress_results/five_year_compound/final
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-final
+          path: stress_results/five_year_compound/final
+          retention-days: 180
+      - name: Commit final compact summary
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stress_results/five_year_compound/final/SUMMARY.md stress_results/five_year_compound/final/summary.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: R10 2008-now five-year withdrawal path"
+          git pull --rebase origin main
+          git push
