@@ -10,6 +10,8 @@ on:
       - "scripts/backtest_r10_stress.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
+      - "scripts/r10_locked_validation_v2.py"
+      - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
 
 permissions:
   contents: read
@@ -23,7 +25,7 @@ concurrency:
 
 jobs:
   validate:
-    name: 2021-2025 locked causal R10 FAST
+    name: 2021-2025 documented locked causal R10 FAST
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -34,29 +36,38 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-fast-${{ runner.os }}-v2
+          key: r10-fiveyear-fast-${{ runner.os }}-v3-documented-locked
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
       - name: Syntax check
-        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py scripts/r10_fast_validation.py
-      - name: Run five-year fast causal baseline
-        run: python scripts/r10_fast_validation.py
-      - name: Enforce causal/independent-engine assertions
+        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py
+      - name: Run five-year documented locked causal baseline
+        run: python scripts/r10_locked_validation_v2.py
+      - name: Enforce causal and locked-rule assertions
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib
           p=pathlib.Path('stress_results/latest/validation2021_2025/summary.json')
+          a=pathlib.Path('stress_results/latest/validation2021_2025/locked_rule_audit.json')
           q=json.loads(p.read_text(encoding='utf-8'))
+          r=json.loads(a.read_text(encoding='utf-8'))
           assert q.get('status') == 'PASS', q
           assert q.get('r05_enabled') is True, q
-          a=q.get('causal_assertions') or {}
-          assert a.get('signals_use_T_or_earlier') is True, a
-          assert a.get('orders_execute_T1_only') is True, a
-          assert a.get('r7_r05_independent_scanners') is True, a
-          assert a.get('future_data_used') is False, a
+          c=q.get('causal_assertions') or {}
+          assert c.get('signals_use_T_or_earlier') is True, c
+          assert c.get('orders_execute_T1_only') is True, c
+          assert c.get('r7_r05_independent_scanners') is True, c
+          assert c.get('future_data_used') is False, c
+          port=r['portfolio']
+          assert abs(port['adv_cap']-0.02) < 1e-12, port
+          assert abs(port['force_dd']+0.14) < 1e-12, port
+          assert abs(port['force_target_exposure']-0.50) < 1e-12, port
+          assert port['force_no_buy_days'] == 10, port
+          assert port['force_cooldown_days'] == 15, port
+          print('Rule profile:', r.get('rule_profile'))
           print('End NAV:', q.get('end_nav'))
           print('CAGR:', q.get('cagr'))
           print('Max DD:', q.get('max_dd'))
@@ -66,6 +77,6 @@ jobs:
       - name: Upload full five-year audit
         uses: actions/upload-artifact@v4
         with:
-          name: r10-fiveyear-2021-2025-fast-causal
+          name: r10-fiveyear-2021-2025-documented-locked-causal
           path: stress_results/latest/validation2021_2025
           retention-days: 180
