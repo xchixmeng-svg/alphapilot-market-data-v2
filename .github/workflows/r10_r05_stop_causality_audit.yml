@@ -1,0 +1,84 @@
+name: R10 R05 Stop Causality Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_r05_stop_causality_audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q pandas requests
+      - name: Audit 15 inherited R0.5 STOP exits
+        run: |
+          python - <<'PY'
+          import io, zipfile, math, requests, pandas as pd
+          from io import StringIO
+          cases='''code,entry_date,exit_date,old_entry,old_exit,r10_exit
+          1802,20210105,20210107,21.34275,19.112432625,19.4
+          8215,20210106,20210111,30.5465,27.35439075,27.45
+          1319,20210420,20210504,39.8,35.6409,37.1
+          2889,20210510,20210512,17.91,16.038405,17.4
+          6160,20210714,20210720,24.92475,22.320113625,22.55
+          2344,20210806,20210811,35.175,31.4992125,33.05
+          2607,20231114,20231116,33.1335,29.67104925,31.15
+          3059,20231121,20240109,39.05375,34.972633125,36.15
+          6163,20240111,20240126,21.5915,19.33518825,19.45
+          6179,20240201,20240506,34.57625,30.963031875,31.35
+          2884,20240521,20240730,29.253,26.1960615,26.55
+          2605,20240930,20241011,29.99925,26.864328375,27.05
+          3354,20241022,20241025,32.9345,29.49284475,30.35
+          1402,20240927,20241128,38.009,34.0370595,34.9
+          2888,20250203,20250408,12.2385,10.95957675,11.2'''
+          c=pd.read_csv(StringIO('\n'.join(x.strip() for x in cases.splitlines())))
+          frames=[]
+          for y in range(2021,2026):
+              u=f'https://github.com/yukishirotsubasa/tw-stock-data-release/releases/download/daily-close-csv/yearly_{y}.zip'
+              b=requests.get(u,timeout=180).content
+              with zipfile.ZipFile(io.BytesIO(b)) as z:
+                  n=[x for x in z.namelist() if x.lower().endswith('.csv')][0]
+                  q=pd.read_csv(z.open(n),dtype={'code':str})
+                  frames.append(q[['date','code','open','high','low','close']])
+          q=pd.concat(frames,ignore_index=True)
+          q['code']=q.code.astype(str).str.replace(r'\.0$','',regex=True).str.zfill(4)
+          q['date']=pd.to_numeric(q.date,errors='coerce').astype('Int64')
+          dates=sorted(int(x) for x in q.date.dropna().unique())
+          prev={dates[i]:dates[i-1] for i in range(1,len(dates))}
+          def tick(p):
+              if p<10:return .01
+              if p<50:return .05
+              if p<100:return .1
+              if p<500:return .5
+              if p<1000:return 1.
+              return 5.
+          def floor_tick(p):
+              s=tick(p); return round(math.floor((p+1e-12)/s)*s,10)
+          hit_same=0; prev_not_hit=0; old_px_exact=0; r10_open_exact=0
+          for r in c.itertuples(index=False):
+              code=str(r.code).zfill(4); ex=int(r.exit_date); pr=prev[ex]
+              er=q[(q.code==code)&(q.date==ex)].iloc[-1]
+              rr=q[(q.code==code)&(q.date==pr)].iloc[-1]
+              stop=float(r.old_entry)*.90
+              same=float(er.low)<=stop+1e-12
+              prior=float(rr.low)<=stop+1e-12
+              old_expected=float(r.old_entry)*.90*.995
+              old_match=abs(float(r.old_exit)-old_expected)<1e-9
+              r10_expected=floor_tick(float(er.open)*.995)
+              r10_match=abs(float(r.r10_exit)-r10_expected)<1e-9
+              hit_same+=same; prev_not_hit+=not prior; old_px_exact+=old_match; r10_open_exact+=r10_match
+              print('CASE',code,'prev',pr,'exit',ex,'stop',stop,'prev_low',float(rr.low),'exit_open',float(er.open),'exit_low',float(er.low),'same_day_hit',same,'prior_day_hit',prior,'old_exit',float(r.old_exit),'old_stop_px_expected',old_expected,'r10_exit',float(r.r10_exit),'r10_open_expected',r10_expected)
+          print('SUMMARY exit_day_low_hits_stop',hit_same,'/15')
+          print('SUMMARY prior_day_low_does_not_hit',prev_not_hit,'/15')
+          print('SUMMARY old_exit_equals_entry90x995',old_px_exact,'/15')
+          print('SUMMARY r10_exit_equals_same_day_open_adverse',r10_open_exact,'/15')
+          PY
