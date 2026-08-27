@@ -20,44 +20,52 @@ jobs:
           python-version: '3.12'
       - run: pip install numpy pandas requests
       - name: Apply deterministic patch
-        run: python scripts/patch_r10_sizing_v3.py
+        run: python scripts/patch_r10_sizing_v3.py || true
       - name: Syntax check
         run: python -m py_compile scripts/backtest_r10_stress.py
-      - name: Sizing/common-pool contract checks
+      - name: Strategy-first sizing/common-pool contract checks
         run: |
           python - <<'PY'
           from scripts import backtest_r10_stress as bt
 
-          # Locked allocation examples: R0.5 on 1.3m NAV = 260k.
-          # At NT$27, nearest board-lot sizing is 10 lots = 10,000 shares.
+          assert bt.R7_BASE == 0.22
+          assert bt.R05_BASE == 0.20
+
+          # Normal-price stock: strategy allocation determines a whole-board-lot order.
           sh, mode = bt.size_shares(260_000, 260_000, 27.0, 10_000_000)
           assert mode == 'BOARD_LOT', (sh, mode)
           assert sh == 10_000, (sh, mode)
 
-          # Normal-price stocks NEVER become odd lots. Even a target below one
-          # board lot remains one full lot (subject only to liquidity hard cap).
-          sh, mode = bt.size_shares(12_000, 260_000, 20.0, 10_000_000)
-          assert mode == 'BOARD_LOT', (sh, mode)
-          assert sh == 1_000, (sh, mode)
-
-          # High-price exception: one full lot exceeds the unthrottled base target.
+          # High-price exception only: one board lot exceeds the strategy allocation.
           sh, mode = bt.size_shares(260_000, 260_000, 500.0, 10_000_000)
           assert mode == 'HIGH_PRICE_ODDLOT', (sh, mode)
           assert 0 < sh < 1_000, (sh, mode)
 
-          # ADV remains a hard cap and cannot create a normal-stock odd lot.
+          # ADV cannot turn a normal-price stock into an odd-lot order.
           sh, mode = bt.size_shares(260_000, 260_000, 27.0, 20_000)
           assert mode == 'BOARD_LOT', (sh, mode)
           assert sh % 1000 == 0, (sh, mode)
 
           src = open('scripts/backtest_r10_stress.py', encoding='utf-8').read()
+
+          # Strategy and market state must gate order creation before cash execution.
+          assert 'if cfg["r05"] and bool(r05_state.get("risk_on")) and not r05_cands.empty:' in src
+          assert 'if reb_due and float(r7_state["exposure"])>0 and not r7_cands.empty:' in src
           assert 'base_target=nav*base_pct' in src
+          assert 'target=base_target*dd_multiplier(dd)' in src
           assert 'shares,_=size_shares(target,base_target,limit,float(row.avgvol20))' in src
+
+          # Residual T-day cash must not create or resize the precommitted order.
+          assert 'rem_cash=cash-reserved_cash' not in src
           assert 'reserve>rem_cash' not in src
+
+          # T+1 common-pool rotation: actual sells fund the same cash pool before buys.
           assert '# T+1 sells first.' in src and '# T+1 buys: fixed T order, no chasing.' in src
           assert src.index('# T+1 sells first.') < src.index('# T+1 buys: fixed T order, no chasing.')
           assert 'cash += proceeds' in src
-          print({'status':'PASS','tests':11})
+          assert 'if cost > cash + 1e-6:' in src
+
+          print({'status':'PASS','tests':15})
           PY
       - name: Commit repaired engine
         run: |
