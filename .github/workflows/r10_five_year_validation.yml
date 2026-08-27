@@ -12,6 +12,7 @@ on:
       - "scripts/r10_true_validation.py"
       - "scripts/r10_fresh_source_audit.py"
       - "scripts/r10_reference_diff_only.py"
+      - "scripts/r10_contract_test.py"
       - "scripts/build_r10_scan.py"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
 
@@ -38,7 +39,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v3-fresh-audit
+          key: r10-true-causal-${{ runner.os }}-v4-contract-fresh-audit
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -75,10 +76,10 @@ jobs:
           print('TRUE ENGINE SEPARATION: PASS')
           PY
 
-      - name: Syntax and sizing contracts
+      - name: Syntax and generic sizing contracts
         shell: bash
         run: |
-          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_contract_test.py
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
@@ -92,6 +93,9 @@ jobs:
           assert s*50.0<=49999+1e-9,(s,m)
           print('TRUE SIZING CONTRACTS: PASS')
           PY
+
+      - name: Locked-rule contracts without performance answers
+        run: python scripts/r10_contract_test.py
 
       - name: Run clean five-year causal engine
         run: python scripts/r10_true_validation.py
@@ -139,8 +143,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v3
+          name: r10-2021-2025-true-causal-v4
           path: |
             stress_results/latest/true_validation2021_2025
+            contract_results/r10_contract_summary.json
           if-no-files-found: ignore
           retention-days: 90
