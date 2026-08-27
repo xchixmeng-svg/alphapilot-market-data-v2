@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/r10_full_battery.yml"
       - "scripts/r10_full_battery.py"
+      - "scripts/r10_finmind_calibration.py"
       - "scripts/r10_tail_stress.py"
       - "scripts/r10_collect_battery.py"
 
@@ -16,9 +17,43 @@ permissions:
 env:
   PYTHONUNBUFFERED: "1"
 
+concurrency:
+  group: alphapilot-r10-complete-stress-main
+  cancel-in-progress: true
+
 jobs:
+  calibration:
+    name: Institutional source calibration gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore stress cache
+        uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-calibration-${{ runner.os }}-v1
+      - name: Install
+        run: pip install requests pandas numpy
+      - name: Syntax check
+        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py scripts/r10_finmind_calibration.py
+      - name: Calibrate FinMind against official TWSE TPEx
+        run: python scripts/r10_finmind_calibration.py
+      - name: Upload calibration audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-battery-finmind_calibration
+          path: stress_results/latest/finmind_calibration
+          if-no-files-found: warn
+          retention-days: 90
+
   historical:
     name: Historical ${{ matrix.scenario }}
+    needs: calibration
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -40,11 +75,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Restore scenario cache
+        uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-stress-${{ runner.os }}-${{ matrix.scenario }}-v3
       - name: Install
         run: pip install requests pandas numpy
       - name: Syntax check
         run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py
-      - name: Run locked scenario
+      - name: Run locked FULL R10 scenario
         run: python scripts/r10_full_battery.py --scenario "${{ matrix.scenario }}"
       - name: Upload scenario audit
         if: always()
@@ -53,7 +93,7 @@ jobs:
           name: r10-battery-${{ matrix.scenario }}
           path: stress_results/latest/${{ matrix.scenario }}
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90
 
   synthetic-tail:
     name: Synthetic tail risk
@@ -70,12 +110,12 @@ jobs:
         with:
           name: r10-battery-synthetic_tail
           path: stress_results/latest/synthetic_tail
-          retention-days: 30
+          retention-days: 90
 
   aggregate:
-    name: Regression gate + aggregate
+    name: Full-R10 completion gate + aggregate
     if: always()
-    needs: [historical, synthetic-tail]
+    needs: [calibration, historical, synthetic-tail]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -84,21 +124,23 @@ jobs:
         with:
           pattern: r10-battery-*
           path: battery_artifacts
-      - name: Build trust-gated summary
+      - name: Build strict complete summary
         run: python scripts/r10_collect_battery.py --input battery_artifacts --output stress_results/full_battery
       - name: Upload full battery summary
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: r10-full-battery-summary
           path: stress_results/full_battery
           retention-days: 90
       - name: Commit compact final summary
+        if: success()
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add stress_results/full_battery/SUMMARY.md stress_results/full_battery/summary.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "stress: R10 full battery regression-gated summary"
+          git commit -m "stress: R10 complete full-only battery summary"
           git pull --rebase origin main
           git push
