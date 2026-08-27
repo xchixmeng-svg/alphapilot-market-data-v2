@@ -93,9 +93,13 @@ old_r05 = '''            if bool(r05_state.get("risk_on")) and not r05_cands.emp
 '''
 new_r05 = '''            expected_r05 = r05_locked_orders_by_day.get(di, [])
             for j, exp in enumerate(expected_r05, 1):
-                row = bt.row_lookup(feat_idx, di, str(exp["code"]))
-                if row is None:
+                market_day = by_date.get(di)
+                if market_day is None:
+                    raise RuntimeError(f"R0.5 golden signal missing market day {di}")
+                match = market_day[market_day["code"].astype(str).eq(str(exp["code"]))]
+                if match.empty:
                     raise RuntimeError(f"R0.5 golden signal missing market row {di} {exp['code']}")
+                row = match.iloc[0]
                 before=len(created)
                 try_order("R05",row,j)
                 if len(created)!=before+1:
