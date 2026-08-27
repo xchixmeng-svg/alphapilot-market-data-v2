@@ -1,0 +1,78 @@
+name: AlphaPilot R10-MAX Stress Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Stress scenario
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - gfc2008
+          - covid2020
+          - bear2022
+          - validation2021_2025
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/backtest_r10_stress.py"
+      - ".github/workflows/r10_stress_backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alphapilot-r10-stress-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  stress-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      SCENARIO: ${{ github.event_name == 'workflow_dispatch' && inputs.scenario || 'all' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests pandas numpy
+
+      - name: Syntax check
+        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py
+
+      - name: Run locked R10 stress backtest
+        run: python scripts/backtest_r10_stress.py --scenario "$SCENARIO"
+
+      - name: Upload full stress artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-stress-${{ env.SCENARIO }}-${{ github.run_number }}
+          path: stress_results/latest
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit compact stress summary
+        if: always() && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stress_results/latest/SUMMARY.md stress_results/latest/summary.json 2>/dev/null || true
+          find stress_results/latest -mindepth 2 -maxdepth 2 -name summary.json -print0 2>/dev/null | xargs -0 -r git add
+          if git diff --cached --quiet; then
+            echo "No stress summary to commit."
+            exit 0
+          fi
+          git commit -m "stress: R10-MAX ${SCENARIO} results"
+          git push
