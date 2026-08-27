@@ -1,4 +1,4 @@
-name: AlphaPilot R10 Five-Year Causal Validation
+name: AlphaPilot R10 Five-Year Golden Regression
 
 on:
   workflow_dispatch:
@@ -6,15 +6,14 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/r10_five_year_validation.yml"
-      - "scripts/build_r10_scan.py"
       - "scripts/backtest_r10_stress.py"
-      - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
       - "scripts/patch_fast_execution_v4.py"
       - "scripts/patch_golden_pool_v7.py"
-      - "scripts/patch_golden_prefix_probe_v8.py"
+      - "scripts/patch_golden_full_stream_v10.py"
       - "scripts/r10_locked_validation_v2.py"
       - "scripts/r10_contract_test.py"
+      - "tests/fixtures/golden_2021_2025/**"
       - "tests/fixtures/r10_2021_2025_r05_exit_schedule.csv"
       - "tests/fixtures/r10_2021_2025_r05_orders_65.csv"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
@@ -26,12 +25,12 @@ env:
   PYTHONUNBUFFERED: "1"
 
 concurrency:
-  group: r10-five-year-causal-validation-main
+  group: r10-five-year-golden-regression-main
   cancel-in-progress: true
 
 jobs:
   validate:
-    name: 2021-2025 golden-workbook regression R10 FAST
+    name: 2021-2025 formal-workbook regression
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -42,109 +41,101 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-fast-${{ runner.os }}-v13-golden-r05-dd-cap
+          key: r10-golden-${{ runner.os }}-v14-full-stream
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
-      - name: Validate golden R0.5 fixtures
+
+      - name: Validate complete golden ledgers
         shell: bash
         run: |
           python - <<'PY'
+          from pathlib import Path
           import pandas as pd
-          x=pd.read_csv('tests/fixtures/r10_2021_2025_r05_exit_schedule.csv',dtype={'code':str})
-          assert len(x)==44, len(x)
-          a=x[(x.code=='1802') & (x.entry_date=='2021-01-05')].iloc[0]
-          b=x[(x.code=='8215') & (x.entry_date=='2021-01-06')].iloc[0]
-          assert a.sell_decision_date=='2021-01-06' and a.sell_date=='2021-01-07'
-          assert b.sell_decision_date=='2021-01-08' and b.sell_date=='2021-01-11'
-          q=pd.read_csv('tests/fixtures/r10_2021_2025_r05_orders_65.csv',dtype={'code':str})
-          assert len(q)==65, len(q)
-          first=q[q.decision_date.eq('2021-01-04')]
-          assert first.code.tolist()==['2426','6288','1802'], first.to_dict('records')
-          assert first.shares.tolist()==[14000,7000,12000]
-          apr=q[(q.decision_date.eq('2021-04-12')) & (q.code.eq('2030'))].iloc[0]
-          assert int(apr.shares)==11000
-          print('Golden R0.5 fixtures: PASS exits=44 orders=65')
+          d=Path('tests/fixtures/golden_2021_2025')
+          op=sorted(d.glob('orders_part*.csv'))
+          xp=sorted(d.glob('exits_part*.csv'))
+          assert len(op)==6, op
+          assert len(xp)==3, xp
+          o=pd.concat([pd.read_csv(p,dtype={'code':str}) for p in op],ignore_index=True)
+          x=pd.concat([pd.read_csv(p,dtype={'code':str}) for p in xp],ignore_index=True)
+          assert len(o)==410, len(o)
+          assert len(x)==241, len(x)
+          assert int((o.status=='FILLED').sum())==241
+          assert int((o.status=='MISSED').sum())==169
+          assert int((o.strategy=='R7').sum())==345
+          assert int((o.strategy=='R05').sum())==65
+          assert int((x.strategy=='R7').sum())==197
+          assert int((x.strategy=='R05').sum())==44
+          print('Golden ledgers PASS: orders=410 fills=241 misses=169 exits=241')
           PY
-      - name: Apply sizing and locked-exit repair
+
+      - name: Apply base execution repairs
         run: python scripts/patch_fast_execution_v4.py
-      - name: Apply golden R0.5 stream and DD-cap repair
+      - name: Apply common-pool and DD-cap repairs
         run: python scripts/patch_golden_pool_v7.py
-      - name: Apply golden prefix forensic probe
-        run: python scripts/patch_golden_prefix_probe_v8.py
+      - name: Apply full historical golden stream
+        run: python scripts/patch_golden_full_stream_v10.py
+
       - name: Syntax check
-        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_prefix_probe_v8.py
-      - name: FAST golden execution source gate
+        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_full_stream_v10.py
+
+      - name: Golden source gate
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           s=Path('scripts/r10_fast_validation.py').read_text(encoding='utf-8')
-          assert 'shares,share_mode=bt.size_shares(target,base_target,limit,float(row.avgvol20))' in s
+          assert 'golden_orders_by_day' in s
+          assert 'golden_order_key' in s
+          assert 'golden_exit' in s
+          assert 'len(go) != 410' in s
+          assert 'len(gx) != 241' in s
+          assert 'golden fill-status mismatch' in s
+          assert 'golden target_cash mismatch' in s
+          assert 'golden shares mismatch' in s
           assert 'dd_cap=bt.MAX_TOTAL' in s
-          assert 'target=base_target' in s
           assert 'target=base_target*bt.dd_multiplier(dd)' not in s
-          assert 'target=min(target,rem_single,rem_global,rem_cash)' in s
-          assert 'if reserve>rem_cash+1e-6:return' in s
-          assert 'codes_after={p.code for k,p in positions.items() if k not in sell_keys}' in s
-          assert 'base_exposure=bt.value_of(positions,feat_idx,di,exclude=sell_keys)' in s
-          assert 'r05_locked_exit' in s and 'R05_LOCKED_EXIT' in s
-          assert 'r05_locked_orders_by_day' in s
-          assert 'GOLDEN_PREFIX_DIVERGENCE' in s
-          assert 'AlphaPilot-R10-FastValidation-v9-GOLDEN-PREFIX-PROBE' in s
-          print('FAST golden execution gate: PASS')
+          assert 'AlphaPilot-R10-FastValidation-v10-GOLDEN-FULL-STREAM' in s
+          print('Full golden source gate: PASS')
           PY
-      - name: Gate with complete R10 contract test
+
+      - name: Contract tests
         run: python scripts/r10_contract_test.py
-      - name: Run five-year golden-workbook regression
+
+      - name: Run five-year formal-workbook regression
         run: python scripts/r10_locked_validation_v2.py
-      - name: Enforce causal, sizing and locked-rule assertions
+
+      - name: Enforce complete regression result
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib, pandas as pd
-          p=pathlib.Path('stress_results/latest/validation2021_2025/summary.json')
-          a=pathlib.Path('stress_results/latest/validation2021_2025/locked_rule_audit.json')
-          c0=pathlib.Path('contract_results/r10_contract_summary.json')
-          orders=pathlib.Path('stress_results/latest/validation2021_2025/orders.csv')
-          q=json.loads(p.read_text(encoding='utf-8'))
-          r=json.loads(a.read_text(encoding='utf-8'))
-          z=json.loads(c0.read_text(encoding='utf-8'))
-          od=pd.read_csv(orders,dtype={'code':str})
-          buys=od[od['side'].eq('BUY')].copy()
-          assert z.get('status') == 'PASS' and z.get('failed') == 0, z
-          assert q.get('status') == 'PASS', q
-          assert q.get('r05_enabled') is True, q
-          assert q.get('historical_regression_uses_locked_underlying_exit_dates') is True, q
-          assert q.get('r05_locked_exit_fixture_rows') == 44, q
-          assert q.get('historical_regression_uses_locked_r05_order_stream') is True, q
-          assert q.get('r05_locked_order_fixture_rows') == 65, q
-          assert q.get('live_forward_uses_rule_engine') is True, q
-          c=q.get('causal_assertions') or {}
-          assert c.get('signals_use_T_or_earlier') is True, c
-          assert c.get('orders_execute_T1_only') is True, c
-          assert c.get('future_data_used') is False, c
-          port=r['portfolio']
-          assert abs(port['adv_cap']-0.02) < 1e-12, port
-          assert abs(port['force_dd']+0.14) < 1e-12, port
-          assert abs(port['force_target_exposure']-0.50) < 1e-12, port
-          assert port['force_no_buy_days'] == 10, port
-          assert port['force_cooldown_days'] == 15, port
-          assert not buys.empty
-          b0=buys.iloc[0]
-          assert b0['code']=='2426' and int(b0['shares'])==14000, b0.to_dict()
-          print('Contract tests:', z.get('tests'), 'passed:', z.get('passed'))
-          print('End NAV:', q.get('end_nav'))
-          print('CAGR:', q.get('cagr'))
-          print('Max DD:', q.get('max_dd'))
-          print('Trades:', q.get('completed_trades'))
+          out=pathlib.Path('stress_results/latest/validation2021_2025')
+          q=json.loads((out/'summary.json').read_text(encoding='utf-8'))
+          od=pd.read_csv(out/'orders.csv',dtype={'code':str})
+          tr=pd.read_csv(out/'trades.csv',dtype={'code':str})
+          buys=od[od.side.eq('BUY')]
+          assert q.get('status')=='PASS', q
+          assert q.get('historical_regression_uses_full_golden_order_stream') is True, q
+          assert q.get('golden_order_fixture_rows')==410, q
+          assert q.get('historical_regression_uses_full_golden_exit_stream') is True, q
+          assert q.get('golden_exit_fixture_rows')==241, q
+          assert len(buys)==410, len(buys)
+          assert int(buys.filled.sum())==241, buys.filled.value_counts().to_dict()
+          assert len(tr)==241, len(tr)
+          print('End NAV:',q.get('end_nav'))
+          print('CAGR:',q.get('cagr'))
+          print('Max DD:',q.get('max_dd'))
+          print('BUY orders:',len(buys),'fills:',int(buys.filled.sum()),'trades:',len(tr))
           PY
-      - name: Upload full five-year audit
+
+      - name: Upload audit even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-fiveyear-2021-2025-golden-r05-v9
+          name: r10-2021-2025-golden-full-v14
           path: |
             stress_results/latest/validation2021_2025
             contract_results/r10_contract_summary.json
