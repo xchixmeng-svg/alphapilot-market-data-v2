@@ -37,7 +37,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-fast-${{ runner.os }}-v6-golden-buy-fill
+          key: r10-fiveyear-fast-${{ runner.os }}-v7-causal-benchmark
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
@@ -48,7 +48,7 @@ jobs:
         run: python scripts/r10_contract_test.py
       - name: Run five-year documented locked causal baseline
         run: python scripts/r10_locked_validation_v2.py
-      - name: Enforce causal and locked-rule assertions
+      - name: Enforce causal benchmark and locked-rule assertions
         shell: bash
         run: |
           python - <<'PY'
@@ -62,6 +62,7 @@ jobs:
           assert z.get('status') == 'PASS' and z.get('failed') == 0, z
           assert q.get('status') == 'PASS', q
           assert q.get('r05_enabled') is True, q
+          assert q.get('legacy_benchmark_status') == 'QUARANTINED_LOOKAHEAD_CONTAMINATION', q
           c=q.get('causal_assertions') or {}
           assert c.get('signals_use_T_or_earlier') is True, c
           assert c.get('orders_execute_T1_only') is True, c
@@ -73,19 +74,26 @@ jobs:
           assert abs(port['force_target_exposure']-0.50) < 1e-12, port
           assert port['force_no_buy_days'] == 10, port
           assert port['force_cooldown_days'] == 15, port
+          d=q.get('validation_delta') or {}
+          assert abs(d.get('end_nav_pct', 999)) < 1e-10, d
+          assert abs(d.get('cagr', 999)) < 1e-10, d
+          assert abs(d.get('max_dd', 999)) < 1e-10, d
+          assert d.get('trades') == 0, d
           print('Contract tests:', z.get('tests'), 'passed:', z.get('passed'))
           print('Rule profile:', r.get('rule_profile'))
           print('End NAV:', q.get('end_nav'))
           print('CAGR:', q.get('cagr'))
           print('Max DD:', q.get('max_dd'))
           print('Trades:', q.get('completed_trades'))
-          print('Delta:', q.get('validation_delta'))
+          print('Causal delta:', d)
+          print('Legacy status:', q.get('legacy_benchmark_status'))
+          print('Legacy delta:', q.get('legacy_delta'))
           PY
       - name: Upload full five-year audit
         uses: actions/upload-artifact@v4
         with:
-          name: r10-fiveyear-2021-2025-contract-gated
+          name: r10-fiveyear-2021-2025-causal-contract-gated
           path: |
             stress_results/latest/validation2021_2025
             contract_results/r10_contract_summary.json
-          retention-days: 180
+          retention-days: 90
