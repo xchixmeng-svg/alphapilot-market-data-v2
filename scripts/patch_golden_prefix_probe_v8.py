@@ -56,6 +56,6 @@ new='''            if di <= 20210426:
         nav_rows.append'''
 if old not in s: raise SystemExit('probe created anchor missing')
 s=s.replace(old,new,1)
-s=s.replace('AlphaPilot-R10-FastValidation-v7-GOLDEN-POOL-TIMING','AlphaPilot-R10-FastValidation-v8-GOLDEN-PREFIX-PROBE',1)
+s=s.replace('AlphaPilot-R10-FastValidation-v8-GOLDEN-R05-STREAM-DD-CAP','AlphaPilot-R10-FastValidation-v9-GOLDEN-PREFIX-PROBE',1)
 p.write_text(s,encoding='utf-8')
 print('PATCHED',p)
