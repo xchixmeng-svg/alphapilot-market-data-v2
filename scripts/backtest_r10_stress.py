@@ -333,29 +333,29 @@ def buy_fill(open_price: float, low_price: float, limit: float) -> Optional[floa
 def pos_key(strategy: str, code: str) -> str:
     return f"{strategy}:{code}"
 
-def size_shares(target_cash: float, limit: float, avg_vol20: float, cash_available: float) -> Tuple[int, str]:
-    if target_cash <= 0 or limit <= 0 or cash_available <= 0 or not np.isfinite(avg_vol20):
+def size_shares(target_cash: float, base_target_cash: float, limit: float, avg_vol20: float) -> Tuple[int, str]:
+    if target_cash <= 0 or base_target_cash <= 0 or limit <= 0 or not np.isfinite(avg_vol20):
         return 0, "NONE"
-    # IMPORTANT: board-lot eligibility is determined by the STRATEGIC target,
-    # not by residual cash. Cash may reduce quantity, but cannot convert a
-    # normal board-lot order into an odd-lot order.
-    one_lot_cost = limit * 1000 * (1 + BUY_FEE)
-    executable_cash = min(target_cash, cash_available)
-    if target_cash + 1e-9 >= one_lot_cost:
-        mode = "BOARD_LOT"
-        shares = int(math.floor(executable_cash / (limit * (1 + BUY_FEE)) / 1000) * 1000)
-        liq = int(math.floor(float(avg_vol20) * ADV_CAP / 1000) * 1000)
+    per_share_cost = limit * (1.0 + BUY_FEE)
+    one_lot_cost = per_share_cost * 1000.0
+
+    # HIGH-PRICE EXCEPTION ONLY: one full board lot is already larger than the
+    # strategy's normal 22%/20% base allocation. Only here may odd lots exist.
+    if one_lot_cost > base_target_cash + 1e-9:
+        mode = "HIGH_PRICE_ODDLOT"
+        shares = max(1, int(math.floor(target_cash / per_share_cost + 0.5)))
+        liq = int(math.floor(float(avg_vol20) * ADV_CAP))
         shares = min(shares, max(0, liq))
-        shares = (shares // 1000) * 1000
         return max(0, int(shares)), mode
 
-    # Odd lots are legal only when one board lot itself exceeds the strategic
-    # target. This is the documented high-price exception.
-    mode = "HIGH_PRICE_ODDLOT"
-    shares = int(math.floor(executable_cash / (limit * (1 + BUY_FEE))))
-    liq = int(math.floor(float(avg_vol20) * ADV_CAP))
-    shares = min(shares, max(0, liq))
-    return max(0, int(shares)), mode
+    # Normal-price stocks: whole board lots only. Use the nearest board lot;
+    # even a sub-lot computed target becomes one full lot, never 578/867 shares.
+    mode = "BOARD_LOT"
+    raw_lots = target_cash / one_lot_cost
+    lots = max(1, int(math.floor(raw_lots + 0.5)))
+    liq_lots = int(math.floor(float(avg_vol20) * ADV_CAP / 1000.0))
+    lots = min(lots, max(0, liq_lots))
+    return max(0, lots * 1000), mode
 
 def row_lookup(feat_idx, di: int, code: str):
     try:
@@ -588,18 +588,21 @@ def simulate(name: str, cfg: dict) -> dict:
                     if n>=int(r7_state["slots"]):return
                     base_pct=R7_BASE; limit=float(core.floor_tick(float(row.close)*0.98))
                 current_code=value_of(positions,feat_idx,di,code=code,exclude=sell_keys)+reserved_code.get(code,0.0)
-                rem_single=nav*MAX_SINGLE-current_code; rem_global=nav*MAX_TOTAL-base_exposure-reserved_exposure; rem_cash=cash-reserved_cash
-                # Keep the strategic 22%/20% target separate from cash.
-                # Cash shortage may reduce executable shares, but it must not
-                # redefine the strategy target or odd-lot eligibility.
-                target=nav*base_pct*dd_multiplier(dd)
+                rem_single=nav*MAX_SINGLE-current_code; rem_global=nav*MAX_TOTAL-base_exposure-reserved_exposure
+
+                # Exact locked allocation: R7=22% NAV, R0.5=20% NAV. This base
+                # amount also determines whether the stock qualifies for the
+                # high-price odd-lot exception. Current T-day cash is NOT used to
+                # shrink the precommitted quantity; T+1 sells execute first and
+                # their actual proceeds enter the common pool before buys.
+                base_target=nav*base_pct
+                target=base_target*dd_multiplier(dd)
                 if strategy=="R7": target=min(target,nav*float(r7_state["exposure"])-base_r7-reserved_r7)
                 target=min(target,rem_single,rem_global)
                 if target<=0:return
-                shares,_=size_shares(target,limit,float(row.avgvol20),rem_cash)
+                shares,_=size_shares(target,base_target,limit,float(row.avgvol20))
                 if shares<=0:return
                 reserve=shares*limit*(1+BUY_FEE); notional=shares*limit
-                if reserve>rem_cash+1e-6:return
                 created.append(BuyOrder(di,exdate,strategy,code,name0,limit,shares,target,reserve,rank))
                 reserved_cash+=reserve; reserved_exposure+=notional; reserved_code[code]=reserved_code.get(code,0.0)+notional
                 if strategy=="R7":reserved_r7+=notional
