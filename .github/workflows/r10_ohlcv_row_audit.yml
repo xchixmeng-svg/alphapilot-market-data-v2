@@ -1,0 +1,44 @@
+name: R10 OHLCV Row Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_ohlcv_row_audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q pandas numpy requests
+      - name: Print exact raw and normalized OHLCV rows
+        run: |
+          python - <<'PY'
+          import io, zipfile, requests, pandas as pd, sys
+          sys.path.insert(0,'.')
+          from scripts import backtest_r10_stress as bt
+          url='https://github.com/yukishirotsubasa/tw-stock-data-release/releases/download/daily-close-csv/yearly_2021.zip'
+          b=requests.get(url,timeout=180).content
+          with zipfile.ZipFile(io.BytesIO(b)) as z:
+              name=[n for n in z.namelist() if n.lower().endswith('.csv')][0]
+              raw=pd.read_csv(z.open(name),dtype={'code':str})
+          norm=bt.normalize_ohlcv(raw)
+          cases=[('2021-01-05','2426'),('2021-01-08','6235'),('2021-01-13','1533'),('2021-01-14','2401')]
+          for ds,code in cases:
+              di=int(ds.replace('-',''))
+              rr=raw[(raw['code'].astype(str).str.replace(r'\\.0$','',regex=True).str.zfill(4)==code) & (raw['date'].astype(str).str.contains(ds,regex=False))]
+              nn=norm[(norm.code==code)&(norm.date==di)]
+              print('\n[CASE]',ds,code)
+              print('[RAW COLUMNS]',list(raw.columns))
+              print('[RAW]',rr.to_dict('records'))
+              print('[NORM]',nn[['date','code','name','open','high','low','close','volume']].to_dict('records'))
+          PY
