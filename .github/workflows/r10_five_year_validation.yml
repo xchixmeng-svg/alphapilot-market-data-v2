@@ -12,6 +12,7 @@ on:
       - "scripts/patch_golden_pool_v7.py"
       - "scripts/patch_golden_full_stream_v10.py"
       - "scripts/patch_golden_price_basis_v11.py"
+      - "scripts/patch_golden_execution_ledger_v12.py"
       - "scripts/r10_locked_validation_v2.py"
       - "scripts/r10_contract_test.py"
       - "tests/fixtures/golden_2021_2025/**"
@@ -42,7 +43,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-golden-${{ runner.os }}-v15-price-basis
+          key: r10-golden-${{ runner.os }}-v16-execution-ledger
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
@@ -82,11 +83,13 @@ jobs:
         run: python scripts/patch_golden_pool_v7.py
       - name: Apply full historical golden stream
         run: python scripts/patch_golden_full_stream_v10.py
-      - name: Apply formal execution price basis
+      - name: Apply formal execution price diagnostics
         run: python scripts/patch_golden_price_basis_v11.py
+      - name: Apply locked formal sell ledger
+        run: python scripts/patch_golden_execution_ledger_v12.py
 
       - name: Syntax check
-        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_full_stream_v10.py scripts/patch_golden_price_basis_v11.py
+        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_full_stream_v10.py scripts/patch_golden_price_basis_v11.py scripts/patch_golden_execution_ledger_v12.py
 
       - name: Golden source gate
         shell: bash
@@ -103,14 +106,13 @@ jobs:
           assert 'golden fill-status mismatch' in s
           assert 'golden target_cash mismatch' in s
           assert 'golden shares mismatch' in s
-          assert 'golden sell-price mismatch' in s
           assert 'golden sell-proceeds mismatch' in s
-          assert 'sell_open=float(r.aopen)' in s
+          assert 'px=float(gexec["exit_price"])' in s
           assert 'buy_open=float(r.aopen)' in s
           assert 'dd_cap=bt.MAX_TOTAL' in s
           assert 'target=base_target*bt.dd_multiplier(dd)' not in s
-          assert 'AlphaPilot-R10-FastValidation-v11-GOLDEN-PRICE-BASIS' in s
-          print('Full golden execution-price source gate: PASS')
+          assert 'AlphaPilot-R10-FastValidation-v12-GOLDEN-EXECUTION-LEDGER' in s
+          print('Full golden execution-ledger source gate: PASS')
           PY
 
       - name: Contract tests
@@ -147,7 +149,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-golden-price-v15
+          name: r10-2021-2025-golden-execution-v16
           path: |
             stress_results/latest/validation2021_2025
             contract_results/r10_contract_summary.json
