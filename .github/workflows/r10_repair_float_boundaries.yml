@@ -1,0 +1,42 @@
+name: R10 Repair Float Boundaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_repair_float_boundaries.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch exact threshold comparisons
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/backtest_r10_stress.py')
+          s=p.read_text(encoding='utf-8')
+          old='''def r05_exit_reason(p: Position, r) -> Optional[str]:\n    if r is None or not np.isfinite(r.aclose): return None\n    adj = float(r.aclose); ret = adj / p.entry_adj - 1.0\n    p.peak_adj = max(p.peak_adj, adj); p.hold_days += 1\n    ar = float(r.amount_ratio) if np.isfinite(r.amount_ratio) else 0.0\n    if adj <= p.entry_adj * 0.90: return "HARD"\n    if p.mode == "NORMAL" and ret >= 0.40 and ar >= 2.0: p.mode = "RUNNER"\n    if p.mode in {"RUNNER", "MEGA", "TARGET"} and ret >= 0.80:\n        if ar >= 1.20: p.mode = "MEGA"\n        elif p.mode != "MEGA": p.mode = "TARGET"\n    if p.mode == "MEGA":\n        if adj <= p.peak_adj * 0.84: return "MEGA_TRAIL"\n        if p.hold_days >= 120: return "RUNNER_TIME"\n        return None\n    if p.mode == "TARGET":\n        if ret >= 2.00: return "TARGET_200"\n        if adj <= p.peak_adj * 0.80: return "TARGET_TRAIL"\n        if p.hold_days >= 120: return "RUNNER_TIME"\n        return None\n    if p.mode == "RUNNER":\n        if adj <= p.peak_adj * 0.86: return "RUNNER_TRAIL"\n        if p.hold_days >= 120: return "RUNNER_TIME"\n        return None\n    if ret >= 0.50 and adj <= p.peak_adj * 0.88: return "BASE_TRAIL"\n    if p.hold_days >= 60: return "TIME"\n    return None\n'''
+          new='''def r05_exit_reason(p: Position, r) -> Optional[str]:\n    if r is None or not np.isfinite(r.aclose): return None\n    adj = float(r.aclose); ret = adj / p.entry_adj - 1.0\n    p.peak_adj = max(p.peak_adj, adj); p.hold_days += 1\n    ar = float(r.amount_ratio) if np.isfinite(r.amount_ratio) else 0.0\n    eps = 1e-12\n    if adj <= p.entry_adj * 0.90 + eps: return "HARD"\n    if p.mode == "NORMAL" and ret >= 0.40 - eps and ar >= 2.0 - eps: p.mode = "RUNNER"\n    if p.mode in {"RUNNER", "MEGA", "TARGET"} and ret >= 0.80 - eps:\n        if ar >= 1.20 - eps: p.mode = "MEGA"\n        elif p.mode != "MEGA": p.mode = "TARGET"\n    if p.mode == "MEGA":\n        if adj <= p.peak_adj * 0.84 + eps: return "MEGA_TRAIL"\n        if p.hold_days >= 120: return "RUNNER_TIME"\n        return None\n    if p.mode == "TARGET":\n        if ret >= 2.00 - eps: return "TARGET_200"\n        if adj <= p.peak_adj * 0.80 + eps: return "TARGET_TRAIL"\n        if p.hold_days >= 120: return "RUNNER_TIME"\n        return None\n    if p.mode == "RUNNER":\n        if adj <= p.peak_adj * 0.86 + eps: return "RUNNER_TRAIL"\n        if p.hold_days >= 120: return "RUNNER_TIME"\n        return None\n    if ret >= 0.50 - eps and adj <= p.peak_adj * 0.88 + eps: return "BASE_TRAIL"\n    if p.hold_days >= 60: return "TIME"\n    return None\n'''
+          if old not in s:
+              raise SystemExit('target r05_exit_reason block not found; refusing blind patch')
+          p.write_text(s.replace(old,new),encoding='utf-8')
+          PY
+      - name: Syntax check
+        run: python -m py_compile scripts/backtest_r10_stress.py
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name "AlphaPilot CI Repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/backtest_r10_stress.py
+          git commit -m "fix: make R0.5 thresholds exact at locked boundaries"
+          git push origin HEAD:main
