@@ -336,18 +336,25 @@ def pos_key(strategy: str, code: str) -> str:
 def size_shares(target_cash: float, limit: float, avg_vol20: float, cash_available: float) -> Tuple[int, str]:
     if target_cash <= 0 or limit <= 0 or cash_available <= 0 or not np.isfinite(avg_vol20):
         return 0, "NONE"
-    max_by_cash = min(target_cash, cash_available)
+    # IMPORTANT: board-lot eligibility is determined by the STRATEGIC target,
+    # not by residual cash. Cash may reduce quantity, but cannot convert a
+    # normal board-lot order into an odd-lot order.
     one_lot_cost = limit * 1000 * (1 + BUY_FEE)
-    if max_by_cash >= one_lot_cost:
-        shares = int(math.floor(max_by_cash / (limit * (1 + BUY_FEE)) / 1000) * 1000)
+    executable_cash = min(target_cash, cash_available)
+    if target_cash + 1e-9 >= one_lot_cost:
         mode = "BOARD_LOT"
+        shares = int(math.floor(executable_cash / (limit * (1 + BUY_FEE)) / 1000) * 1000)
         liq = int(math.floor(float(avg_vol20) * ADV_CAP / 1000) * 1000)
-    else:
-        shares = int(math.floor(max_by_cash / (limit * (1 + BUY_FEE))))
-        mode = "HIGH_PRICE_ODDLOT"
-        liq = int(math.floor(float(avg_vol20) * ADV_CAP))
+        shares = min(shares, max(0, liq))
+        shares = (shares // 1000) * 1000
+        return max(0, int(shares)), mode
+
+    # Odd lots are legal only when one board lot itself exceeds the strategic
+    # target. This is the documented high-price exception.
+    mode = "HIGH_PRICE_ODDLOT"
+    shares = int(math.floor(executable_cash / (limit * (1 + BUY_FEE))))
+    liq = int(math.floor(float(avg_vol20) * ADV_CAP))
     shares = min(shares, max(0, liq))
-    if mode == "BOARD_LOT": shares = (shares // 1000) * 1000
     return max(0, int(shares)), mode
 
 def row_lookup(feat_idx, di: int, code: str):
@@ -582,9 +589,12 @@ def simulate(name: str, cfg: dict) -> dict:
                     base_pct=R7_BASE; limit=float(core.floor_tick(float(row.close)*0.98))
                 current_code=value_of(positions,feat_idx,di,code=code,exclude=sell_keys)+reserved_code.get(code,0.0)
                 rem_single=nav*MAX_SINGLE-current_code; rem_global=nav*MAX_TOTAL-base_exposure-reserved_exposure; rem_cash=cash-reserved_cash
+                # Keep the strategic 22%/20% target separate from cash.
+                # Cash shortage may reduce executable shares, but it must not
+                # redefine the strategy target or odd-lot eligibility.
                 target=nav*base_pct*dd_multiplier(dd)
                 if strategy=="R7": target=min(target,nav*float(r7_state["exposure"])-base_r7-reserved_r7)
-                target=min(target,rem_single,rem_global,rem_cash)
+                target=min(target,rem_single,rem_global)
                 if target<=0:return
                 shares,_=size_shares(target,limit,float(row.avgvol20),rem_cash)
                 if shares<=0:return
