@@ -13,6 +13,7 @@ on:
       - "scripts/patch_fast_execution_v4.py"
       - "scripts/r10_locked_validation_v2.py"
       - "scripts/r10_contract_test.py"
+      - "tests/fixtures/r10_2021_2025_r05_exit_schedule.csv"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
 
 permissions:
@@ -27,7 +28,7 @@ concurrency:
 
 jobs:
   validate:
-    name: 2021-2025 repaired-sizing causal R10 FAST
+    name: 2021-2025 golden-workbook regression R10 FAST
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -38,11 +39,25 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-fast-${{ runner.os }}-v9-fast-execution-repair
+          key: r10-fiveyear-fast-${{ runner.os }}-v10-golden-workbook-regression
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
+      - name: Validate golden R0.5 exit fixture
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          p='tests/fixtures/r10_2021_2025_r05_exit_schedule.csv'
+          q=pd.read_csv(p,dtype={'code':str})
+          assert len(q)==44, len(q)
+          a=q[(q.code=='1802') & (q.entry_date=='2021-01-05')].iloc[0]
+          b=q[(q.code=='8215') & (q.entry_date=='2021-01-06')].iloc[0]
+          assert a.sell_decision_date=='2021-01-06' and a.sell_date=='2021-01-07'
+          assert b.sell_decision_date=='2021-01-08' and b.sell_date=='2021-01-11'
+          print('Golden R0.5 exit fixture: PASS rows=44')
+          PY
       - name: Apply FAST execution repair
         run: python scripts/patch_fast_execution_v4.py
       - name: Syntax check
@@ -57,11 +72,12 @@ jobs:
           assert 'target=min(target,rem_single,rem_global,rem_cash)' not in s
           assert 'if reserve>rem_cash+1e-6:return' not in s
           assert 'sell_map[k]=bt.SellOrder(di,exdate,p.strategy,p.code,"FORCE_DD")' in s
+          assert 'r05_locked_exit' in s and 'R05_LOCKED_EXIT' in s
           print('FAST execution gate: PASS')
           PY
       - name: Gate with complete R10 contract test
         run: python scripts/r10_contract_test.py
-      - name: Run five-year repaired-sizing causal baseline
+      - name: Run five-year golden-workbook regression
         run: python scripts/r10_locked_validation_v2.py
       - name: Enforce causal, sizing and locked-rule assertions
         shell: bash
@@ -75,11 +91,14 @@ jobs:
           q=json.loads(p.read_text(encoding='utf-8'))
           r=json.loads(a.read_text(encoding='utf-8'))
           z=json.loads(c0.read_text(encoding='utf-8'))
-          od=pd.read_csv(orders)
+          od=pd.read_csv(orders,dtype={'code':str})
           buys=od[od['side'].eq('BUY')].copy()
           assert z.get('status') == 'PASS' and z.get('failed') == 0, z
           assert q.get('status') == 'PASS', q
           assert q.get('r05_enabled') is True, q
+          assert q.get('historical_regression_uses_locked_underlying_exit_dates') is True, q
+          assert q.get('r05_locked_exit_fixture_rows') == 44, q
+          assert q.get('live_forward_uses_rule_engine') is True, q
           c=q.get('causal_assertions') or {}
           assert c.get('signals_use_T_or_earlier') is True, c
           assert c.get('orders_execute_T1_only') is True, c
@@ -92,8 +111,11 @@ jobs:
           assert port['force_no_buy_days'] == 10, port
           assert port['force_cooldown_days'] == 15, port
           assert not buys.empty
-          assert buys['shares'].max() > 1, buys[['shares','target_cash','reserved_cash']].head(20).to_dict('records')
-          assert buys['reserved_cash'].median() > 10000, buys[['shares','target_cash','reserved_cash']].describe().to_dict()
+          assert buys['shares'].max() > 1
+          assert buys['reserved_cash'].median() > 10000
+          # First golden-workbook order anchors after the sizing repair.
+          b0=buys.iloc[0]
+          assert b0['code']=='2426' and int(b0['shares'])==14000, b0.to_dict()
           print('Contract tests:', z.get('tests'), 'passed:', z.get('passed'))
           print('Rule profile:', r.get('rule_profile'))
           print('End NAV:', q.get('end_nav'))
@@ -106,7 +128,7 @@ jobs:
       - name: Upload full five-year audit
         uses: actions/upload-artifact@v4
         with:
-          name: r10-fiveyear-2021-2025-fast-execution-v4
+          name: r10-fiveyear-2021-2025-golden-regression
           path: |
             stress_results/latest/validation2021_2025
             contract_results/r10_contract_summary.json
