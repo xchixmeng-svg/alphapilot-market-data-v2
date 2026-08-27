@@ -10,6 +10,7 @@ on:
       - "scripts/backtest_r10_stress.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
+      - "scripts/patch_fast_execution_v4.py"
       - "scripts/r10_locked_validation_v2.py"
       - "scripts/r10_contract_test.py"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
@@ -20,7 +21,6 @@ permissions:
 env:
   PYTHONUNBUFFERED: "1"
 
-# rerun on latest repaired sizing/common-pool engine
 concurrency:
   group: r10-five-year-causal-validation-main
   cancel-in-progress: true
@@ -38,28 +38,45 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-fast-${{ runner.os }}-v8-repaired-sizing
+          key: r10-fiveyear-fast-${{ runner.os }}-v9-fast-execution-repair
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
+      - name: Apply FAST execution repair
+        run: python scripts/patch_fast_execution_v4.py
       - name: Syntax check
         run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py
+      - name: FAST sizing/common-pool source gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('scripts/r10_fast_validation.py').read_text(encoding='utf-8')
+          assert 'bt.size_shares(target,base_target,limit,float(row.avgvol20))' in s
+          assert 'target=min(target,rem_single,rem_global,rem_cash)' not in s
+          assert 'if reserve>rem_cash+1e-6:return' not in s
+          assert 'sell_map[k]=bt.SellOrder(di,exdate,p.strategy,p.code,"FORCE_DD")' in s
+          print('FAST execution gate: PASS')
+          PY
       - name: Gate with complete R10 contract test
         run: python scripts/r10_contract_test.py
       - name: Run five-year repaired-sizing causal baseline
         run: python scripts/r10_locked_validation_v2.py
-      - name: Enforce causal and locked-rule assertions
+      - name: Enforce causal, sizing and locked-rule assertions
         shell: bash
         run: |
           python - <<'PY'
-          import json, pathlib
+          import json, pathlib, pandas as pd
           p=pathlib.Path('stress_results/latest/validation2021_2025/summary.json')
           a=pathlib.Path('stress_results/latest/validation2021_2025/locked_rule_audit.json')
           c0=pathlib.Path('contract_results/r10_contract_summary.json')
+          orders=pathlib.Path('stress_results/latest/validation2021_2025/orders.csv')
           q=json.loads(p.read_text(encoding='utf-8'))
           r=json.loads(a.read_text(encoding='utf-8'))
           z=json.loads(c0.read_text(encoding='utf-8'))
+          od=pd.read_csv(orders)
+          buys=od[od['side'].eq('BUY')].copy()
           assert z.get('status') == 'PASS' and z.get('failed') == 0, z
           assert q.get('status') == 'PASS', q
           assert q.get('r05_enabled') is True, q
@@ -74,18 +91,22 @@ jobs:
           assert abs(port['force_target_exposure']-0.50) < 1e-12, port
           assert port['force_no_buy_days'] == 10, port
           assert port['force_cooldown_days'] == 15, port
+          assert not buys.empty
+          assert buys['shares'].max() > 1, buys[['shares','target_cash','reserved_cash']].head(20).to_dict('records')
+          assert buys['reserved_cash'].median() > 10000, buys[['shares','target_cash','reserved_cash']].describe().to_dict()
           print('Contract tests:', z.get('tests'), 'passed:', z.get('passed'))
           print('Rule profile:', r.get('rule_profile'))
           print('End NAV:', q.get('end_nav'))
           print('CAGR:', q.get('cagr'))
           print('Max DD:', q.get('max_dd'))
           print('Trades:', q.get('completed_trades'))
-          print('NOTE: stale 4.02M benchmark intentionally not enforced after sizing/common-pool repair')
+          print('BUY shares max:', buys['shares'].max())
+          print('BUY reserved median:', buys['reserved_cash'].median())
           PY
       - name: Upload full five-year audit
         uses: actions/upload-artifact@v4
         with:
-          name: r10-fiveyear-2021-2025-repaired-sizing
+          name: r10-fiveyear-2021-2025-fast-execution-v4
           path: |
             stress_results/latest/validation2021_2025
             contract_results/r10_contract_summary.json
