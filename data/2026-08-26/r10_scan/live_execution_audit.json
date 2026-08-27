@@ -1,0 +1,12 @@
+{
+  "strategy": "AlphaPilot R10-MAX 0.5%",
+  "signal_trade_date": "2026-08-26",
+  "intended_execution_date": "2026-08-27",
+  "scanner_version": "AlphaPilot-R10-Scanner-V1.1-0050TR",
+  "recovery_completed_at": "2026-08-27T09:11:38+08:00",
+  "official_execution_status": "MISSED_SYSTEM_RECOVERY_AFTER_MARKET_OPEN",
+  "do_not_backfill_fills": true,
+  "do_not_treat_as_precommitted_orders": true,
+  "reason": "The locked R10 live protocol requires T-close decisions and T+1 orders to be fixed before market execution. The recovered scan was completed after the 2026-08-27 market open, so these recovered candidates are retained for audit only and must not be retroactively counted as official forward-test fills.",
+  "privacy_boundary": "PUBLIC_MARKET_ONLY_NO_HOLDINGS_NO_NAV_NO_COST_BASIS"
+}
