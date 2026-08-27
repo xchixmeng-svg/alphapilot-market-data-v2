@@ -48,6 +48,11 @@ ok("E01_BUY_FEE", bt.BUY_FEE == 0.000855)
 ok("E02_SELL_FEE", bt.SELL_FEE == 0.000855)
 ok("E03_SELL_TAX", bt.SELL_TAX == 0.003)
 ok("E04_SELL_SLIPPAGE", bt.SELL_SLIPPAGE == 0.005)
+ok("B01_CAUSAL_BENCHMARK_ACTIVE", bt.LOCKED_BENCHMARK is bt.CAUSAL_BENCHMARK)
+ok("B02_CAUSAL_NAV", abs(bt.CAUSAL_BENCHMARK["end_nav"] - 4_020_109.243251493) < 1e-6)
+ok("B03_CAUSAL_FLAG", bt.CAUSAL_BENCHMARK.get("causal") is True)
+ok("B04_LEGACY_QUARANTINED", bt.LEGACY_CONTAMINATED_BENCHMARK.get("causal") is False)
+ok("B05_LEGACY_NOT_ACTIVE", bt.LEGACY_CONTAMINATED_BENCHMARK is not bt.LOCKED_BENCHMARK)
 
 # DD throttle boundary behavior.
 ok("DD01_GT_6", bt.dd_multiplier(-0.059999) == 1.00)
@@ -110,6 +115,7 @@ p = pos(mode="RUNNER", hold=119, peak=150); ok("R05_RUNNER_TIME_120", bt.r05_exi
 # ---------------------------------------------------------------------------
 scanner = (ROOT / "scripts" / "build_r10_scan.py").read_text(encoding="utf-8")
 engine = (ROOT / "scripts" / "backtest_r10_stress.py").read_text(encoding="utf-8")
+full_battery = (ROOT / "scripts" / "r10_full_battery.py").read_text(encoding="utf-8")
 
 def contains(rule: str, text: str, *snips: str) -> None:
     ok(rule, all(s in text for s in snips), "missing locked source clause")
@@ -143,6 +149,7 @@ contains("PORT_MAX5_EXEC", engine, 'len(codes_after)>=MAX_POSITIONS')
 contains("PORT_SINGLE25_EXEC", engine, 'nav*MAX_SINGLE-current_code')
 contains("PORT_TOTAL95_EXEC", engine, 'nav*MAX_TOTAL-base_exposure-reserved_exposure')
 contains("PORT_R05_FIRST", engine, 'R0.5 is evaluated before R7')
+ok("CAUSAL_NO_IMPLICIT_COMPOUND_PROFILE", 'if Path(sys.argv[0]).name == "r10_five_year_compound.py"' not in full_battery)
 contains("CAUSAL_T1_PENDING", engine, 'T+1 buys: fixed T order, no chasing.', 'T close fixed buy orders')
 
 # Explicitly reject the known bad profile if it is active in this process.

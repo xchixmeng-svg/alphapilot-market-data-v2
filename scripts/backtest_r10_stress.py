@@ -103,12 +103,33 @@ SCENARIOS = {
     },
 }
 
-LOCKED_BENCHMARK = {
+# Historical reference retained only for forensic comparison. It is NOT a
+# valid causal regression target: the inherited R0.5 ledger used exit-day
+# intraday stop/trailing information to select the exit date, then repriced that
+# same exit at the already-passed opening price (confirmed 15/15 hard stops and
+# 2/2 trailing exits).
+LEGACY_CONTAMINATED_BENCHMARK = {
     "end_nav": 9_888_538.413551485,
     "cagr": 0.5019270634416155,
     "max_dd": -0.12258760312884043,
     "completed_trades": 241,
+    "causal": False,
 }
+
+# Zero-look-ahead reference produced by the documented T-close -> T+1 engine
+# after repairing buy-side 0.5% adverse execution. This is the active regression
+# target; it must be reproduced before long historical/capital-path results are
+# accepted.
+CAUSAL_BENCHMARK = {
+    "end_nav": 4_020_109.243251493,
+    "cagr": 0.2539714041310821,
+    "max_dd": -0.1813892621615033,
+    "completed_trades": 217,
+    "causal": True,
+}
+
+# Backward-compatible alias. All validation deltas now point to the causal gate.
+LOCKED_BENCHMARK = CAUSAL_BENCHMARK
 
 @dataclass
 class Position:

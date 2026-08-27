@@ -62,10 +62,11 @@ def restore_stress_execution_profile():
     bt.VERSION = _BASE_VERSION
     _BASELINE_PROFILE_ACTIVE = False
 
-# r10_five_year_compound imports this module and then calls bt.simulate directly,
-# so select the locked profile at import time for that script only.
-if Path(sys.argv[0]).name == "r10_five_year_compound.py":
-    apply_locked_baseline_execution_profile()
+# IMPORTANT: five-year capital-path runs use the documented causal controls.
+# Do not activate the legacy baseline profile at import time: it disables the
+# locked 2% ADV cap, DD sizing throttle, and force-DD defense.
+# apply_locked_baseline_execution_profile() is retained only for explicit legacy
+# forensic experiments and must never be selected implicitly.
 
 # --------------------------- historical OHLC hygiene ---------------------------
 _ORIG_LOAD=bt.load_scenario_ohlcv

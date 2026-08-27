@@ -113,22 +113,35 @@ These DD/ADV controls are part of the documented LOCKED portfolio layer and must
 
 ## 5. Execution and costs
 
-- Buy fill: if T+1 Open <= precommitted limit, fill at Open; else if T+1 Low <= limit, fill at limit; otherwise cancel/no chase.
+- Buy fill: if T+1 Open <= precommitted limit, apply 0.5% adverse buy slippage to Open, round the estimate to cents, round UP to a legal Taiwan tick, and cap at the locked limit; else if T+1 Low <= limit, fill at the locked limit; otherwise cancel/no chase.
 - Sell: decision at T close, execute from T+1 Open with 0.5% adverse sell slippage, rounded down to legal tick.
 - Buy fee: 0.0855%.
 - Sell fee: 0.0855%.
 - Sell tax: 0.3%.
 - Integer shares only.
 
-## 6. Locked five-year regression benchmark
+## 6. Five-year regression references
 
-2021–2025 benchmark used for engine-equivalence testing:
+### 6.1 Active causal benchmark
+
+The active 2021–2025 regression gate is produced with the rules in this document and strict T-close -> T+1 execution:
+- End NAV: NT$4,020,109.243251493.
+- CAGR: 25.397140%.
+- Max DD: -18.138926%.
+- Completed trades: 217.
+- Future data used: false.
+
+A long historical stress/capital-path result is accepted only after this causal benchmark is reproduced.
+
+### 6.2 Quarantined legacy Golden reference — NOT a causal regression target
+
+The former Golden reference is retained only for forensic comparison:
 - End NAV: NT$9,888,538.413551485.
 - CAGR: 50.192706%.
 - Max DD: -12.258760%.
 - Completed trades: 241.
 
-Any reconstructed engine that materially differs from this benchmark is not to be presented as official-equivalent R10 until the first divergence is identified and resolved.
+Forensic comparison against the inherited R7/R0.5 ledger established look-ahead contamination in R0.5 exits. All 15 inherited `STOP` exits first touched the -10% stop during the exit day's intraday range while the prior trading-day low had not touched it; nevertheless the R10 Golden ledger repriced those exits at that same day's already-passed opening price. The two inherited trailing exits (TARGET_TRAIL and RUNNER_TRAIL) have the same timing defect. Therefore the legacy 9.888m result cannot be used as a zero-look-ahead engine-equivalence target.
 
 ## 7. Prohibited changes during validation
 
