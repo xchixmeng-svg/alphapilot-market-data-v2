@@ -8,16 +8,64 @@ Foreign3D / Foreign10D / Trust5D inputs from FinMind's 2005+ per-stock
 institutional history. If the required institutional universe cannot be
 retrieved with sufficient coverage, the scenario FAILS instead of silently
 falling back to R7-only.
+
+Important execution separation:
+- Regression validation and five-year capital-path runs must reproduce the
+  locked R10 execution profile, not the extra stress-only portfolio overlays.
+- Event stress scenarios may keep the conservative DD-force-reduction and ADV
+  shock assumptions as diagnostics, but those assumptions must never contaminate
+  the locked benchmark gate or capital-path compounding.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import backtest_r10_stress as bt
+
+# ----------------------- locked baseline execution profile ---------------------
+# The stress engine contains additional diagnostic overlays (DD sizing throttle,
+# forced de-risk/cooldown, and a 2% ADV shock cap). Those are useful in stress
+# diagnostics but were not allowed to redefine the locked 2021-2025 benchmark.
+# Keep the stress implementation intact and switch these knobs off only when a
+# true benchmark-equivalent / five-year capital-path run is requested.
+_BASE_VERSION = bt.VERSION
+_BASE_ADV_CAP = bt.ADV_CAP
+_BASE_FORCE_DD = bt.FORCE_DD
+_BASE_DD_MULTIPLIER = bt.dd_multiplier
+_BASELINE_PROFILE_ACTIVE = False
+
+def apply_locked_baseline_execution_profile():
+    global _BASELINE_PROFILE_ACTIVE
+    if _BASELINE_PROFILE_ACTIVE:
+        return
+    # Effectively remove the stress-only liquidity haircut while retaining all
+    # normal cash, position, single-name and total-exposure constraints.
+    bt.ADV_CAP = 1.0
+    # Disable stress-only forced cross-strategy liquidation/cooldown.
+    bt.FORCE_DD = -999.0
+    # Disable stress-only drawdown-dependent entry-size haircut.
+    bt.dd_multiplier = lambda dd: 1.0
+    bt.VERSION = _BASE_VERSION + "-LOCKED-BASELINE"
+    _BASELINE_PROFILE_ACTIVE = True
+    bt.log("[PROFILE] LOCKED_BASELINE: DD throttle/force-reduce and 2% ADV shock cap disabled")
+
+def restore_stress_execution_profile():
+    global _BASELINE_PROFILE_ACTIVE
+    bt.ADV_CAP = _BASE_ADV_CAP
+    bt.FORCE_DD = _BASE_FORCE_DD
+    bt.dd_multiplier = _BASE_DD_MULTIPLIER
+    bt.VERSION = _BASE_VERSION
+    _BASELINE_PROFILE_ACTIVE = False
+
+# r10_five_year_compound imports this module and then calls bt.simulate directly,
+# so select the locked profile at import time for that script only.
+if Path(sys.argv[0]).name == "r10_five_year_compound.py":
+    apply_locked_baseline_execution_profile()
 
 # --------------------------- historical OHLC hygiene ---------------------------
 _ORIG_LOAD=bt.load_scenario_ohlcv
@@ -56,14 +104,12 @@ def _build_features(raw):
     bm["mkt"]=bt.pd.to_numeric(bm.mkt,errors="coerce").ffill();bm=bm.dropna(subset=["mkt"]).reset_index(drop=True)
     return feat,events,bm
 bt.build_features=_build_features
-bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.2-FULL"
+if not _BASELINE_PROFILE_ACTIVE:
+    bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.2-FULL"
+else:
+    bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.2-FULL-LOCKED-BASELINE"
 
 # ----------------------- FinMind full-universe fallback ------------------------
-# FinMind documents TaiwanStockInstitutionalInvestorsBuySellWide from 2005-now.
-# Free access is per stock_id, therefore historical jobs query every ordinary
-# 4-digit stock in the R10 universe, not only eventual candidates. That matters
-# because R0.5 institutional percentile ranks are cross-sectional over the full
-# common universe before the hard filter is applied.
 FINMIND_URL="https://api.finmindtrade.com/api/v4/data"
 FINMIND_TOKEN=os.getenv("FINMIND_TOKEN","").strip()
 FINMIND_CACHE=bt.CACHE_ROOT/"finmind_inst"
@@ -75,8 +121,6 @@ _QUOTA_START=time.monotonic();_QUOTA_USED=0
 
 def _quota_gate():
     global _QUOTA_START,_QUOTA_USED
-    # Current documented limit: 300/hour without token, 600/hour with token.
-    # Keep margin to avoid 402s and shared-runner timing edge cases.
     limit=560 if FINMIND_TOKEN else 280
     elapsed=time.monotonic()-_QUOTA_START
     if elapsed>=3600:
@@ -151,9 +195,6 @@ def _finmind_full_institutional(feat,eval_start:int,eval_end:int):
     day_cov=have.date.nunique()/eval_common.date.nunique() if eval_common.date.nunique() else 0.0
     _LAST_FINMIND_AUDIT={"source":"FinMind TaiwanStockInstitutionalInvestorsBuySellWide","documented_range":"2005-now","queried_codes":len(codes),"empty_codes":len(empty),"required_common_pairs":int(len(eval_common)),"matched_pairs":int(len(matched)),"pair_coverage":pair_cov,"day_coverage":day_cov,"token_used":bool(FINMIND_TOKEN)}
     bt.log(f"[FINMIND] pair coverage={pair_cov:.3%}; day coverage={day_cov:.3%}; empty codes={len(empty)}")
-    # Missing individual zero-activity/suspended rows can legitimately exist,
-    # but full-date coverage must be exact and the ordinary-stock pair coverage
-    # must be near-complete. Otherwise the scenario is not allowed to PASS.
     if day_cov<1.0 or pair_cov<0.985:
         raise RuntimeError(f"FinMind institutional coverage insufficient for FULL R10: pair={pair_cov:.3%} day={day_cov:.3%}")
     return ins
@@ -186,7 +227,13 @@ def run_one(name:str)->dict:
     global _CURRENT_SCENARIO
     if name not in bt.SCENARIOS:raise SystemExit(f"unknown scenario {name}")
     _CURRENT_SCENARIO=name
+    if name=="validation2021_2025":
+        apply_locked_baseline_execution_profile()
+    else:
+        restore_stress_execution_profile()
+        bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.2-FULL"
     result=bt.simulate(name,bt.SCENARIOS[name])
+    result["execution_profile"]="LOCKED_BASELINE" if name=="validation2021_2025" else "STRESS_DIAGNOSTIC"
     if name in {"gfc2008","euro2011"}:
         result["institutional_audit"]=_LAST_FINMIND_AUDIT
         if not result.get("r05_enabled"):
