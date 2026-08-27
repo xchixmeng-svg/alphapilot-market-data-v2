@@ -37,7 +37,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-fast-${{ runner.os }}-v4-contract-gated
+          key: r10-fiveyear-fast-${{ runner.os }}-v5-profile-neutral
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
