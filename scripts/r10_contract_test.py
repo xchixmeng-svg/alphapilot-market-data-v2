@@ -64,31 +64,30 @@ ok("DD05_AT_15", bt.dd_multiplier(-0.15) == 0.40)
 # ---------------------------------------------------------------------------
 # B. T -> T+1 execution mechanics
 # ---------------------------------------------------------------------------
-# Buy: open <= limit => 0.5% adverse open fill, cents-round, legal tick UP, capped by locked limit.
 ok("E05_BUY_OPEN_ADVERSE", bt.buy_fill(98.0, 97.0, 99.0) == 98.5, f"got={bt.buy_fill(98.0,97.0,99.0)}")
-# Exact Golden Master regression cases from the locked 2021 trade ledger.
 ok("E05A_GOLDEN_2426", bt.buy_fill(17.8, 17.35, 18.05) == 17.9, f"got={bt.buy_fill(17.8,17.35,18.05)}")
 ok("E05B_GOLDEN_6235", bt.buy_fill(20.5, 19.9, 20.7) == 20.6, f"got={bt.buy_fill(20.5,19.9,20.7)}")
 ok("E05C_GOLDEN_1533", bt.buy_fill(53.0, 52.1, 54.1) == 53.3, f"got={bt.buy_fill(53.0,52.1,54.1)}")
 ok("E05D_GOLDEN_2401", bt.buy_fill(22.65, 22.2, 22.9) == 22.8, f"got={bt.buy_fill(22.65,22.2,22.9)}")
-# Buy: open above limit but low touches => limit fill.
 ok("E06_BUY_LOW_TOUCH", bt.buy_fill(101.0, 98.5, 99.0) == 99.0)
-# Buy: no touch => no fill/no chase.
 ok("E07_BUY_NO_TOUCH", bt.buy_fill(101.0, 99.1, 99.0) is None)
-# Sell: T+1 open with exactly 0.5% adverse adjustment, then legal tick floor.
 expected_sell = float(core.floor_tick(100.0 * 0.995))
 ok("E08_SELL_T1_ADVERSE", bt.legal_sell_price(100.0) == expected_sell, f"got={bt.legal_sell_price(100.0)}")
 
-# Entry limits are fixed from T close.
 ok("E09_R7_LIMIT", core.floor_tick(100.0 * 0.98) == 98.0)
 ok("E10_R05_LIMIT", core.floor_tick(40.0 * 0.995) == 39.8)
 
-# Integer/board-lot + 2% ADV behavior.
-shares, mode = bt.size_shares(260_000, 100.0, 100_000, 1_000_000)
+# Integer/board-lot + 2% ADV behavior. Signature is
+# size_shares(target_cash, base_target_cash, limit, avg_vol20).
+shares, mode = bt.size_shares(260_000, 260_000, 100.0, 100_000)
 ok("E11_BOARD_LOT_INTEGER", shares % 1000 == 0 and mode == "BOARD_LOT", f"shares={shares},mode={mode}")
 ok("E12_ADV_2PCT", shares <= 2_000, f"shares={shares}")
-shares2, mode2 = bt.size_shares(80_000, 200.0, 100_000, 1_000_000)
+shares2, mode2 = bt.size_shares(80_000, 80_000, 200.0, 100_000)
 ok("E13_ODDLOT_ONLY_WHEN_LOT_EXCEEDS_TARGET", mode2 == "HIGH_PRICE_ODDLOT" and isinstance(shares2, int), f"shares={shares2},mode={mode2}")
+shares3, mode3 = bt.size_shares(260_000, 260_000, 27.0, 10_000_000)
+ok("E14_R05_260K_27_NEAREST_10LOTS", shares3 == 10_000 and mode3 == "BOARD_LOT", f"shares={shares3},mode={mode3}")
+shares4, mode4 = bt.size_shares(260_000, 260_000, 500.0, 10_000_000)
+ok("E15_HIGH_PRICE_ONLY_ODDLOT", 0 < shares4 < 1000 and mode4 == "HIGH_PRICE_ODDLOT", f"shares={shares4},mode={mode4}")
 
 # ---------------------------------------------------------------------------
 # C. R0.5 executable exit state machine
@@ -111,7 +110,6 @@ p = pos(mode="RUNNER", hold=119, peak=150); ok("R05_RUNNER_TIME_120", bt.r05_exi
 
 # ---------------------------------------------------------------------------
 # D. Exact scanner/portfolio source contract
-# These checks guard embedded logic that is not yet factored into testable funcs.
 # ---------------------------------------------------------------------------
 scanner = (ROOT / "scripts" / "build_r10_scan.py").read_text(encoding="utf-8")
 engine = (ROOT / "scripts" / "backtest_r10_stress.py").read_text(encoding="utf-8")
@@ -153,7 +151,6 @@ ok("CAUSAL_NO_IMPLICIT_COMPOUND_PROFILE", 'if Path(sys.argv[0]).name == "r10_fiv
 ok("CAUSAL_FULL_BATTERY_NO_LEGACY_VALIDATION_CALL", 'apply_locked_baseline_execution_profile()\n    else:' not in full_battery)
 contains("CAUSAL_T1_PENDING", engine, 'T+1 buys: fixed T order, no chasing.', 'T close fixed buy orders')
 
-# Explicitly reject the known bad profile if it is active in this process.
 ok("NO_PROFILE_OVERRIDE", bt.ADV_CAP == 0.02 and bt.FORCE_DD == -0.14 and bt.dd_multiplier(-0.06) == 0.85)
 
 summary = {
