@@ -23,32 +23,41 @@ jobs:
         run: python scripts/patch_r10_sizing_v3.py
       - name: Syntax check
         run: python -m py_compile scripts/backtest_r10_stress.py
-      - name: Sizing contract checks
+      - name: Sizing/common-pool contract checks
         run: |
           python - <<'PY'
           from scripts import backtest_r10_stress as bt
 
-          # A normal low-price target that can afford a board lot must remain
-          # BOARD_LOT even if residual cash is below one lot. It becomes no
-          # order, never a tiny odd-lot order.
-          sh, mode = bt.size_shares(260_000, 20.0, 10_000_000, 12_000)
+          # Locked allocation examples: R0.5 on 1.3m NAV = 260k.
+          # At NT$27, nearest board-lot sizing is 10 lots = 10,000 shares.
+          sh, mode = bt.size_shares(260_000, 260_000, 27.0, 10_000_000)
           assert mode == 'BOARD_LOT', (sh, mode)
-          assert sh == 0, (sh, mode)
+          assert sh == 10_000, (sh, mode)
 
-          # With enough residual cash, quantity is whole board lots only.
-          sh, mode = bt.size_shares(260_000, 20.0, 10_000_000, 100_000)
+          # Normal-price stocks NEVER become odd lots. Even a target below one
+          # board lot remains one full lot (subject only to liquidity hard cap).
+          sh, mode = bt.size_shares(12_000, 260_000, 20.0, 10_000_000)
           assert mode == 'BOARD_LOT', (sh, mode)
-          assert sh % 1000 == 0 and sh > 0, (sh, mode)
+          assert sh == 1_000, (sh, mode)
 
-          # Odd lot is legal only when one board lot exceeds the strategic target.
-          sh, mode = bt.size_shares(15_000, 20.0, 10_000_000, 15_000)
+          # High-price exception: one full lot exceeds the unthrottled base target.
+          sh, mode = bt.size_shares(260_000, 260_000, 500.0, 10_000_000)
           assert mode == 'HIGH_PRICE_ODDLOT', (sh, mode)
-          assert 0 < sh < 1000, (sh, mode)
+          assert 0 < sh < 1_000, (sh, mode)
+
+          # ADV remains a hard cap and cannot create a normal-stock odd lot.
+          sh, mode = bt.size_shares(260_000, 260_000, 27.0, 20_000)
+          assert mode == 'BOARD_LOT', (sh, mode)
+          assert sh % 1000 == 0, (sh, mode)
 
           src = open('scripts/backtest_r10_stress.py', encoding='utf-8').read()
-          assert 'target=min(target,rem_single,rem_global,rem_cash)' not in src
-          assert 'target=min(target,rem_single,rem_global)' in src
-          print({'status':'PASS','tests':8})
+          assert 'base_target=nav*base_pct' in src
+          assert 'shares,_=size_shares(target,base_target,limit,float(row.avgvol20))' in src
+          assert 'reserve>rem_cash' not in src
+          assert '# T+1 sells first.' in src and '# T+1 buys: fixed T order, no chasing.' in src
+          assert src.index('# T+1 sells first.') < src.index('# T+1 buys: fixed T order, no chasing.')
+          assert 'cash += proceeds' in src
+          print({'status':'PASS','tests':11})
           PY
       - name: Commit repaired engine
         run: |
@@ -59,5 +68,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/backtest_r10_stress.py
-          git commit -m 'Fix R10 strategic sizing and board-lot semantics'
+          git commit -m 'Lock exact R10 sizing and flexible common-pool rotation'
           git push
