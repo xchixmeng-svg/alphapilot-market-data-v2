@@ -1,0 +1,58 @@
+name: R10 R05 Trail Causality Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_r05_trail_causality_audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q pandas requests
+      - name: Audit inherited R0.5 trailing exits
+        run: |
+          python - <<'PY'
+          import io,zipfile,math,requests,pandas as pd
+          u='https://github.com/yukishirotsubasa/tw-stock-data-release/releases/download/daily-close-csv/yearly_2025.zip'
+          b=requests.get(u,timeout=180).content
+          with zipfile.ZipFile(io.BytesIO(b)) as z:
+              n=[x for x in z.namelist() if x.lower().endswith('.csv')][0]
+              q=pd.read_csv(z.open(n),dtype={'code':str})
+          q['code']=q.code.astype(str).str.replace(r'\.0$','',regex=True).str.zfill(4)
+          q['date']=pd.to_numeric(q.date,errors='coerce').astype('Int64')
+          dates=sorted(int(x) for x in q.date.dropna().unique()); prev={dates[i]:dates[i-1] for i in range(1,len(dates))}
+          cases=[
+            ('8096',20250122,20250303,39.004,62.8044,68.3,0.80,'TARGET_TRAIL'),
+            ('2337',20250912,20251031,22.1885,32.9345,32.9,0.86,'RUNNER_TRAIL'),
+          ]
+          def tick(p):
+              if p<10:return .01
+              if p<50:return .05
+              if p<100:return .1
+              if p<500:return .5
+              if p<1000:return 1.
+              return 5.
+          def floor_tick(p):
+              s=tick(p); return round(math.floor((p+1e-12)/s)*s,10)
+          for code,en,ex,old_entry,old_exit,r10_exit,trail,reason in cases:
+              pr=prev[ex]
+              path=q[(q.code==code)&(q.date>=en)&(q.date<=ex)].sort_values('date')
+              prior_path=path[path.date<=pr]
+              peak_prior=float(prior_path.close.max())
+              peak_all=float(path.close.max())
+              threshold_prior=peak_prior*trail
+              er=path[path.date==ex].iloc[-1]; rr=path[path.date==pr].iloc[-1]
+              implied_peak=old_exit/(trail*.995)
+              r10_expected=floor_tick(float(er.open)*.995)
+              print('CASE',code,reason,'prev',pr,'exit',ex,'peak_prior',peak_prior,'peak_all',peak_all,'implied_peak_old',implied_peak,'trail_threshold_prior',threshold_prior,'prev_close',float(rr.close),'prev_low',float(rr.low),'exit_open',float(er.open),'exit_low',float(er.low),'exit_close',float(er.close),'prior_close_trigger',float(rr.close)<=threshold_prior,'prior_low_trigger',float(rr.low)<=threshold_prior,'exit_close_trigger',float(er.close)<=threshold_prior,'exit_low_trigger',float(er.low)<=threshold_prior,'old_exit',old_exit,'r10_exit',r10_exit,'r10_same_day_open_expected',r10_expected,'r10_open_match',abs(r10_exit-r10_expected)<1e-9)
+          PY
