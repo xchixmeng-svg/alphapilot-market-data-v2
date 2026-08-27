@@ -1,6 +1,6 @@
 {
-  "version": "AlphaPilot-R10-Scanner-V1.0",
-  "generated_at": "2026-08-27T09:03:36.765848+08:00",
+  "version": "AlphaPilot-R10-Scanner-V1.1-0050TR",
+  "generated_at": "2026-08-27T09:11:29.925294+08:00",
   "trade_date": "2026-08-26",
   "status": "PASS",
   "privacy_boundary": "PUBLIC_MARKET_ONLY_NO_HOLDINGS_NO_NAV_NO_COST_BASIS",
@@ -21,24 +21,29 @@
     "archived_sidecar_present": false
   },
   "benchmark": {
-    "name": "Taiwan 50 Total Return Index",
-    "source": "TWSE indicesReport/TAI50I",
+    "name": "0050 Total Return",
+    "source": "official 0050 OHLCV + locked causal cash distributions",
+    "cash_distributions": {
+      "2026-01-22": 1.0,
+      "2026-07-21": 0.6
+    },
+    "missing_value_policy": "causal forward-fill only; no future backfill",
     "rows": 156
   },
   "r7": {
     "regime": "Weak",
     "exposure": 0.2,
     "slots": 2,
-    "mkt": 97904.73,
-    "mkt_ma60": 95766.80583333335,
-    "mkt_ma120": 87271.75366666666,
-    "mr20": 0.14153152783406786,
-    "mr60": 0.020393331681744842,
+    "mkt": 161.3195915457004,
+    "mkt_ma60": 158.36926958111286,
+    "mkt_ma120": 144.4172568709487,
+    "mr20": 0.13020277481323372,
+    "mr60": 0.009667321696914088,
     "breadth60": 0.4498044328552803,
     "breadth_mean20": 0.3466009111504909,
     "advance10": 0.49934810951760106,
     "rebalance_due": true,
-    "rebalance_reason": "INITIAL_FORWARD_SCAN",
+    "rebalance_reason": "IDEMPOTENT_RERUN",
     "eligible_count": 350,
     "top_candidates": [
       {

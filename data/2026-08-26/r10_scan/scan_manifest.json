@@ -1,5 +1,5 @@
 {
-  "version": "AlphaPilot-R10-Scanner-V1.0",
+  "version": "AlphaPilot-R10-Scanner-V1.1-0050TR",
   "trade_date": "2026-08-26",
   "status": "PASS",
   "counts": {
@@ -9,5 +9,6 @@
     "institutional_dates": 26,
     "r7_eligible": 350,
     "r05_candidates": 2
-  }
+  },
+  "benchmark": "0050 Total Return"
 }
