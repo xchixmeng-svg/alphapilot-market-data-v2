@@ -1,0 +1,49 @@
+name: R10 Repair Golden Buy Fill
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_repair_buy_fill_golden.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair buy fill to Golden Master adverse execution
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/backtest_r10_stress.py')
+          s=p.read_text(encoding='utf-8')
+          old='''def buy_fill(open_price: float, low_price: float, limit: float) -> Optional[float]:\n    if open_price <= limit: return float(open_price)\n    if low_price <= limit: return float(limit)\n    return None\n'''
+          new='''def _tick_size(price: float) -> float:\n    # Taiwan equity tick schedule used for adverse buy-fill rounding.\n    if price < 10: return 0.01\n    if price < 50: return 0.05\n    if price < 100: return 0.10\n    if price < 500: return 0.50\n    if price < 1000: return 1.00\n    return 5.00\n\ndef _ceil_tick(price: float) -> float:\n    # Round UP to the next legal Taiwan tick; avoids favorable execution bias.\n    step = _tick_size(float(price))\n    q = math.ceil((float(price) - 1e-12) / step) * step\n    return float(round(q, 10))\n\ndef buy_fill(open_price: float, low_price: float, limit: float) -> Optional[float]:\n    # Golden Master execution: if T+1 opens through/below the precommitted\n    # limit, model 0.5% adverse buy slippage, rounded UP to a legal tick,\n    # but never pay above the locked limit. If only the intraday low touches\n    # the limit, fill exactly at the locked limit. No touch => cancel/no chase.\n    if open_price <= limit:\n        return float(min(limit, _ceil_tick(float(open_price) * (1.0 + SELL_SLIPPAGE))))\n    if low_price <= limit: return float(limit)\n    return None\n'''
+          if old not in s:
+              raise SystemExit('buy_fill old clause not found; refusing blind patch')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          c=Path('scripts/r10_contract_test.py')
+          t=c.read_text(encoding='utf-8')
+          old2='''# Buy: open <= limit => open fill.\nok("E05_BUY_OPEN_FILL", bt.buy_fill(98.0, 97.0, 99.0) == 98.0)\n# Buy: open above limit but low touches => limit fill.\n'''
+          new2='''# Buy: open <= limit => 0.5% adverse open fill, legal tick UP, capped by locked limit.\nok("E05_BUY_OPEN_ADVERSE", bt.buy_fill(98.0, 97.0, 99.0) == 98.5, f"got={bt.buy_fill(98.0,97.0,99.0)}")\n# Exact Golden Master regression cases from the locked 2021 trade ledger.\nok("E05A_GOLDEN_2426", bt.buy_fill(17.8, 17.35, 18.05) == 17.9, f"got={bt.buy_fill(17.8,17.35,18.05)}")\nok("E05B_GOLDEN_6235", bt.buy_fill(20.5, 19.9, 20.7) == 20.6, f"got={bt.buy_fill(20.5,19.9,20.7)}")\nok("E05C_GOLDEN_1533", bt.buy_fill(53.0, 52.1, 54.1) == 53.3, f"got={bt.buy_fill(53.0,52.1,54.1)}")\nok("E05D_GOLDEN_2401", bt.buy_fill(22.65, 22.2, 22.9) == 22.8, f"got={bt.buy_fill(22.65,22.2,22.9)}")\n# Buy: open above limit but low touches => limit fill.\n'''
+          if old2 not in t:
+              raise SystemExit('contract buy clause not found; refusing blind patch')
+          c.write_text(t.replace(old2,new2,1),encoding='utf-8')
+          PY
+      - name: Syntax and contract test
+        run: |
+          python -m py_compile scripts/backtest_r10_stress.py scripts/r10_contract_test.py
+          pip install -q numpy pandas requests
+          python scripts/r10_contract_test.py
+      - name: Commit repair
+        run: |
+          git config user.name "AlphaPilot CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/backtest_r10_stress.py scripts/r10_contract_test.py
+          git commit -m "fix: match Golden Master 0.5% adverse buy fills"
+          git push
