@@ -1,0 +1,63 @@
+name: R10 Sizing Repair
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/patch_r10_sizing_v3.py'
+      - '.github/workflows/r10-sizing-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy pandas requests
+      - name: Apply deterministic patch
+        run: python scripts/patch_r10_sizing_v3.py
+      - name: Syntax check
+        run: python -m py_compile scripts/backtest_r10_stress.py
+      - name: Sizing contract checks
+        run: |
+          python - <<'PY'
+          from scripts import backtest_r10_stress as bt
+
+          # A normal low-price target that can afford a board lot must remain
+          # BOARD_LOT even if residual cash is below one lot. It becomes no
+          # order, never a tiny odd-lot order.
+          sh, mode = bt.size_shares(260_000, 20.0, 10_000_000, 12_000)
+          assert mode == 'BOARD_LOT', (sh, mode)
+          assert sh == 0, (sh, mode)
+
+          # With enough residual cash, quantity is whole board lots only.
+          sh, mode = bt.size_shares(260_000, 20.0, 10_000_000, 100_000)
+          assert mode == 'BOARD_LOT', (sh, mode)
+          assert sh % 1000 == 0 and sh > 0, (sh, mode)
+
+          # Odd lot is legal only when one board lot exceeds the strategic target.
+          sh, mode = bt.size_shares(15_000, 20.0, 10_000_000, 15_000)
+          assert mode == 'HIGH_PRICE_ODDLOT', (sh, mode)
+          assert 0 < sh < 1000, (sh, mode)
+
+          src = open('scripts/backtest_r10_stress.py', encoding='utf-8').read()
+          assert 'target=min(target,rem_single,rem_global,rem_cash)' not in src
+          assert 'target=min(target,rem_single,rem_global)' in src
+          print({'status':'PASS','tests':8})
+          PY
+      - name: Commit repaired engine
+        run: |
+          if git diff --quiet -- scripts/backtest_r10_stress.py; then
+            echo 'No engine change to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/backtest_r10_stress.py
+          git commit -m 'Fix R10 strategic sizing and board-lot semantics'
+          git push
