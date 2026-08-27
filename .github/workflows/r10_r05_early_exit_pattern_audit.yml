@@ -1,0 +1,56 @@
+name: R10 R05 Early Exit Pattern Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_r05_early_exit_pattern_audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q pandas requests
+      - name: Compare Golden early exits to T-close drawdowns
+        run: |
+          python - <<'PY'
+          import io,zipfile,requests,pandas as pd
+          url='https://github.com/yukishirotsubasa/tw-stock-data-release/releases/download/daily-close-csv/yearly_2021.zip'
+          b=requests.get(url,timeout=180).content
+          with zipfile.ZipFile(io.BytesIO(b)) as z:
+              n=[x for x in z.namelist() if x.lower().endswith('.csv')][0]
+              q=pd.read_csv(z.open(n),dtype={'code':str})
+          q['code']=q.code.astype(str).str.replace(r'\.0$','',regex=True).str.zfill(4)
+          q['date']=pd.to_numeric(q.date,errors='coerce').astype('Int64')
+          cases=[
+            # code, entry_date, entry_fill, Golden sell-decision date
+            ('1802',20210105,21.3,20210106),
+            ('8215',20210106,30.5,20210108),
+            ('1319',20210420,39.8,20210503),
+            ('2889',20210510,17.9,20210511),
+            ('6160',20210714,24.9,20210719),
+            ('2344',20210806,35.2,20210810),
+          ]
+          for code,ed,ep,dd in cases:
+              r=q[(q.code==code)&(q.date==dd)]
+              if r.empty:
+                  print('[MISSING]',code,dd);continue
+              r=r.iloc[-1]
+              print('[CASE]',code,'entry',ed,ep,'decision',dd,
+                    'O/H/L/C',r.open,r.high,r.low,r.close,
+                    'close_ret',float(r.close)/ep-1,
+                    'low_ret',float(r.low)/ep-1,
+                    'below90_close',float(r.close)<=ep*.90,
+                    'below92_close',float(r.close)<=ep*.92,
+                    'below90_low',float(r.low)<=ep*.90,
+                    'below92_low',float(r.low)<=ep*.92)
+          PY
