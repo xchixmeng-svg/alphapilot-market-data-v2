@@ -3,9 +3,9 @@
 """AlphaPilot R10 locked-rule contract test.
 
 Purpose: verify the complete locked R10 rule contract in seconds, without
-network access or historical data. This is a gate before any long backtest.
-It checks both executable behavior and exact source presence for logic that is
-currently embedded inside the portfolio loop.
+network access, historical orders, historical trades, or performance targets.
+Historical End NAV/CAGR/DD/trade counts are outputs and are never contract
+answers.
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import numpy as np
 
 import backtest_r10_stress as bt
 import build_r10_scan as core
+import r10_true_validation as true_engine
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "contract_results"
@@ -48,11 +49,13 @@ ok("E01_BUY_FEE", bt.BUY_FEE == 0.000855)
 ok("E02_SELL_FEE", bt.SELL_FEE == 0.000855)
 ok("E03_SELL_TAX", bt.SELL_TAX == 0.003)
 ok("E04_SELL_SLIPPAGE", bt.SELL_SLIPPAGE == 0.005)
-ok("B01_CAUSAL_BENCHMARK_ACTIVE", bt.LOCKED_BENCHMARK is bt.CAUSAL_BENCHMARK)
-ok("B02_CAUSAL_NAV", abs(bt.CAUSAL_BENCHMARK["end_nav"] - 4_020_109.243251493) < 1e-6)
-ok("B03_CAUSAL_FLAG", bt.CAUSAL_BENCHMARK.get("causal") is True)
-ok("B04_LEGACY_QUARANTINED", bt.LEGACY_CONTAMINATED_BENCHMARK.get("causal") is False)
-ok("B05_LEGACY_NOT_ACTIVE", bt.LEGACY_CONTAMINATED_BENCHMARK is not bt.LOCKED_BENCHMARK)
+
+# Performance numbers are explicitly NOT contract assertions.
+contract_source = Path(__file__).read_text(encoding="utf-8")
+ok("B01_NO_END_NAV_ANSWER_GATE", 'B02_CAUSAL_NAV' not in contract_source)
+ok("B02_TRUE_ENGINE_NO_FIXTURE_INPUT", 'tests/fixtures' not in (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8"))
+ok("B03_TRUE_ENGINE_NO_BENCHMARK_INPUT", 'CAUSAL_BENCHMARK' not in (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8"))
+ok("B04_TRUE_ENGINE_NO_LEGACY_INPUT", 'LEGACY_CONTAMINATED_BENCHMARK' not in (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8"))
 
 # DD throttle boundary behavior.
 ok("DD01_GT_6", bt.dd_multiplier(-0.059999) == 1.00)
@@ -62,32 +65,32 @@ ok("DD04_AT_14", bt.dd_multiplier(-0.14) == 0.45)
 ok("DD05_AT_15", bt.dd_multiplier(-0.15) == 0.40)
 
 # ---------------------------------------------------------------------------
-# B. T -> T+1 execution mechanics
+# B. T -> T+1 execution mechanics (generic synthetic values only)
 # ---------------------------------------------------------------------------
 ok("E05_BUY_OPEN_ADVERSE", bt.buy_fill(98.0, 97.0, 99.0) == 98.5, f"got={bt.buy_fill(98.0,97.0,99.0)}")
-ok("E05A_GOLDEN_2426", bt.buy_fill(17.8, 17.35, 18.05) == 17.9, f"got={bt.buy_fill(17.8,17.35,18.05)}")
-ok("E05B_GOLDEN_6235", bt.buy_fill(20.5, 19.9, 20.7) == 20.6, f"got={bt.buy_fill(20.5,19.9,20.7)}")
-ok("E05C_GOLDEN_1533", bt.buy_fill(53.0, 52.1, 54.1) == 53.3, f"got={bt.buy_fill(53.0,52.1,54.1)}")
-ok("E05D_GOLDEN_2401", bt.buy_fill(22.65, 22.2, 22.9) == 22.8, f"got={bt.buy_fill(22.65,22.2,22.9)}")
+ok("E05A_BUY_TICK_LT50", bt.buy_fill(17.8, 17.35, 18.05) == 17.9)
+ok("E05B_BUY_TICK_LT50_B", bt.buy_fill(20.5, 19.9, 20.7) == 20.6)
+ok("E05C_BUY_TICK_50_100", bt.buy_fill(53.0, 52.1, 54.1) == 53.3)
+ok("E05D_BUY_TICK_LT50_C", bt.buy_fill(22.65, 22.2, 22.9) == 22.8)
 ok("E06_BUY_LOW_TOUCH", bt.buy_fill(101.0, 98.5, 99.0) == 99.0)
 ok("E07_BUY_NO_TOUCH", bt.buy_fill(101.0, 99.1, 99.0) is None)
 expected_sell = float(core.floor_tick(100.0 * 0.995))
 ok("E08_SELL_T1_ADVERSE", bt.legal_sell_price(100.0) == expected_sell, f"got={bt.legal_sell_price(100.0)}")
-
 ok("E09_R7_LIMIT", core.floor_tick(100.0 * 0.98) == 98.0)
 ok("E10_R05_LIMIT", core.floor_tick(40.0 * 0.995) == 39.8)
 
-# Integer/board-lot + 2% ADV behavior. Signature is
-# size_shares(target_cash, base_target_cash, limit, avg_vol20).
-shares, mode = bt.size_shares(260_000, 260_000, 100.0, 100_000)
+# Active quantity semantics are tested against the clean causal engine, not a
+# historical order row or old FAST implementation.
+shares, mode = true_engine.size_shares_true(260_000, 100.0, 100_000)
 ok("E11_BOARD_LOT_INTEGER", shares % 1000 == 0 and mode == "BOARD_LOT", f"shares={shares},mode={mode}")
 ok("E12_ADV_2PCT", shares <= 2_000, f"shares={shares}")
-shares2, mode2 = bt.size_shares(80_000, 80_000, 200.0, 100_000)
+shares2, mode2 = true_engine.size_shares_true(80_000, 200.0, 100_000)
 ok("E13_ODDLOT_ONLY_WHEN_LOT_EXCEEDS_TARGET", mode2 == "HIGH_PRICE_ODDLOT" and isinstance(shares2, int), f"shares={shares2},mode={mode2}")
-shares3, mode3 = bt.size_shares(260_000, 260_000, 27.0, 10_000_000)
-ok("E14_R05_260K_27_NEAREST_10LOTS", shares3 == 10_000 and mode3 == "BOARD_LOT", f"shares={shares3},mode={mode3}")
-shares4, mode4 = bt.size_shares(260_000, 260_000, 500.0, 10_000_000)
-ok("E15_HIGH_PRICE_ONLY_ODDLOT", 0 < shares4 < 1000 and mode4 == "HIGH_PRICE_ODDLOT", f"shares={shares4},mode={mode4}")
+shares3, mode3 = true_engine.size_shares_true(260_000, 27.0, 10_000_000)
+ok("E14_BOARD_LOT_FLOOR_NOT_ROUND_UP", shares3 == 9_000 and mode3 == "BOARD_LOT", f"shares={shares3},mode={mode3}")
+ok("E15_BOARD_LOT_NEVER_EXCEEDS_TARGET", shares3 * 27.0 <= 260_000 + 1e-9, f"shares={shares3}")
+shares4, mode4 = true_engine.size_shares_true(80_000, 500.0, 10_000_000)
+ok("E16_HIGH_PRICE_ONLY_ODDLOT", 0 < shares4 < 1000 and mode4 == "HIGH_PRICE_ODDLOT", f"shares={shares4},mode={mode4}")
 
 # ---------------------------------------------------------------------------
 # C. R0.5 executable exit state machine
@@ -113,7 +116,7 @@ p = pos(mode="RUNNER", hold=119, peak=150); ok("R05_RUNNER_TIME_120", bt.r05_exi
 # ---------------------------------------------------------------------------
 scanner = (ROOT / "scripts" / "build_r10_scan.py").read_text(encoding="utf-8")
 engine = (ROOT / "scripts" / "backtest_r10_stress.py").read_text(encoding="utf-8")
-full_battery = (ROOT / "scripts" / "r10_full_battery.py").read_text(encoding="utf-8")
+true_source = (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8")
 
 def contains(rule: str, text: str, *snips: str) -> None:
     ok(rule, all(s in text for s in snips), "missing locked source clause")
@@ -140,15 +143,15 @@ contains("R05_FILTER_PRIOR60", scanner, 'x.prior60_position>=-.15')
 contains("R05_BREAKOUT_10", scanner, 'x.aclose>x.prior_high10')
 contains("R05_INST_ROLLS", scanner, 'Foreign3D', 'Foreign10D', 'Trust5D')
 
-contains("PORT_FORCE_DD_EXEC", engine, 'if dd <= FORCE_DD', 'target=nav*FORCE_TARGET_EXPOSURE', '"FORCE_DD"')
-contains("PORT_NO_BUY_EXEC", engine, 'no_buy_until=max(no_buy_until,i+FORCE_NO_BUY_DAYS)')
-contains("PORT_COOLDOWN_EXEC", engine, 'force_cooldown_until=i+FORCE_COOLDOWN_DAYS')
-contains("PORT_MAX5_EXEC", engine, 'len(codes_after)>=MAX_POSITIONS')
-contains("PORT_SINGLE25_EXEC", engine, 'nav*MAX_SINGLE-current_code')
-contains("PORT_TOTAL95_EXEC", engine, 'nav*MAX_TOTAL-base_exposure-reserved_exposure')
-contains("PORT_R05_FIRST", engine, 'R0.5 is evaluated before R7')
-ok("CAUSAL_NO_IMPLICIT_COMPOUND_PROFILE", 'if Path(sys.argv[0]).name == "r10_five_year_compound.py"' not in full_battery)
-ok("CAUSAL_FULL_BATTERY_NO_LEGACY_VALIDATION_CALL", 'apply_locked_baseline_execution_profile()\n    else:' not in full_battery)
+contains("PORT_FORCE_DD_EXEC", true_source, 'dd <= bt.FORCE_DD', 'force_target = nav * bt.FORCE_TARGET_EXPOSURE', '"FORCE_DD"')
+contains("PORT_NO_BUY_EXEC", true_source, 'no_buy_until = max(no_buy_until, i + bt.FORCE_NO_BUY_DAYS)')
+contains("PORT_COOLDOWN_EXEC", true_source, 'force_cooldown_until = i + bt.FORCE_COOLDOWN_DAYS')
+contains("PORT_MAX5_EXEC", true_source, 'len(codes_after) >= bt.MAX_POSITIONS')
+contains("PORT_SINGLE25_EXEC", true_source, 'nav * bt.MAX_SINGLE - current_code')
+contains("PORT_TOTAL95_EXEC", true_source, 'nav * bt.MAX_TOTAL - base_exposure - reserved_exposure')
+contains("PORT_T1_SELLS_FIRST", true_source, 'pending_sells.pop(di', 'pending_buys.pop(di')
+ok("PORT_T1_SELLS_PRECEDE_BUYS", true_source.index('pending_sells.pop(di') < true_source.index('pending_buys.pop(di')))
+contains("PORT_ACTUAL_CASH_CHECK_AT_EXECUTION", true_source, 'if cost > cash + 1e-6:', '"CASH_SHORT_AT_EXECUTION"')
 contains("CAUSAL_T1_PENDING", engine, 'T+1 buys: fixed T order, no chasing.', 'T close fixed buy orders')
 
 ok("NO_PROFILE_OVERRIDE", bt.ADV_CAP == 0.02 and bt.FORCE_DD == -0.14 and bt.dd_multiplier(-0.06) == 0.85)
@@ -160,6 +163,7 @@ summary = {
     "failed": sum(1 for x in checks if not x["pass"]),
     "network_used": False,
     "historical_data_used": False,
+    "historical_performance_target_used": False,
     "contract": "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md",
     "checks": checks,
 }
