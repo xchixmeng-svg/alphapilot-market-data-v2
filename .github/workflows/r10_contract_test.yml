@@ -36,3 +36,5 @@ jobs:
           name: r10-contract-audit
           path: contract_results/r10_contract_summary.json
           retention-days: 90
+
+# rerun marker: engine threshold boundary repair applied
