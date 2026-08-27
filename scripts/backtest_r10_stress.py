@@ -339,25 +339,26 @@ def r05_exit_reason(p: Position, r) -> Optional[str]:
     adj = float(r.aclose); ret = adj / p.entry_adj - 1.0
     p.peak_adj = max(p.peak_adj, adj); p.hold_days += 1
     ar = float(r.amount_ratio) if np.isfinite(r.amount_ratio) else 0.0
-    if adj <= p.entry_adj * 0.90: return "HARD"
-    if p.mode == "NORMAL" and ret >= 0.40 and ar >= 2.0: p.mode = "RUNNER"
-    if p.mode in {"RUNNER", "MEGA", "TARGET"} and ret >= 0.80:
-        if ar >= 1.20: p.mode = "MEGA"
+    eps = 1e-12
+    if adj <= p.entry_adj * 0.90 + eps: return "HARD"
+    if p.mode == "NORMAL" and ret >= 0.40 - eps and ar >= 2.0 - eps: p.mode = "RUNNER"
+    if p.mode in {"RUNNER", "MEGA", "TARGET"} and ret >= 0.80 - eps:
+        if ar >= 1.20 - eps: p.mode = "MEGA"
         elif p.mode != "MEGA": p.mode = "TARGET"
     if p.mode == "MEGA":
-        if adj <= p.peak_adj * 0.84: return "MEGA_TRAIL"
+        if adj <= p.peak_adj * 0.84 + eps: return "MEGA_TRAIL"
         if p.hold_days >= 120: return "RUNNER_TIME"
         return None
     if p.mode == "TARGET":
-        if ret >= 2.00: return "TARGET_200"
-        if adj <= p.peak_adj * 0.80: return "TARGET_TRAIL"
+        if ret >= 2.00 - eps: return "TARGET_200"
+        if adj <= p.peak_adj * 0.80 + eps: return "TARGET_TRAIL"
         if p.hold_days >= 120: return "RUNNER_TIME"
         return None
     if p.mode == "RUNNER":
-        if adj <= p.peak_adj * 0.86: return "RUNNER_TRAIL"
+        if adj <= p.peak_adj * 0.86 + eps: return "RUNNER_TRAIL"
         if p.hold_days >= 120: return "RUNNER_TIME"
         return None
-    if ret >= 0.50 and adj <= p.peak_adj * 0.88: return "BASE_TRAIL"
+    if ret >= 0.50 - eps and adj <= p.peak_adj * 0.88 + eps: return "BASE_TRAIL"
     if p.hold_days >= 60: return "TIME"
     return None
 
