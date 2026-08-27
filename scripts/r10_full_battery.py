@@ -18,18 +18,41 @@ def _clean_load(cfg):
     return q.sort_values(["code","date"]).reset_index(drop=True)
 bt.load_scenario_ohlcv=_clean_load
 
-# Causal benchmark-gap rule: on a market trading date where 0050 itself has no
-# quote, carry the last known benchmark value forward. Never backfill from a
-# future day. This also handles ETF trading halts such as split procedures.
+# 0050 cash distributions by ex-dividend trading date. Values are in the
+# contemporaneous raw unit; the per-row adjusted-price factor below converts
+# them into the same split-adjusted unit as `aclose`. This lets the R7 market
+# benchmark remain a causal total-return series across the 2025 4:1 split.
+DIV0050={
+ 20071024:2.5,20081024:2.0,20091023:1.0,20101025:2.2,20111026:1.95,
+ 20121024:1.85,20131024:1.35,20141024:1.55,20151026:2.0,20160728:.85,
+ 20170208:1.7,20170731:.7,20180129:2.2,20180723:.7,20190122:2.3,20190719:.7,
+ 20200131:2.9,20200721:.7,20210122:3.05,20210721:.35,20220121:3.2,
+ 20220718:1.8,20230130:2.6,20230718:1.9,20240117:3.0,20240716:1.0,
+ 20250117:2.7,20250721:.36,
+}
+
 _ORIG_BUILD=bt.build_features
 def _build_features(raw):
-    feat,events,bm=_ORIG_BUILD(raw)
+    feat,events,_=_ORIG_BUILD(raw)
+    etf=feat[feat.code.astype(str).eq("0050")][["date","close","aclose"]].copy().sort_values("date")
+    etf["close"]=bt.pd.to_numeric(etf.close,errors="coerce");etf["aclose"]=bt.pd.to_numeric(etf.aclose,errors="coerce")
+    etf=etf.dropna(subset=["date","close","aclose"]);etf=etf[(etf.close>0)&(etf.aclose>0)]
+    tr=100.0;prev=None;rows=[]
+    for r in etf.itertuples(index=False):
+        di=int(r.date);adj=float(r.aclose);rawc=float(r.close);factor=adj/rawc if rawc>0 else 1.0
+        if prev is not None:
+            div=float(DIV0050.get(di,0.0))*factor
+            tr*= (adj+div)/prev
+        prev=adj;rows.append((di,float(tr)))
+    bm=bt.pd.DataFrame(rows,columns=["date","mkt"])
+    # On market days without an 0050 print, carry only the last known TR value
+    # forward. Never use a future observation to fill a past day.
     cal=bt.pd.DataFrame({"date":sorted(int(x) for x in raw.date.unique())})
     bm=cal.merge(bm,on="date",how="left").sort_values("date")
-    bm["mkt"]=bt.pd.to_numeric(bm["mkt"],errors="coerce").ffill()
-    bm=bm.dropna(subset=["mkt"]).reset_index(drop=True)
+    bm["mkt"]=bt.pd.to_numeric(bm.mkt,errors="coerce").ffill();bm=bm.dropna(subset=["mkt"]).reset_index(drop=True)
     return feat,events,bm
 bt.build_features=_build_features
+bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.1-0050TR"
 
 EXTRA={
  "euro2011":{"label":"2011 Euro-area / US downgrade selloff","warmup_start":"2010-01-01","eval_start":"2011-01-03","eval_end":"2011-12-30","years":[2010,2011],"r05":False,"mode":"PARTIAL_R10_R7_ONLY","reason":"TWSE stock-level daily institutional T86 starts later; R0.5 is disabled rather than fabricated."},
