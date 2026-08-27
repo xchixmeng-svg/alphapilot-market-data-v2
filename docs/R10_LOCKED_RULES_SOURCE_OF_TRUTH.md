@@ -93,9 +93,10 @@ R0.5 current exit implementation:
 - R0.5 new position base = 20% NAV.
 - Maximum 5 distinct stocks.
 - Same stock across strategies combined <= 25% NAV.
-- Normal total exposure <= 95% NAV.
+- Normal total exposure <= 95% NAV at order construction; subsequent mark-to-market price movement may move observed exposure above 95% without creating an undocumented forced-sale rule.
+- T+1 planned sells execute before T+1 buys. Their actual proceeds join the same cash pool before buy affordability is checked; T-day cash is not used as a synthetic cap on an otherwise valid T+1 order.
 - Cash cannot be negative; no borrowing or leverage.
-- If enough cash exists for a board lot, quantity must be a multiple of 1,000 shares. Odd-lot integer shares are permitted only when one full board lot itself exceeds the target capital.
+- If enough target capital exists for a board lot, quantity must be a multiple of 1,000 shares. Odd-lot integer shares are permitted only when one full board lot itself exceeds the effective target capital.
 - Per-order liquidity <= 2% of T-known 20D average volume.
 
 DD throttle for new positions:
@@ -120,28 +121,24 @@ These DD/ADV controls are part of the documented LOCKED portfolio layer and must
 - Sell tax: 0.3%.
 - Integer shares only.
 
-## 6. Five-year regression references
+## 6. Historical validation policy — no performance target injection
 
-### 6.1 Active causal benchmark
+A historical validation run must regenerate its orders, fills, exits, cash path and NAV from the raw OHLCV/institutional inputs and the rules above. No historical order ledger, trade ledger, exit schedule, NAV path, End NAV, CAGR, Max DD or completed-trade count may be used as an engine input or as a required value that the engine is tuned to reproduce.
 
-The active 2021–2025 regression gate is produced with the rules in this document and strict T-close -> T+1 execution:
-- End NAV: NT$4,020,109.243251493.
-- CAGR: 25.397140%.
-- Max DD: -18.138926%.
-- Completed trades: 217.
-- Future data used: false.
+What may be locked for reproducibility:
+- this rule specification and its Git commit SHA;
+- the validation-engine source commit SHA;
+- raw/input data hashes and source provenance;
+- deterministic execution/cost mechanics and generic unit tests.
 
-A long historical stress/capital-path result is accepted only after this causal benchmark is reproduced.
+What is output only:
+- End NAV, CAGR, Max DD, annual returns, order count, fill count, trade count and all historical transaction rows. These values are consequences of code + rules + data and must never be used to steer the run.
 
-### 6.2 Quarantined legacy Golden reference — NOT a causal regression target
+Older performance snapshots are retained only as forensic references after a clean run has already completed:
+- the former NT$9.888m Golden result is quarantined because inherited R0.5 exits contain confirmed same-day look-ahead timing contamination;
+- the former NT$4.020m causal snapshot came from an older Portfolio-Layer implementation that T-day-cash-clamped orders and did not execute the documented FORCE_DD liquidation, so it is not a current R10 equivalence target.
 
-The former Golden reference is retained only for forensic comparison:
-- End NAV: NT$9,888,538.413551485.
-- CAGR: 50.192706%.
-- Max DD: -12.258760%.
-- Completed trades: 241.
-
-Forensic comparison against the inherited R7/R0.5 ledger established look-ahead contamination in R0.5 exits. All 15 inherited `STOP` exits first touched the -10% stop during the exit day's intraday range while the prior trading-day low had not touched it; nevertheless the R10 Golden ledger repriced those exits at that same day's already-passed opening price. The two inherited trailing exits (TARGET_TRAIL and RUNNER_TRAIL) have the same timing defect. Therefore the legacy 9.888m result cannot be used as a zero-look-ahead engine-equivalence target.
+A post-run comparison tool may identify the first divergence from those historical snapshots, but reference rows must never flow back into candidate selection, position sizing, fill decisions, exits, cash, or NAV.
 
 ## 7. Prohibited changes during validation
 
@@ -150,3 +147,5 @@ Forensic comparison against the inherited R7/R0.5 ledger established look-ahead 
 - Do not count untouched limits as fills.
 - Do not silently disable DD defense or liquidity rules.
 - Do not fabricate missing institutional history.
+- Do not inject historical orders, fills, exits, cash paths, NAV paths, or performance numbers into the engine.
+- Do not change tolerances or rules merely to make a historical reference comparison pass.
