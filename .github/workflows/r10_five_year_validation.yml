@@ -71,7 +71,6 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           s=Path('scripts/r10_fast_validation.py').read_text(encoding='utf-8')
-          assert 'bt.size_shares(target,base_target,limit,float(row.avgvol20))' not in s
           assert 'shares,share_mode=bt.size_shares(target,base_target,limit,float(row.avgvol20))' in s
           assert 'target=min(target,rem_single,rem_global,rem_cash)' in s
           assert 'if reserve>rem_cash+1e-6:return' in s
