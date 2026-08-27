@@ -1,0 +1,69 @@
+name: R10 Unify Causal Regression Path V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_unify_causal_regression_path_v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Robust causal-path repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('scripts/r10_full_battery.py')
+          s=p.read_text(encoding='utf-8')
+          old='''    if name=="validation2021_2025":\n        apply_locked_baseline_execution_profile()\n    else:\n        restore_stress_execution_profile()\n        bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.2-FULL"\n    result=bt.simulate(name,bt.SCENARIOS[name])\n    result["execution_profile"]="LOCKED_BASELINE" if name=="validation2021_2025" else "STRESS_DIAGNOSTIC"\n'''
+          new='''    # Start every executable path from the documented causal controls. The\n    # legacy baseline helper disables ADV/DD defenses and is forensic-only.\n    restore_stress_execution_profile()\n    bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.3-CAUSAL" if name=="validation2021_2025" else "AlphaPilot-R10-MAX-0p5-Stress-v1.3-FULL"\n    result=bt.simulate(name,bt.SCENARIOS[name])\n    result["execution_profile"]="DOCUMENTED_CAUSAL" if name=="validation2021_2025" else "STRESS_DIAGNOSTIC"\n'''
+          if old not in s: raise SystemExit('full-battery legacy validation branch not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          p=Path('.github/workflows/r10_five_year_compound.yml')
+          s=p.read_text(encoding='utf-8')
+          old='''      - name: Run locked regression\n        run: python scripts/r10_full_battery.py --scenario validation2021_2025\n'''
+          new='''      - name: Run exact causal contract + regression\n        run: |\n          python scripts/r10_contract_test.py\n          python scripts/r10_locked_validation_v2.py\n'''
+          if old not in s: raise SystemExit('compound regression command not found')
+          s=s.replace(old,new,1)
+          old='''          g=(q.get('regression_gate') or {}).get('grade')\n          print('Regression Gate:',g)\n          if g!='PASS': raise SystemExit(2)\n'''
+          new='''          d=q.get('validation_delta') or {}\n          c=q.get('causal_assertions') or {}\n          ok=(q.get('status')=='PASS' and q.get('legacy_benchmark_status')=='QUARANTINED_LOOKAHEAD_CONTAMINATION'\n              and c.get('future_data_used') is False\n              and abs(d.get('end_nav_pct',999))<1e-10\n              and abs(d.get('cagr',999))<1e-10\n              and abs(d.get('max_dd',999))<1e-10\n              and d.get('trades')==0)\n          print('Causal Regression Gate:', 'PASS' if ok else 'FAIL')\n          print('Delta:',d)\n          if not ok: raise SystemExit(2)\n'''
+          if old not in s: raise SystemExit('compound old grade gate not found')
+          s=s.replace(old,new,1)
+          # Cache-name bump without depending on runner-expression interpolation.
+          s=s.replace('-v1\n      - run: pip install requests pandas numpy\n      - name: Run exact causal contract + regression', '-v2-causal\n      - run: pip install requests pandas numpy\n      - name: Run exact causal contract + regression',1)
+          # Ensure engine/rules changes trigger future long-path reruns.
+          anchor='''      - "scripts/r10_five_year_aggregate.py"\n'''
+          extra='''      - "scripts/r10_five_year_aggregate.py"\n      - "scripts/backtest_r10_stress.py"\n      - "scripts/r10_full_battery.py"\n      - "scripts/r10_fast_validation.py"\n      - "scripts/r10_locked_validation_v2.py"\n      - "scripts/r10_contract_test.py"\n      - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"\n'''
+          if anchor not in s: raise SystemExit('compound trigger anchor not found')
+          s=s.replace(anchor,extra,1)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('scripts/r10_contract_test.py')
+          s=p.read_text(encoding='utf-8')
+          anchor='''ok("CAUSAL_NO_IMPLICIT_COMPOUND_PROFILE", 'if Path(sys.argv[0]).name == "r10_five_year_compound.py"' not in full_battery)\n'''
+          add='''ok("CAUSAL_NO_IMPLICIT_COMPOUND_PROFILE", 'if Path(sys.argv[0]).name == "r10_five_year_compound.py"' not in full_battery)\nok("CAUSAL_FULL_BATTERY_NO_LEGACY_VALIDATION_CALL", 'apply_locked_baseline_execution_profile()\\n    else:' not in full_battery)\n'''
+          if anchor not in s: raise SystemExit('contract profile anchor not found')
+          p.write_text(s.replace(anchor,add,1),encoding='utf-8')
+          PY
+      - name: Compile and contract gate
+        run: |
+          pip install -q numpy pandas requests
+          python -m py_compile scripts/r10_full_battery.py scripts/r10_five_year_compound.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py
+          python scripts/r10_contract_test.py
+      - name: Commit causal path
+        run: |
+          git config user.name "AlphaPilot CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/r10_full_battery.py scripts/r10_contract_test.py .github/workflows/r10_five_year_compound.yml
+          git commit -m "fix: route long-run regression through causal R10 gate"
+          git push
