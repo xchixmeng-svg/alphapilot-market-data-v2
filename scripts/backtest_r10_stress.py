@@ -282,8 +282,30 @@ def dd_multiplier(dd: float) -> float:
 def legal_sell_price(open_price: float) -> float:
     return float(core.floor_tick(float(open_price) * (1.0 - SELL_SLIPPAGE)))
 
+def _tick_size(price: float) -> float:
+    # Taiwan equity tick schedule used for adverse buy-fill rounding.
+    if price < 10: return 0.01
+    if price < 50: return 0.05
+    if price < 100: return 0.10
+    if price < 500: return 0.50
+    if price < 1000: return 1.00
+    return 5.00
+
+def _ceil_tick(price: float) -> float:
+    # Golden Master first rounds the adverse execution estimate to cents,
+    # then rounds UP to the next legal Taiwan tick.
+    rounded = round(float(price), 2)
+    step = _tick_size(rounded)
+    q = math.ceil((rounded - 1e-12) / step) * step
+    return float(round(q, 10))
+
 def buy_fill(open_price: float, low_price: float, limit: float) -> Optional[float]:
-    if open_price <= limit: return float(open_price)
+    # Golden Master execution: if T+1 opens through/below the precommitted
+    # limit, model 0.5% adverse buy slippage, cents-round, legal-tick round UP,
+    # but never pay above the locked limit. If only the intraday low touches
+    # the limit, fill exactly at the locked limit. No touch => cancel/no chase.
+    if open_price <= limit:
+        return float(min(limit, _ceil_tick(float(open_price) * (1.0 + SELL_SLIPPAGE))))
     if low_price <= limit: return float(limit)
     return None
 

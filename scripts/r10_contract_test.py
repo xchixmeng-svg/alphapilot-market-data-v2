@@ -59,8 +59,13 @@ ok("DD05_AT_15", bt.dd_multiplier(-0.15) == 0.40)
 # ---------------------------------------------------------------------------
 # B. T -> T+1 execution mechanics
 # ---------------------------------------------------------------------------
-# Buy: open <= limit => open fill.
-ok("E05_BUY_OPEN_FILL", bt.buy_fill(98.0, 97.0, 99.0) == 98.0)
+# Buy: open <= limit => 0.5% adverse open fill, cents-round, legal tick UP, capped by locked limit.
+ok("E05_BUY_OPEN_ADVERSE", bt.buy_fill(98.0, 97.0, 99.0) == 98.5, f"got={bt.buy_fill(98.0,97.0,99.0)}")
+# Exact Golden Master regression cases from the locked 2021 trade ledger.
+ok("E05A_GOLDEN_2426", bt.buy_fill(17.8, 17.35, 18.05) == 17.9, f"got={bt.buy_fill(17.8,17.35,18.05)}")
+ok("E05B_GOLDEN_6235", bt.buy_fill(20.5, 19.9, 20.7) == 20.6, f"got={bt.buy_fill(20.5,19.9,20.7)}")
+ok("E05C_GOLDEN_1533", bt.buy_fill(53.0, 52.1, 54.1) == 53.3, f"got={bt.buy_fill(53.0,52.1,54.1)}")
+ok("E05D_GOLDEN_2401", bt.buy_fill(22.65, 22.2, 22.9) == 22.8, f"got={bt.buy_fill(22.65,22.2,22.9)}")
 # Buy: open above limit but low touches => limit fill.
 ok("E06_BUY_LOW_TOUCH", bt.buy_fill(101.0, 98.5, 99.0) == 99.0)
 # Buy: no touch => no fill/no chase.
