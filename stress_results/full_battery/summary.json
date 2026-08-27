@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-08-27T01:47:56.688872+00:00",
+  "regression_gate": "FAIL",
+  "policy": "Historical FULL_R10 reconstruction is promoted only when the 2021-2025 regression gate passes. Partial pre-T86 periods never become full R10.",
+  "results": [
+    {
+      "scenario": "validation2021_2025",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "gfc2008",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "euro2011",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "china2015",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "tradewar2018",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "covid2020",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "bear2022",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "crash2024",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "scenario": "tariff2025",
+      "status": "MISSING",
+      "trust": "NOT_AVAILABLE"
+    },
+    {
+      "status": "PASS",
+      "type": "SYNTHETIC_TAIL_DIAGNOSTIC",
+      "generated_at": "2026-08-27T01:46:55.849690+00:00",
+      "locked_constraints_tested": {
+        "normal_max_exposure": 0.95,
+        "single_name_cap": 0.25,
+        "t_plus_1_exit": true,
+        "base_sell_slippage": 0.005
+      },
+      "critical_cases": {
+        "95pct_exposure_limit_down": {
+          "1": -0.09499999999999997,
+          "2": -0.1805,
+          "3": -0.25744999999999985,
+          "4": -0.326705,
+          "5": -0.38903449999999995
+        },
+        "single_25pct_name_down_30pct": -0.075,
+        "interpretation": [
+          "DD Guard reduces future risk but cannot erase an overnight gap already suffered.",
+          "A market with repeated unfillable limit-down sessions can push drawdown far beyond the historical -14% force-reduce trigger before an exit is executable.",
+          "This matrix is deterministic stress arithmetic, not a forecast or historical performance claim."
+        ]
+      },
+      "rows": 89,
+      "trust": "DETERMINISTIC_DIAGNOSTIC"
+    }
+  ]
+}
