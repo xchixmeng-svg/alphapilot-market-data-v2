@@ -16,8 +16,9 @@ import r10_full_battery as full
 
 bt = full.bt
 core = bt.core
-full.apply_locked_baseline_execution_profile()
-bt.VERSION = "AlphaPilot-R10-FastValidation-v1-LOCKED-BASELINE"
+# IMPORTANT: importing the FAST engine must never mutate the active R10 profile.
+# Profile selection is explicit in the calling wrapper only.
+bt.VERSION = "AlphaPilot-R10-FastValidation-v3-NO-IMPORT-PROFILE-SIDE-EFFECT"
 
 CACHE = bt.CACHE_ROOT / "fast_validation"
 INST_DAY_CACHE = CACHE / "inst_days"
