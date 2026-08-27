@@ -228,13 +228,12 @@ def run_one(name:str)->dict:
     global _CURRENT_SCENARIO
     if name not in bt.SCENARIOS:raise SystemExit(f"unknown scenario {name}")
     _CURRENT_SCENARIO=name
-    if name=="validation2021_2025":
-        apply_locked_baseline_execution_profile()
-    else:
-        restore_stress_execution_profile()
-        bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.2-FULL"
+    # Start every executable path from the documented causal controls. The
+    # legacy baseline helper disables ADV/DD defenses and is forensic-only.
+    restore_stress_execution_profile()
+    bt.VERSION="AlphaPilot-R10-MAX-0p5-Stress-v1.3-CAUSAL" if name=="validation2021_2025" else "AlphaPilot-R10-MAX-0p5-Stress-v1.3-FULL"
     result=bt.simulate(name,bt.SCENARIOS[name])
-    result["execution_profile"]="LOCKED_BASELINE" if name=="validation2021_2025" else "STRESS_DIAGNOSTIC"
+    result["execution_profile"]="DOCUMENTED_CAUSAL" if name=="validation2021_2025" else "STRESS_DIAGNOSTIC"
     if name in {"gfc2008","euro2011"}:
         result["institutional_audit"]=_LAST_FINMIND_AUDIT
         if not result.get("r05_enabled"):

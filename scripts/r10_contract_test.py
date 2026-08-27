@@ -150,6 +150,7 @@ contains("PORT_SINGLE25_EXEC", engine, 'nav*MAX_SINGLE-current_code')
 contains("PORT_TOTAL95_EXEC", engine, 'nav*MAX_TOTAL-base_exposure-reserved_exposure')
 contains("PORT_R05_FIRST", engine, 'R0.5 is evaluated before R7')
 ok("CAUSAL_NO_IMPLICIT_COMPOUND_PROFILE", 'if Path(sys.argv[0]).name == "r10_five_year_compound.py"' not in full_battery)
+ok("CAUSAL_FULL_BATTERY_NO_LEGACY_VALIDATION_CALL", 'apply_locked_baseline_execution_profile()\n    else:' not in full_battery)
 contains("CAUSAL_T1_PENDING", engine, 'T+1 buys: fixed T order, no chasing.', 'T close fixed buy orders')
 
 # Explicitly reject the known bad profile if it is active in this process.
