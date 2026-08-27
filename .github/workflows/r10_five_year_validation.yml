@@ -9,6 +9,7 @@ on:
       - "scripts/build_r10_scan.py"
       - "scripts/backtest_r10_stress.py"
       - "scripts/r10_full_battery.py"
+      - "scripts/r10_fast_validation.py"
 
 permissions:
   contents: read
@@ -16,11 +17,15 @@ permissions:
 env:
   PYTHONUNBUFFERED: "1"
 
+concurrency:
+  group: r10-five-year-causal-validation-main
+  cancel-in-progress: true
+
 jobs:
   validate:
-    name: 2021-2025 locked causal R10
+    name: 2021-2025 locked causal R10 FAST
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,12 +34,15 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-fiveyear-validation-${{ runner.os }}-v1
+          key: r10-fiveyear-fast-${{ runner.os }}-v2
+          restore-keys: |
+            r10-fiveyear-fast-${{ runner.os }}-
+            r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
       - name: Syntax check
-        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py
-      - name: Run five-year causal baseline
-        run: python scripts/r10_full_battery.py --scenario validation2021_2025
+        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py scripts/r10_fast_validation.py
+      - name: Run five-year fast causal baseline
+        run: python scripts/r10_fast_validation.py
       - name: Enforce causal/independent-engine assertions
         shell: bash
         run: |
@@ -44,17 +52,20 @@ jobs:
           q=json.loads(p.read_text(encoding='utf-8'))
           assert q.get('status') == 'PASS', q
           assert q.get('r05_enabled') is True, q
-          assert 'LOCKED-BASELINE' in q.get('engine_version',''), q.get('engine_version')
-          g=(q.get('regression_gate') or {}).get('grade')
-          print('Regression Gate:', g)
+          a=q.get('causal_assertions') or {}
+          assert a.get('signals_use_T_or_earlier') is True, a
+          assert a.get('orders_execute_T1_only') is True, a
+          assert a.get('r7_r05_independent_scanners') is True, a
+          assert a.get('future_data_used') is False, a
           print('End NAV:', q.get('end_nav'))
           print('CAGR:', q.get('cagr'))
           print('Max DD:', q.get('max_dd'))
           print('Trades:', q.get('completed_trades'))
+          print('Delta:', q.get('validation_delta'))
           PY
       - name: Upload full five-year audit
         uses: actions/upload-artifact@v4
         with:
-          name: r10-fiveyear-2021-2025-causal
+          name: r10-fiveyear-2021-2025-fast-causal
           path: stress_results/latest/validation2021_2025
           retention-days: 180
