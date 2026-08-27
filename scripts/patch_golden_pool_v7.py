@@ -29,32 +29,29 @@ if anchor not in s:
     raise SystemExit("R0.5 order fixture insertion anchor not found")
 s = s.replace(anchor, insert, 1)
 
-# Formal workbook timing semantics, now numerically proven by 2021-01-12:
-# expected R7 target_cash 259,998.3051 = 95% * NAV - ALL current stock MV.
-# Therefore a T-close SELL decision does NOT pre-release its slot, exposure, or
-# cash. Capacity is released only after the T+1 sale actually executes.
+# Formal workbook timing semantics, proven by two independent anchors:
+# 2021-01-12: target_cash 259,998.3051 = 95% * NAV - ALL current stock MV,
+# so a T-close SELL continues to consume T-day exposure until T+1 execution.
+# 2021-01-29: R7 1533 is decided SELL on T while replacement R7 8033 is sent
+# for the same T+1, proving the pending SELL releases projected T+1 SLOT capacity.
+# Future sale proceeds are still unknown and are never added to T-day cash.
 old_head = '''            exdate=next_date[di]; sell_keys=set(sell_map); codes_after={p.code for k,p in positions.items() if k not in sell_keys}
             base_exposure=bt.value_of(positions,feat_idx,di,exclude=sell_keys); base_r7=bt.value_of(positions,feat_idx,di,strategy="R7",exclude=sell_keys)
 '''
-new_head = '''            exdate=next_date[di]; sell_keys=set(sell_map); codes_after={p.code for p in positions.values()}
+new_head = '''            exdate=next_date[di]; sell_keys=set(sell_map); codes_after={p.code for k,p in positions.items() if k not in sell_keys}
             base_exposure=bt.value_of(positions,feat_idx,di); base_r7=bt.value_of(positions,feat_idx,di,strategy="R7")
 '''
 if old_head not in s:
     raise SystemExit("golden pending-sell head anchor not found")
 s = s.replace(old_head, new_head, 1)
 
-s = s.replace('''                if k in positions and k not in sell_keys:return
-''', '''                if k in positions:return
-''', 1)
-s = s.replace('''                    n=sum(1 for kk,p in positions.items() if p.strategy=="R05" and kk not in sell_keys)+sum(1 for o in created if o.strategy=="R05")
-''', '''                    n=sum(1 for p in positions.values() if p.strategy=="R05")+sum(1 for o in created if o.strategy=="R05")
-''', 1)
-s = s.replace('''                    n=sum(1 for kk,p in positions.items() if p.strategy=="R7" and kk not in sell_keys)+sum(1 for o in created if o.strategy=="R7")
-''', '''                    n=sum(1 for p in positions.values() if p.strategy=="R7")+sum(1 for o in created if o.strategy=="R7")
-''', 1)
+# Slot eligibility is projected for T+1 after already-committed sells execute.
+# Exposure and cash below remain T-day quantities and therefore do NOT exclude sells.
+# Keep the original pending-sell-aware slot checks from FAST unchanged.
 
 # Correct R10 Portfolio semantics from the formal workbook:
-# - pending T+1 sells remain in T-day slot/exposure/cash accounting
+# - pending T+1 sells release projected T+1 slots only
+# - pending T+1 sells remain in T-day exposure and do not create T-day cash
 # - DD Guard reduces the TOTAL exposure cap, not each 20%/22% base target
 old_size = '''                current_code=bt.value_of(positions,feat_idx,di,code=code,exclude=sell_keys)+reserved_code.get(code,0)
                 rem_single=nav*bt.MAX_SINGLE-current_code; rem_global=nav*bt.MAX_TOTAL-base_exposure-reserved_exposure
