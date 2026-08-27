@@ -165,7 +165,22 @@ new_orders = '''            expected_day = golden_orders_by_day.get(di, [])
                 before=len(created)
                 try_order(strategy,row,j)
                 if len(created)!=before+1:
-                    raise RuntimeError(f"golden order rejected by Portfolio Layer {di} {strategy} {code}")
+                    active=[f"{pp.strategy}:{pp.code}" for pp in positions.values()]
+                    pending=[f"{kk}" for kk in sell_keys]
+                    r7_slot_count=sum(1 for kk,pp in positions.items() if pp.strategy=="R7" and kk not in sell_keys)+sum(1 for oo in created if oo.strategy=="R7")
+                    r05_slot_count=sum(1 for kk,pp in positions.items() if pp.strategy=="R05" and kk not in sell_keys)+sum(1 for oo in created if oo.strategy=="R05")
+                    diag={
+                        "date":di,"strategy":strategy,"code":code,"nav":nav,"cash":cash,"dd":dd,
+                        "active":active,"pending_sell_keys":pending,"codes_after":sorted(codes_after),
+                        "max_positions":bt.MAX_POSITIONS,"r7_slots":int(r7_state["slots"]),"r7_slot_count":r7_slot_count,
+                        "r05_max_slots":bt.R05_MAX_SLOTS,"r05_slot_count":r05_slot_count,
+                        "r7_regime":r7_state.get("regime"),"r7_exposure_cap":float(r7_state["exposure"]),
+                        "base_exposure":base_exposure,"base_r7":base_r7,"reserved_cash":reserved_cash,
+                        "reserved_exposure":reserved_exposure,"reserved_r7":reserved_r7,
+                        "row_close":float(row.close),"row_avgvol20":float(row.avgvol20),
+                        "expected_target":float(exp["target_cash"]),"expected_limit":float(exp["limit"]),"expected_shares":int(exp["shares"]),
+                    }
+                    raise RuntimeError(f"golden order rejected by Portfolio Layer DIAG={diag}")
                 got=created[-1]
                 exp_ex=int(exp["execute_date"]); exp_sh=int(exp["shares"])
                 exp_lim=float(exp["limit"]); exp_tgt=float(exp["target_cash"])
