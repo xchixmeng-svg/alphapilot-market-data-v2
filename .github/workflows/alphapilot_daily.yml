@@ -1,4 +1,4 @@
-name: AlphaPilot Daily Taiwan Market Data + R10 Scan V3.8
+name: AlphaPilot Daily Taiwan Market Data + R10 Scan V3.9
 
 on:
   workflow_dispatch:
@@ -10,11 +10,13 @@ on:
       - ".github/alphapilot_fetch_trigger"
       - "scripts/fetch_today.py"
       - "scripts/build_r10_scan.py"
+      - "scripts/build_r10_scan_v2.py"
   pull_request:
     paths:
       - ".github/workflows/alphapilot_daily.yml"
       - "scripts/fetch_today.py"
       - "scripts/build_r10_scan.py"
+      - "scripts/build_r10_scan_v2.py"
   schedule:
     # 17:40 Asia/Taipei
     - cron: "40 9 * * 1-5"
@@ -46,13 +48,13 @@ jobs:
         run: pip install requests pandas numpy
 
       - name: Syntax check
-        run: python -m py_compile scripts/fetch_today.py scripts/build_r10_scan.py
+        run: python -m py_compile scripts/fetch_today.py scripts/build_r10_scan.py scripts/build_r10_scan_v2.py
 
       - name: Fetch normalize validate Taiwan market data
         run: python scripts/fetch_today.py
 
-      - name: Build R10 rolling scan
-        run: python scripts/build_r10_scan.py
+      - name: Build R10 rolling scan with locked 0050 Total Return
+        run: python scripts/build_r10_scan_v2.py
 
       - name: Commit daily data and R10 scan
         if: github.event_name != 'pull_request'
@@ -66,5 +68,5 @@ jobs:
             echo "No new data to commit."
             exit 0
           fi
-          git commit -m "data: AlphaPilot V3.8 + R10 scan ${TRADE_DATE}"
+          git commit -m "data: AlphaPilot V3.9 + exact R10 scan ${TRADE_DATE}"
           git push
