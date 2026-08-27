@@ -1,0 +1,60 @@
+name: AlphaPilot R10 Five-Year Causal Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_five_year_validation.yml"
+      - "scripts/build_r10_scan.py"
+      - "scripts/backtest_r10_stress.py"
+      - "scripts/r10_full_battery.py"
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  validate:
+    name: 2021-2025 locked causal R10
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-fiveyear-validation-${{ runner.os }}-v1
+      - run: pip install requests pandas numpy
+      - name: Syntax check
+        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py
+      - name: Run five-year causal baseline
+        run: python scripts/r10_full_battery.py --scenario validation2021_2025
+      - name: Enforce causal/independent-engine assertions
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('stress_results/latest/validation2021_2025/summary.json')
+          q=json.loads(p.read_text(encoding='utf-8'))
+          assert q.get('status') == 'PASS', q
+          assert q.get('r05_enabled') is True, q
+          assert 'LOCKED-BASELINE' in q.get('engine_version',''), q.get('engine_version')
+          g=(q.get('regression_gate') or {}).get('grade')
+          print('Regression Gate:', g)
+          print('End NAV:', q.get('end_nav'))
+          print('CAGR:', q.get('cagr'))
+          print('Max DD:', q.get('max_dd'))
+          print('Trades:', q.get('completed_trades'))
+          PY
+      - name: Upload full five-year audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-fiveyear-2021-2025-causal
+          path: stress_results/latest/validation2021_2025
+          retention-days: 180
