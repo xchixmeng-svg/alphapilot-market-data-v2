@@ -1,0 +1,154 @@
+{
+  "version": "AlphaPilot-R10-Scanner-V1.0",
+  "generated_at": "2026-08-27T09:03:36.765848+08:00",
+  "trade_date": "2026-08-26",
+  "status": "PASS",
+  "privacy_boundary": "PUBLIC_MARKET_ONLY_NO_HOLDINGS_NO_NAV_NO_COST_BASIS",
+  "historical_ohlcv": {
+    "unique_dates": 156,
+    "min_date": "20260102",
+    "max_date": "20260826",
+    "seed": "weekly public packages from official TWSE/TPEx + direct official current-week fill"
+  },
+  "corporate_action_method": {
+    "method": "residual impossible-gap continuity pass",
+    "threshold": [
+      0.885,
+      1.115
+    ],
+    "consecutive_market_day_guard": true,
+    "events_in_window": 73,
+    "archived_sidecar_present": false
+  },
+  "benchmark": {
+    "name": "Taiwan 50 Total Return Index",
+    "source": "TWSE indicesReport/TAI50I",
+    "rows": 156
+  },
+  "r7": {
+    "regime": "Weak",
+    "exposure": 0.2,
+    "slots": 2,
+    "mkt": 97904.73,
+    "mkt_ma60": 95766.80583333335,
+    "mkt_ma120": 87271.75366666666,
+    "mr20": 0.14153152783406786,
+    "mr60": 0.020393331681744842,
+    "breadth60": 0.4498044328552803,
+    "breadth_mean20": 0.3466009111504909,
+    "advance10": 0.49934810951760106,
+    "rebalance_due": true,
+    "rebalance_reason": "INITIAL_FORWARD_SCAN",
+    "eligible_count": 350,
+    "top_candidates": [
+      {
+        "r7_rank": 1,
+        "code": "2221",
+        "name": "大甲",
+        "close": 71.4,
+        "r7_score": 0.9890037284,
+        "t1_limit": 69.9
+      },
+      {
+        "r7_rank": 2,
+        "code": "6949",
+        "name": "沛爾生醫-創",
+        "close": 1490.0,
+        "r7_score": 0.9880181523,
+        "t1_limit": 1460.0
+      },
+      {
+        "r7_rank": 3,
+        "code": "6213",
+        "name": "聯茂",
+        "close": 583.0,
+        "r7_score": 0.9809517171,
+        "t1_limit": 571.0
+      },
+      {
+        "r7_rank": 4,
+        "code": "2491",
+        "name": "吉祥全",
+        "close": 46.65,
+        "r7_score": 0.9807716037,
+        "t1_limit": 45.7
+      },
+      {
+        "r7_rank": 5,
+        "code": "2426",
+        "name": "鼎元",
+        "close": 99.8,
+        "r7_score": 0.980247546,
+        "t1_limit": 97.8
+      },
+      {
+        "r7_rank": 6,
+        "code": "3234",
+        "name": "光環",
+        "close": 180.5,
+        "r7_score": 0.9741206004,
+        "t1_limit": 176.5
+      },
+      {
+        "r7_rank": 7,
+        "code": "5321",
+        "name": "美而快",
+        "close": 81.1,
+        "r7_score": 0.9723942086,
+        "t1_limit": 79.4
+      },
+      {
+        "r7_rank": 8,
+        "code": "6141",
+        "name": "柏承",
+        "close": 50.4,
+        "r7_score": 0.965876578,
+        "t1_limit": 49.35
+      },
+      {
+        "r7_rank": 9,
+        "code": "6538",
+        "name": "倉和",
+        "close": 212.0,
+        "r7_score": 0.9629491762,
+        "t1_limit": 207.5
+      },
+      {
+        "r7_rank": 10,
+        "code": "1815",
+        "name": "富喬",
+        "close": 118.0,
+        "r7_score": 0.9627162858,
+        "t1_limit": 115.5
+      }
+    ]
+  },
+  "r05": {
+    "risk_on": true,
+    "0050_close": 105.9,
+    "0050_ma60": 104.30083333333333,
+    "0050_ret20": 0.13020277481323372,
+    "0050_ret60": 0.0037914691943128354,
+    "institutional_trading_dates": 26,
+    "candidate_count": 2,
+    "top_candidates": [
+      {
+        "r05_rank": 1,
+        "code": "1102",
+        "name": "亞泥",
+        "close": 35.2,
+        "r05_score": 0.5749041824,
+        "t1_limit": 35.0
+      },
+      {
+        "r05_rank": 2,
+        "code": "2504",
+        "name": "國產",
+        "close": 32.1,
+        "r05_score": 0.388801204,
+        "t1_limit": 31.9
+      }
+    ]
+  },
+  "warnings": []
+}

@@ -1,0 +1,13 @@
+{
+  "version": "AlphaPilot-R10-Scanner-V1.0",
+  "trade_date": "2026-08-26",
+  "status": "PASS",
+  "counts": {
+    "ohlcv_rows": 350522,
+    "ohlcv_dates": 156,
+    "institutional_rows": 48658,
+    "institutional_dates": 26,
+    "r7_eligible": 350,
+    "r05_candidates": 2
+  }
+}
