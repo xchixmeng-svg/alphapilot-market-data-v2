@@ -9,6 +9,7 @@ answers.
 """
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -50,9 +51,18 @@ ok("E02_SELL_FEE", bt.SELL_FEE == 0.000855)
 ok("E03_SELL_TAX", bt.SELL_TAX == 0.003)
 ok("E04_SELL_SLIPPAGE", bt.SELL_SLIPPAGE == 0.005)
 
-# Performance numbers are explicitly NOT contract assertions.
+# Performance outputs must never be asserted as historical answer targets.
+# Inspect comparison expressions structurally rather than searching for a
+# literal token that would make the check self-referential.
 contract_source = Path(__file__).read_text(encoding="utf-8")
-ok("B01_NO_END_NAV_ANSWER_GATE", 'B02_CAUSAL_NAV' not in contract_source)
+tree = ast.parse(contract_source)
+bad_perf_compares = []
+for node in ast.walk(tree):
+    if isinstance(node, ast.Compare):
+        seg = (ast.get_source_segment(contract_source, node) or "").lower()
+        if any(term in seg for term in ("end_nav", "cagr", "max_dd", "completed_trades")):
+            bad_perf_compares.append(seg)
+ok("B01_NO_HISTORICAL_PERFORMANCE_ANSWER_GATE", not bad_perf_compares, "; ".join(bad_perf_compares))
 ok("B02_TRUE_ENGINE_NO_FIXTURE_INPUT", 'tests/fixtures' not in (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8"))
 ok("B03_TRUE_ENGINE_NO_BENCHMARK_INPUT", 'CAUSAL_BENCHMARK' not in (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8"))
 ok("B04_TRUE_ENGINE_NO_LEGACY_INPUT", 'LEGACY_CONTAMINATED_BENCHMARK' not in (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8"))
