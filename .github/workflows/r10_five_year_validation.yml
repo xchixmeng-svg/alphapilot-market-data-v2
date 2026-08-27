@@ -1,4 +1,4 @@
-name: AlphaPilot R10 Five-Year Golden Regression
+name: AlphaPilot R10 True Causal Five-Year Validation
 
 on:
   workflow_dispatch:
@@ -7,17 +7,11 @@ on:
     paths:
       - ".github/workflows/r10_five_year_validation.yml"
       - "scripts/backtest_r10_stress.py"
+      - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
-      - "scripts/patch_fast_execution_v4.py"
-      - "scripts/patch_golden_pool_v7.py"
-      - "scripts/patch_golden_full_stream_v10.py"
-      - "scripts/patch_golden_price_basis_v11.py"
-      - "scripts/patch_golden_execution_ledger_v12.py"
-      - "scripts/r10_locked_validation_v2.py"
-      - "scripts/r10_contract_test.py"
-      - "tests/fixtures/golden_2021_2025/**"
-      - "tests/fixtures/r10_2021_2025_r05_exit_schedule.csv"
-      - "tests/fixtures/r10_2021_2025_r05_orders_65.csv"
+      - "scripts/r10_true_validation.py"
+      - "scripts/r10_reference_diff_only.py"
+      - "scripts/build_r10_scan.py"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
 
 permissions:
@@ -27,12 +21,12 @@ env:
   PYTHONUNBUFFERED: "1"
 
 concurrency:
-  group: r10-five-year-golden-regression-main
+  group: r10-five-year-true-causal-main
   cancel-in-progress: true
 
 jobs:
   validate:
-    name: 2021-2025 formal-workbook regression
+    name: 2021-2025 regenerate from raw data
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -43,115 +37,101 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-golden-${{ runner.os }}-v16-execution-ledger
+          key: r10-true-causal-${{ runner.os }}-v1
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
 
-      - name: Validate complete golden ledgers
+      - name: Prove engine/reference separation
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          import pandas as pd
-          d=Path('tests/fixtures/golden_2021_2025')
-          op=sorted(d.glob('orders_part*.csv'))
-          xp=sorted(d.glob('exits_part*.csv'))
-          assert len(op)==6, op
-          assert len(xp)==3, xp
-          o=pd.concat([pd.read_csv(p,dtype={'code':str}) for p in op],ignore_index=True)
-          x=pd.concat([pd.read_csv(p,dtype={'code':str}) for p in xp],ignore_index=True)
-          assert len(o)==410, len(o)
-          assert len(x)==241, len(x)
-          assert int((o.status=='FILLED').sum())==241
-          assert int((o.status=='MISSED').sum())==169
-          assert int((o.strategy=='R7').sum())==345
-          assert int((o.strategy=='R05').sum())==65
-          assert int((x.strategy=='R7').sum())==197
-          assert int((x.strategy=='R05').sum())==44
-          for c in ('open_raw','exit_price','shares','proceeds'):
-            assert c in x.columns, c
-            assert x[c].notna().all(), c
-          assert abs(float(x.iloc[2].exit_price)-26.5)<1e-9
-          print('Golden ledgers PASS: orders=410 fills=241 misses=169 exits=241 with prices/proceeds')
+          s=Path('scripts/r10_true_validation.py').read_text(encoding='utf-8')
+          forbidden=[
+            'tests/fixtures', 'golden_2021_2025',
+            'r10_2021_2025_r05_exit_schedule', 'r10_2021_2025_r05_orders_65',
+            'LEGACY_CONTAMINATED_BENCHMARK', 'CAUSAL_BENCHMARK',
+            'golden_orders_by_day', 'golden_exit', 'golden_exec',
+          ]
+          for token in forbidden:
+            assert token not in s, f'forbidden reference input in true engine: {token}'
+          required=[
+            'bt.load_scenario_ohlcv(cfg)',
+            'fast.fetch_institutional_fast',
+            'fast.precompute_signals',
+            'bt.r05_exit_reason(p, r)',
+            'bt.legal_sell_price(float(r.open))',
+            'bt.buy_fill(float(r.open), float(r.low), float(o.limit))',
+            'fixture_inputs_used": False',
+            'future_data_used": False',
+          ]
+          for token in required:
+            assert token in s, f'missing true-engine gate: {token}'
+          assert s.index('pending_sells.pop(di') < s.index('pending_buys.pop(di'), 'T+1 must sell before buy'
+          print('TRUE ENGINE SEPARATION: PASS')
           PY
 
-      - name: Apply base execution repairs
-        run: python scripts/patch_fast_execution_v4.py
-      - name: Apply common-pool and DD-cap repairs
-        run: python scripts/patch_golden_pool_v7.py
-      - name: Apply full historical golden stream
-        run: python scripts/patch_golden_full_stream_v10.py
-      - name: Apply formal execution price diagnostics
-        run: python scripts/patch_golden_price_basis_v11.py
-      - name: Apply locked formal sell ledger
-        run: python scripts/patch_golden_execution_ledger_v12.py
-
-      - name: Syntax check
-        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_full_stream_v10.py scripts/patch_golden_price_basis_v11.py scripts/patch_golden_execution_ledger_v12.py
-
-      - name: Golden source gate
+      - name: Syntax and sizing contracts
         shell: bash
         run: |
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_reference_diff_only.py
           python - <<'PY'
-          from pathlib import Path
-          s=Path('scripts/r10_fast_validation.py').read_text(encoding='utf-8')
-          assert 'golden_orders_by_day' in s
-          assert 'golden_order_key' in s
-          assert 'golden_exit' in s
-          assert 'golden_exec' in s
-          assert 'len(go) != 410' in s
-          assert 'len(gx) != 241' in s
-          assert 'golden fill-status mismatch' in s
-          assert 'golden target_cash mismatch' in s
-          assert 'golden shares mismatch' in s
-          assert 'golden sell-proceeds mismatch' in s
-          assert 'px=float(gexec["exit_price"])' in s
-          assert 'buy_open=float(r.aopen)' in s
-          assert 'dd_cap=bt.MAX_TOTAL' in s
-          assert 'target=base_target*bt.dd_multiplier(dd)' not in s
-          assert 'AlphaPilot-R10-FastValidation-v12-GOLDEN-EXECUTION-LEDGER' in s
-          print('Full golden execution-ledger source gate: PASS')
+          import sys
+          sys.path.insert(0,'scripts')
+          import r10_true_validation as t
+          # Generic rule tests only; no historical answer fixtures.
+          s,m=t.size_shares_true(260000,27.0,10000000)
+          assert s==9000 and m=='BOARD_LOT',(s,m)
+          s,m=t.size_shares_true(20000,50.0,10000000)
+          assert 0<s<1000 and m=='HIGH_PRICE_ODDLOT',(s,m)
+          s,m=t.size_shares_true(49999,50.0,10000000)
+          assert s*50.0<=49999+1e-9,(s,m)
+          print('TRUE SIZING CONTRACTS: PASS')
           PY
 
-      - name: Contract tests
-        run: python scripts/r10_contract_test.py
+      - name: Run clean five-year causal engine
+        run: python scripts/r10_true_validation.py
 
-      - name: Run five-year formal-workbook regression
-        run: python scripts/r10_locked_validation_v2.py
-
-      - name: Enforce complete regression result
+      - name: Enforce causal portfolio invariants
         shell: bash
         run: |
           python - <<'PY'
           import json, pathlib, pandas as pd
-          out=pathlib.Path('stress_results/latest/validation2021_2025')
+          out=pathlib.Path('stress_results/latest/true_validation2021_2025')
           q=json.loads((out/'summary.json').read_text(encoding='utf-8'))
+          p=json.loads((out/'data_provenance.json').read_text(encoding='utf-8'))
           od=pd.read_csv(out/'orders.csv',dtype={'code':str})
-          tr=pd.read_csv(out/'trades.csv',dtype={'code':str})
+          assert q['status']=='PASS',q
+          assert q['fixture_inputs_used'] is False,q
+          assert q['future_data_used'] is False,q
+          assert p['fixture_inputs_used'] is False,p
+          assert p['institutional_eval_dates']>=1214,p
+          assert q['min_cash']>=-1e-6,q
+          assert q['max_exposure']<=0.9500001,q
+          assert q['max_positions']<=5,q
           buys=od[od.side.eq('BUY')]
-          assert q.get('status')=='PASS', q
-          assert q.get('historical_regression_uses_full_golden_order_stream') is True, q
-          assert q.get('golden_order_fixture_rows')==410, q
-          assert q.get('historical_regression_uses_full_golden_exit_stream') is True, q
-          assert q.get('golden_exit_fixture_rows')==241, q
-          assert len(buys)==410, len(buys)
-          assert int(buys.filled.sum())==241, buys.filled.value_counts().to_dict()
-          assert len(tr)==241, len(tr)
-          print('End NAV:',q.get('end_nav'))
-          print('CAGR:',q.get('cagr'))
-          print('Max DD:',q.get('max_dd'))
-          print('BUY orders:',len(buys),'fills:',int(buys.filled.sum()),'trades:',len(tr))
+          assert len(buys)>0
+          assert buys.shares.notna().all()
+          assert (buys.shares.astype(int)==buys.shares).all()
+          print('TRUE RESULT End NAV:',q['end_nav'])
+          print('TRUE RESULT CAGR:',q['cagr'])
+          print('TRUE RESULT Max DD:',q['max_dd'])
+          print('TRUE RESULT orders/fills/trades:',q['orders'],q['fills'],q['completed_trades'])
+          print('OHLCV SHA256:',p['ohlcv_sha256'])
+          print('Institutional SHA256:',p['institutional_sha256'])
           PY
 
-      - name: Upload audit even on failure
+      - name: Compare old references after run only
+        run: python scripts/r10_reference_diff_only.py
+
+      - name: Upload true causal audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-golden-execution-v16
+          name: r10-2021-2025-true-causal-v1
           path: |
-            stress_results/latest/validation2021_2025
-            contract_results/r10_contract_summary.json
+            stress_results/latest/true_validation2021_2025
           if-no-files-found: ignore
           retention-days: 90
