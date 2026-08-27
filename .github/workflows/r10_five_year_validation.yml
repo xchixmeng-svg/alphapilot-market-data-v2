@@ -12,6 +12,7 @@ on:
       - "scripts/r10_true_validation.py"
       - "scripts/r10_fresh_source_audit.py"
       - "scripts/r10_reference_diff_only.py"
+      - "scripts/r10_first_divergence_diagnosis.py"
       - "scripts/r10_contract_test.py"
       - "scripts/build_r10_scan.py"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
@@ -39,7 +40,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v4-contract-fresh-audit
+          key: r10-true-causal-${{ runner.os }}-v5-first-divergence-audit
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -79,7 +80,7 @@ jobs:
       - name: Syntax and generic sizing contracts
         shell: bash
         run: |
-          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_contract_test.py
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_contract_test.py
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
@@ -132,6 +133,9 @@ jobs:
           print('Institutional SHA256:',p['institutional_sha256'])
           PY
 
+      - name: Diagnose first divergence from raw data
+        run: python scripts/r10_first_divergence_diagnosis.py
+
       - name: Fresh official-source audit
         run: python scripts/r10_fresh_source_audit.py
 
@@ -143,7 +147,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v4
+          name: r10-2021-2025-true-causal-v5
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
