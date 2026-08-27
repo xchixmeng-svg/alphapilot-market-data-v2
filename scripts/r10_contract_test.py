@@ -150,7 +150,7 @@ contains("PORT_MAX5_EXEC", true_source, 'len(codes_after) >= bt.MAX_POSITIONS')
 contains("PORT_SINGLE25_EXEC", true_source, 'nav * bt.MAX_SINGLE - current_code')
 contains("PORT_TOTAL95_EXEC", true_source, 'nav * bt.MAX_TOTAL - base_exposure - reserved_exposure')
 contains("PORT_T1_SELLS_FIRST", true_source, 'pending_sells.pop(di', 'pending_buys.pop(di')
-ok("PORT_T1_SELLS_PRECEDE_BUYS", true_source.index('pending_sells.pop(di') < true_source.index('pending_buys.pop(di')))
+ok("PORT_T1_SELLS_PRECEDE_BUYS", true_source.index('pending_sells.pop(di') < true_source.index('pending_buys.pop(di'))
 contains("PORT_ACTUAL_CASH_CHECK_AT_EXECUTION", true_source, 'if cost > cash + 1e-6:', '"CASH_SHORT_AT_EXECUTION"')
 contains("CAUSAL_T1_PENDING", engine, 'T+1 buys: fixed T order, no chasing.', 'T close fixed buy orders')
 
