@@ -11,6 +11,7 @@ on:
       - "scripts/patch_fast_execution_v4.py"
       - "scripts/patch_golden_pool_v7.py"
       - "scripts/patch_golden_full_stream_v10.py"
+      - "scripts/patch_golden_price_basis_v11.py"
       - "scripts/r10_locked_validation_v2.py"
       - "scripts/r10_contract_test.py"
       - "tests/fixtures/golden_2021_2025/**"
@@ -41,7 +42,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-golden-${{ runner.os }}-v14-full-stream
+          key: r10-golden-${{ runner.os }}-v15-price-basis
           restore-keys: |
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
@@ -68,7 +69,11 @@ jobs:
           assert int((o.strategy=='R05').sum())==65
           assert int((x.strategy=='R7').sum())==197
           assert int((x.strategy=='R05').sum())==44
-          print('Golden ledgers PASS: orders=410 fills=241 misses=169 exits=241')
+          for c in ('open_raw','exit_price','shares','proceeds'):
+            assert c in x.columns, c
+            assert x[c].notna().all(), c
+          assert abs(float(x.iloc[2].exit_price)-26.5)<1e-9
+          print('Golden ledgers PASS: orders=410 fills=241 misses=169 exits=241 with prices/proceeds')
           PY
 
       - name: Apply base execution repairs
@@ -77,9 +82,11 @@ jobs:
         run: python scripts/patch_golden_pool_v7.py
       - name: Apply full historical golden stream
         run: python scripts/patch_golden_full_stream_v10.py
+      - name: Apply formal execution price basis
+        run: python scripts/patch_golden_price_basis_v11.py
 
       - name: Syntax check
-        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_full_stream_v10.py
+        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py scripts/r10_contract_test.py scripts/patch_golden_pool_v7.py scripts/patch_golden_full_stream_v10.py scripts/patch_golden_price_basis_v11.py
 
       - name: Golden source gate
         shell: bash
@@ -90,15 +97,20 @@ jobs:
           assert 'golden_orders_by_day' in s
           assert 'golden_order_key' in s
           assert 'golden_exit' in s
+          assert 'golden_exec' in s
           assert 'len(go) != 410' in s
           assert 'len(gx) != 241' in s
           assert 'golden fill-status mismatch' in s
           assert 'golden target_cash mismatch' in s
           assert 'golden shares mismatch' in s
+          assert 'golden sell-price mismatch' in s
+          assert 'golden sell-proceeds mismatch' in s
+          assert 'sell_open=float(r.aopen)' in s
+          assert 'buy_open=float(r.aopen)' in s
           assert 'dd_cap=bt.MAX_TOTAL' in s
           assert 'target=base_target*bt.dd_multiplier(dd)' not in s
-          assert 'AlphaPilot-R10-FastValidation-v10-GOLDEN-FULL-STREAM' in s
-          print('Full golden source gate: PASS')
+          assert 'AlphaPilot-R10-FastValidation-v11-GOLDEN-PRICE-BASIS' in s
+          print('Full golden execution-price source gate: PASS')
           PY
 
       - name: Contract tests
@@ -135,7 +147,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-golden-full-v14
+          name: r10-2021-2025-golden-price-v15
           path: |
             stress_results/latest/validation2021_2025
             contract_results/r10_contract_summary.json
