@@ -1,0 +1,39 @@
+name: R10 Remove FAST Profile Side Effect
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_remove_fast_profile_sideeffect.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove import-time baseline override
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/r10_fast_validation.py')
+          s=p.read_text(encoding='utf-8')
+          old='''bt = full.bt\ncore = bt.core\nfull.apply_locked_baseline_execution_profile()\nbt.VERSION = "AlphaPilot-R10-FastValidation-v1-LOCKED-BASELINE"\n'''
+          new='''bt = full.bt\ncore = bt.core\n# IMPORTANT: importing the FAST engine must never mutate the active R10 profile.\n# Profile selection is explicit in the calling wrapper only.\nbt.VERSION = "AlphaPilot-R10-FastValidation-v3-NO-IMPORT-PROFILE-SIDE-EFFECT"\n'''
+          if old not in s:
+              raise SystemExit('expected import-time profile block not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Syntax check
+        run: python -m py_compile scripts/r10_fast_validation.py scripts/r10_locked_validation_v2.py
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name "AlphaPilot CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/r10_fast_validation.py
+          git commit -m "fix: make FAST engine profile-neutral on import"
+          git push
