@@ -1,0 +1,104 @@
+name: AlphaPilot R10-MAX Full Stress Battery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_full_battery.yml"
+      - "scripts/r10_full_battery.py"
+      - "scripts/r10_tail_stress.py"
+      - "scripts/r10_collect_battery.py"
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  historical:
+    name: Historical ${{ matrix.scenario }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        scenario:
+          - validation2021_2025
+          - gfc2008
+          - euro2011
+          - china2015
+          - tradewar2018
+          - covid2020
+          - bear2022
+          - crash2024
+          - tariff2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install requests pandas numpy
+      - name: Syntax check
+        run: python -m py_compile scripts/build_r10_scan.py scripts/backtest_r10_stress.py scripts/r10_full_battery.py
+      - name: Run locked scenario
+        run: python scripts/r10_full_battery.py --scenario "${{ matrix.scenario }}"
+      - name: Upload scenario audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-battery-${{ matrix.scenario }}
+          path: stress_results/latest/${{ matrix.scenario }}
+          if-no-files-found: warn
+          retention-days: 30
+
+  synthetic-tail:
+    name: Synthetic tail risk
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run deterministic tail matrix
+        run: python scripts/r10_tail_stress.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-battery-synthetic_tail
+          path: stress_results/latest/synthetic_tail
+          retention-days: 30
+
+  aggregate:
+    name: Regression gate + aggregate
+    if: always()
+    needs: [historical, synthetic-tail]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: r10-battery-*
+          path: battery_artifacts
+      - name: Build trust-gated summary
+        run: python scripts/r10_collect_battery.py --input battery_artifacts --output stress_results/full_battery
+      - name: Upload full battery summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-full-battery-summary
+          path: stress_results/full_battery
+          retention-days: 90
+      - name: Commit compact final summary
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stress_results/full_battery/SUMMARY.md stress_results/full_battery/summary.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "stress: R10 full battery regression-gated summary"
+          git pull --rebase origin main
+          git push
