@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Extended AlphaPilot R10-MAX historical stress battery.
-
-This module intentionally reuses the locked R10 stress engine. It adds
-independent historical regimes while preserving the rule freeze. Results are
-labelled PARTIAL whenever R0.5 cannot be reconstructed without the required
-TWSE daily institutional history.
-"""
+"""Extended AlphaPilot R10-MAX historical stress battery."""
 from __future__ import annotations
 
 import argparse
 import json
 from datetime import datetime
-
 import backtest_r10_stress as bt
+
+# Old daily files can contain zero OHLC placeholders for suspended/no-trade
+# securities. They are not executable prices and can break continuity math.
+# Sanitize only the historical stress input; live R10 scanner is untouched.
+_ORIG_LOAD = bt.load_scenario_ohlcv
+def _clean_load(cfg):
+    q = _ORIG_LOAD(cfg)
+    for c in ("open","high","low","close"):
+        q = q[q[c].notna() & (q[c] > 0)]
+    return q.sort_values(["code","date"]).reset_index(drop=True)
+bt.load_scenario_ohlcv = _clean_load
 
 EXTRA = {
     "euro2011": {"label":"2011 Euro-area / US downgrade selloff","warmup_start":"2010-01-01","eval_start":"2011-01-03","eval_end":"2011-12-30","years":[2010,2011],"r05":False,"mode":"PARTIAL_R10_R7_ONLY","reason":"TWSE stock-level daily institutional T86 starts later; R0.5 is disabled rather than fabricated."},
@@ -22,7 +26,6 @@ EXTRA = {
     "crash2024": {"label":"2024 AI bull + 2024-08-05 crash","warmup_start":"2023-01-01","eval_start":"2024-01-02","eval_end":"2024-12-31","years":[2023,2024],"r05":True,"mode":"FULL_R10_IN_SAMPLE_STRESS","reason":"Historical stress segment overlaps the locked 2021-2025 research sample; useful for event diagnostics, not OOS proof."},
     "tariff2025": {"label":"2025 tariff crash + recovery","warmup_start":"2024-01-01","eval_start":"2025-01-02","eval_end":"2025-12-31","years":[2024,2025],"r05":True,"mode":"FULL_R10_IN_SAMPLE_STRESS","reason":"Historical stress segment overlaps the locked 2021-2025 research sample; useful for event diagnostics, not OOS proof."},
 }
-
 bt.SCENARIOS.update(EXTRA)
 ALL=["validation2021_2025","gfc2008","euro2011","china2015","tradewar2018","covid2020","bear2022","crash2024","tariff2025"]
 
