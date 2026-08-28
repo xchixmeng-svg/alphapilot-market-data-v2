@@ -12,6 +12,7 @@ on:
       - "scripts/patch_true_pending_sell_semantics_v1.py"
       - "scripts/patch_true_total_return_benchmark_v1.py"
       - "scripts/r10_total_return_benchmark.py"
+      - "scripts/r10_0050_total_return_reconstruct_audit.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
       - "scripts/r10_true_validation.py"
@@ -47,7 +48,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v11b-official-total-return
+          key: r10-true-causal-${{ runner.os }}-v11c-reconstructed-0050-tr
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -57,7 +58,7 @@ jobs:
       - name: Apply documented R0.5 Runner state repair
         run: python scripts/patch_r05_runner_state_v1.py
 
-      - name: Apply official 0050 total-return benchmark
+      - name: Apply formal reconstructed 0050 ETF total-return benchmark
         run: python scripts/patch_true_total_return_benchmark_v1.py
 
       - name: Apply formal T-day cash reservation repair
@@ -84,7 +85,7 @@ jobs:
             'bt.load_scenario_ohlcv(cfg)',
             'fast.fetch_institutional_fast',
             'fast.precompute_signals',
-            'trb.load_tai50_total_return',
+            'trb.load_0050_total_return',
             '"r7_benchmark": benchmark_meta',
             'bt.r05_exit_reason(p, r)',
             'bt.legal_sell_price(float(r.open))',
@@ -108,7 +109,7 @@ jobs:
       - name: Syntax and generic sizing contracts
         shell: bash
         run: |
-          python -m py_compile scripts/r10_true_validation.py scripts/r10_total_return_benchmark.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_r05_exit_timing_audit.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_total_return_benchmark.py scripts/r10_0050_total_return_reconstruct_audit.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_r05_exit_timing_audit.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
@@ -147,11 +148,13 @@ jobs:
           assert p['fixture_inputs_used'] is False,p
           assert p['institutional_eval_dates']>=1214,p
           b=p.get('r7_benchmark') or {}
-          assert 'TAI50I' in str(b.get('source','')),b
-          assert b.get('source_rows',0)>1000,b
+          assert b.get('series')=='0050 ETF Total Return',b
+          assert '0050 ETF Total Return reconstructed' in str(b.get('source','')),b
           assert b.get('aligned_dates',0)>=1214,b
           assert len(str(b.get('sha256','')))==64,b
           assert 'forward-fill' in str(b.get('fill_policy','')).lower(),b
+          assert float(b.get('annual_max_abs_delta',1))<5e-6,b
+          assert abs(float(b.get('end_nav',0))-4889670.977723458)<0.1,b
           assert q['min_cash']>=-1e-6,q
           assert q['max_positions']<=5,q
           assert q['max_exposure']<1.0,q
@@ -168,7 +171,7 @@ jobs:
           bb={(int(r.decision_date),str(r.strategy),str(r.code).zfill(4)) for r in buys.itertuples(index=False)}
           churn=sorted(k for k in sb & bb if k[1]=='R7')
           assert not churn, churn[:10]
-          print('0050 TOTAL RETURN SOURCE: PASS',b)
+          print('0050 ETF TOTAL RETURN FINGERPRINT: PASS',b)
           print('T-DAY CASH RESERVATION: PASS days=',len(chk))
           print('R7 SAME-DAY EXIT/REENTRY: PASS')
           print('TRUE RESULT End NAV:',q['end_nav'])
@@ -198,10 +201,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v11b
+          name: r10-2021-2025-true-causal-v11c
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
-            .stress_cache/tai50_total_return_2020_2025.csv
           if-no-files-found: ignore
           retention-days: 90
