@@ -6,8 +6,7 @@ s = p.read_text(encoding="utf-8")
 
 # Formal R10 semantics inferred directly from the locked 410-order ledger:
 # - a preplanned T+1 sell may free a tomorrow slot;
-# - it does NOT erase the position from T-day current exposure / single-name MV;
-# - no same-strategy same-stock sell-and-rebuy on the same T decision.
+# - it does NOT erase the position from T-day current exposure / single-name MV.
 old = '''            codes_after = {p.code for k, p in positions.items() if k not in sell_keys}
             base_exposure = bt.value_of(positions, feat_idx, di, exclude=sell_keys)
             base_r7 = bt.value_of(positions, feat_idx, di, strategy="R7", exclude=sell_keys)
@@ -28,16 +27,16 @@ old = '''                k = bt.pos_key(strategy, code)
                     return
 '''
 new = '''                k = bt.pos_key(strategy, code)
-                # Formal R7 entry rule forbids a stock that is already held OR
-                # simultaneously prepared for exit. Apply the same no-churn
-                # rule to both source strategies for deterministic portfolio
-                # accounting: an existing strategy-position must finish its
-                # T+1 exit before a later T can create a new entry.
-                if k in positions:
+                if k in positions and k not in sell_keys:
+                    return
+                # R7 manual explicitly forbids an entry in a stock that is
+                # simultaneously prepared for exit. Do not generalize this
+                # restriction to R0.5 without a documented source rule.
+                if strategy == "R7" and k in sell_keys:
                     return
 '''
 if old not in s:
-    raise SystemExit("same-day reentry anchor not found")
+    raise SystemExit("R7 same-day reentry anchor not found")
 s = s.replace(old, new, 1)
 
 # Per-code cap must also include T-day MV of a position scheduled to sell.
