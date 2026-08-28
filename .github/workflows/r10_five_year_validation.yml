@@ -14,6 +14,7 @@ on:
       - "scripts/r10_reference_diff_only.py"
       - "scripts/r10_first_divergence_diagnosis.py"
       - "scripts/r10_contract_test.py"
+      - "scripts/r10_exit_causality_contract.py"
       - "scripts/build_r10_scan.py"
       - "docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md"
 
@@ -40,7 +41,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v5-first-divergence-audit
+          key: r10-true-causal-${{ runner.os }}-v6-exit-causality-audit
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -80,12 +81,11 @@ jobs:
       - name: Syntax and generic sizing contracts
         shell: bash
         run: |
-          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_contract_test.py
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
           import r10_true_validation as t
-          # Generic rule tests only; no historical answer fixtures.
           s,m=t.size_shares_true(260000,27.0,10000000)
           assert s==9000 and m=='BOARD_LOT',(s,m)
           s,m=t.size_shares_true(20000,50.0,10000000)
@@ -97,6 +97,9 @@ jobs:
 
       - name: Locked-rule contracts without performance answers
         run: python scripts/r10_contract_test.py
+
+      - name: Strict exit causality contract
+        run: python scripts/r10_exit_causality_contract.py
 
       - name: Run clean five-year causal engine
         run: python scripts/r10_true_validation.py
@@ -117,8 +120,6 @@ jobs:
           assert p['institutional_eval_dates']>=1214,p
           assert q['min_cash']>=-1e-6,q
           assert q['max_positions']<=5,q
-          # MAX_TOTAL=95% is an order-time projected cap. Natural price drift
-          # above 95% is not an undocumented forced-sell trigger.
           assert q['max_exposure']<1.0,q
           buys=od[od.side.eq('BUY')]
           assert len(buys)>0
@@ -133,7 +134,7 @@ jobs:
           print('Institutional SHA256:',p['institutional_sha256'])
           PY
 
-      - name: Diagnose first divergence from raw data
+      - name: Diagnose first divergence from formal ledger
         run: python scripts/r10_first_divergence_diagnosis.py
 
       - name: Fresh official-source audit
@@ -147,7 +148,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v5
+          name: r10-2021-2025-true-causal-v6
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
