@@ -98,7 +98,10 @@ class ResearchStrategy:
         mask &= x.rs20.notna() & x.rs60.notna()
         if p.family=='BREAK_FLOW': mask &= (x.aclose>=x.prior_high20*.985)
         elif p.family=='PULLBACK_RS': mask &= x.dist_ma20.between(-.04,.08)
-        z=x[mask & ~x.code.isin(held)].copy()
+        # Feature frames intentionally retain code both as an index and a column for O(1)
+        # position lookups. Reset the candidate slice before column-based sorting to avoid
+        # pandas treating "code" as an ambiguous index level/column label.
+        z=x[mask & ~x.code.isin(held)].copy().reset_index(drop=True)
         if z.empty:return z
         z['score']=self._score(z)
         return z[z.score>=p.score_threshold].sort_values(['score','code'],ascending=[False,True])
