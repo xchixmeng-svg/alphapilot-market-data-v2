@@ -28,6 +28,31 @@ p = bt.Position("R05", "1234", "TEST", 1000, 20260101, 100.0, 100.0, 100000.0, 1
 r = SimpleNamespace(aclose=90.0, amount_ratio=1.0)
 assert bt.r05_exit_reason(p, r) == "HARD"
 
+# +80% classification is one-time. TARGET/MEGA are terminal states; a later
+# amount-ratio change cannot silently switch TARGET -> MEGA or MEGA -> TARGET.
+p = bt.Position("R05", "1234", "TEST", 1000, 20260101, 100.0, 100.0, 100000.0, 180.0, "TARGET", 20)
+r = SimpleNamespace(aclose=185.0, amount_ratio=2.5)
+reason = bt.r05_exit_reason(p, r)
+assert p.mode == "TARGET", f"TARGET was illegally reclassified: {p.mode}"
+assert reason is None, f"unexpected TARGET exit in terminal-state test: {reason}"
+
+p = bt.Position("R05", "1234", "TEST", 1000, 20260101, 100.0, 100.0, 100000.0, 190.0, "MEGA", 20)
+r = SimpleNamespace(aclose=185.0, amount_ratio=0.5)
+reason = bt.r05_exit_reason(p, r)
+assert p.mode == "MEGA", f"MEGA was illegally reclassified: {p.mode}"
+assert reason is None, f"unexpected MEGA exit in terminal-state test: {reason}"
+
+# A RUNNER crossing +80% is classified exactly once by the T-close amount ratio.
+p = bt.Position("R05", "1234", "TEST", 1000, 20260101, 100.0, 100.0, 100000.0, 170.0, "RUNNER", 20)
+r = SimpleNamespace(aclose=181.0, amount_ratio=1.1)
+assert bt.r05_exit_reason(p, r) is None
+assert p.mode == "TARGET", f"RUNNER should classify to TARGET, got {p.mode}"
+
+p = bt.Position("R05", "1234", "TEST", 1000, 20260101, 100.0, 100.0, 100000.0, 170.0, "RUNNER", 20)
+r = SimpleNamespace(aclose=181.0, amount_ratio=1.3)
+assert bt.r05_exit_reason(p, r) is None
+assert p.mode == "MEGA", f"RUNNER should classify to MEGA, got {p.mode}"
+
 # The clean engine must schedule that T decision for the next trading date.
 true_source = (ROOT / "scripts" / "r10_true_validation.py").read_text(encoding="utf-8")
 assert 'exdate = next_date[di]' in true_source
