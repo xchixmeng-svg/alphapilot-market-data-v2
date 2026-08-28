@@ -162,14 +162,23 @@ class PortfolioEngine:
             mv+=p.shares*px
         return self.cash+mv
 
-    def _execute_sells(self,date:str,bars:Dict[str,Bar]) -> None:
+    def _execute_sells(self,date:str,bars:Dict[str,Bar],next_date:str|None) -> None:
         for ps in self.pending_sells.pop(date,[]):
             o=ps.order; p=self.positions.get(o.code)
             if p is None:
                 self.order_log.append({'decision_date':o.decision_date,'execute_date':date,'side':'SELL','code':o.code,'shares':o.shares,'filled':False,'reason':'POSITION_MISSING'})
                 continue
             b=bars.get(o.code)
-            if b is None or b.open<=0: raise RuntimeError(f'missing sell open {date} {o.code}')
+            if b is None or b.open<=0:
+                # A sell decision remains binding. If T+1 has no tradable open (suspension,
+                # halt, delisting transition, etc.), no price may be synthesized. Keep the
+                # position and carry the same immutable sell instruction to the next market
+                # session, where it executes only if a valid open exists.
+                self.order_log.append({'decision_date':o.decision_date,'execute_date':date,'side':'SELL','code':o.code,'shares':o.shares,'filled':False,'reason':'NO_TRADABLE_BAR_DEFERRED'})
+                if next_date is not None:
+                    deferred=SellOrder(o.decision_date,next_date,o.code,o.shares,o.full_exit)
+                    self.pending_sells.setdefault(next_date,[]).append(PendingSell(deferred,ps.reason))
+                continue
             shares=p.shares if o.full_exit else min(o.shares,p.shares)
             validate_shares(int(shares))
             px=floor_tick(sell_fill_price(float(b.open)))
@@ -225,9 +234,12 @@ class PortfolioEngine:
 
     def _queue_sells(self,date:str,next_date:str,intents:Sequence[SellIntent]) -> None:
         seen=set()
+        already_pending={ps.order.code for xs in self.pending_sells.values() for ps in xs}
         for x in intents:
             if x.code in seen: raise ValueError('duplicate sell intent')
-            seen.add(x.code); p=self.positions.get(x.code)
+            seen.add(x.code)
+            if x.code in already_pending: continue
+            p=self.positions.get(x.code)
             if p is None: continue
             if p.entry_date==next_date: raise RuntimeError('same-day round trip scheduling detected')
             shares=p.shares if x.full_exit or x.shares is None else int(x.shares)
@@ -253,7 +265,8 @@ class PortfolioEngine:
         dates=list(dates)
         for i,date in enumerate(dates):
             bars=bars_by_date[date]
-            self._execute_sells(date,bars)
+            nxt=dates[i+1] if i+1<len(dates) else None
+            self._execute_sells(date,bars,nxt)
             nav_pre=self.mark_nav(bars)
             self._execute_buys(date,bars,nav_pre)
             nav=self.mark_nav(bars); self.peak_nav=max(self.peak_nav,nav)
@@ -261,8 +274,7 @@ class PortfolioEngine:
             self.nav_rows.append(DailyNav(date,self.cash,self.reserved_cash(),mv,nav,self.peak_nav,nav/self.peak_nav-1.0,len(self.positions)))
             for p in self.positions.values():
                 if p.entry_date!=date: p.hold_sessions+=1
-            if i+1>=len(dates): continue
-            nxt=dates[i+1]
+            if nxt is None: continue
             snap={k:Position(**asdict(v)) for k,v in self.positions.items()}
             ctx=DecisionContext(date,nxt,self.cash,self.reserved_cash(),nav,snap,dict(bars))
             sells,buys=strategy.decide(ctx)
