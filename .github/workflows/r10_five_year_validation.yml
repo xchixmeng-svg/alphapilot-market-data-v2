@@ -8,6 +8,7 @@ on:
       - ".github/workflows/r10_five_year_validation.yml"
       - "scripts/backtest_r10_stress.py"
       - "scripts/patch_r05_runner_state_v1.py"
+      - "scripts/patch_true_cash_reservation_v1.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
       - "scripts/r10_true_validation.py"
@@ -43,7 +44,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v8-one-time-runner-state
+          key: r10-true-causal-${{ runner.os }}-v9-tday-cash-reservation
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -52,6 +53,9 @@ jobs:
 
       - name: Apply documented R0.5 Runner state repair
         run: python scripts/patch_r05_runner_state_v1.py
+
+      - name: Apply formal T-day cash reservation repair
+        run: python scripts/patch_true_cash_reservation_v1.py
 
       - name: Prove engine/reference separation
         shell: bash
@@ -74,6 +78,7 @@ jobs:
             'bt.r05_exit_reason(p, r)',
             'bt.legal_sell_price(float(r.open))',
             'bt.buy_fill(float(r.open), float(r.low), float(o.limit))',
+            'reserved_cash', 'rem_cash = max(0.0, cash - reserved_cash)',
             'fixture_inputs_used": False',
             'future_data_used": False',
           ]
@@ -109,7 +114,7 @@ jobs:
       - name: Run clean five-year causal engine
         run: python scripts/r10_true_validation.py
 
-      - name: Enforce causal portfolio invariants
+      - name: Enforce causal portfolio and cash invariants
         shell: bash
         run: |
           python - <<'PY'
@@ -118,6 +123,7 @@ jobs:
           q=json.loads((out/'summary.json').read_text(encoding='utf-8'))
           p=json.loads((out/'data_provenance.json').read_text(encoding='utf-8'))
           od=pd.read_csv(out/'orders.csv',dtype={'code':str})
+          nav=pd.read_csv(out/'daily_nav.csv')
           assert q['status']=='PASS',q
           assert q['fixture_inputs_used'] is False,q
           assert q['future_data_used'] is False,q
@@ -126,10 +132,17 @@ jobs:
           assert q['min_cash']>=-1e-6,q
           assert q['max_positions']<=5,q
           assert q['max_exposure']<1.0,q
-          buys=od[od.side.eq('BUY')]
+          buys=od[od.side.eq('BUY')].copy()
           assert len(buys)>0
           assert buys.shares.notna().all()
           assert (buys.shares.astype(int)==buys.shares).all()
+          # Formal R10: every T-day buy is precommitted against T-known cash;
+          # misses cannot retroactively free money to fund another same-day order.
+          reserved=buys.groupby('decision_date',as_index=False).reserved_cash.sum()
+          chk=reserved.merge(nav[['date','cash']],left_on='decision_date',right_on='date',how='left')
+          bad=chk[chk.reserved_cash>chk.cash+1e-6]
+          assert bad.empty, bad.sort_values('reserved_cash',ascending=False).head(10).to_dict('records')
+          print('T-DAY CASH RESERVATION: PASS days=',len(chk))
           print('TRUE RESULT End NAV:',q['end_nav'])
           print('TRUE RESULT CAGR:',q['cagr'])
           print('TRUE RESULT Max DD:',q['max_dd'])
@@ -156,7 +169,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v8
+          name: r10-2021-2025-true-causal-v9
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
