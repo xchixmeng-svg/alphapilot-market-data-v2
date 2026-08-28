@@ -25,7 +25,8 @@ assert abs(q.sell_execution_price-99.9)<1e-9,q
 assert abs(q.buy_commission-(99.5*100*0.001425))<1e-9,q
 assert abs(q.sell_commission-(99.9*100*0.001425))<1e-9,q
 assert abs(q.sell_tax-(99.9*100*0.003))<1e-9,q
-assert q.hold_sessions>=2,q
+# D1 close creates the exit and D2 open executes it; one completed holding session is correct.
+assert q.hold_sessions==1,q
 assert all(x.drawdown<=1e-12 for x in r['nav_rows'])
 assert all(x.reserved_cash>=-1e-9 for x in r['nav_rows'])
 
