@@ -13,6 +13,7 @@ on:
       - "scripts/r10_fresh_source_audit.py"
       - "scripts/r10_reference_diff_only.py"
       - "scripts/r10_first_divergence_diagnosis.py"
+      - "scripts/r10_r05_exit_timing_audit.py"
       - "scripts/r10_contract_test.py"
       - "scripts/r10_exit_causality_contract.py"
       - "scripts/build_r10_scan.py"
@@ -41,7 +42,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v6-exit-causality-audit
+          key: r10-true-causal-${{ runner.os }}-v7-r05-exit-timing-audit
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -81,7 +82,7 @@ jobs:
       - name: Syntax and generic sizing contracts
         shell: bash
         run: |
-          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_r05_exit_timing_audit.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
@@ -137,6 +138,9 @@ jobs:
       - name: Diagnose first divergence from formal ledger
         run: python scripts/r10_first_divergence_diagnosis.py
 
+      - name: Audit all formal R0.5 exit decision dates
+        run: python scripts/r10_r05_exit_timing_audit.py
+
       - name: Fresh official-source audit
         run: python scripts/r10_fresh_source_audit.py
 
@@ -148,7 +152,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v6
+          name: r10-2021-2025-true-causal-v7
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
