@@ -1,0 +1,32 @@
+name: AlphaPilot Clean Event Loop Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/clean_backtest_engine.py'
+      - 'scripts/clean_event_loop.py'
+      - 'scripts/clean_event_loop_audit.py'
+      - '.github/workflows/clean_event_loop_audit.yml'
+      - 'research_config.json'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile scripts/clean_backtest_engine.py scripts/clean_event_loop.py scripts/clean_event_loop_audit.py
+      - name: Contract event-loop audit
+        working-directory: scripts
+        run: python clean_event_loop_audit.py
