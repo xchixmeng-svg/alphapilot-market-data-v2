@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -78,16 +77,16 @@ def main() -> None:
         raise RuntimeError("raw 0050 base date missing")
 
     # Continuous old-share-equivalent price basis across the 4-for-1 split.
-    q["px"] = q.close.astype(float)
+    q["px"] = q["close"].astype(float)
     q.loc[q.date >= SPLIT_DATE, "px"] *= SPLIT_FACTOR
-    q["div"] = q.date.map(CASH_DISTRIBUTIONS).fillna(0.0).astype(float)
-    q.loc[q.date >= SPLIT_DATE, "div"] *= SPLIT_FACTOR
+    q["cash_dividend"] = q.date.map(CASH_DISTRIBUTIONS).fillna(0.0).astype(float)
+    q.loc[q.date >= SPLIT_DATE, "cash_dividend"] *= SPLIT_FACTOR
 
     # Total return with cash distribution reinvested on its ex-date close:
     # TR_t / TR_t-1 = (P_t + D_t) / P_t-1.
-    q["gross"] = (q.px + q.div) / q.px.shift(1)
+    q["gross"] = (q["px"] + q["cash_dividend"]) / q["px"].shift(1)
     q.loc[q.date.eq(BASE_DATE), "gross"] = 1.0
-    q["nav_raw"] = BASE_NAV * q.gross.cumprod()
+    q["nav_raw"] = BASE_NAV * q["gross"].cumprod()
 
     # Align to the full market calendar from raw data and reproduce the formal
     # benchmark gaps with past-only ffill.
@@ -95,15 +94,16 @@ def main() -> None:
     src = q[["date", "nav_raw"]].copy()
     src.loc[src.date.isin(FORMAL_MISSING), "nav_raw"] = np.nan
     out = cal.merge(src, on="date", how="left").sort_values("date")
-    out["benchmark_source_missing"] = out.nav_raw.isna()
-    out["nav"] = out.nav_raw.ffill()
-    if out.nav.isna().any():
-        raise RuntimeError(f"reconstruction has leading missing values: {out[out.nav.isna()].date.head().tolist()}")
+    out["benchmark_source_missing"] = out["nav_raw"].isna()
+    out["nav"] = out["nav_raw"].ffill()
+    if out["nav"].isna().any():
+        raise RuntimeError(f"reconstruction has leading missing values: {out[out['nav'].isna()].date.head().tolist()}")
 
     annual = {}
     prev = float(out.iloc[0].nav)
+    years = out.date.astype(str).str[:4].astype(int)
     for y in range(2021, 2026):
-        g = out[out.date.astype(str).str[:4].astype(int).eq(y)]
+        g = out[years.eq(y)]
         if g.empty:
             raise RuntimeError(f"year {y} missing")
         end = float(g.iloc[-1].nav)
