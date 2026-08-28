@@ -8,12 +8,16 @@ on:
       - "CONTRACT.md"
       - "scripts/clean_backtest_engine.py"
       - "scripts/clean_contract_audit.py"
+      - "scripts/clean_data_adapter.py"
+      - "scripts/clean_data_audit.py"
       - ".github/workflows/clean_contract_audit.yml"
   pull_request:
     paths:
       - "CONTRACT.md"
       - "scripts/clean_backtest_engine.py"
       - "scripts/clean_contract_audit.py"
+      - "scripts/clean_data_adapter.py"
+      - "scripts/clean_data_audit.py"
       - ".github/workflows/clean_contract_audit.yml"
 
 permissions:
@@ -29,7 +33,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Syntax check
-        run: python -m py_compile scripts/clean_backtest_engine.py scripts/clean_contract_audit.py
+        run: python -m py_compile scripts/clean_backtest_engine.py scripts/clean_contract_audit.py scripts/clean_data_adapter.py scripts/clean_data_audit.py
       - name: Run immutable contract audit
         working-directory: scripts
         run: python clean_contract_audit.py
+      - name: Run causal data audit
+        working-directory: scripts
+        run: python clean_data_audit.py
