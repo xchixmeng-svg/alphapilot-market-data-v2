@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Mapping
 import math
 import numpy as np
 import pandas as pd
@@ -30,6 +30,10 @@ class Params:
 def _valid(v): return v is not None and np.isfinite(v)
 
 
+def build_feature_store(features: pd.DataFrame) -> Dict[str,pd.DataFrame]:
+    return {str(int(d)):q.set_index('code',drop=False) for d,q in features.groupby('date',sort=True)}
+
+
 def size_shares(nav: float, price: float, target_pct: float) -> int:
     """Board-lot first; 100-share odd lots only when one board lot breaches 20% NAV."""
     if nav<=0 or price<=0: return 0
@@ -45,9 +49,9 @@ def size_shares(nav: float, price: float, target_pct: float) -> int:
 
 
 class ResearchStrategy:
-    def __init__(self, features: pd.DataFrame, params: Params):
+    def __init__(self, features_or_store, params: Params):
         self.params=params
-        self.by_date={str(int(d)):q.set_index('code',drop=False) for d,q in features.groupby('date',sort=True)}
+        self.by_date=features_or_store if isinstance(features_or_store,dict) else build_feature_store(features_or_store)
         self.peak: Dict[str,float]={}
         self.age: Dict[str,int]={}
 
@@ -73,14 +77,12 @@ class ResearchStrategy:
 
     def _score(self,q: pd.DataFrame) -> pd.Series:
         p=self.params
-        # Families deliberately use different causal signals so optimization is not a single-score curve fit.
         if p.family=='MOM_RS_FLOW':
             return 0.24*q.pct_rs20 + 0.20*q.pct_rs60 + 0.18*q.pct_ret20 + 0.12*q.pct_ret60 + 0.10*q.pct_foreign5 + 0.08*q.pct_trust5 + 0.08*q.pct_amt_ratio
         if p.family=='BREAK_FLOW':
             br=(q.break20.clip(-.10,.10)+.10)/.20
             return 0.24*q.pct_rs20 + 0.18*q.pct_ret20 + 0.18*br.clip(0,1) + 0.14*q.pct_amt_ratio + 0.12*q.pct_foreign5 + 0.08*q.pct_trust5 + 0.06*q.clv.add(1).div(2)
         if p.family=='PULLBACK_RS':
-            # Favor strong 60D relative strength that has cooled toward MA20 instead of chasing far extensions.
             pull=(1-(q.dist_ma20.abs()/0.10)).clip(0,1)
             return 0.28*q.pct_rs60 + 0.18*q.pct_rs20 + 0.16*q.pct_ret60 + 0.16*pull + 0.10*q.pct_foreign20 + 0.06*q.pct_trust20 + 0.06*q.pct_amt_ratio
         raise ValueError(p.family)
@@ -88,7 +90,7 @@ class ResearchStrategy:
     def _candidates(self,date: str,held: set[str]) -> pd.DataFrame:
         p=self.params; q=self.by_date.get(date)
         if q is None or q.empty: return pd.DataFrame()
-        x=q.copy()
+        x=q
         required=['close','avgamt20','ma20','ma60','ma120','rs20','rs60','pct_rs20','pct_rs60','pct_ret20','pct_ret60','pct_amt_ratio']
         for c in required:
             if c not in x.columns: return pd.DataFrame()
@@ -96,10 +98,10 @@ class ResearchStrategy:
         mask &= x.rs20.notna() & x.rs60.notna()
         if p.family=='BREAK_FLOW': mask &= (x.aclose>=x.prior_high20*.985)
         elif p.family=='PULLBACK_RS': mask &= x.dist_ma20.between(-.04,.08)
-        x=x[mask & ~x.code.isin(held)].copy()
-        if x.empty:return x
-        x['score']=self._score(x)
-        return x[x.score>=p.score_threshold].sort_values(['score','code'],ascending=[False,True])
+        z=x[mask & ~x.code.isin(held)].copy()
+        if z.empty:return z
+        z['score']=self._score(z)
+        return z[z.score>=p.score_threshold].sort_values(['score','code'],ascending=[False,True])
 
     def decide(self,ctx: DecisionContext) -> tuple[Sequence[SellIntent],Sequence[BuyIntent]]:
         p=self.params; date=str(int(ctx.date.replace('-',''))) if '-' in ctx.date else ctx.date
@@ -107,7 +109,6 @@ class ResearchStrategy:
         sample=q.iloc[0] if q is not None and not q.empty else None
         regime,max_slots=self._regime(sample)
         sells=[]
-        # Exits are T-close decisions. No current-day low/high is used to simulate an earlier intraday stop.
         for code,pos in ctx.positions.items():
             r=self._row(date,code)
             if r is None: continue
@@ -121,7 +122,6 @@ class ResearchStrategy:
             elif rs_pct < p.momentum_decay_pct: reason='MOMENTUM_DECAY'
             elif self.age[code]>=p.max_hold: reason='TIME'
             if reason: sells.append(SellIntent(code,full_exit=True,reason=reason))
-        # Count positions as still occupied until tomorrow's sell actually executes.
         held=set(ctx.positions)
         capacity=max(0,max_slots-len(held))
         if capacity<=0: return sells,[]
