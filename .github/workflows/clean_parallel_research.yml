@@ -1,0 +1,143 @@
+name: AlphaPilot Clean Parallel Research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/clean_parallel_lane.py'
+      - 'scripts/clean_merge_leaderboard.py'
+      - 'scripts/clean_research_run.py'
+      - 'scripts/clean_strategy_research.py'
+      - 'scripts/clean_features.py'
+      - 'scripts/clean_event_loop.py'
+      - 'scripts/clean_backtest_engine.py'
+      - '.github/workflows/clean_parallel_research.yml'
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+      - name: Syntax audit
+        run: >-
+          python -m py_compile
+          scripts/clean_backtest_engine.py
+          scripts/clean_event_loop.py
+          scripts/clean_history_data.py
+          scripts/clean_features.py
+          scripts/clean_strategy_research.py
+          scripts/clean_research_run.py
+          scripts/clean_parallel_lane.py
+          scripts/clean_merge_leaderboard.py
+      - name: Rebuild or complete historical cache
+        run: python scripts/clean_history_data.py
+      - name: Build causal features
+        run: python scripts/clean_features.py
+      - name: Upload immutable research cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-parallel-cache
+          path: .clean_cache
+          include-hidden-files: true
+          retention-days: 3
+
+  lane:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [MOM_RS_FLOW, BREAK_FLOW, PULLBACK_RS]
+        shard: [0, 1, 2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install pandas numpy pyarrow
+      - name: Download prepared cache
+        uses: actions/download-artifact@v4
+        with:
+          name: clean-parallel-cache
+          path: .clean_cache
+      - name: Run independent research lane
+        run: >-
+          python scripts/clean_parallel_lane.py
+          --family '${{ matrix.family }}'
+          --shard '${{ matrix.shard }}'
+          --shards 3
+          --pool-size 720
+      - name: Upload lane evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-${{ matrix.family }}-${{ matrix.shard }}
+          path: clean_results/lanes/*.json
+          retention-days: 14
+
+  merge:
+    needs: lane
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download all lane evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lane-*
+          path: clean_results/lanes
+          merge-multiple: true
+      - name: Merge inspectable leaderboard
+        run: python scripts/clean_merge_leaderboard.py
+      - name: Persist intermediate leaderboard on research branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add clean_results/parallel_leaderboard.json clean_results/lanes/*.json
+          if git diff --cached --quiet; then
+            echo 'No leaderboard changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Persist parallel clean research leaderboard'
+          git pull --rebase origin clean-research-20260828
+          git push origin HEAD:clean-research-20260828
+      - name: Upload merged leaderboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-parallel-leaderboard
+          path: |
+            clean_results/parallel_leaderboard.json
+            clean_results/lanes/*.json
+          retention-days: 30
