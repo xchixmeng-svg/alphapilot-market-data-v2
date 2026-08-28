@@ -1,0 +1,59 @@
+name: AlphaPilot Clean Five-Year Research Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/clean_validate.py'
+      - 'scripts/clean_research_run.py'
+      - 'scripts/clean_strategy_research.py'
+      - 'scripts/clean_features.py'
+      - '.github/workflows/clean_research_validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+      - name: Syntax audit
+        run: python -m py_compile scripts/clean_backtest_engine.py scripts/clean_event_loop.py scripts/clean_history_data.py scripts/clean_features.py scripts/clean_strategy_research.py scripts/clean_research_run.py scripts/clean_validate.py
+      - name: Rebuild or complete historical cache
+        run: python scripts/clean_history_data.py
+      - name: Build causal features
+        run: python scripts/clean_features.py
+      - name: Broad deterministic search
+        run: python scripts/clean_research_run.py
+      - name: Walk-forward stability and adverse execution validation
+        run: python scripts/clean_validate.py
+      - name: Upload research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-five-year-research-evidence
+          path: |
+            .clean_cache/history_audit.json
+            .clean_cache/feature_audit.json
+            clean_results/search_summary.json
+            clean_results/search_trials.json
+            clean_results/validation_report.json
+          if-no-files-found: warn
+          retention-days: 30
