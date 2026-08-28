@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import itertools, json, math, random
+import itertools, json, random
 from dataclasses import asdict
 from pathlib import Path
 from collections.abc import Mapping, Iterator
@@ -47,26 +47,31 @@ class BarStore:
 
 def annual_stats(nav_rows):
     rows=pd.DataFrame([{'date':int(x.date),'nav':x.nav} for x in nav_rows])
+    if rows.empty: return {}
     rows['year']=rows.date.astype(str).str[:4].astype(int)
     out={}; prev=INITIAL
-    for y in range(2021,2026):
+    for y in sorted(rows.year.unique()):
         q=rows[rows.year.eq(y)]
-        if q.empty: continue
         vals=np.r_[prev,q.nav.to_numpy(float)]
         peaks=np.maximum.accumulate(vals); dd=float(np.min(vals/peaks-1))
         end=float(vals[-1]); ret=end/prev-1
-        out[str(y)]={'return':ret,'max_dd':dd,'end_nav':end}
+        out[str(int(y))]={'return':ret,'max_dd':dd,'end_nav':end}
         prev=end
     return out
 
 
 def metrics(result):
-    end=float(result['end_nav']); cagr=(end/INITIAL)**(1/5)-1
-    ann=annual_stats(result['nav_rows']); rets=np.array([ann[str(y)]['return'] for y in range(2021,2026) if str(y) in ann],float)
+    end=float(result['end_nav'])
+    nav_rows=result['nav_rows']
+    years=sorted({str(x.date)[:4] for x in nav_rows})
+    horizon=max(1,len(years))
+    cagr=(end/INITIAL)**(1/horizon)-1
+    ann=annual_stats(nav_rows)
+    rets=np.array([ann[y]['return'] for y in sorted(ann)],float)
     fills=sum(1 for x in result['order_log'] if x.get('side')=='BUY' and x.get('filled'))
     buy_orders=sum(1 for x in result['order_log'] if x.get('side')=='BUY')
     return {
-      'end_nav':end,'cagr':float(cagr),'max_dd':float(result['max_drawdown']),
+      'end_nav':end,'cagr':float(cagr),'cagr_years':int(horizon),'max_dd':float(result['max_drawdown']),
       'completed_trades':int(result['completed_trades']),'orders':int(result['orders']),
       'buy_fill_rate':float(fills/buy_orders) if buy_orders else 0.0,
       'positive_years':int((rets>0).sum()) if len(rets) else 0,
@@ -82,7 +87,6 @@ def candidate_pool(n=72):
       [4,5],[2,3],[20,40],[0.08,0.12,0.16],[40,80,120],[0.30,0.45]
     ))
     rng=random.Random(20260828); rng.shuffle(product)
-    # Seed a neutral central point per family, then deterministic broad sample.
     seeds=[(f,0.70,0.005,0.16,5,3,20,0.12,80,0.30) for f in ['MOM_RS_FLOW','BREAK_FLOW','PULLBACK_RS']]
     chosen=seeds+product[:max(0,n-len(seeds))]
     out=[]; seen=set()
@@ -99,7 +103,6 @@ def main():
     raw=raw[raw.date.between(EVAL_START,EVAL_END)].copy()
     features=pd.read_parquet(CACHE/'features_2020_2025.parquet',columns=FEATURE_COLS)
     features=features[features.date.between(20200101,EVAL_END)].copy()
-    # Execution universe uses raw prices. 0050 and other 00xx codes are benchmark-only, not tradable.
     raw=raw[~raw.code.astype(str).str.startswith('00')].copy()
     eval_dates=[str(int(x)) for x in sorted(raw.date.unique())]
     if len(eval_dates)<1200: raise RuntimeError(f'too few evaluation dates {len(eval_dates)}')
@@ -113,7 +116,6 @@ def main():
         trials.append(row)
         print(json.dumps({'trial':i,'family':p.family,'cagr':m['cagr'],'dd':m['max_dd'],'trades':m['completed_trades'],'qualified':qualified}),flush=True)
     qualified=[x for x in trials if x['qualified']]
-    # Contract objective: DD gate/robustness first, then maximum CAGR.
     qualified.sort(key=lambda x:(x['cagr'],-abs(x['max_dd'])),reverse=True)
     best=qualified[0] if qualified else None
     summary={
@@ -121,7 +123,7 @@ def main():
       'initial_capital':INITIAL,'evaluation':'2021-2025','warmup':'2020',
       'dd_gate':'strictly below 20%','trial_count':len(trials),
       'qualified_count':len(qualified),'best':best,
-      'note':'Research-stage full-sample search only. Not final until walk-forward, neighboring-parameter stability and stress validation pass.'
+      'note':'Research-stage full-sample search only. Not final until leakage-resistant holdout, walk-forward, neighboring-parameter stability and adverse-execution stress validation pass.'
     }
     (OUT/'search_trials.json').write_text(json.dumps(trials,ensure_ascii=False,indent=2),encoding='utf-8')
     (OUT/'search_summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
