@@ -1,6 +1,6 @@
 # AlphaPilot R10-MAX — Locked Rules Source of Truth
 
-This document is the executable/audit reference for R10 historical validation. It consolidates the rules already present in `docs/R10_STRESS_BACKTEST.md`, `scripts/build_r10_scan.py`, and `scripts/backtest_r10_stress.py`. Historical validation must reproduce these rules rather than silently disabling them.
+This document is the executable/audit reference for R10 historical validation. It consolidates the rules already present in `docs/R10_STRESS_BACKTEST.md`, the formal R10-MAX operation manual/workbook, `scripts/build_r10_scan.py`, and `scripts/backtest_r10_stress.py`. Historical validation must reproduce these rules rather than silently disabling them.
 
 ## 1. Causality / no look-ahead
 
@@ -35,7 +35,8 @@ R7 rebalance clock:
 
 R7 entry:
 - target size = 22% of current portfolio NAV before DD throttle and portfolio caps.
-- T+1 limit = T adjusted/locked close × 0.98, rounded down to legal tick.
+- T+1 economic limit = T adjusted/locked close × 0.98, converted to the executable nominal-price basis and rounded down to a legal Taiwan tick.
+- a stock already held by R7, including a stock simultaneously prepared for R7 exit, is not a new R7 entry candidate on the same T decision.
 
 R7 current hard-stop implementation:
 - if T adjusted close <= adjusted entry price × 0.88, create HARD sell at T close; execute T+1.
@@ -78,6 +79,7 @@ R0.5 entry:
 R0.5 current exit implementation:
 - HARD: adjusted close <= adjusted entry × 0.90, decision T, execute T+1.
 - NORMAL can become RUNNER at >= +40% with amount_ratio >= 2.0.
+- when a RUNNER first reaches approximately +80%, classify it once as MEGA when amount ratio remains >= 1.2, otherwise TARGET; MEGA/TARGET are absorbing classifications and do not toggle later because volume changes.
 - RUNNER/MEGA/TARGET state transitions and trailing exits use only T-known values.
 - RUNNER trail: 14% from peak; max hold 120 trading days.
 - MEGA trail: 16% from peak; max hold 120 trading days.
@@ -93,10 +95,13 @@ R0.5 current exit implementation:
 - R0.5 new position base = 20% NAV.
 - Maximum 5 distinct stocks.
 - Same stock across strategies combined <= 25% NAV.
-- Normal total exposure <= 95% NAV at order construction; subsequent mark-to-market price movement may move observed exposure above 95% without creating an undocumented forced-sale rule.
-- T+1 planned sells execute before T+1 buys. Their actual proceeds join the same cash pool before buy affordability is checked; T-day cash is not used as a synthetic cap on an otherwise valid T+1 order.
+- Normal total exposure <= 95% NAV at T order construction; subsequent mark-to-market price movement may move observed exposure above 95% without creating an undocumented forced-sale rule.
+- A position already scheduled to sell on T+1 may release a T+1 holding slot, but its T-day market value still counts in T-day 95% total-exposure and 25% single-stock-cap calculations. Do not erase tomorrow's sell from today's exposure ledger.
+- Every T-day buy order precommits its fixed quantity and fee-inclusive planned cash against cash known on T. Multiple T-day orders reserve that cash cumulatively; later same-day orders can use only the remaining unreserved T-day cash.
+- A buy order that will miss on T+1 still occupies its precommitted T-day cash when all T orders are constructed. Do not use T+1 hindsight to recycle a miss into another T-day order.
+- Planned T+1 sell proceeds are unknown on T and may not finance a T-day buy order. On T+1, sells execute before buys; actual sell proceeds then join cash, but buy quantity remains the T-day precommitted quantity and is never increased using those proceeds.
 - Cash cannot be negative; no borrowing or leverage.
-- If enough target capital exists for a board lot, quantity must be a multiple of 1,000 shares. Odd-lot integer shares are permitted only when one full board lot itself exceeds the effective target capital.
+- If enough target capital exists for a board lot, quantity must be a multiple of 1,000 shares and rounded down. Odd-lot integer shares are permitted only when one full board lot itself exceeds the effective target capital.
 - Per-order liquidity <= 2% of T-known 20D average volume.
 
 DD throttle for new positions:
@@ -135,8 +140,8 @@ What is output only:
 - End NAV, CAGR, Max DD, annual returns, order count, fill count, trade count and all historical transaction rows. These values are consequences of code + rules + data and must never be used to steer the run.
 
 Older performance snapshots are retained only as forensic references after a clean run has already completed:
-- the former NT$9.888m Golden result is quarantined because inherited R0.5 exits contain confirmed same-day look-ahead timing contamination;
-- the former NT$4.020m causal snapshot came from an older Portfolio-Layer implementation that T-day-cash-clamped orders and did not execute the documented FORCE_DD liquidation, so it is not a current R10 equivalence target.
+- the former NT$9.888m Golden result is quarantined because inherited R0.5 exits contain confirmed same-day/intraday timing contamination that conflicts with the documented T-close -> T+1 exit contract;
+- the former NT$4.020m snapshot came from an older incomplete Portfolio-Layer implementation that did not execute the documented FORCE_DD liquidation and therefore is not a current R10 equivalence target. T-day cash precommit itself is a formal rule and is not a defect.
 
 A post-run comparison tool may identify the first divergence from those historical snapshots, but reference rows must never flow back into candidate selection, position sizing, fill decisions, exits, cash, or NAV.
 
