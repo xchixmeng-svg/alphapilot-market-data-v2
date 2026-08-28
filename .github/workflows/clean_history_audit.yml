@@ -1,0 +1,46 @@
+name: AlphaPilot Clean Historical Data Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/clean_history_data.py'
+      - '.github/workflows/clean_history_audit.yml'
+      - 'research_config.json'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore clean historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+      - name: Syntax check
+        run: python -m py_compile scripts/clean_history_data.py
+      - name: Rebuild and audit 2020-2025 history
+        run: python scripts/clean_history_data.py
+      - name: Upload audit only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-history-audit
+          path: .clean_cache/history_audit.json
+          if-no-files-found: warn
+          retention-days: 30
