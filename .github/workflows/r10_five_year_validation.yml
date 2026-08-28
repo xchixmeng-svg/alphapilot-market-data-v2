@@ -10,6 +10,8 @@ on:
       - "scripts/patch_r05_runner_state_v1.py"
       - "scripts/patch_true_cash_reservation_v1.py"
       - "scripts/patch_true_pending_sell_semantics_v1.py"
+      - "scripts/patch_true_total_return_benchmark_v1.py"
+      - "scripts/r10_total_return_benchmark.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
       - "scripts/r10_true_validation.py"
@@ -45,7 +47,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v10-pending-sell-exposure
+          key: r10-true-causal-${{ runner.os }}-v11-official-total-return
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -61,7 +63,10 @@ jobs:
       - name: Apply formal pending-sell exposure semantics
         run: python scripts/patch_true_pending_sell_semantics_v1.py
 
-      - name: Prove engine/reference separation and formal portfolio semantics
+      - name: Apply official 0050 total-return benchmark
+        run: python scripts/patch_true_total_return_benchmark_v1.py
+
+      - name: Prove engine/reference separation and formal data semantics
         shell: bash
         run: |
           python - <<'PY'
@@ -79,6 +84,8 @@ jobs:
             'bt.load_scenario_ohlcv(cfg)',
             'fast.fetch_institutional_fast',
             'fast.precompute_signals',
+            'trb.load_tai50_total_return',
+            '"r7_benchmark": benchmark_meta',
             'bt.r05_exit_reason(p, r)',
             'bt.legal_sell_price(float(r.open))',
             'bt.buy_fill(float(r.open), float(r.low), float(o.limit))',
@@ -95,13 +102,13 @@ jobs:
           assert 'base_exposure = bt.value_of(positions, feat_idx, di, exclude=sell_keys)' not in s
           assert 'current_code = bt.value_of(positions, feat_idx, di, code=code, exclude=sell_keys)' not in s
           assert s.index('pending_sells.pop(di') < s.index('pending_buys.pop(di'), 'T+1 must sell before buy'
-          print('TRUE ENGINE SEPARATION / T-DAY PORTFOLIO SEMANTICS: PASS')
+          print('TRUE ENGINE SEPARATION / FORMAL DATA SEMANTICS: PASS')
           PY
 
       - name: Syntax and generic sizing contracts
         shell: bash
         run: |
-          python -m py_compile scripts/r10_true_validation.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_r05_exit_timing_audit.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
+          python -m py_compile scripts/r10_true_validation.py scripts/r10_total_return_benchmark.py scripts/r10_fresh_source_audit.py scripts/r10_reference_diff_only.py scripts/r10_first_divergence_diagnosis.py scripts/r10_r05_exit_timing_audit.py scripts/r10_contract_test.py scripts/r10_exit_causality_contract.py
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts')
@@ -124,7 +131,7 @@ jobs:
       - name: Run clean five-year causal engine
         run: python scripts/r10_true_validation.py
 
-      - name: Enforce causal portfolio and cash invariants
+      - name: Enforce causal portfolio cash and benchmark invariants
         shell: bash
         run: |
           python - <<'PY'
@@ -139,6 +146,12 @@ jobs:
           assert q['future_data_used'] is False,q
           assert p['fixture_inputs_used'] is False,p
           assert p['institutional_eval_dates']>=1214,p
+          b=p.get('r7_benchmark') or {}
+          assert 'TAI50I' in str(b.get('source','')),b
+          assert b.get('source_rows',0)>1000,b
+          assert b.get('aligned_dates',0)>=1214,b
+          assert len(str(b.get('sha256','')))==64,b
+          assert 'forward-fill' in str(b.get('fill_policy','')).lower(),b
           assert q['min_cash']>=-1e-6,q
           assert q['max_positions']<=5,q
           assert q['max_exposure']<1.0,q
@@ -147,17 +160,15 @@ jobs:
           assert len(buys)>0
           assert buys.shares.notna().all()
           assert (buys.shares.astype(int)==buys.shares).all()
-          # Formal R10: every T-day buy is precommitted against T-known cash;
-          # misses cannot retroactively free money to fund another same-day order.
           reserved=buys.groupby('decision_date',as_index=False).reserved_cash.sum()
           chk=reserved.merge(nav[['date','cash']],left_on='decision_date',right_on='date',how='left')
           bad=chk[chk.reserved_cash>chk.cash+1e-6]
           assert bad.empty, bad.sort_values('reserved_cash',ascending=False).head(10).to_dict('records')
-          # Formal R7: do not sell and re-enter the same R7 stock from one T decision.
           sb={(int(r.decision_date),str(r.strategy),str(r.code).zfill(4)) for r in sells.itertuples(index=False)}
           bb={(int(r.decision_date),str(r.strategy),str(r.code).zfill(4)) for r in buys.itertuples(index=False)}
           churn=sorted(k for k in sb & bb if k[1]=='R7')
           assert not churn, churn[:10]
+          print('0050 TOTAL RETURN SOURCE: PASS',b)
           print('T-DAY CASH RESERVATION: PASS days=',len(chk))
           print('R7 SAME-DAY EXIT/REENTRY: PASS')
           print('TRUE RESULT End NAV:',q['end_nav'])
@@ -167,6 +178,7 @@ jobs:
           print('TRUE RESULT orders/fills/trades:',q['orders'],q['fills'],q['completed_trades'])
           print('OHLCV SHA256:',p['ohlcv_sha256'])
           print('Institutional SHA256:',p['institutional_sha256'])
+          print('0050TR SHA256:',b['sha256'])
           PY
 
       - name: Diagnose first divergence from formal ledger
@@ -186,9 +198,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v10
+          name: r10-2021-2025-true-causal-v11
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
+            .stress_cache/tai50_total_return_2020_2025.csv
           if-no-files-found: ignore
           retention-days: 90
