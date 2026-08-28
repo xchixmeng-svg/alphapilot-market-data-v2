@@ -9,6 +9,7 @@ on:
       - "scripts/backtest_r10_stress.py"
       - "scripts/patch_r05_runner_state_v1.py"
       - "scripts/patch_true_cash_reservation_v1.py"
+      - "scripts/patch_true_pending_sell_semantics_v1.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
       - "scripts/r10_true_validation.py"
@@ -44,7 +45,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v9-tday-cash-reservation
+          key: r10-true-causal-${{ runner.os }}-v10-pending-sell-exposure
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
@@ -57,7 +58,10 @@ jobs:
       - name: Apply formal T-day cash reservation repair
         run: python scripts/patch_true_cash_reservation_v1.py
 
-      - name: Prove engine/reference separation
+      - name: Apply formal pending-sell exposure semantics
+        run: python scripts/patch_true_pending_sell_semantics_v1.py
+
+      - name: Prove engine/reference separation and formal portfolio semantics
         shell: bash
         run: |
           python - <<'PY'
@@ -79,13 +83,19 @@ jobs:
             'bt.legal_sell_price(float(r.open))',
             'bt.buy_fill(float(r.open), float(r.low), float(o.limit))',
             'reserved_cash', 'rem_cash = max(0.0, cash - reserved_cash)',
+            'base_exposure = bt.value_of(positions, feat_idx, di)',
+            'base_r7 = bt.value_of(positions, feat_idx, di, strategy="R7")',
+            'current_code = bt.value_of(positions, feat_idx, di, code=code)',
+            'if strategy == "R7" and k in sell_keys:',
             'fixture_inputs_used": False',
             'future_data_used": False',
           ]
           for token in required:
             assert token in s, f'missing true-engine gate: {token}'
+          assert 'base_exposure = bt.value_of(positions, feat_idx, di, exclude=sell_keys)' not in s
+          assert 'current_code = bt.value_of(positions, feat_idx, di, code=code, exclude=sell_keys)' not in s
           assert s.index('pending_sells.pop(di') < s.index('pending_buys.pop(di'), 'T+1 must sell before buy'
-          print('TRUE ENGINE SEPARATION: PASS')
+          print('TRUE ENGINE SEPARATION / T-DAY PORTFOLIO SEMANTICS: PASS')
           PY
 
       - name: Syntax and generic sizing contracts
@@ -133,6 +143,7 @@ jobs:
           assert q['max_positions']<=5,q
           assert q['max_exposure']<1.0,q
           buys=od[od.side.eq('BUY')].copy()
+          sells=od[od.side.eq('SELL')].copy()
           assert len(buys)>0
           assert buys.shares.notna().all()
           assert (buys.shares.astype(int)==buys.shares).all()
@@ -142,7 +153,13 @@ jobs:
           chk=reserved.merge(nav[['date','cash']],left_on='decision_date',right_on='date',how='left')
           bad=chk[chk.reserved_cash>chk.cash+1e-6]
           assert bad.empty, bad.sort_values('reserved_cash',ascending=False).head(10).to_dict('records')
+          # Formal R7: do not sell and re-enter the same R7 stock from one T decision.
+          sb={(int(r.decision_date),str(r.strategy),str(r.code).zfill(4)) for r in sells.itertuples(index=False)}
+          bb={(int(r.decision_date),str(r.strategy),str(r.code).zfill(4)) for r in buys.itertuples(index=False)}
+          churn=sorted(k for k in sb & bb if k[1]=='R7')
+          assert not churn, churn[:10]
           print('T-DAY CASH RESERVATION: PASS days=',len(chk))
+          print('R7 SAME-DAY EXIT/REENTRY: PASS')
           print('TRUE RESULT End NAV:',q['end_nav'])
           print('TRUE RESULT CAGR:',q['cagr'])
           print('TRUE RESULT Max DD:',q['max_dd'])
@@ -169,7 +186,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v9
+          name: r10-2021-2025-true-causal-v10
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
