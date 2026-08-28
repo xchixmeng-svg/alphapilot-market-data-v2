@@ -9,6 +9,8 @@ on:
       - 'scripts/clean_research_run.py'
       - 'scripts/clean_strategy_research.py'
       - 'scripts/clean_features.py'
+      - 'scripts/clean_event_loop.py'
+      - 'scripts/clean_backtest_engine.py'
       - '.github/workflows/clean_research_validation.yml'
 
 permissions:
