@@ -62,4 +62,27 @@ assert not e3.positions,e3.positions
 miss=[x for x in r3['order_log'] if x.get('code')=='6206']
 assert len(miss)==1 and not miss[0]['filled'] and miss[0]['reason']=='NO_TRADABLE_BAR',miss
 
-print({'status':'PASS','tests':'T+1, costs, tax, 100-share, cap, reserve, no-future-cash-reuse, missing-bar-no-fill'})
+# A binding sell instruction cannot fabricate an execution during suspension.
+# It must stay pending and execute at the first later session with a valid open.
+class SuspendedSell:
+    def decide(self,ctx):
+        if ctx.date=='2021-01-04': return [],[BuyIntent('3701',100,50.0,'ENTRY')]
+        if ctx.date=='2021-01-05' and '3701' in ctx.positions: return [SellIntent('3701',True,None,'EXIT')],[]
+        return [],[]
+suspend_bars={
+ '2021-01-04':{'3701':Bar('2021-01-04','3701','大眾控',50,51,49,50)},
+ '2021-01-05':{'3701':Bar('2021-01-05','3701','大眾控',49,50,48,49)},
+ '2021-01-06':{},
+ '2021-01-07':{'3701':Bar('2021-01-07','3701','大眾控',47,48,46,47)},
+}
+e4=PortfolioEngine(1_000_000)
+r4=e4.run(list(suspend_bars),suspend_bars,SuspendedSell())
+assert r4['completed_trades']==1,r4
+sq=r4['ledger'][0]
+assert sq.exit_date=='2021-01-07',sq
+assert abs(sq.sell_open_reference-47.0)<1e-12,sq
+assert abs(sq.sell_execution_price-46.05)<1e-12,sq
+sl=[x for x in r4['order_log'] if x.get('side')=='SELL' and x.get('code')=='3701']
+assert len(sl)==2 and sl[0]['reason']=='NO_TRADABLE_BAR_DEFERRED' and not sl[0]['filled'] and sl[1]['filled'],sl
+
+print({'status':'PASS','tests':'T+1, costs, tax, 100-share, cap, reserve, no-future-cash-reuse, missing-buy-no-fill, suspended-sell-defer'})
