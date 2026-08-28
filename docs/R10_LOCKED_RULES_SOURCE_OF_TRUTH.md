@@ -6,6 +6,7 @@ This document is the executable/audit reference for R10 historical validation. I
 
 - Every signal is formed using information available by T close only.
 - Buy/sell decisions formed at T execute on T+1 only.
+- **This sell rule has no R0.5 exception:** R0.5 HARD, BASE_TRAIL, RUNNER_TRAIL, MEGA_TRAIL, TARGET, TIME and any other exit must be decided at T close and executed on the next trading day from the N+1 Open model. No same-day intraday stop execution is part of the active R10 strategy.
 - No future bar, future institutional data, future rank, or future price may affect a T decision.
 - R7 and R0.5 are independent scanners. They may compete only at the common portfolio/capital layer after each scanner has produced its own candidates.
 
@@ -77,15 +78,16 @@ R0.5 entry:
 - T+1 limit = T close × 0.995, rounded down to legal tick.
 
 R0.5 current exit implementation:
-- HARD: adjusted close <= adjusted entry × 0.90, decision T, execute T+1.
+- HARD: adjusted close <= adjusted entry × 0.90, **decision at T close, execute at N+1 Open**.
 - NORMAL can become RUNNER at >= +40% with amount_ratio >= 2.0.
 - when a RUNNER first reaches approximately +80%, classify it once as MEGA when amount ratio remains >= 1.2, otherwise TARGET; MEGA/TARGET are absorbing classifications and do not toggle later because volume changes.
-- RUNNER/MEGA/TARGET state transitions and trailing exits use only T-known values.
+- RUNNER/MEGA/TARGET state transitions and trailing exits use only T-known close-state values.
 - RUNNER trail: 14% from peak; max hold 120 trading days.
 - MEGA trail: 16% from peak; max hold 120 trading days.
 - TARGET: +200% target or 20% peak trail; max hold 120 trading days.
 - BASE trail: once return >= +50%, 12% peak trail.
 - NORMAL time exit: 60 trading days.
+- **No R0.5 stop/trailing/target exit may execute on T itself.** Once an exit is triggered by the T-close state machine, the order is scheduled for the next trading date and priced from N+1 Open using the common sell execution model.
 
 ## 4. Locked common portfolio layer
 
@@ -120,7 +122,7 @@ These DD/ADV controls are part of the documented LOCKED portfolio layer and must
 ## 5. Execution and costs
 
 - Buy fill: if T+1 Open <= precommitted limit, apply 0.5% adverse buy slippage to Open, round the estimate to cents, round UP to a legal Taiwan tick, and cap at the locked limit; else if T+1 Low <= limit, fill at the locked limit; otherwise cancel/no chase.
-- Sell: decision at T close, execute from T+1 Open with 0.5% adverse sell slippage, rounded down to legal tick.
+- **Sell for both R7 and R0.5:** decision at T close, execute from N+1 Open with 0.5% adverse sell slippage, rounded down to legal tick. There is no same-day intraday sell exception.
 - Buy fee: 0.0855%.
 - Sell fee: 0.0855%.
 - Sell tax: 0.3%.
@@ -140,7 +142,7 @@ What is output only:
 - End NAV, CAGR, Max DD, annual returns, order count, fill count, trade count and all historical transaction rows. These values are consequences of code + rules + data and must never be used to steer the run.
 
 Older performance snapshots are retained only as forensic references after a clean run has already completed:
-- the former NT$9.888m Golden result is quarantined because inherited R0.5 exits contain confirmed same-day/intraday timing contamination that conflicts with the documented T-close -> T+1 exit contract;
+- the former NT$9.888m Golden result is **not an equivalence target for the active Strict N+1 strategy** because its archived R0.5 exit schedule contains dates that do not reproduce under the active T-close decision → N+1 Open execution contract. Its historical provenance/timing semantics must be reconciled separately; do not label the mismatch as confirmed look-ahead merely from the date difference alone;
 - the former NT$4.020m snapshot came from an older incomplete Portfolio-Layer implementation that did not execute the documented FORCE_DD liquidation and therefore is not a current R10 equivalence target. T-day cash precommit itself is a formal rule and is not a defect.
 
 A post-run comparison tool may identify the first divergence from those historical snapshots, but reference rows must never flow back into candidate selection, position sizing, fill decisions, exits, cash, or NAV.
@@ -149,6 +151,7 @@ A post-run comparison tool may identify the first divergence from those historic
 
 - Do not alter R7/R0.5 scores, filters, stops, position sizes, or execution rules merely to improve backtest output.
 - Do not use T+1 intraday information to revise the T order.
+- Do not execute R0.5 HARD/TRAIL/TARGET sells on T itself; every sell is N+1 Open execution.
 - Do not count untouched limits as fills.
 - Do not silently disable DD defense or liquidity rules.
 - Do not fabricate missing institutional history.
