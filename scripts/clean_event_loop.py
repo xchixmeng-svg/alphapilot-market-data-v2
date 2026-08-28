@@ -195,7 +195,12 @@ class PortfolioEngine:
     def _execute_buys(self,date:str,bars:Dict[str,Bar],nav_before_buy:float) -> None:
         for pb in self.pending_buys.pop(date,[]):
             o=pb.order; b=bars.get(o.code)
-            if b is None: raise RuntimeError(f'missing buy bar {date} {o.code}')
+            # A precommitted T+1 order can encounter no tradable daily bar because the
+            # security is suspended, delisted, or otherwise has no valid execution print.
+            # This is an unfilled order, never a reason to synthesize a price or abort the run.
+            if b is None or b.open<=0 or b.low<=0:
+                self.order_log.append({'decision_date':o.decision_date,'execute_date':date,'side':'BUY','code':o.code,'shares':o.shares,'limit_price':o.limit_price,'filled':False,'reason':'NO_TRADABLE_BAR'})
+                continue
             if o.code in self.positions:
                 self.order_log.append({'decision_date':o.decision_date,'execute_date':date,'side':'BUY','code':o.code,'shares':o.shares,'filled':False,'reason':'ALREADY_HELD'})
                 continue
