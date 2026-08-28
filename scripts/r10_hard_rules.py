@@ -32,6 +32,7 @@ MAX_SINGLE_STOCK_NAV = 0.25
 MAX_TOTAL_STOCK_NAV = 0.95
 R7_BASE_TARGET_NAV = 0.22
 R05_BASE_TARGET_NAV = 0.20
+R05_MAX_SLOTS = 3
 MIN_CASH_RESERVE_NAV = 1.0 - MAX_TOTAL_STOCK_NAV
 ADV_CAP = 0.02
 BOARD_LOT = 1000
@@ -67,6 +68,7 @@ def harden_portfolio_params(p: dict[str, Any]) -> dict[str, Any]:
     q["max_total"] = MAX_TOTAL_STOCK_NAV
     q["r7_base"] = R7_BASE_TARGET_NAV
     q["r05_base"] = R05_BASE_TARGET_NAV
+    q["r05_max_slots"] = R05_MAX_SLOTS
     q["dd_level1"] = DD_LEVEL1
     q["dd_level2"] = DD_LEVEL2
     q["dd_level3"] = DD_LEVEL3
@@ -161,6 +163,7 @@ def contract_dict() -> dict[str, Any]:
         "max_total_stock_nav": MAX_TOTAL_STOCK_NAV,
         "r7_base_target_nav": R7_BASE_TARGET_NAV,
         "r05_base_target_nav": R05_BASE_TARGET_NAV,
+        "r05_max_slots": R05_MAX_SLOTS,
         "min_cash_reserve_nav": MIN_CASH_RESERVE_NAV,
         "adv_cap": ADV_CAP,
         "board_lot": BOARD_LOT,
@@ -179,6 +182,7 @@ def validate_hard_params(p: dict[str, Any]) -> None:
         "max_total": MAX_TOTAL_STOCK_NAV,
         "r7_base": R7_BASE_TARGET_NAV,
         "r05_base": R05_BASE_TARGET_NAV,
+        "r05_max_slots": R05_MAX_SLOTS,
         "dd_level1": DD_LEVEL1,
         "dd_level2": DD_LEVEL2,
         "dd_level3": DD_LEVEL3,
