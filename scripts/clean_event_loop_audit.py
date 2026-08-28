@@ -47,4 +47,19 @@ e2.cash=100_000.0
 e2._queue_buys('2021-01-05','2021-01-06',[BuyIntent('B001',1000,190.0,'NO_FUTURE_CASH')],1_000_000.0)
 assert not e2.pending_buys,e2.pending_buys
 
-print({'status':'PASS','tests':'T+1, costs, tax, 100-share, cap, reserve, no-future-cash-reuse'})
+# A T-close order whose T+1 security has no tradable bar must expire unfilled.
+# Never synthesize a price and never crash the portfolio simulation.
+class MissingBarBuy:
+    def decide(self,ctx):
+        return ([],[BuyIntent('6206',100,50.0,'MISSING_BAR_TEST')]) if ctx.date=='2021-01-04' else ([],[])
+missing_bars={
+ '2021-01-04':{'2330':Bar('2021-01-04','2330','台積電',100,101,99,100)},
+ '2021-01-05':{'2330':Bar('2021-01-05','2330','台積電',101,102,100,101)},
+}
+e3=PortfolioEngine(1_000_000)
+r3=e3.run(list(missing_bars),missing_bars,MissingBarBuy())
+assert not e3.positions,e3.positions
+miss=[x for x in r3['order_log'] if x.get('code')=='6206']
+assert len(miss)==1 and not miss[0]['filled'] and miss[0]['reason']=='NO_TRADABLE_BAR',miss
+
+print({'status':'PASS','tests':'T+1, costs, tax, 100-share, cap, reserve, no-future-cash-reuse, missing-bar-no-fill'})
