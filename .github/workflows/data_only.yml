@@ -1,0 +1,52 @@
+name: Taiwan Market Data Only
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 17:40 Asia/Taipei, weekdays
+    - cron: "40 9 * * 1-5"
+    # 18:40 Asia/Taipei backup
+    - cron: "40 10 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: taiwan-market-data-only
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependency
+        run: pip install requests
+
+      - name: Syntax check downloader only
+        run: python -m py_compile scripts/fetch_today.py
+
+      - name: Fetch and normalize Taiwan market data only
+        run: python scripts/fetch_today.py
+
+      - name: Commit downloaded data only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "No new market data to commit."
+            exit 0
+          fi
+          TRADE_DATE="$(cat .alphapilot_trade_date 2>/dev/null || echo unknown)"
+          git commit -m "data: Taiwan market data ${TRADE_DATE}"
+          git push
