@@ -1,0 +1,35 @@
+name: AlphaPilot Clean Contract Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "CONTRACT.md"
+      - "scripts/clean_backtest_engine.py"
+      - "scripts/clean_contract_audit.py"
+      - ".github/workflows/clean_contract_audit.yml"
+  pull_request:
+    paths:
+      - "CONTRACT.md"
+      - "scripts/clean_backtest_engine.py"
+      - "scripts/clean_contract_audit.py"
+      - ".github/workflows/clean_contract_audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax check
+        run: python -m py_compile scripts/clean_backtest_engine.py scripts/clean_contract_audit.py
+      - name: Run immutable contract audit
+        working-directory: scripts
+        run: python clean_contract_audit.py
