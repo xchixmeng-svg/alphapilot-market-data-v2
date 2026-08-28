@@ -25,7 +25,6 @@ assert abs(q.sell_execution_price-99.9)<1e-9,q
 assert abs(q.buy_commission-(99.5*100*0.001425))<1e-9,q
 assert abs(q.sell_commission-(99.9*100*0.001425))<1e-9,q
 assert abs(q.sell_tax-(99.9*100*0.003))<1e-9,q
-# D1 close creates the exit and D2 open executes it; one completed holding session is correct.
 assert q.hold_sessions==1,q
 assert all(x.drawdown<=1e-12 for x in r['nav_rows'])
 assert all(x.reserved_cash>=-1e-9 for x in r['nav_rows'])
@@ -41,17 +40,11 @@ except ValueError: pass
 else: raise AssertionError('20% cap failed')
 enforce_single_stock_cap(200000,1_000_000)
 
-class CashReuseProbe:
-    def decide(self,ctx):
-        if ctx.date=='2021-01-04': return [],[BuyIntent('A001',1000,190.0,'FIRST')]
-        if ctx.date=='2021-01-05' and 'A001' in ctx.positions:
-            return [SellIntent('A001',full_exit=True,reason='ROTATE')],[BuyIntent('B001',5000,180.0,'ILLEGAL_REUSE')]
-        return [],[]
-b2={
- '2021-01-04':{'A001':Bar('2021-01-04','A001','A',190,190,190,190),'B001':Bar('2021-01-04','B001','B',180,180,180,180)},
- '2021-01-05':{'A001':Bar('2021-01-05','A001','A',190,190,190,190),'B001':Bar('2021-01-05','B001','B',180,180,180,180)},
- '2021-01-06':{'A001':Bar('2021-01-06','A001','A',190,190,190,190),'B001':Bar('2021-01-06','B001','B',180,180,180,180)},
-}
-e2=PortfolioEngine(1_000_000); r2=e2.run(list(b2),b2,CashReuseProbe())
-assert not any(x.get('code')=='B001' for x in r2['order_log']),r2['order_log']
-print({'status':'PASS','tests':'T+1, costs, tax, 100-share, cap, reserve, no-sell-cash-reuse'})
+# Isolate T-close reservation: order is within 20% NAV, but free cash is only 100k.
+# It must be rejected rather than assuming tomorrow's sale or any future cash inflow.
+e2=PortfolioEngine(1_000_000)
+e2.cash=100_000.0
+e2._queue_buys('2021-01-05','2021-01-06',[BuyIntent('B001',1000,190.0,'NO_FUTURE_CASH')],1_000_000.0)
+assert not e2.pending_buys,e2.pending_buys
+
+print({'status':'PASS','tests':'T+1, costs, tax, 100-share, cap, reserve, no-future-cash-reuse'})
