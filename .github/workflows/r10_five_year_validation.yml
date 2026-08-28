@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/r10_five_year_validation.yml"
       - "scripts/backtest_r10_stress.py"
+      - "scripts/patch_r05_runner_state_v1.py"
       - "scripts/r10_full_battery.py"
       - "scripts/r10_fast_validation.py"
       - "scripts/r10_true_validation.py"
@@ -42,12 +43,15 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .stress_cache
-          key: r10-true-causal-${{ runner.os }}-v7-r05-exit-timing-audit
+          key: r10-true-causal-${{ runner.os }}-v8-one-time-runner-state
           restore-keys: |
             r10-true-causal-${{ runner.os }}-
             r10-fiveyear-fast-${{ runner.os }}-
             r10-fiveyear-validation-${{ runner.os }}-
       - run: pip install requests pandas numpy
+
+      - name: Apply documented R0.5 Runner state repair
+        run: python scripts/patch_r05_runner_state_v1.py
 
       - name: Prove engine/reference separation
         shell: bash
@@ -152,7 +156,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r10-2021-2025-true-causal-v7
+          name: r10-2021-2025-true-causal-v8
           path: |
             stress_results/latest/true_validation2021_2025
             contract_results/r10_contract_summary.json
