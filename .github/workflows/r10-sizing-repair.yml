@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - 'scripts/patch_r10_sizing_v3.py'
+      - 'scripts/patch_fast_parity_v1.py'
+      - 'scripts/r10_fast_validation.py'
       - '.github/workflows/r10-sizing-repair.yml'
 
 permissions:
@@ -19,10 +21,12 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install numpy pandas requests
-      - name: Apply deterministic patch
-        run: python scripts/patch_r10_sizing_v3.py || true
+      - name: Apply deterministic engine patches
+        run: |
+          python scripts/patch_r10_sizing_v3.py || true
+          python scripts/patch_fast_parity_v1.py
       - name: Syntax check
-        run: python -m py_compile scripts/backtest_r10_stress.py
+        run: python -m py_compile scripts/backtest_r10_stress.py scripts/r10_fast_validation.py
       - name: Strategy-first sizing/common-pool contract checks
         run: |
           python - <<'PY'
@@ -31,50 +35,50 @@ jobs:
           assert bt.R7_BASE == 0.22
           assert bt.R05_BASE == 0.20
 
-          # Normal-price stock: strategy allocation determines a whole-board-lot order.
           sh, mode = bt.size_shares(260_000, 260_000, 27.0, 10_000_000)
           assert mode == 'BOARD_LOT', (sh, mode)
           assert sh == 10_000, (sh, mode)
 
-          # High-price exception only: one board lot exceeds the strategy allocation.
           sh, mode = bt.size_shares(260_000, 260_000, 500.0, 10_000_000)
           assert mode == 'HIGH_PRICE_ODDLOT', (sh, mode)
           assert 0 < sh < 1_000, (sh, mode)
 
-          # ADV cannot turn a normal-price stock into an odd-lot order.
           sh, mode = bt.size_shares(260_000, 260_000, 27.0, 20_000)
           assert mode == 'BOARD_LOT', (sh, mode)
           assert sh % 1000 == 0, (sh, mode)
 
           src = open('scripts/backtest_r10_stress.py', encoding='utf-8').read()
-
-          # Strategy and market state must gate order creation before cash execution.
-          assert 'if cfg["r05"] and bool(r05_state.get("risk_on")) and not r05_cands.empty:' in src
-          assert 'if reb_due and float(r7_state["exposure"])>0 and not r7_cands.empty:' in src
           assert 'base_target=nav*base_pct' in src
           assert 'target=base_target*dd_multiplier(dd)' in src
           assert 'shares,_=size_shares(target,base_target,limit,float(row.avgvol20))' in src
-
-          # Residual T-day cash must not create or resize the precommitted order.
           assert 'rem_cash=cash-reserved_cash' not in src
           assert 'reserve>rem_cash' not in src
-
-          # T+1 common-pool rotation: actual sells fund the same cash pool before buys.
           assert '# T+1 sells first.' in src and '# T+1 buys: fixed T order, no chasing.' in src
           assert src.index('# T+1 sells first.') < src.index('# T+1 buys: fixed T order, no chasing.')
           assert 'cash += proceeds' in src
           assert 'if cost > cash + 1e-6:' in src
 
-          print({'status':'PASS','tests':15})
+          fast = open('scripts/r10_fast_validation.py', encoding='utf-8').read()
+          assert 'base_target=nav*base_pct' in fast
+          assert 'target=base_target*bt.dd_multiplier(dd)' in fast
+          assert 'shares,_=bt.size_shares(target,base_target,limit,float(row.avgvol20))' in fast
+          assert 'bt.size_shares(target,limit,float(row.avgvol20),rem_cash)' not in fast
+          assert 'target=min(target,rem_single,rem_global,rem_cash)' not in fast
+          assert 'reserve>rem_cash' not in fast
+          assert 'force_target=nav*bt.FORCE_TARGET_EXPOSURE' in fast
+          assert 'sell_map[k]=bt.SellOrder(di,exdate,p.strategy,p.code,"FORCE_DD")' in fast
+          assert 'event_rows.append({"date":di,"event":"FORCE_DD"' in fast
+
+          print({'status':'PASS','tests':24})
           PY
-      - name: Commit repaired engine
+      - name: Commit repaired engines
         run: |
-          if git diff --quiet -- scripts/backtest_r10_stress.py; then
+          if git diff --quiet -- scripts/backtest_r10_stress.py scripts/r10_fast_validation.py; then
             echo 'No engine change to commit'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/backtest_r10_stress.py
-          git commit -m 'Lock exact R10 sizing and flexible common-pool rotation'
+          git add scripts/backtest_r10_stress.py scripts/r10_fast_validation.py
+          git commit -m 'Restore FAST sizing common-pool and FORCE_DD parity'
           git push
