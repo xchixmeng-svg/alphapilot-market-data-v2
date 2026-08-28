@@ -1,0 +1,114 @@
+name: AlphaPilot R10 Monster Stock Factory
+
+on:
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: "Optuna trials"
+        required: false
+        default: "300"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_monster_stock_factory.yml"
+      - "scripts/r10_monster_stock_factory.py"
+      - "scripts/r10_autonomous_portfolio_factory.py"
+      - "scripts/r10_growth_factory.py"
+      - "scripts/r10_strategy_factory.py"
+      - "scripts/r10_fast_validation.py"
+      - "scripts/r10_full_battery.py"
+      - "scripts/backtest_r10_stress.py"
+      - "scripts/build_r10_scan.py"
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+concurrency:
+  group: r10-monster-stock-factory-main
+  cancel-in-progress: true
+
+jobs:
+  search:
+    name: Search R7 plus monster-stock alpha under Strict T+1
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore R10 historical data cache
+        uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: r10-monster-stock-${{ runner.os }}-v1
+          restore-keys: |
+            r10-autonomous-portfolio-${{ runner.os }}-
+            r10-growth-factory-${{ runner.os }}-
+            r10-strategy-factory-${{ runner.os }}-
+            r10-true-causal-${{ runner.os }}-
+            r10-fiveyear-fast-${{ runner.os }}-
+      - name: Install optimizer
+        run: pip install requests pandas numpy optuna
+      - name: Syntax and immutable execution contract
+        shell: bash
+        run: |
+          python -m py_compile scripts/r10_monster_stock_factory.py scripts/r10_autonomous_portfolio_factory.py scripts/r10_growth_factory.py scripts/r10_strategy_factory.py
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts')
+          import r10_monster_stock_factory as m
+          c=m.base.strict_slot_contract()
+          assert c['pass'] is True
+          assert c['new_slot_available'] is False
+          assert m.growth.INITIAL_CAPITAL == 1_000_000.0
+          assert m.growth.TARGET_CAGR == 0.50
+          assert m.growth.RESEARCH_DD_FLOOR == -0.30
+          src=open('scripts/r10_strategy_factory.py',encoding='utf-8').read()
+          assert 'codes_after = {q.code for q in positions.values()}' in src
+          assert 'exclude=sell_keys' not in src
+          assert src.index('pending_sells.pop(di') < src.index('pending_buys.pop(di')
+          ms=open('scripts/r10_monster_stock_factory.py',encoding='utf-8').read()
+          for token in ['ms_accel','ms_break20','ms_break60','ms_amount_ratio','ms_foreign_accel','MONSTER_FAILED_BREAKOUT','MONSTER_MEGA_TRAIL']:
+              assert token in ms, token
+          print('MONSTER FACTORY STRICT T+1 CONTRACT: PASS', c)
+          PY
+      - name: Run Monster Stock Factory
+        env:
+          TRIALS: ${{ github.event.inputs.trials || '300' }}
+        run: python scripts/r10_monster_stock_factory.py --trials "$TRIALS" --seed 20260828
+      - name: Verify monster alpha library and results
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('stress_results/latest/monster_stock_factory_strict_t1/summary.json')
+          q=json.loads(p.read_text(encoding='utf-8'))
+          assert q['hard_rules']['warmup']=='2020',q
+          assert q['hard_rules']['evaluation']=='2021-2025',q
+          assert q['hard_rules']['initial_capital_twd']==1_000_000.0,q
+          assert q['hard_rules']['leverage'] is False,q
+          assert q['strict_t1_contract']['new_slot_available'] is False,q
+          a=q['alpha_library']
+          assert a['monster_family'] is True,a
+          assert a['legacy_r05'] is False,a
+          print('STATUS:', q['status'])
+          print('TARGET HITS:', q['target_hit_count'])
+          print('ALL-POSITIVE:', q['all_positive_count'])
+          print('BEST CAGR:', q['best']['cagr'])
+          print('BEST Max DD:', q['best']['max_dd'])
+          print('BEST Annual:', q['best']['annual_returns'])
+          print('ALPHA:', json.dumps(a, ensure_ascii=False))
+          PY
+      - name: Upload Monster Stock results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-monster-stock-factory-strict-t1
+          path: stress_results/latest/monster_stock_factory_strict_t1
+          if-no-files-found: warn
+          retention-days: 90
