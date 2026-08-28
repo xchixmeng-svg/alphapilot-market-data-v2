@@ -49,10 +49,7 @@ def main() -> None:
     r05_buys = orders[
         orders.strategy.astype(str).eq("R05") & orders.status.astype(str).str.upper().eq("FILLED")
     ].copy()
-    buy_map = {
-        (str(r.code), int(r.execute_date)): r
-        for r in r05_buys.itertuples(index=False)
-    }
+    buy_map = {(str(r.code), int(r.execute_date)): r for r in r05_buys.itertuples(index=False)}
 
     cfg = bt.SCENARIOS["validation2021_2025"]
     raw = bt.load_scenario_ohlcv(cfg)
@@ -69,31 +66,24 @@ def main() -> None:
         formal_exit = int(g.exit_date)
         b = buy_map.get((code, entry_date))
         if b is None:
-            rows.append({
-                "code": code, "entry_date": entry_date,
-                "formal_decision_date": formal_decision, "formal_exit_date": formal_exit,
-                "status": "MISSING_FORMAL_BUY",
-            })
+            rows.append({"code": code, "entry_date": entry_date,
+                         "formal_decision_date": formal_decision, "formal_exit_date": formal_exit,
+                         "status": "MISSING_FORMAL_BUY"})
             continue
 
         er = row_at(idx, entry_date, code)
         if er is None:
-            rows.append({
-                "code": code, "entry_date": entry_date,
-                "formal_decision_date": formal_decision, "formal_exit_date": formal_exit,
-                "status": "MISSING_ENTRY_MARKET_ROW",
-            })
+            rows.append({"code": code, "entry_date": entry_date,
+                         "formal_decision_date": formal_decision, "formal_exit_date": formal_exit,
+                         "status": "MISSING_ENTRY_MARKET_ROW"})
             continue
 
         entry_price = float(b.fill_price)
         factor = float(er.aclose / er.close) if np.isfinite(er.aclose) and er.close else 1.0
         entry_adj = entry_price * factor
-        p = bt.Position(
-            "R05", code, str(g.name), int(g.shares), entry_date,
-            entry_price, entry_adj,
-            entry_price * int(g.shares) * (1.0 + bt.BUY_FEE),
-            entry_adj,
-        )
+        p = bt.Position("R05", code, str(g.name), int(g.shares), entry_date,
+                        entry_price, entry_adj,
+                        entry_price * int(g.shares) * (1.0 + bt.BUY_FEE), entry_adj)
 
         first_trigger_date = None
         first_reason = None
@@ -102,8 +92,11 @@ def main() -> None:
         formal_day_low = None
         formal_day_hard = entry_adj * 0.90
 
-        sim_dates = [d for d in dates if entry_date <= d <= formal_decision]
-        for di in sim_dates:
+        # Simulate far enough to discover the first causal trigger even when the
+        # frozen formal tape exited too early. R0.5 has a 60/120-day time exit,
+        # so 130 trading rows from entry is sufficient for a documented trigger.
+        future_dates = [d for d in dates if d >= entry_date][:130]
+        for di in future_dates:
             r = row_at(idx, di, code)
             if r is None:
                 continue
@@ -113,23 +106,20 @@ def main() -> None:
                 formal_day_close = float(r.aclose)
                 f = float(r.aclose / r.close) if r.close else 1.0
                 formal_day_low = float(r.low) * f
-            if reason is not None and first_trigger_date is None:
+            if reason is not None:
                 first_trigger_date = di
                 first_reason = reason
-                # A causal engine exits at T+1, so no later state is relevant.
                 break
 
         expected_exit = next_date.get(first_trigger_date) if first_trigger_date is not None else None
         if first_trigger_date is None:
-            status = "FORMAL_EXIT_BEFORE_ANY_DOCUMENTED_TRIGGER"
+            status = "NO_DOCUMENTED_TRIGGER_WITHIN_130D"
         elif first_trigger_date < formal_decision:
             status = "FORMAL_DECISION_LATER_THAN_FIRST_TRIGGER"
         elif first_trigger_date > formal_decision:
             status = "FORMAL_DECISION_EARLY"
         else:
             status = "DECISION_MATCH"
-        if first_trigger_date is None and formal_day_reason is None:
-            status = "FORMAL_DECISION_HAS_NO_T_CLOSE_TRIGGER"
 
         rows.append({
             "code": code, "name": str(g.name), "entry_date": entry_date,
@@ -143,6 +133,11 @@ def main() -> None:
             "formal_day_aclose": formal_day_close,
             "formal_day_low_adj": formal_day_low,
             "hard_threshold_adj": formal_day_hard,
+            "decision_day_delta_trading_logic": (
+                None if first_trigger_date is None else
+                "EARLY" if first_trigger_date > formal_decision else
+                "LATE" if first_trigger_date < formal_decision else "MATCH"
+            ),
             "status": status,
         })
 
@@ -154,7 +149,8 @@ def main() -> None:
         "formal_r05_exits": int(len(q)),
         "status_counts": {str(k): int(v) for k, v in counts.items()},
         "decision_match": int((q.status == "DECISION_MATCH").sum()),
-        "no_t_close_trigger_on_formal_decision": int((q.status == "FORMAL_DECISION_HAS_NO_T_CLOSE_TRIGGER").sum()),
+        "formal_decision_early": int((q.status == "FORMAL_DECISION_EARLY").sum()),
+        "formal_decision_late": int((q.status == "FORMAL_DECISION_LATER_THAN_FIRST_TRIGGER").sum()),
         "rows": q.to_dict("records"),
     }
     q.to_csv(OUT / "r05_exit_timing_audit.csv", index=False, encoding="utf-8-sig")
@@ -162,9 +158,10 @@ def main() -> None:
         json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
     )
     print(json.dumps({k: report[k] for k in (
-        "formal_r05_exits", "status_counts", "decision_match", "no_t_close_trigger_on_formal_decision"
+        "formal_r05_exits", "status_counts", "decision_match",
+        "formal_decision_early", "formal_decision_late"
     )}, ensure_ascii=False, indent=2))
-    bad = q[q.status != "DECISION_MATCH"].head(10)
+    bad = q[q.status != "DECISION_MATCH"].head(12)
     if not bad.empty:
         print("FIRST NON-MATCHING R0.5 EXITS")
         print(bad.to_string(index=False))
