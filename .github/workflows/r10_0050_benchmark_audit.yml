@@ -1,0 +1,45 @@
+name: AlphaPilot 0050 Total Return Reconstruction Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r10_0050_benchmark_audit.yml"
+      - "scripts/r10_0050_total_return_reconstruct_audit.py"
+      - "scripts/backtest_r10_stress.py"
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  audit:
+    name: Reconstruct archived 0050 ETF total return
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: .stress_cache
+          key: 0050-total-return-reconstruct-${{ runner.os }}-v1
+          restore-keys: |
+            r10-true-causal-${{ runner.os }}-
+            r10-fiveyear-fast-${{ runner.os }}-
+      - run: pip install requests pandas numpy
+      - name: Run isolated benchmark fingerprint audit
+        run: python scripts/r10_0050_total_return_reconstruct_audit.py
+      - name: Upload reconstruction audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0050-total-return-reconstruction-audit
+          path: .stress_cache/0050_total_return_reconstruction_audit
+          if-no-files-found: ignore
+          retention-days: 30
