@@ -195,7 +195,7 @@ class R7CleanStrategy:
         self.last_regime = regime
         if q is None or q.empty:
             return [], []
-        eligible = q[(q.avgamt20 >= 30_000_000.0) & (q.aclose > q.ma120) & (q.nearhigh >= 0.78) & q.score.notna()].copy()
+        eligible = q[(q.avgamt20 >= 30_000_000.0) & (q.aclose > q.ma120) & (q.nearhigh >= 0.78) & q.score.notna()].copy().reset_index(drop=True)
         eligible = eligible.sort_values(['score','code'], ascending=[False,True])
         ranks = {str(c): i+1 for i,c in enumerate(eligible.code.astype(str).tolist())}
 

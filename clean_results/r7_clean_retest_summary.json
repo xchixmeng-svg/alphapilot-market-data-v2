@@ -1,0 +1,48 @@
+{
+  "status": "REJECT_DD_GATE",
+  "strategy": "R7 historical selection/exit logic revalidated under current Clean Contract",
+  "initial_capital": 1000000.0,
+  "evaluation": "2021-2025",
+  "warmup": "2020",
+  "end_nav": 956681.416625001,
+  "total_return": -0.04331858337499894,
+  "cagr": -0.008817860788194465,
+  "max_drawdown": -0.3131168982455692,
+  "completed_trades": 328,
+  "orders": 913,
+  "annual": {
+    "2021": {
+      "return": 0.18521037475000068,
+      "max_dd": -0.13608203355009751,
+      "end_nav": 1185210.3747500007
+    },
+    "2022": {
+      "return": -0.09760743100093228,
+      "max_dd": -0.13380886794344293,
+      "end_nav": 1069525.0348750008
+    },
+    "2023": {
+      "return": -0.09550280525872679,
+      "max_dd": -0.2272368654378767,
+      "end_nav": 967382.3937500006
+    },
+    "2024": {
+      "return": 0.10780638535370257,
+      "max_dd": -0.1575014465671991,
+      "end_nav": 1071672.3928750004
+    },
+    "2025": {
+      "return": -0.10730049314932,
+      "max_dd": -0.16341216072621034,
+      "end_nav": 956681.416625001
+    }
+  },
+  "contract_overrides_vs_historical_r7": {
+    "single_name_cap": "20% Clean Contract instead of old R7 30%",
+    "commission": "0.1425% each side, no discount",
+    "sell_execution": "T+1 open x 0.98 adverse model",
+    "shares": "100-share increments / board-lot preference",
+    "buy_execution": "precommitted T+1 limit with 0.5% adverse open fill model"
+  },
+  "note": "This is a clean-engine revalidation, not the obsolete archived R7 performance claim."
+}
