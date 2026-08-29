@@ -14,6 +14,10 @@ on:
       - 'scripts/clean_backtest_engine.py'
       - '.github/workflows/clean_parallel_research.yml'
 
+concurrency:
+  group: clean-parallel-research-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -70,8 +74,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        family: [MOM_RS_FLOW, BREAK_FLOW, PULLBACK_RS]
-        shard: [0, 1, 2]
+        family: [REGIME_MOM, PERSIST_MOM, MOM_LOWVOL, SMID_LIQ_RS, MOM_RS_FLOW, BREAK_FLOW, PULLBACK_RS]
+        shard: [0, 1]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,8 +95,8 @@ jobs:
           python scripts/clean_parallel_lane.py
           --family '${{ matrix.family }}'
           --shard '${{ matrix.shard }}'
-          --shards 3
-          --pool-size 720
+          --shards 2
+          --pool-size 420
       - name: Upload lane evidence
         uses: actions/upload-artifact@v4
         with:
