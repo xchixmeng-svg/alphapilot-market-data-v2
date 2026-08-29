@@ -34,6 +34,22 @@ jobs:
             alphapilot-clean-history-
       - name: Install dependencies
         run: pip install pandas pyarrow numpy requests
+      - name: Enforce locked R7 ordinary-stock universe
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/clean_r7_retest.py')
+          s = p.read_text(encoding='utf-8')
+          old = "    ordinary = q.code.str.fullmatch(r'\\d{4}') & ~q.code.str.startswith('00')\n"
+          new = "    ordinary = q.code.str.fullmatch(r'\\d{4}') & ~q.code.str.startswith('00') & ~q['name'].astype(str).str.contains('KY', case=False, na=False)\n"
+          if new in s:
+              print('R7 KY exclusion already present')
+          elif old in s:
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+              print('Applied locked R7 KY exclusion')
+          else:
+              raise RuntimeError('R7 ordinary-universe anchor not found')
+          PY
       - name: Rebuild or complete historical cache
         run: python scripts/clean_history_data.py
       - name: Regenerate R10 engine orders from raw market data
