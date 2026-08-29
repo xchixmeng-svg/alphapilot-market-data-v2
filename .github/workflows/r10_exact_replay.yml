@@ -1,0 +1,69 @@
+name: AlphaPilot R10 Exact Replay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/r10_exact_replay.py'
+      - 'exact_reference/r10_exact_reference_bundle.b64.gzjson'
+      - '.github/workflows/r10_exact_replay.yml'
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  exact-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+      - name: Syntax audit
+        run: python -m py_compile scripts/clean_history_data.py scripts/r10_exact_replay.py
+      - name: Rebuild or complete historical cache
+        run: python scripts/clean_history_data.py
+      - name: Run R10 exact replay
+        run: python scripts/r10_exact_replay.py
+      - name: Persist exact replay evidence
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add clean_results/r10_exact_replay_summary.json clean_results/r10_exact_order_audit.csv clean_results/r10_exact_trade_audit.csv clean_results/r10_exact_nav.csv || true
+          if git diff --cached --quiet; then
+            echo 'No exact replay result changes to commit.'
+          else
+            git commit -m 'Persist R10 exact replay evidence'
+            git pull --rebase origin clean-research-20260828
+            git push origin HEAD:clean-research-20260828
+          fi
+      - name: Upload exact replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-exact-replay-evidence
+          path: |
+            clean_results/r10_exact_replay_summary.json
+            clean_results/r10_exact_order_audit.csv
+            clean_results/r10_exact_trade_audit.csv
+            clean_results/r10_exact_nav.csv
+          if-no-files-found: warn
+          retention-days: 30
