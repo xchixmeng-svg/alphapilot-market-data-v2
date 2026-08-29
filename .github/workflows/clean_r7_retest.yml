@@ -1,0 +1,73 @@
+name: AlphaPilot R7 Clean Retest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/clean_r7_retest.py'
+      - '.github/workflows/clean_r7_retest.yml'
+      - 'scripts/clean_event_loop.py'
+      - 'scripts/clean_backtest_engine.py'
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  r7-retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+      - name: Syntax audit
+        run: >-
+          python -m py_compile
+          scripts/clean_backtest_engine.py
+          scripts/clean_event_loop.py
+          scripts/clean_history_data.py
+          scripts/clean_features.py
+          scripts/clean_r7_retest.py
+      - name: Rebuild or complete historical cache
+        run: python scripts/clean_history_data.py
+      - name: Run R7 clean retest
+        run: python scripts/clean_r7_retest.py
+      - name: Persist R7 retest evidence
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add clean_results/r7_clean_retest_summary.json clean_results/r7_clean_retest_trades.csv clean_results/r7_clean_retest_orders.csv clean_results/r7_clean_retest_nav.csv
+          if git diff --cached --quiet; then
+            echo 'No R7 result changes to commit.'
+          else
+            git commit -m 'Persist clean R7 retest results'
+            git pull --rebase origin clean-research-20260828
+            git push origin HEAD:clean-research-20260828
+          fi
+      - name: Upload R7 retest evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: r7-clean-retest
+          path: |
+            clean_results/r7_clean_retest_summary.json
+            clean_results/r7_clean_retest_trades.csv
+            clean_results/r7_clean_retest_orders.csv
+            clean_results/r7_clean_retest_nav.csv
+          retention-days: 30
