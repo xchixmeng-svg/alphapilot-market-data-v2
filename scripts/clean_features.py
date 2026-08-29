@@ -68,12 +68,10 @@ def build_features(ohlcv: pd.DataFrame, inst: pd.DataFrame) -> tuple[pd.DataFram
     ig=ins.groupby(['market','code'],sort=False)
     for c,pfx in [('foreign_net','foreign'),('trust_net','trust'),('dealer_net','dealer')]:
         for w in (3,5,10,20): ins[f'{pfx}{w}']=ig[c].rolling(w,min_periods=w).sum().reset_index(level=[0,1],drop=True)
-    # Codes are unique across TWSE/TPEx in the ordinary listed universe; retain one row/date/code.
     ikeep=['date','code']+[c for c in ins.columns if c.startswith(('foreign','trust','dealer'))]
     ins2=ins[ikeep].sort_values(['date','code']).drop_duplicates(['date','code'],keep='last')
     q=q.merge(ins2,on=['date','code'],how='left',validate='one_to_one')
 
-    # 0050 is benchmark only, never tradable by clean stock strategy.
     bm=q[q.code.eq('0050')][['date','aclose','ma20','ma60','ma120','ret20','ret60','volatility20']].copy()
     bm=bm.rename(columns={c:f'mkt_{c}' for c in bm.columns if c!='date'}).sort_values('date')
     bm['mkt_risk_on']=(bm.mkt_aclose>bm.mkt_ma60)&(bm.mkt_ret20>0)&(bm.mkt_ret60>0)
@@ -81,10 +79,12 @@ def build_features(ohlcv: pd.DataFrame, inst: pd.DataFrame) -> tuple[pd.DataFram
     q['rs20']=q.ret20-q.mkt_ret20
     q['rs60']=q.ret60-q.mkt_ret60
 
-    # Cross-sectional ranks are computed only inside each T date from T-known values.
+    # Cross-sectional ranks use only the current T snapshot. These additional
+    # ranks support persistent-momentum, low-volatility and liquid-smaller-stock
+    # research without adding any future information.
     ordinary=q.code.str.fullmatch(r'\d{4}') & ~q.code.str.startswith('00')
     universe=q[ordinary].copy()
-    for c in ('ret20','ret60','rs20','rs60','vol_ratio','amt_ratio','foreign5','foreign20','trust5','trust20'):
+    for c in ('ret10','ret20','ret40','ret60','rs20','rs60','volatility20','avgamt20','vol_ratio','amt_ratio','foreign5','foreign20','trust5','trust20'):
         if c in universe.columns:
             universe[f'pct_{c}']=universe.groupby('date')[c].rank(pct=True,method='average')
 
