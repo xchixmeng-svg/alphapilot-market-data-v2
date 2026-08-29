@@ -1,0 +1,74 @@
+name: Preserve 2007-2019 Historical OHLCV
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/history_2007_2019.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: preserve-history-2007-2019
+  cancel-in-progress: false
+
+jobs:
+  fetch-preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout data-only main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax audit historical downloader
+        run: python -m py_compile scripts/fetch_history_2007_2019.py
+
+      - name: Fetch verify and stage 2007-2019 OHLCV
+        run: python scripts/fetch_history_2007_2019.py
+
+      - name: Guard existing 2020-2025 archive from modification
+        shell: bash
+        run: |
+          if ! git diff --quiet -- data/history/2020-2025; then
+            echo "ERROR: protected 2020-2025 history changed"
+            git diff -- data/history/2020-2025
+            exit 1
+          fi
+          echo "PASS: protected 2020-2025 archive unchanged"
+
+      - name: Show archive size and manifest
+        shell: bash
+        run: |
+          du -sh data/history/2007-2019 || true
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data/history/2007-2019/manifest.json')
+          x=json.loads(p.read_text(encoding='utf-8'))
+          assert len(x['files']) == 13, len(x['files'])
+          assert [f['year'] for f in x['files']] == list(range(2007,2020))
+          assert all(f['sha256'] == f['expected_sha256'] for f in x['files'])
+          print('PASS manifest years=2007..2019 files=13')
+          PY
+
+      - name: Commit historical data only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/history/2007-2019
+          if git diff --cached --quiet; then
+            echo "No new 2007-2019 data to commit."
+            exit 0
+          fi
+          git commit -m "data: preserve verified 2007-2019 historical OHLCV"
+          git push
