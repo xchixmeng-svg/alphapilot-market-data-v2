@@ -1,0 +1,60 @@
+name: AlphaPilot R10 Apply R7 Universe Source Fix
+
+on:
+  push:
+    branches:
+      - clean-research-20260828
+    paths:
+      - '.github/workflows/r10_apply_r7_universe_fix.yml'
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Taipei
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+
+      - name: Apply locked R7 ordinary-stock universe to source
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/clean_r7_retest.py')
+          s = p.read_text()
+          old = "ordinary = q.code.str.fullmatch(r'\\d{4}') & ~q.code.str.startswith('00')"
+          new = "ordinary = q.code.str.fullmatch(r'\\d{4}') & ~q.code.str.startswith('00') & ~q['name'].astype(str).str.contains('KY', case=False, na=False)"
+          if new in s:
+              print('R7 KY exclusion already present')
+          elif old in s:
+              p.write_text(s.replace(old, new, 1))
+              print('Applied locked R7 KY exclusion to scripts/clean_r7_retest.py')
+          else:
+              raise SystemExit('Expected R7 universe line not found; refusing unsafe patch')
+          PY
+
+      - name: Verify patch
+        run: |
+          grep -n "ordinary =" scripts/clean_r7_retest.py
+          grep -n "contains('KY'" scripts/clean_r7_retest.py
+
+      - name: Commit source fix
+        shell: bash
+        run: |
+          if git diff --quiet -- scripts/clean_r7_retest.py; then
+            echo 'No source change needed'
+            exit 0
+          fi
+          git config user.name 'AlphaPilot R10 Supervisor'
+          git config user.email 'actions@users.noreply.github.com'
+          git add scripts/clean_r7_retest.py
+          git commit -m 'Enforce locked R7 KY exclusion at source'
+          git push origin HEAD:clean-research-20260828
