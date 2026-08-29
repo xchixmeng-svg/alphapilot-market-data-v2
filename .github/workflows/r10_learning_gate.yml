@@ -7,18 +7,37 @@ on:
     paths:
       - 'strategy_contracts/r10_locked_contract.json'
       - 'scripts/r10_learning_gate.py'
+      - 'scripts/clean_r10_retest.py'
+      - 'scripts/clean_r7_retest.py'
+      - 'scripts/clean_features.py'
+      - 'scripts/clean_history_data.py'
       - '.github/workflows/r10_learning_gate.yml'
 
 jobs:
   learn-r10:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
       - name: Install dependencies
-        run: pip install pandas pyarrow numpy
+        run: pip install pandas pyarrow numpy requests
+      - name: Rebuild or complete historical cache
+        run: python scripts/clean_history_data.py
+      - name: Regenerate R10 engine orders from raw market data
+        run: PYTHONPATH=scripts python scripts/clean_r10_retest.py
       - name: Run learning regression gate
         run: PYTHONPATH=scripts python scripts/r10_learning_gate.py
       - name: Upload learning diagnostics
@@ -30,3 +49,5 @@ jobs:
             clean_results/r10_learning_gate_summary.json
             clean_results/r10_learning_missing_teacher_orders.csv
             clean_results/r10_learning_extra_engine_orders.csv
+            clean_results/r10_clean_retest_orders.csv
+            clean_results/r10_clean_retest_summary.json
