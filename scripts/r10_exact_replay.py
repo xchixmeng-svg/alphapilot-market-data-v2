@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# exact replay trigger v1
 from __future__ import annotations
 
 import base64, gzip, io, json, math
@@ -106,9 +107,8 @@ def replay_nav(raw,trades):
     close_by_date={int(d):z.set_index('code')['close'].to_dict() for d,z in raw.groupby('date')}
     cash=INITIAL; pos={}; navrows=[]; peak=INITIAL; min_cash=INITIAL; max_pos=0
     for d in dates:
-        # official execution convention: exits first at T+1, then entries
         for r in sells.get(d,[]):
-            c=r['代碼']; sh=int(r['買進股數']); proceeds=float(r['賣出淨收入'])
+            c=r['代碼']; proceeds=float(r['賣出淨收入'])
             if c not in pos: raise RuntimeError(f'sell without position {d} {c}')
             cash+=proceeds; del pos[c]
         for r in buys.get(d,[]):
@@ -117,8 +117,7 @@ def replay_nav(raw,trades):
             if cost>cash+1e-6: raise RuntimeError(f'cash overdraft {d} {c}: cost={cost} cash={cash}')
             cash-=cost; pos[c]=sh
         marks=close_by_date.get(d,{})
-        mv=0.0
-        missing=[]
+        mv=0.0; missing=[]
         for c,sh in pos.items():
             if c not in marks: missing.append(c)
             else: mv+=sh*float(marks[c])
@@ -137,29 +136,21 @@ def main():
     r7=csvdf(b['r7_orders_csv']); r05=csvdf(b['r05_orders_csv']); trades=csvdf(b['trades_csv'])
     r7=r7.rename(columns={'version':'strategy'}); orders=pd.concat([r7,r05],ignore_index=True)
     oa=validate_orders(raw,orders); ta=validate_trades(raw,trades); nav,min_cash,max_pos=replay_nav(raw,trades)
-    end=float(nav.iloc[-1].nav); maxdd=float(nav.drawdown.min())
-    yrs=annual_returns(nav)
-    target=b['target']
+    end=float(nav.iloc[-1].nav); maxdd=float(nav.drawdown.min()); yrs=annual_returns(nav); target=b['target']
     summary={
-      'strategy':'AlphaPilot R10-MAX Exact Replay',
-      'reference_orders':int(len(orders)),'reference_trades':int(len(trades)),
+      'strategy':'AlphaPilot R10-MAX Exact Replay','reference_orders':int(len(orders)),'reference_trades':int(len(trades)),
       'order_exact_matches':int(oa['match'].sum()),'order_mismatches':int((~oa['match']).sum()),
       'trade_market_checks_passed':int(ta['match'].sum()),'trade_market_check_failures':int((~ta['match']).sum()),
       'initial_nav':INITIAL,'ending_nav_replayed':end,'max_drawdown_replayed':maxdd,'annual_returns_replayed':yrs,
-      'min_cash_replayed':float(min_cash),'max_positions_replayed':int(max_pos),
-      'target_ending_nav':float(target['ending_nav']),'target_max_drawdown':float(target['max_drawdown']),
-      'ending_nav_diff':end-float(target['ending_nav']),
-      'orders_410_gate':len(orders)==410 and int(oa['match'].sum())==410,
-      'trades_241_gate':len(trades)==241 and int(ta['match'].sum())==241,
+      'min_cash_replayed':float(min_cash),'max_positions_replayed':int(max_pos),'target_ending_nav':float(target['ending_nav']),
+      'target_max_drawdown':float(target['max_drawdown']),'ending_nav_diff':end-float(target['ending_nav']),
+      'orders_410_gate':len(orders)==410 and int(oa['match'].sum())==410,'trades_241_gate':len(trades)==241 and int(ta['match'].sum())==241,
       'cash_nonnegative_gate':min_cash>=-1e-6,
     }
     summary['exact_replay_pass']=bool(summary['orders_410_gate'] and summary['trades_241_gate'] and summary['cash_nonnegative_gate'] and abs(summary['ending_nav_diff'])<1.0)
-    oa.to_csv(OUT/'r10_exact_order_audit.csv',index=False)
-    ta.to_csv(OUT/'r10_exact_trade_audit.csv',index=False)
-    nav.to_csv(OUT/'r10_exact_nav.csv',index=False)
+    oa.to_csv(OUT/'r10_exact_order_audit.csv',index=False); ta.to_csv(OUT/'r10_exact_trade_audit.csv',index=False); nav.to_csv(OUT/'r10_exact_nav.csv',index=False)
     (OUT/'r10_exact_replay_summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(summary,ensure_ascii=False,indent=2))
-    if not summary['exact_replay_pass']:
-        raise SystemExit(2)
+    if not summary['exact_replay_pass']: raise SystemExit(2)
 
 if __name__=='__main__': main()
