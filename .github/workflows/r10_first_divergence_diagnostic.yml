@@ -1,0 +1,38 @@
+name: AlphaPilot R10 First Divergence Diagnostic
+
+on:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/r10_first_divergence_diagnostic.py'
+      - '.github/workflows/r10_first_divergence_diagnostic.yml'
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+      - name: Install dependencies
+        run: pip install pandas pyarrow numpy requests
+      - name: Ensure history cache
+        run: python scripts/clean_history_data.py
+      - name: Diagnose first divergence
+        run: PYTHONPATH=scripts python scripts/r10_first_divergence_diagnostic.py
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-first-divergence-diagnostic
+          path: clean_results/r10_first_divergence_diagnostic.json
