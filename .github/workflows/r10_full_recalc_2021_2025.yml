@@ -1,0 +1,95 @@
+name: R10 Full Recalc 2021-2025
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-full-recalc-20260830]
+    paths:
+      - '.github/workflows/r10_full_recalc_2021_2025.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r10-full-recalc-2021-2025
+  cancel-in-progress: false
+
+jobs:
+  full-recalc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout research engine
+        uses: actions/checkout@v4
+
+      - name: Checkout immutable market data from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: market-data
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+
+      - name: Patch execution contract without changing R10 signals
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('scripts/backtest_r10_stress.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('INITIAL_CAPITAL = 1_300_000.0','INITIAL_CAPITAL = 1_000_000.0')
+          s=s.replace('BUY_FEE = 0.000855','BUY_FEE = 0.001425')
+          s=s.replace('SELL_FEE = 0.000855','SELL_FEE = 0.001425')
+          s=s.replace('SELL_SLIPPAGE = 0.005','SELL_SLIPPAGE = 0.02\nBUY_SLIPPAGE = 0.005')
+          s=s.replace('float(open_price) * (1.0 + SELL_SLIPPAGE)','float(open_price) * (1.0 + BUY_SLIPPAGE)')
+          s=s.replace('shares = max(1, int(math.floor(target_cash / per_share_cost + 0.5)))','shares = int(math.floor(target_cash / per_share_cost / 100.0)) * 100')
+          s=s.replace('liq = int(math.floor(float(avg_vol20) * ADV_CAP))','liq = int(math.floor(float(avg_vol20) * ADV_CAP / 100.0)) * 100')
+
+          load_new='''def load_scenario_ohlcv(cfg: dict) -> pd.DataFrame:\n    parts=[]\n    base=ROOT / "market-data" / "data" / "history" / "2020-2025"\n    for y in cfg["years"]:\n        fp=base / f"ohlcv_{y}.parquet"\n        if not fp.exists():\n            raise RuntimeError(f"missing immutable main data: {fp}")\n        parts.append(pd.read_parquet(fp))\n    q=pd.concat(parts,ignore_index=True)\n    q=normalize_ohlcv(q)\n    lo,hi=intdate(cfg["warmup_start"]),intdate(cfg["eval_end"])\n    q=q[(q.date>=lo)&(q.date<=hi)].copy()\n    if q.empty or "0050" not in set(q.code):\n        raise RuntimeError("scenario OHLCV/0050 missing")\n    return q\n'''
+          s,n=re.subn(r'def load_scenario_ohlcv\(cfg: dict\) -> pd\.DataFrame:.*?(?=def build_features)',load_new+'\n',s,flags=re.S)
+          if n!=1: raise RuntimeError(f'load_scenario_ohlcv patch count={n}')
+
+          inst_new='''def fetch_institutional(feat: pd.DataFrame, eval_start: int, eval_end: int) -> pd.DataFrame:\n    fp=ROOT / "market-data" / "data" / "history" / "2020-2025" / "institutional_2020_2025.parquet"\n    if not fp.exists():\n        raise RuntimeError(f"missing immutable institutional data: {fp}")\n    q=pd.read_parquet(fp).copy()\n    q["code"]=q.code.astype(str).str.strip().str.zfill(4)\n    q["date"]=pd.to_numeric(q.date,errors="coerce")\n    q=q.dropna(subset=["date","code"]).copy(); q["date"]=q.date.astype(int)\n    for c in ("foreign_net","trust_net","dealer_net"):\n        q[c]=pd.to_numeric(q[c],errors="coerce").fillna(0.0)\n    q=q.sort_values(["market","code","date"]).drop_duplicates(["market","code","date"],keep="last")\n    g=q.groupby(["market","code"],sort=False)\n    q["Foreign3D"]=g.foreign_net.transform(lambda x:x.rolling(3,min_periods=3).sum())\n    q["Foreign10D"]=g.foreign_net.transform(lambda x:x.rolling(10,min_periods=10).sum())\n    q["Trust5D"]=g.trust_net.transform(lambda x:x.rolling(5,min_periods=5).sum())\n    target=len([d for d in sorted(feat.date.unique()) if eval_start<=int(d)<=eval_end])\n    coverage=q[q.date.between(eval_start,eval_end)].date.nunique()\n    ratio=coverage/target if target else 0.0\n    log(f"[INST IMMUTABLE] coverage={coverage}/{target} ({ratio:.1%})")\n    if ratio<0.98:\n        raise RuntimeError(f"institutional coverage too low {ratio:.1%}")\n    return q\n'''
+          s,n=re.subn(r'def fetch_institutional\(feat: pd\.DataFrame, eval_start: int, eval_end: int\) -> pd\.DataFrame:.*?(?=def dd_multiplier)',inst_new+'\n',s,flags=re.S)
+          if n!=1: raise RuntimeError(f'fetch_institutional patch count={n}')
+          p.write_text(s,encoding='utf-8')
+
+      - name: Contract assertions
+        shell: bash
+        run: |
+          grep -q 'INITIAL_CAPITAL = 1_000_000.0' scripts/backtest_r10_stress.py
+          grep -q 'BUY_FEE = 0.001425' scripts/backtest_r10_stress.py
+          grep -q 'SELL_FEE = 0.001425' scripts/backtest_r10_stress.py
+          grep -q 'SELL_SLIPPAGE = 0.02' scripts/backtest_r10_stress.py
+          grep -q 'BUY_SLIPPAGE = 0.005' scripts/backtest_r10_stress.py
+          grep -q 'MAX_POSITIONS = 5' scripts/backtest_r10_stress.py
+          grep -q 'MAX_SINGLE = 0.25' scripts/backtest_r10_stress.py
+          grep -q 'MAX_TOTAL = 0.95' scripts/backtest_r10_stress.py
+          grep -q '/ 100.0)) \* 100' scripts/backtest_r10_stress.py
+          python -m py_compile scripts/backtest_r10_stress.py scripts/build_r10_scan.py
+
+      - name: Full daily recalculation 2021-2025
+        run: python scripts/backtest_r10_stress.py --scenario validation2021_2025
+
+      - name: Verify result exists
+        run: |
+          test -s stress_results/latest/validation2021_2025/summary.json
+          cat stress_results/latest/validation2021_2025/summary.json
+
+      - name: Upload full evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-full-recalc-2021-2025
+          path: |
+            stress_results/latest/validation2021_2025/summary.json
+            stress_results/latest/validation2021_2025/daily_nav.csv
+            stress_results/latest/validation2021_2025/trades.csv
+            stress_results/latest/validation2021_2025/orders.csv
+            stress_results/latest/validation2021_2025/risk_events.csv
+          retention-days: 30
