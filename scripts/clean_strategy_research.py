@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, Sequence, Mapping
+from typing import Dict, Sequence
 import math
 import numpy as np
 import pandas as pd
@@ -35,7 +35,6 @@ def build_feature_store(features: pd.DataFrame) -> Dict[str,pd.DataFrame]:
 
 
 def size_shares(nav: float, price: float, target_pct: float) -> int:
-    """Board-lot first; 100-share odd lots only when one board lot breaches 20% NAV."""
     if nav<=0 or price<=0: return 0
     hard_cap=nav*0.20
     target=min(nav*target_pct,hard_cap)
@@ -44,8 +43,7 @@ def size_shares(nav: float, price: float, target_pct: float) -> int:
         lots=max(1,int(math.floor(target/one_lot)))
         while lots>0 and lots*one_lot>hard_cap+1e-9: lots-=1
         return max(0,lots*1000)
-    shares=int(math.floor(target/price/100.0))*100
-    return max(0,shares)
+    return max(0,int(math.floor(target/price/100.0))*100)
 
 
 class ResearchStrategy:
@@ -77,8 +75,17 @@ class ResearchStrategy:
 
     def _score(self,q: pd.DataFrame) -> pd.Series:
         p=self.params
-        if p.family=='MOM_RS_FLOW':
+        if p.family in ('MOM_RS_FLOW','REGIME_MOM'):
             return 0.24*q.pct_rs20 + 0.20*q.pct_rs60 + 0.18*q.pct_ret20 + 0.12*q.pct_ret60 + 0.10*q.pct_foreign5 + 0.08*q.pct_trust5 + 0.08*q.pct_amt_ratio
+        if p.family=='PERSIST_MOM':
+            return 0.18*q.pct_ret10 + 0.20*q.pct_ret20 + 0.20*q.pct_ret40 + 0.18*q.pct_ret60 + 0.14*q.pct_rs60 + 0.10*q.pct_amt_ratio
+        if p.family=='MOM_LOWVOL':
+            lowvol=(1.0-q.pct_volatility20).clip(0,1)
+            return 0.22*q.pct_rs20 + 0.20*q.pct_rs60 + 0.18*q.pct_ret20 + 0.12*q.pct_ret60 + 0.20*lowvol + 0.08*q.pct_amt_ratio
+        if p.family=='SMID_LIQ_RS':
+            # Smaller/liquid proxy only: this is deliberately not called a market-cap factor.
+            midliq=(1-(q.pct_avgamt20-0.40).abs()/0.35).clip(0,1)
+            return 0.27*q.pct_rs20 + 0.25*q.pct_rs60 + 0.16*q.pct_ret20 + 0.12*q.pct_ret60 + 0.12*midliq + 0.08*q.pct_amt_ratio
         if p.family=='BREAK_FLOW':
             br=(q.break20.clip(-.10,.10)+.10)/.20
             return 0.24*q.pct_rs20 + 0.18*q.pct_ret20 + 0.18*br.clip(0,1) + 0.14*q.pct_amt_ratio + 0.12*q.pct_foreign5 + 0.08*q.pct_trust5 + 0.06*q.clv.add(1).div(2)
@@ -90,18 +97,20 @@ class ResearchStrategy:
     def _candidates(self,date: str,held: set[str]) -> pd.DataFrame:
         p=self.params; q=self.by_date.get(date)
         if q is None or q.empty: return pd.DataFrame()
-        x=q
         required=['close','avgamt20','ma20','ma60','ma120','rs20','rs60','pct_rs20','pct_rs60','pct_ret20','pct_ret60','pct_amt_ratio']
         for c in required:
-            if c not in x.columns: return pd.DataFrame()
-        mask=(x.close.between(p.min_price,p.max_price))&(x.avgamt20>=p.min_avgamt20)&(x.close>x.ma60)&(x.ma60>x.ma120)
-        mask &= x.rs20.notna() & x.rs60.notna()
-        if p.family=='BREAK_FLOW': mask &= (x.aclose>=x.prior_high20*.985)
-        elif p.family=='PULLBACK_RS': mask &= x.dist_ma20.between(-.04,.08)
-        # Feature frames intentionally retain code both as an index and a column for O(1)
-        # position lookups. Reset the candidate slice before column-based sorting to avoid
-        # pandas treating "code" as an ambiguous index level/column label.
-        z=x[mask & ~x.code.isin(held)].copy().reset_index(drop=True)
+            if c not in q.columns: return pd.DataFrame()
+        mask=(q.close.between(p.min_price,p.max_price))&(q.avgamt20>=p.min_avgamt20)&(q.close>q.ma60)&(q.ma60>q.ma120)
+        mask &= q.rs20.notna() & q.rs60.notna()
+        if p.family=='BREAK_FLOW': mask &= (q.aclose>=q.prior_high20*.985)
+        elif p.family=='PULLBACK_RS': mask &= q.dist_ma20.between(-.04,.08)
+        elif p.family=='PERSIST_MOM':
+            mask &= (q.ret10>0)&(q.ret20>0)&(q.ret40>0)&(q.ret60>0)
+        elif p.family=='MOM_LOWVOL':
+            mask &= q.pct_volatility20.le(0.55)
+        elif p.family=='SMID_LIQ_RS':
+            mask &= q.pct_avgamt20.between(0.12,0.72)
+        z=q[mask & ~q.code.isin(held)].copy().reset_index(drop=True)
         if z.empty:return z
         z['score']=self._score(z)
         return z[z.score>=p.score_threshold].sort_values(['score','code'],ascending=[False,True])
@@ -126,6 +135,8 @@ class ResearchStrategy:
             elif self.age[code]>=p.max_hold: reason='TIME'
             if reason: sells.append(SellIntent(code,full_exit=True,reason=reason))
         held=set(ctx.positions)
+        if p.family=='REGIME_MOM' and regime!='STRONG':
+            return sells,[]
         capacity=max(0,max_slots-len(held))
         if capacity<=0: return sells,[]
         c=self._candidates(date,held)
