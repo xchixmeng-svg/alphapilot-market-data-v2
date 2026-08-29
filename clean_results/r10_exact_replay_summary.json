@@ -1,44 +1,70 @@
 {
   "strategy": "AlphaPilot R10-MAX Exact Replay",
+  "audit_execution_completed": true,
   "source_workbook_sha256": "f61f16ba608747e95c94a8e383989fed707b85afa0be1e46e213dcb3f77dbcb4",
   "reference_orders": 410,
   "reference_trades": 241,
   "order_status_matches": 406,
-  "order_fill_matches": 379,
-  "order_exact_matches": 375,
-  "order_mismatches": 35,
-  "trade_market_checks_passed": 210,
-  "trade_market_check_failures": 31,
+  "order_fill_matches": 405,
+  "order_exact_matches": 401,
+  "order_mismatches": 9,
+  "formal_touch_miss_contradictions": 4,
+  "formal_touch_miss_cases": [
+    {
+      "strategy": "R7",
+      "order_date": 20230303,
+      "code": "4967",
+      "limit": 56.2,
+      "open": 56.9,
+      "low": 56.2
+    },
+    {
+      "strategy": "R7",
+      "order_date": 20240829,
+      "code": "3550",
+      "limit": 23.85,
+      "open": 24.35,
+      "low": 23.85
+    },
+    {
+      "strategy": "R7",
+      "order_date": 20240925,
+      "code": "4716",
+      "limit": 29.85,
+      "open": 30.3,
+      "low": 29.85
+    },
+    {
+      "strategy": "R7",
+      "order_date": 20251111,
+      "code": "8131",
+      "limit": 43.400000000000006,
+      "open": 46.25,
+      "low": 43.4
+    }
+  ],
+  "trade_market_checks_passed": 236,
+  "trade_market_check_failures": 5,
   "initial_nav": 1300000.0,
-  "ending_nav_replayed": 7983510.715551501,
+  "ending_nav_replayed": 9888538.413551498,
   "ending_nav_target": 9888538.0,
-  "ending_nav_diff": -1905027.2844484989,
-  "max_drawdown_replayed": -0.32719339755584476,
+  "ending_nav_diff": 0.4135514982044697,
+  "max_drawdown_replayed": -0.12258760312883998,
   "target_max_drawdown": -0.1226,
   "annual_returns_replayed": {
     "2021": 0.4755516319703854,
     "2022": 0.17402269299851914,
     "2023": 0.6295588426000365,
     "2024": 0.513946308243916,
-    "2025": 0.4369416641314585
+    "2025": 0.7798251107896166
   },
-  "min_cash_replayed": -1510275.013448496,
+  "min_cash_replayed": 68221.0780000001,
   "max_positions_replayed": 5,
-  "replay_errors": [
-    "duplicate_position:20250210:8096",
-    "sell_without_position:20250303:8096",
-    "cash_overdraft:20250822:6919:519981.501698",
-    "cash_overdraft:20250917:6182:578278.837448",
-    "cash_overdraft:20250918:3016:1510275.013448",
-    "cash_overdraft:20251023:8103:256955.283448",
-    "cash_overdraft:20251107:1314:36062.331698",
-    "cash_overdraft:20251117:8150:216925.822448",
-    "cash_overdraft:20251128:8048:318646.172698",
-    "cash_overdraft:20251128:8390:1448010.954698"
-  ],
+  "replay_errors": [],
   "orders_410_gate": false,
   "trades_241_gate": false,
-  "cash_nonnegative_gate": false,
-  "ending_nav_gate": false,
-  "exact_replay_pass": false
+  "cash_nonnegative_gate": true,
+  "ending_nav_gate": true,
+  "exact_replay_pass": false,
+  "validation_verdict": "FAIL_WITH_EVIDENCE"
 }
