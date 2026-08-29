@@ -1,0 +1,30 @@
+name: Export Institutional CSV Only
+on:
+  push:
+    branches: [r10-full-recalc-20260830]
+    paths: ['.github/workflows/export_institutional_csv_for_local.yml']
+  workflow_dispatch:
+jobs:
+  export-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas pyarrow
+      - run: |
+          python - <<'PY'
+          import pandas as pd
+          p='data/history/2020-2025/institutional_2020_2025.parquet'
+          q=pd.read_parquet(p)
+          q.to_csv('institutional_2020_2025.csv.gz',index=False,compression='gzip')
+          print(q.shape, q['date'].min(), q['date'].max(), q['date'].nunique())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: institutional-2020-2025-csv
+          path: institutional_2020_2025.csv.gz
+          retention-days: 1
