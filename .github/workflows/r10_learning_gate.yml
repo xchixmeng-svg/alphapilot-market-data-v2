@@ -1,5 +1,6 @@
 name: AlphaPilot R10 Full Strategy Learning Gate
 
+# Manual retrigger after source-level R7 KY exclusion was committed on 2026-08-29 (Asia/Taipei).
 on:
   workflow_dispatch:
   push:
