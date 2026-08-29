@@ -18,11 +18,12 @@ INITIAL=1_000_000.0
 EVAL_START=20210101
 EVAL_END=20251231
 DD_GATE=-0.20
+FAMILIES=['REGIME_MOM','PERSIST_MOM','MOM_LOWVOL','SMID_LIQ_RS','MOM_RS_FLOW','BREAK_FLOW','PULLBACK_RS']
 
 FEATURE_COLS=[
  'date','code','name','close','aclose','avgamt20','ma20','ma60','ma120','prior_high20',
- 'ret20','ret60','rs20','rs60','dist_ma20','break20','clv',
- 'pct_rs20','pct_rs60','pct_ret20','pct_ret60','pct_amt_ratio',
+ 'ret10','ret20','ret40','ret60','rs20','rs60','dist_ma20','break20','clv','volatility20',
+ 'pct_ret10','pct_ret20','pct_ret40','pct_ret60','pct_rs20','pct_rs60','pct_volatility20','pct_avgamt20','pct_amt_ratio',
  'pct_foreign5','pct_foreign20','pct_trust5','pct_trust20',
  'mkt_aclose','mkt_ma60','mkt_ma120','mkt_ret20','mkt_ret60'
 ]
@@ -80,14 +81,16 @@ def metrics(result):
     }
 
 
-def candidate_pool(n=72):
+def candidate_pool(n=420):
+    # Deliberately broad but bounded research grid. All families share the same
+    # immutable execution engine; only causal selection/exit parameters vary.
     product=list(itertools.product(
-      ['MOM_RS_FLOW','BREAK_FLOW','PULLBACK_RS'],
-      [0.64,0.70,0.76],[0.0,0.005,0.01],[0.12,0.16,0.20],
-      [4,5],[2,3],[20,40],[0.08,0.12,0.16],[40,80,120],[0.30,0.45]
+      FAMILIES,
+      [0.68,0.74,0.80],[0.0,0.005,0.01],[0.12,0.16,0.20],
+      [4,5],[2,3],[20,40],[0.10,0.14],[60,100],[0.25,0.40]
     ))
     rng=random.Random(20260828); rng.shuffle(product)
-    seeds=[(f,0.70,0.005,0.16,5,3,20,0.12,80,0.30) for f in ['MOM_RS_FLOW','BREAK_FLOW','PULLBACK_RS']]
+    seeds=[(f,0.74,0.005,0.16,5,3,40,0.14,100,0.25) for f in FAMILIES]
     chosen=seeds+product[:max(0,n-len(seeds))]
     out=[]; seen=set()
     for x in chosen:
@@ -109,8 +112,7 @@ def main():
     bars=BarStore(raw); store=build_feature_store(features)
     trials=[]
     for i,p in enumerate(candidate_pool(),1):
-        engine=PortfolioEngine(INITIAL)
-        result=engine.run(eval_dates,bars,ResearchStrategy(store,p))
+        result=PortfolioEngine(INITIAL).run(eval_dates,bars,ResearchStrategy(store,p))
         m=metrics(result); qualified=(m['max_dd']>DD_GATE and m['positive_years']>=3 and m['completed_trades']>=20)
         row={'trial':i,'params':asdict(p),'qualified':bool(qualified),**m}
         trials.append(row)
@@ -118,13 +120,7 @@ def main():
     qualified=[x for x in trials if x['qualified']]
     qualified.sort(key=lambda x:(x['cagr'],-abs(x['max_dd'])),reverse=True)
     best=qualified[0] if qualified else None
-    summary={
-      'status':'PASS' if best else 'NO_QUALIFIED_STRATEGY',
-      'initial_capital':INITIAL,'evaluation':'2021-2025','warmup':'2020',
-      'dd_gate':'strictly below 20%','trial_count':len(trials),
-      'qualified_count':len(qualified),'best':best,
-      'note':'Research-stage full-sample search only. Not final until leakage-resistant holdout, walk-forward, neighboring-parameter stability and adverse-execution stress validation pass.'
-    }
+    summary={'status':'PASS' if best else 'NO_QUALIFIED_STRATEGY','initial_capital':INITIAL,'evaluation':'2021-2025','warmup':'2020','dd_gate':'strictly below 20%','trial_count':len(trials),'qualified_count':len(qualified),'best':best,'note':'Research-stage full-sample search only. Not final until leakage-resistant holdout, walk-forward, neighboring-parameter stability and adverse-execution stress validation pass.'}
     (OUT/'search_trials.json').write_text(json.dumps(trials,ensure_ascii=False,indent=2),encoding='utf-8')
     (OUT/'search_summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps({'status':summary['status'],'qualified':len(qualified),'best':None if best is None else {'cagr':best['cagr'],'dd':best['max_dd']}},ensure_ascii=False))
