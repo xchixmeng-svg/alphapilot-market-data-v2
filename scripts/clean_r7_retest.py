@@ -102,7 +102,7 @@ def build_r7_features(raw: pd.DataFrame) -> pd.DataFrame:
     q['rel20'] = q.ret20 - q.mkt_ret20
     q['rel60'] = q.ret60 - q.mkt_ret60
 
-    ordinary = q.code.str.fullmatch(r'\d{4}') & ~q.code.str.startswith('00')
+    ordinary = q.code.str.fullmatch(r'\d{4}') & ~q.code.str.startswith('00') & ~q['name'].astype(str).str.contains('KY', case=False, na=False)
     u = q[ordinary].copy()
     liquid = u.avgamt20 >= 30_000_000.0
     u['breadth_flag'] = np.where(liquid, (u.aclose > u.ma60).astype(float), np.nan)
