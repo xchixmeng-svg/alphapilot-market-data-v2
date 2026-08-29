@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "source": "existing GitHub Actions cache alphapilot-clean-history-v1",
+  "years": "2020-2025",
+  "ohlcv_rows": 2918850,
+  "ohlcv_dates": 1459,
+  "ohlcv_min": 20200102,
+  "ohlcv_max": 20251231,
+  "institutional_rows": 2355146,
+  "institutional_dates": 1459,
+  "contains_0050": true,
+  "preservation_rule": "immutable historical source; do not overwrite with strategy outputs"
+}
