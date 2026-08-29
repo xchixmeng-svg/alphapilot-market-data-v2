@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / ".clean_cache"
 OUT = ROOT / "clean_results" / "lanes"
 OUT.mkdir(parents=True, exist_ok=True)
+FAMILIES = ["REGIME_MOM","PERSIST_MOM","MOM_LOWVOL","SMID_LIQ_RS","MOM_RS_FLOW","BREAK_FLOW","PULLBACK_RS"]
 
 
 def load_inputs():
@@ -44,10 +45,10 @@ def load_inputs():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--family", required=True, choices=["MOM_RS_FLOW", "BREAK_FLOW", "PULLBACK_RS"])
+    ap.add_argument("--family", required=True, choices=FAMILIES)
     ap.add_argument("--shard", type=int, required=True)
-    ap.add_argument("--shards", type=int, default=3)
-    ap.add_argument("--pool-size", type=int, default=720)
+    ap.add_argument("--shards", type=int, default=2)
+    ap.add_argument("--pool-size", type=int, default=420)
     args = ap.parse_args()
     if not 0 <= args.shard < args.shards:
         raise SystemExit("invalid shard")
@@ -68,41 +69,11 @@ def main():
             and m["positive_years"] >= 3
             and m["completed_trades"] >= 20
         )
-        rows.append(
-            {
-                "family": args.family,
-                "shard": args.shard,
-                "lane_trial": i,
-                "params": asdict(p),
-                "qualified": bool(qualified),
-                **m,
-            }
-        )
-        print(
-            json.dumps(
-                {
-                    "family": args.family,
-                    "shard": args.shard,
-                    "trial": i,
-                    "cagr": m["cagr"],
-                    "dd": m["max_dd"],
-                    "trades": m["completed_trades"],
-                    "qualified": qualified,
-                }
-            ),
-            flush=True,
-        )
+        rows.append({"family": args.family,"shard": args.shard,"lane_trial": i,"params": asdict(p),"qualified": bool(qualified),**m})
+        print(json.dumps({"family": args.family,"shard": args.shard,"trial": i,"cagr": m["cagr"],"dd": m["max_dd"],"trades": m["completed_trades"],"qualified": qualified}),flush=True)
 
     rows.sort(key=lambda x: (x["qualified"], x["cagr"], -abs(x["max_dd"])), reverse=True)
-    out = {
-        "family": args.family,
-        "shard": args.shard,
-        "shards": args.shards,
-        "tested": len(rows),
-        "qualified": sum(bool(x["qualified"]) for x in rows),
-        "best": rows[0] if rows else None,
-        "top": rows[:25],
-    }
+    out = {"family": args.family,"shard": args.shard,"shards": args.shards,"tested": len(rows),"qualified": sum(bool(x["qualified"]) for x in rows),"best": rows[0] if rows else None,"top": rows[:25]}
     path = OUT / f"{args.family.lower()}_s{args.shard}.json"
     path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"output": str(path), "tested": len(rows), "qualified": out["qualified"]}))
