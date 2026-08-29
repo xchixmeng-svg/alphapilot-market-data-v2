@@ -15,27 +15,36 @@ OUT.mkdir(exist_ok=True)
 TARGET_DATE = 20210104
 
 
+def norm_date(v) -> int:
+    s = str(v).strip()
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    if len(digits) < 8:
+        raise ValueError(f'unrecognized date format: {v!r}')
+    return int(digits[:8])
+
+
 def load_inst() -> pd.DataFrame:
-    parts=[]
-    for y in range(2020, 2026):
-        p=CACHE/f'institutional_{y}.parquet'
-        if p.exists():
-            parts.append(pd.read_parquet(p))
-    if not parts:
-        raise RuntimeError('institutional cache missing')
-    q=pd.concat(parts,ignore_index=True)
-    q['code']=q.code.astype(str).str.strip().str.zfill(4)
-    return q.drop_duplicates(['date','code'],keep='last').sort_values(['date','code']).reset_index(drop=True)
+    p = CACHE / 'institutional_2020_2025.parquet'
+    if not p.exists():
+        raise RuntimeError(f'institutional cache missing: {p}')
+    q = pd.read_parquet(p)
+    q['date'] = q['date'].map(norm_date)
+    q['code'] = q.code.astype(str).str.strip().str.zfill(4)
+    # Keep both markets' records; build_r05_features performs the formal date/code aggregation.
+    return q.sort_values(['date','code']).reset_index(drop=True)
 
 
 def main():
     raw=r10.load_raw()
+    raw['date']=raw['date'].map(norm_date)
     inst=load_inst()
     r7=r10.build_r7_features(raw)
     r05=r10.build_r05_features(raw,inst)
 
-    r7d=r7[r7.date.astype(int).eq(TARGET_DATE)].copy()
-    r05d=r05[r05.date.astype(int).eq(TARGET_DATE)].copy()
+    r7['date']=r7['date'].map(norm_date)
+    r05['date']=r05['date'].map(norm_date)
+    r7d=r7[r7.date.eq(TARGET_DATE)].copy()
+    r05d=r05[r05.date.eq(TARGET_DATE)].copy()
     if r7d.empty:
         raise RuntimeError('no R7 features for target date')
 
@@ -50,12 +59,13 @@ def main():
     r05elig=r05elig.sort_values(['score','code'],ascending=[False,True])
 
     teacher=ex.order_frame(ex.load_bundle()).copy()
-    teacher['order_date_num']=teacher['order_date'].astype(str).str.replace(r'\D','',regex=True).str[:8].astype(int)
+    teacher['order_date_num']=teacher['order_date'].map(norm_date)
     td=teacher[teacher.order_date_num.eq(20210105)][['strategy','code','t1_limit']].copy()
     td['code']=td.code.astype(str).str.zfill(4)
 
     summary={
         'target_decision_date': TARGET_DATE,
+        'target_execute_date': 20210105,
         'r7_regime': regime,
         'r7_exposure': exposure,
         'r7_slots': slots,
