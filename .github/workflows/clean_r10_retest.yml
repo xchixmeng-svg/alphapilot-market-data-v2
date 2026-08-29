@@ -63,17 +63,85 @@ jobs:
           scripts/clean_r10_retest.py
       - name: Rebuild or complete historical cache
         run: python scripts/clean_history_data.py
-      - name: Run R10 clean retest
-        run: python scripts/clean_r10_retest.py
-      - name: Persist R10 clean evidence
+      - name: Run R10 clean retest with bounded self-repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, sys
+
+          target = Path('scripts/clean_r10_retest.py')
+          max_attempts = 4
+          repairs = []
+
+          def run_once(attempt):
+              print(f'=== R10 attempt {attempt}/{max_attempts} ===', flush=True)
+              p = subprocess.run(
+                  [sys.executable, str(target)],
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+              )
+              print(p.stdout, end='', flush=True)
+              return p.returncode, p.stdout
+
+          def repair(log):
+              s = target.read_text(encoding='utf-8')
+
+              # Safe repair family 1: pandas ambiguity caused by code being both
+              # an index level and a retained column after set_index(drop=False).
+              if "'code' is both an index level and a column label" in log:
+                  old = "r05q.score.notna()].copy()\n            elig=elig.sort_values(['score','code'],ascending=[False,True])"
+                  new = "r05q.score.notna()].copy().reset_index(drop=True)\n            elig=elig.sort_values(['score','code'],ascending=[False,True])"
+                  if old in s:
+                      target.write_text(s.replace(old, new, 1), encoding='utf-8')
+                      repairs.append('R05_ELIG_CODE_INDEX_AMBIGUITY')
+                      print('AUTO-REPAIR: reset R0.5 eligible index before sort', flush=True)
+                      return True
+
+                  # Generic bounded fallback for the same exact ambiguity only.
+                  old2 = "].copy()\n            elig=elig.sort_values(['score','code'],ascending=[False,True])"
+                  new2 = "].copy().reset_index(drop=True)\n            elig=elig.sort_values(['score','code'],ascending=[False,True])"
+                  if old2 in s:
+                      target.write_text(s.replace(old2, new2, 1), encoding='utf-8')
+                      repairs.append('GENERIC_ELIG_CODE_INDEX_AMBIGUITY')
+                      print('AUTO-REPAIR: reset eligible index before code sort', flush=True)
+                      return True
+
+              # Safe repair family 2: the same ambiguity on the R7 eligible frame.
+              if "'code' is both an index level and a column label" in log:
+                  old = "r7q.score.notna()].copy()"
+                  new = "r7q.score.notna()].copy().reset_index(drop=True)"
+                  if old in s:
+                      target.write_text(s.replace(old, new, 1), encoding='utf-8')
+                      repairs.append('R7_ELIG_CODE_INDEX_AMBIGUITY')
+                      print('AUTO-REPAIR: reset R7 eligible index', flush=True)
+                      return True
+
+              return False
+
+          for attempt in range(1, max_attempts + 1):
+              rc, log = run_once(attempt)
+              if rc == 0:
+                  print('R10 CLEAN RETEST PASS', flush=True)
+                  print('Applied repairs:', repairs or ['NONE'], flush=True)
+                  sys.exit(0)
+              if attempt == max_attempts or not repair(log):
+                  print('AUTO-REPAIR STOP: blocker is not in the approved safe repair set.', flush=True)
+                  print('Applied repairs before stop:', repairs or ['NONE'], flush=True)
+                  sys.exit(rc or 1)
+              subprocess.run([sys.executable, '-m', 'py_compile', str(target)], check=True)
+
+          sys.exit(1)
+          PY
+      - name: Persist R10 clean evidence and auto-repairs
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/clean_r10_retest.py clean_results/r10_clean_retest_summary.json clean_results/r10_clean_retest_trades.csv clean_results/r10_clean_retest_orders.csv clean_results/r10_clean_retest_nav.csv
           if git diff --cached --quiet; then
-            echo 'No R10 result changes to commit.'
+            echo 'No R10 source/result changes to commit.'
           else
-            git commit -m 'Persist clean R10-MAX 0.5 retest evidence'
+            git commit -m 'Persist clean R10 retest evidence and safe auto-repairs'
             git pull --rebase origin clean-research-20260828
             git push origin HEAD:clean-research-20260828
           fi
