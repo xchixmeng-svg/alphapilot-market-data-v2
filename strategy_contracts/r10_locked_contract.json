@@ -1,0 +1,58 @@
+{
+  "strategy": "AlphaPilot R10-MAX 0.5%",
+  "status": "LOCKED",
+  "initial_nav": 1300000,
+  "evaluation": {"warmup": 2020, "start": 20210104, "end": 20251231},
+  "execution": {
+    "decision_information_cutoff": "T close",
+    "buy": "T+1 precommitted fixed limit; fill only if T+1 touches; no chase",
+    "sell": "T+1 open with 0.5% adverse slippage",
+    "buy_fee": 0.000855,
+    "sell_fee": 0.000855,
+    "sell_tax": 0.003,
+    "integer_shares": true
+  },
+  "portfolio": {
+    "shared_cash_pool": true,
+    "r7_new_signal_target_nav": 0.22,
+    "r05_new_signal_target_nav": 0.20,
+    "single_name_cap_nav": 0.25,
+    "max_positions": 5,
+    "normal_exposure_cap": 0.95,
+    "adv20_share_cap": 0.02,
+    "dd_guard": {"-0.06": 0.85, "-0.09": 0.45, "-0.15": 0.40},
+    "force_reduce": {"trigger_dd": -0.14, "target_exposure": 0.50, "cooldown_sessions": 15, "stop_new_entries_sessions": 10}
+  },
+  "r7": {
+    "universe": "TWSE/TPEx 4-digit ordinary stocks; exclude KY",
+    "filters": {"avg_amount_20_min": 30000000, "close_gt_ma120": true, "close_to_60d_high_min": 0.78},
+    "score_weights": {"ret10": 0.26, "rel20_vs_0050": 0.22, "rel60_vs_0050": 0.10, "flow20": 0.14, "amount_acceleration": 0.12, "clv_flow20": 0.08, "near_high": 0.08},
+    "rebalance_sessions": 15,
+    "buy_limit_multiplier": 0.98,
+    "hard_stop_multiplier": 0.88,
+    "rank_exit": "not Top N and rank > 2N",
+    "regimes": {
+      "0": "0050 20D<=-8%, or 0050<MA120 and 60D<0 and Breadth<40%; slots=0 exposure=0",
+      "1": "near/below MA120 but 20D>0, Breadth>42% and improving; slots=2 exposure=60%",
+      "2": "0050>0.98*MA120, Breadth>=38%; slots=2 exposure=20%",
+      "3": "0050>MA120, 60D>0, Breadth>=45%; slots=3 exposure=80%",
+      "4": "0050>MA60 & MA120, 20D/60D>0, Breadth>=60%, Adv>=52%; slots=4 exposure=100%"
+    }
+  },
+  "r05": {
+    "risk_on": "0050 Close>MA60 and 20D>0 and 60D>0",
+    "filters": {"price_min": 10, "price_max": 40, "avg_amount_20_min": 50000000, "amount_accel_5_20_min": 1.0, "ret20_min": 0.0, "ret20_max": 0.20, "ma20_gap_max": 0.18, "near_prior60_min": -0.15, "breakout": "T close > prior 10D high"},
+    "score_weights": {"clv_flow10": 0.5251, "amount_accel5": 0.2465, "clv_flow5": 0.0683, "foreign3d": 0.0628, "foreign10d": -0.0778, "trust5d": 0.0195, "ma20_gap_penalty": -0.20},
+    "buy_limit_multiplier": 0.995,
+    "source_slots": 3,
+    "hard_stop": -0.10,
+    "base_trailing": {"activate_return": 0.50, "trail": 0.12},
+    "max_hold_sessions": 60,
+    "super_runner": {"return_min": 0.40, "amount_accel_min": 2.0, "trail": 0.14},
+    "mega_runner": {"return_min": 0.80, "amount_accel_min": 1.2, "trail": 0.16},
+    "target_mode": {"non_mega_protection": 0.20, "target_return": 2.0},
+    "runner_max_hold_sessions": 120
+  },
+  "historical_teacher_set": {"locked_orders": 410, "r7_orders": 345, "r05_orders": 65, "legacy_fills": 241},
+  "learning_rule": "Historical orders are a regression teacher/contract only. Do not optimize parameters to future data and do not copy teacher fills into forward execution."
+}
