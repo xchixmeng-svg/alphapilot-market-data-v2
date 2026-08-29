@@ -1,0 +1,89 @@
+name: AlphaPilot R10 Clean Retest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - 'scripts/clean_r10_retest.py'
+      - '.github/workflows/clean_r10_retest.yml'
+      - 'scripts/clean_r7_retest.py'
+      - 'scripts/clean_history_data.py'
+      - 'scripts/clean_features.py'
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  r10-retest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+      - name: Install dependencies
+        run: pip install pandas numpy requests pyarrow
+      - name: Enforce R10 ADV20 liquidity field
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/clean_r10_retest.py')
+          s=p.read_text(encoding='utf-8')
+          old="    r7=build_r7_features(raw)\n    r05=build_r05_features(raw,inst)"
+          new="    r7=build_r7_features(raw)\n    adv=raw[['date','code','volume']].copy(); adv['avgvol20']=adv.groupby('code').volume.rolling(20,min_periods=20).mean().reset_index(level=0,drop=True)\n    r7=r7.merge(adv[['date','code','avgvol20']],on=['date','code'],how='left',validate='one_to_one')\n    r05=build_r05_features(raw,inst)"
+          if new in s:
+              print('ADV20 repair already present')
+          elif old in s:
+              p.write_text(s.replace(old,new,1),encoding='utf-8')
+              print('Applied R10 ADV20 repair')
+          else:
+              raise RuntimeError('R10 main anchor not found')
+          PY
+      - name: Syntax audit
+        run: >-
+          python -m py_compile
+          scripts/clean_history_data.py
+          scripts/clean_features.py
+          scripts/clean_r7_retest.py
+          scripts/clean_r10_retest.py
+      - name: Rebuild or complete historical cache
+        run: python scripts/clean_history_data.py
+      - name: Run R10 clean retest
+        run: python scripts/clean_r10_retest.py
+      - name: Persist R10 clean evidence
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/clean_r10_retest.py clean_results/r10_clean_retest_summary.json clean_results/r10_clean_retest_trades.csv clean_results/r10_clean_retest_orders.csv clean_results/r10_clean_retest_nav.csv
+          if git diff --cached --quiet; then
+            echo 'No R10 result changes to commit.'
+          else
+            git commit -m 'Persist clean R10-MAX 0.5 retest evidence'
+            git pull --rebase origin clean-research-20260828
+            git push origin HEAD:clean-research-20260828
+          fi
+      - name: Upload R10 retest evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-clean-retest
+          path: |
+            clean_results/r10_clean_retest_summary.json
+            clean_results/r10_clean_retest_trades.csv
+            clean_results/r10_clean_retest_orders.csv
+            clean_results/r10_clean_retest_nav.csv
+          retention-days: 30
