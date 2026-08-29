@@ -37,6 +37,27 @@ jobs:
             alphapilot-clean-history-
       - name: Install dependencies
         run: pip install pandas numpy requests pyarrow
+      - name: Repair R7 code index ambiguity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/clean_r7_retest.py')
+          s = p.read_text(encoding='utf-8')
+          old = "eligible = q[(q.avgamt20 >= 30_000_000.0) & (q.aclose > q.ma120) & (q.nearhigh >= 0.78) & q.score.notna()].copy()"
+          new = old + ".reset_index(drop=True)"
+          if new in s:
+              print('R7 ambiguity repair already present')
+          elif old in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s, encoding='utf-8')
+              print('Applied R7 ambiguity repair')
+          else:
+              raise RuntimeError('Expected R7 eligible construction not found; refusing unsafe patch')
+          # Regression guard: ranked candidate frame must not retain code as an index level.
+          text = p.read_text(encoding='utf-8')
+          if ".copy().reset_index(drop=True)" not in text:
+              raise RuntimeError('R7 ambiguity regression guard failed')
+          PY
       - name: Syntax audit
         run: >-
           python -m py_compile
@@ -49,15 +70,15 @@ jobs:
         run: python scripts/clean_history_data.py
       - name: Run R7 clean retest
         run: python scripts/clean_r7_retest.py
-      - name: Persist R7 retest evidence
+      - name: Persist R7 retest evidence and repaired source
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add clean_results/r7_clean_retest_summary.json clean_results/r7_clean_retest_trades.csv clean_results/r7_clean_retest_orders.csv clean_results/r7_clean_retest_nav.csv
+          git add scripts/clean_r7_retest.py clean_results/r7_clean_retest_summary.json clean_results/r7_clean_retest_trades.csv clean_results/r7_clean_retest_orders.csv clean_results/r7_clean_retest_nav.csv
           if git diff --cached --quiet; then
             echo 'No R7 result changes to commit.'
           else
-            git commit -m 'Persist clean R7 retest results'
+            git commit -m 'Persist repaired clean R7 retest results'
             git pull --rebase origin clean-research-20260828
             git push origin HEAD:clean-research-20260828
           fi
