@@ -16,22 +16,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
       - name: Install dependencies
         run: pip install pandas pyarrow
       - name: Restore clean OHLCV cache
         uses: actions/cache@v4
         with:
           path: .clean_cache
-          key: clean-r10-cache-v2-${{ runner.os }}
+          key: alphapilot-clean-history-v1
           restore-keys: |
-            clean-r10-cache-v2-
+            alphapilot-clean-history-
       - name: Ensure OHLCV cache exists
         run: |
           for y in 2020 2021 2022 2023 2024 2025; do test -f ".clean_cache/ohlcv_${y}.parquet" || { echo "missing OHLCV cache $y"; exit 1; }; done
       - name: Recompute all 410 locked T+1 orders from raw OHLCV
-        run: python scripts/r10_realistic_execution_rebuild.py
+        run: PYTHONPATH=scripts python scripts/r10_realistic_execution_rebuild.py
       - name: Upload realistic rebuild evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: r10-realistic-execution-rebuild
