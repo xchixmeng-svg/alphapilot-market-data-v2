@@ -1,0 +1,23 @@
+name: Export R10 Source Only
+on:
+  push:
+    branches: [r10-full-recalc-20260830]
+    paths: ['.github/workflows/export_r10_source_for_local.yml']
+  workflow_dispatch:
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: backup-pre-clean-reset-20260828
+      - run: |
+          test -s scripts/build_r10_scan.py
+          test -s scripts/backtest_r10_stress.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archived-r10-source
+          path: |
+            scripts/build_r10_scan.py
+            scripts/backtest_r10_stress.py
+          retention-days: 1
