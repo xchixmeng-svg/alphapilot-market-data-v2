@@ -343,7 +343,7 @@ class R10:
         if r05q is not None and not r05q.empty and bool(r05q.iloc[0].risk_on):
             active05=sum(1 for c in survivors if self.positions[c].strategy=='R0.5')
             room=max(0,3-active05)
-            elig=r05q[(r05q.aclose>=10)&(r05q.aclose<=40)&(r05q.avgamt20>=50_000_000)&(r05q.amt_ratio>=1.0)&(r05q.ret20>=0)&(r05q.ret20<=0.20)&(r05q.ma20_gap<=0.18)&(r05q.near_prior60>=-0.15)&(r05q.aclose>r05q.prior10high)&r05q.score.notna()].copy()
+            elig=r05q[(r05q.aclose>=10)&(r05q.aclose<=40)&(r05q.avgamt20>=50_000_000)&(r05q.amt_ratio>=1.0)&(r05q.ret20>=0)&(r05q.ret20<=0.20)&(r05q.ma20_gap<=0.18)&(r05q.near_prior60>=-0.15)&(r05q.aclose>r05q.prior10high)&r05q.score.notna()].copy().reset_index(drop=True)
             elig=elig.sort_values(['score','code'],ascending=[False,True])
             for r in elig[~elig.code.astype(str).isin(held)].head(room).itertuples(index=False):
                 candidates.append(('R0.5',float(r.score),str(r.code),str(r.name),float(r.aclose),float(r.avgamt20),float(r.avgvol20)))
@@ -384,6 +384,8 @@ def main():
     if not instp.exists(): raise RuntimeError('missing institutional cache')
     inst=pd.read_parquet(instp)
     r7=build_r7_features(raw)
+    adv=raw[['date','code','volume']].copy(); adv['avgvol20']=adv.groupby('code').volume.rolling(20,min_periods=20).mean().reset_index(level=0,drop=True)
+    r7=r7.merge(adv[['date','code','avgvol20']],on=['date','code'],how='left',validate='one_to_one')
     r05=build_r05_features(raw,inst)
     dates=sorted(int(x) for x in raw.date.unique() if EVAL_START<=int(x)<=EVAL_END)
     sim=R10(raw,r7,r05); end=sim.run(dates)

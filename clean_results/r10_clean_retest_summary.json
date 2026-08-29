@@ -1,0 +1,33 @@
+{
+  "strategy": "AlphaPilot R10-MAX 0.5% Clean Retest",
+  "status": "PASS",
+  "initial_nav": 1300000.0,
+  "ending_nav": 2301303.532974502,
+  "total_return": 0.770233486903463,
+  "cagr": 0.1212999987478196,
+  "max_drawdown": -0.17392785869620542,
+  "annual_returns": {
+    "2021": 0.34946472434538456,
+    "2022": -0.019012689324645282,
+    "2023": 0.011257383057622583,
+    "2024": 0.1440429332908324,
+    "2025": 0.1618675607175688
+  },
+  "completed_trades": 289,
+  "orders": 797,
+  "strict_dd_lt_20_pass": true,
+  "max_positions": 5,
+  "max_exposure": 0.9360825492655217,
+  "contract": {
+    "decision": "T close only",
+    "buy": "T+1 fixed limit; no chase",
+    "sell": "T+1 open with 0.5% adverse slippage",
+    "commission_each_side": 0.000855,
+    "sell_tax": 0.003,
+    "single_stock_cap": 0.25,
+    "portfolio_exposure_cap": 0.95,
+    "max_positions": 5,
+    "adv20_share_cap": 0.02
+  },
+  "fidelity_note": "R10 locked PDF/XLSX rules implemented from source specification. R0.5 institutional strength factors are ranked cross-sectionally from official net-share data; same-day R7/R0.5 competition uses deterministic source-score ordering because the source document does not specify a cross-strategy normalization formula."
+}
