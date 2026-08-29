@@ -17,6 +17,16 @@ def norm_code(v):
     return str(v).strip().zfill(4)
 
 
+def norm_date(v):
+    s = str(v).strip()
+    if not s or s.lower() == 'nan':
+        raise ValueError(f'invalid date: {v!r}')
+    digits = ''.join(ch for ch in s if ch.isdigit())
+    if len(digits) >= 8:
+        return int(digits[:8])
+    raise ValueError(f'unrecognized date format: {v!r}')
+
+
 def round_limit(v):
     if pd.isna(v): return None
     return round(float(v), 6)
@@ -25,7 +35,7 @@ def round_limit(v):
 def main():
     teacher = ex.order_frame(ex.load_bundle()).copy()
     teacher['code'] = teacher['code'].map(norm_code)
-    teacher['order_date'] = pd.to_numeric(teacher['order_date'], errors='raise').astype(int)
+    teacher['order_date'] = teacher['order_date'].map(norm_date)
     teacher['t1_limit_r'] = teacher['t1_limit'].map(round_limit)
     teacher['teacher_key'] = list(zip(teacher['order_date'], teacher['code'], teacher['t1_limit_r']))
 
@@ -34,7 +44,7 @@ def main():
     gen = pd.read_csv(GEN, dtype={'code':str})
     gen = gen[gen.side.astype(str).eq('BUY')].copy()
     gen['code'] = gen['code'].map(norm_code)
-    gen['execute_date'] = pd.to_numeric(gen['execute_date'], errors='raise').astype(int)
+    gen['execute_date'] = gen['execute_date'].map(norm_date)
     gen['limit_r'] = gen['limit_price'].map(round_limit)
     gen['gen_key'] = list(zip(gen['execute_date'], gen['code'], gen['limit_r']))
 
