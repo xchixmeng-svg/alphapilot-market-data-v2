@@ -36,20 +36,13 @@ jobs:
       - name: Install dependencies
         run: pip install pandas numpy requests pyarrow
 
-      - name: Patch execution contract without changing R10 signals
+      - name: Use immutable raw OHLCV and institutional data
         shell: python
         run: |
           from pathlib import Path
           import re
           p=Path('scripts/backtest_r10_stress.py')
           s=p.read_text(encoding='utf-8')
-          s=s.replace('INITIAL_CAPITAL = 1_300_000.0','INITIAL_CAPITAL = 1_000_000.0')
-          s=s.replace('BUY_FEE = 0.000855','BUY_FEE = 0.001425')
-          s=s.replace('SELL_FEE = 0.000855','SELL_FEE = 0.001425')
-          s=s.replace('SELL_SLIPPAGE = 0.005','SELL_SLIPPAGE = 0.02\nBUY_SLIPPAGE = 0.005')
-          s=s.replace('float(open_price) * (1.0 + SELL_SLIPPAGE)','float(open_price) * (1.0 + BUY_SLIPPAGE)')
-          s=s.replace('shares = max(1, int(math.floor(target_cash / per_share_cost + 0.5)))','shares = int(math.floor(target_cash / per_share_cost / 100.0)) * 100')
-          s=s.replace('liq = int(math.floor(float(avg_vol20) * ADV_CAP))','liq = int(math.floor(float(avg_vol20) * ADV_CAP / 100.0)) * 100')
 
           load_new='''def load_scenario_ohlcv(cfg: dict) -> pd.DataFrame:\n    parts=[]\n    base=ROOT / "market-data" / "data" / "history" / "2020-2025"\n    for y in cfg["years"]:\n        fp=base / f"ohlcv_{y}.parquet"\n        if not fp.exists():\n            raise RuntimeError(f"missing immutable main data: {fp}")\n        parts.append(pd.read_parquet(fp))\n    q=pd.concat(parts,ignore_index=True)\n    q=normalize_ohlcv(q)\n    lo,hi=intdate(cfg["warmup_start"]),intdate(cfg["eval_end"])\n    q=q[(q.date>=lo)&(q.date<=hi)].copy()\n    if q.empty or "0050" not in set(q.code):\n        raise RuntimeError("scenario OHLCV/0050 missing")\n    return q\n'''
           s,n=re.subn(r'def load_scenario_ohlcv\(cfg: dict\) -> pd\.DataFrame:.*?(?=def build_features)',load_new+'\n',s,flags=re.S)
@@ -60,18 +53,19 @@ jobs:
           if n!=1: raise RuntimeError(f'fetch_institutional patch count={n}')
           p.write_text(s,encoding='utf-8')
 
-      - name: Contract assertions
+      - name: Locked contract assertions
         shell: bash
         run: |
-          grep -q 'INITIAL_CAPITAL = 1_000_000.0' scripts/backtest_r10_stress.py
-          grep -q 'BUY_FEE = 0.001425' scripts/backtest_r10_stress.py
-          grep -q 'SELL_FEE = 0.001425' scripts/backtest_r10_stress.py
-          grep -q 'SELL_SLIPPAGE = 0.02' scripts/backtest_r10_stress.py
-          grep -q 'BUY_SLIPPAGE = 0.005' scripts/backtest_r10_stress.py
+          grep -q 'INITIAL_CAPITAL = 1_300_000.0' scripts/backtest_r10_stress.py
+          grep -q 'BUY_FEE = 0.000855' scripts/backtest_r10_stress.py
+          grep -q 'SELL_FEE = 0.000855' scripts/backtest_r10_stress.py
+          grep -q 'SELL_SLIPPAGE = 0.005' scripts/backtest_r10_stress.py
           grep -q 'MAX_POSITIONS = 5' scripts/backtest_r10_stress.py
           grep -q 'MAX_SINGLE = 0.25' scripts/backtest_r10_stress.py
           grep -q 'MAX_TOTAL = 0.95' scripts/backtest_r10_stress.py
-          grep -q '/ 100.0)) \* 100' scripts/backtest_r10_stress.py
+          grep -q 'R7_BASE = 0.22' scripts/backtest_r10_stress.py
+          grep -q 'R05_BASE = 0.20' scripts/backtest_r10_stress.py
+          grep -q 'ADV_CAP = 0.02' scripts/backtest_r10_stress.py
           python -m py_compile scripts/backtest_r10_stress.py scripts/build_r10_scan.py
 
       - name: Full daily recalculation 2021-2025
