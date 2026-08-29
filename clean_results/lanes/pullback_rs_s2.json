@@ -2,64 +2,64 @@
   "family": "PULLBACK_RS",
   "shard": 2,
   "shards": 3,
-  "tested": 75,
+  "tested": 32,
   "qualified": 0,
   "best": {
     "family": "PULLBACK_RS",
     "shard": 2,
-    "lane_trial": 29,
+    "lane_trial": 3,
     "params": {
       "family": "PULLBACK_RS",
       "min_avgamt20": 30000000.0,
       "min_price": 10.0,
       "max_price": 3000.0,
-      "score_threshold": 0.64,
+      "score_threshold": 0.74,
       "limit_discount": 0.01,
       "max_position_pct": 0.12,
-      "max_slots_strong": 4,
+      "max_slots_strong": 5,
       "max_slots_neutral": 2,
       "max_slots_weak": 0,
       "exit_ma": 40,
-      "trailing_pct": 0.16,
-      "max_hold": 40,
-      "momentum_decay_pct": 0.3
+      "trailing_pct": 0.1,
+      "max_hold": 60,
+      "momentum_decay_pct": 0.25
     },
     "qualified": false,
-    "end_nav": 374986.4599999996,
-    "cagr": -0.17813002036704606,
+    "end_nav": 356403.9437500002,
+    "cagr": -0.18644203708761675,
     "cagr_years": 5,
-    "max_dd": -0.629177217007284,
-    "completed_trades": 291,
-    "orders": 757,
-    "buy_fill_rate": 0.628755364806867,
+    "max_dd": -0.6585530468625939,
+    "completed_trades": 354,
+    "orders": 905,
+    "buy_fill_rate": 0.647912885662432,
     "positive_years": 0,
-    "worst_year": -0.2413125361679873,
-    "annual_std": 0.05386195103905025,
+    "worst_year": -0.31580528624999993,
+    "annual_std": 0.0920731867985648,
     "annual": {
       "2021": {
-        "return": -0.23182684499999973,
-        "max_dd": -0.277972365955919,
-        "end_nav": 768173.1550000003
+        "return": -0.31580528624999993,
+        "max_dd": -0.3658107191269061,
+        "end_nav": 684194.7137500001
       },
       "2022": {
-        "return": -0.09673625277884179,
-        "max_dd": -0.13000405220668543,
-        "end_nav": 693862.9624999998
+        "return": -0.11105170571043455,
+        "max_dd": -0.13697384079219277,
+        "end_nav": 608213.7237500001
       },
       "2023": {
-        "return": -0.15148623997926658,
-        "max_dd": -0.1766557122734178,
-        "end_nav": 588752.27125
+        "return": -0.08958951495543266,
+        "max_dd": -0.13630675827680883,
+        "end_nav": 553724.1512500001
       },
       "2024": {
-        "return": -0.2413125361679873,
-        "max_dd": -0.29269615624710843,
-        "end_nav": 446678.9674999997
+        "return": -0.2672456690139716,
+        "max_dd": -0.35053192179700166,
+        "end_nav": 405743.77000000025
       },
       "2025": {
-        "return": -0.1605011937348496,
-        "max_dd": -0.1605011937348496,
-        "end_nav": 374986.4599999996
+        "return": -0.12160341057115931,
+        "max_dd": -0.14367331074485745,
+        "end_nav": 356403.9437500002
       }
     }
   },
@@ -67,1003 +67,59 @@
     {
       "family": "PULLBACK_RS",
       "shard": 2,
-      "lane_trial": 29,
+      "lane_trial": 3,
       "params": {
         "family": "PULLBACK_RS",
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.01,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 374986.4599999996,
-      "cagr": -0.17813002036704606,
-      "cagr_years": 5,
-      "max_dd": -0.629177217007284,
-      "completed_trades": 291,
-      "orders": 757,
-      "buy_fill_rate": 0.628755364806867,
-      "positive_years": 0,
-      "worst_year": -0.2413125361679873,
-      "annual_std": 0.05386195103905025,
-      "annual": {
-        "2021": {
-          "return": -0.23182684499999973,
-          "max_dd": -0.277972365955919,
-          "end_nav": 768173.1550000003
-        },
-        "2022": {
-          "return": -0.09673625277884179,
-          "max_dd": -0.13000405220668543,
-          "end_nav": 693862.9624999998
-        },
-        "2023": {
-          "return": -0.15148623997926658,
-          "max_dd": -0.1766557122734178,
-          "end_nav": 588752.27125
-        },
-        "2024": {
-          "return": -0.2413125361679873,
-          "max_dd": -0.29269615624710843,
-          "end_nav": 446678.9674999997
-        },
-        "2025": {
-          "return": -0.1605011937348496,
-          "max_dd": -0.1605011937348496,
-          "end_nav": 374986.4599999996
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 66,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.7,
-        "limit_discount": 0.01,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.08,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 352065.20875,
-      "cagr": -0.1884325466594351,
-      "cagr_years": 5,
-      "max_dd": -0.6492823030031052,
-      "completed_trades": 328,
-      "orders": 843,
-      "buy_fill_rate": 0.6407766990291263,
-      "positive_years": 0,
-      "worst_year": -0.2924034115199622,
-      "annual_std": 0.08774075954935749,
-      "annual": {
-        "2021": {
-          "return": -0.2895426837499998,
-          "max_dd": -0.33275234765370043,
-          "end_nav": 710457.3162500001
-        },
-        "2022": {
-          "return": -0.10942015547158501,
-          "max_dd": -0.13507677341667346,
-          "end_nav": 632718.96625
-        },
-        "2023": {
-          "return": -0.11643710743592683,
-          "max_dd": -0.1329067549279933,
-          "end_nav": 559047.0000000002
-        },
-        "2024": {
-          "return": -0.2924034115199622,
-          "max_dd": -0.3357501974181034,
-          "end_nav": 395579.7499999999
-        },
-        "2025": {
-          "return": -0.1100019433502345,
-          "max_dd": -0.11123764688211346,
-          "end_nav": 352065.20875
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 35,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.7,
-        "limit_discount": 0.01,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 80,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 315815.9947499996,
-      "cagr": -0.20587873763781195,
-      "cagr_years": 5,
-      "max_dd": -0.6887772944774027,
-      "completed_trades": 329,
-      "orders": 852,
-      "buy_fill_rate": 0.6347992351816444,
-      "positive_years": 0,
-      "worst_year": -0.2798101571233834,
-      "annual_std": 0.06880202327969687,
-      "annual": {
-        "2021": {
-          "return": -0.26535213000000035,
-          "max_dd": -0.3097740524756205,
-          "end_nav": 734647.8699999996
-        },
-        "2022": {
-          "return": -0.0908582076879908,
-          "max_dd": -0.12784012115680254,
-          "end_nav": 667899.0812499996
-        },
-        "2023": {
-          "return": -0.21106665506436517,
-          "max_dd": -0.23610021389567382,
-          "end_nav": 526927.8562499995
-        },
-        "2024": {
-          "return": -0.2798101571233834,
-          "max_dd": -0.2946006909042447,
-          "end_nav": 379488.08999999956
-        },
-        "2025": {
-          "return": -0.16778417275229907,
-          "max_dd": -0.16778417275229907,
-          "end_nav": 315815.9947499996
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 61,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.7,
-        "limit_discount": 0.005,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 279201.2152499998,
-      "cagr": -0.2252109739171111,
-      "cagr_years": 5,
-      "max_dd": -0.7215016043456425,
-      "completed_trades": 340,
-      "orders": 806,
-      "buy_fill_rate": 0.7360515021459227,
-      "positive_years": 0,
-      "worst_year": -0.3800926687499999,
-      "annual_std": 0.08918901373480664,
-      "annual": {
-        "2021": {
-          "return": -0.3800926687499999,
-          "max_dd": -0.400952810234519,
-          "end_nav": 619907.33125
-        },
-        "2022": {
-          "return": -0.11962916271769808,
-          "max_dd": -0.12471235431240335,
-          "end_nav": 545748.3362499998
-        },
-        "2023": {
-          "return": -0.17736319301513936,
-          "max_dd": -0.18711696090703123,
-          "end_nav": 448952.6687499999
-        },
-        "2024": {
-          "return": -0.2429897990221047,
-          "max_dd": -0.34551069775460497,
-          "end_nav": 339861.7499999999
-        },
-        "2025": {
-          "return": -0.17848591302198658,
-          "max_dd": -0.17848591302198658,
-          "end_nav": 279201.2152499998
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 7,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.08,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 276266.86600000033,
-      "cagr": -0.22684643953039352,
-      "cagr_years": 5,
-      "max_dd": -0.7325783481542247,
-      "completed_trades": 403,
-      "orders": 887,
-      "buy_fill_rate": 0.8388429752066116,
-      "positive_years": 0,
-      "worst_year": -0.35567949,
-      "annual_std": 0.07722723608011937,
-      "annual": {
-        "2021": {
-          "return": -0.35567949,
-          "max_dd": -0.38004096835928647,
-          "end_nav": 644320.51
-        },
-        "2022": {
-          "return": -0.14073352639356473,
-          "max_dd": -0.1580178969731102,
-          "end_nav": 553643.0125
-        },
-        "2023": {
-          "return": -0.17521580975430429,
-          "max_dd": -0.20830029137661477,
-          "end_nav": 456636.00375000003
-        },
-        "2024": {
-          "return": -0.26090644577212574,
-          "max_dd": -0.32250299522966785,
-          "end_nav": 337496.7270000004
-        },
-        "2025": {
-          "return": -0.18142356977583374,
-          "max_dd": -0.18142356977583374,
-          "end_nav": 276266.86600000033
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 28,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.76,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 267893.417,
-      "cagr": -0.23159106113490502,
-      "cagr_years": 5,
-      "max_dd": -0.7322852146865699,
-      "completed_trades": 386,
-      "orders": 853,
-      "buy_fill_rate": 0.8329764453961456,
-      "positive_years": 0,
-      "worst_year": -0.28946782930867554,
-      "annual_std": 0.0642365916515014,
-      "annual": {
-        "2021": {
-          "return": -0.27911407624999995,
-          "max_dd": -0.294753513073727,
-          "end_nav": 720885.9237500001
-        },
-        "2022": {
-          "return": -0.1806861192717245,
-          "max_dd": -0.18569329398003198,
-          "end_nav": 590631.8437500002
-        },
-        "2023": {
-          "return": -0.12647283505021856,
-          "max_dd": -0.16436792331713468,
-          "end_nav": 515932.95999999996
-        },
-        "2024": {
-          "return": -0.28946782930867554,
-          "max_dd": -0.35759433928843565,
-          "end_nav": 366586.96600000025
-        },
-        "2025": {
-          "return": -0.2692227442696371,
-          "max_dd": -0.2692227442696371,
-          "end_nav": 267893.417
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 72,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.005,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 260819.5319999996,
-      "cagr": -0.23569267421503337,
-      "cagr_years": 5,
-      "max_dd": -0.7391804680000005,
-      "completed_trades": 336,
-      "orders": 798,
-      "buy_fill_rate": 0.7316017316017316,
-      "positive_years": 0,
-      "worst_year": -0.3250217813107137,
-      "annual_std": 0.06790593576555803,
-      "annual": {
-        "2021": {
-          "return": -0.29324521125000036,
-          "max_dd": -0.3066292150000004,
-          "end_nav": 706754.7887499996
-        },
-        "2022": {
-          "return": -0.13658088744007812,
-          "max_dd": -0.15253194313782426,
-          "end_nav": 610225.5924999997
-        },
-        "2023": {
-          "return": -0.20219533606335904,
-          "max_dd": -0.21721954937807542,
-          "end_nav": 486840.82374999986
-        },
-        "2024": {
-          "return": -0.3250217813107137,
-          "max_dd": -0.3659960991304232,
-          "end_nav": 328606.9519999997
-        },
-        "2025": {
-          "return": -0.20628723643071367,
-          "max_dd": -0.20628723643071367,
-          "end_nav": 260819.5319999996
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 18,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.01,
-        "max_position_pct": 0.16,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 257012.23149999967,
-      "cagr": -0.23793720638121973,
-      "cagr_years": 5,
-      "max_dd": -0.744447911040208,
-      "completed_trades": 326,
-      "orders": 836,
-      "buy_fill_rate": 0.6431372549019608,
-      "positive_years": 0,
-      "worst_year": -0.33393667375,
-      "annual_std": 0.07360885858211189,
-      "annual": {
-        "2021": {
-          "return": -0.33393667375,
-          "max_dd": -0.34802914203676405,
-          "end_nav": 666063.3262499999
-        },
-        "2022": {
-          "return": -0.11397137968456028,
-          "max_dd": -0.14896711952821418,
-          "end_nav": 590151.17
-        },
-        "2023": {
-          "return": -0.20546285581370638,
-          "max_dd": -0.2312503120401258,
-          "end_nav": 468897.0252499999
-        },
-        "2024": {
-          "return": -0.27660204803144095,
-          "max_dd": -0.33300619588438785,
-          "end_nav": 339199.14774999965
-        },
-        "2025": {
-          "return": -0.24229694206240837,
-          "max_dd": -0.24229694206240837,
-          "end_nav": 257012.23149999967
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 43,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 80,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 254119.39525000023,
-      "cagr": -0.23966048293241604,
-      "cagr_years": 5,
-      "max_dd": -0.7475408214353192,
-      "completed_trades": 350,
-      "orders": 774,
-      "buy_fill_rate": 0.8349056603773585,
-      "positive_years": 0,
-      "worst_year": -0.37933521227107103,
-      "annual_std": 0.10101539263779266,
-      "annual": {
-        "2021": {
-          "return": -0.30605361624999994,
-          "max_dd": -0.35546269378670203,
-          "end_nav": 693946.38375
-        },
-        "2022": {
-          "return": -0.1615971152468736,
-          "max_dd": -0.17138838358362463,
-          "end_nav": 581806.6500000001
-        },
-        "2023": {
-          "return": -0.09494116516200024,
-          "max_dd": -0.14128301591221837,
-          "end_nav": 526569.24875
-        },
-        "2024": {
-          "return": -0.37933521227107103,
-          "max_dd": -0.4361904640172426,
-          "end_nav": 326822.9910000004
-        },
-        "2025": {
-          "return": -0.22245557305361074,
-          "max_dd": -0.22245557305361074,
-          "end_nav": 254119.39525000023
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 70,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.7,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 80,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 254119.39525000023,
-      "cagr": -0.23966048293241604,
-      "cagr_years": 5,
-      "max_dd": -0.7475408214353192,
-      "completed_trades": 350,
-      "orders": 774,
-      "buy_fill_rate": 0.8349056603773585,
-      "positive_years": 0,
-      "worst_year": -0.37933521227107103,
-      "annual_std": 0.10101539263779266,
-      "annual": {
-        "2021": {
-          "return": -0.30605361624999994,
-          "max_dd": -0.35546269378670203,
-          "end_nav": 693946.38375
-        },
-        "2022": {
-          "return": -0.1615971152468736,
-          "max_dd": -0.17138838358362463,
-          "end_nav": 581806.6500000001
-        },
-        "2023": {
-          "return": -0.09494116516200024,
-          "max_dd": -0.14128301591221837,
-          "end_nav": 526569.24875
-        },
-        "2024": {
-          "return": -0.37933521227107103,
-          "max_dd": -0.4361904640172426,
-          "end_nav": 326822.9910000004
-        },
-        "2025": {
-          "return": -0.22245557305361074,
-          "max_dd": -0.22245557305361074,
-          "end_nav": 254119.39525000023
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 57,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.005,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 251250.12900000054,
-      "cagr": -0.24138529174730083,
-      "cagr_years": 5,
-      "max_dd": -0.7487498709999995,
-      "completed_trades": 436,
-      "orders": 1034,
-      "buy_fill_rate": 0.7341137123745819,
-      "positive_years": 0,
-      "worst_year": -0.3089642387499998,
-      "annual_std": 0.05541129724545263,
-      "annual": {
-        "2021": {
-          "return": -0.3089642387499998,
-          "max_dd": -0.3473746287499998,
-          "end_nav": 691035.7612500002
-        },
-        "2022": {
-          "return": -0.15560898006998747,
-          "max_dd": -0.17953658909576198,
-          "end_nav": 583504.3912500003
-        },
-        "2023": {
-          "return": -0.2227534671531054,
-          "max_dd": -0.24586235977001047,
-          "end_nav": 453526.76500000065
-        },
-        "2024": {
-          "return": -0.29180136424803915,
-          "max_dd": -0.3731988497782611,
-          "end_nav": 321187.0362500006
-        },
-        "2025": {
-          "return": -0.2177451122141918,
-          "max_dd": -0.2177451122141918,
-          "end_nav": 251250.12900000054
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 59,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.7,
+        "score_threshold": 0.74,
         "limit_discount": 0.01,
         "max_position_pct": 0.12,
         "max_slots_strong": 5,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 248539.0687500009,
-      "cagr": -0.24302953752884515,
-      "cagr_years": 5,
-      "max_dd": -0.7514609312499991,
-      "completed_trades": 438,
-      "orders": 1121,
-      "buy_fill_rate": 0.6456808199121523,
-      "positive_years": 0,
-      "worst_year": -0.29912424749999933,
-      "annual_std": 0.054259932441437675,
-      "annual": {
-        "2021": {
-          "return": -0.29912424749999933,
-          "max_dd": -0.32609231249999937,
-          "end_nav": 700875.7525000006
-        },
-        "2022": {
-          "return": -0.1386531844672424,
-          "max_dd": -0.16254139604095896,
-          "end_nav": 603697.0975000007
-        },
-        "2023": {
-          "return": -0.26650799824327376,
-          "max_dd": -0.2725531772808204,
-          "end_nav": 442806.99250000104
-        },
-        "2024": {
-          "return": -0.25431416939514506,
-          "max_dd": -0.2772186779871888,
-          "end_nav": 330194.9000000011
-        },
-        "2025": {
-          "return": -0.24729585844602653,
-          "max_dd": -0.24729585844602653,
-          "end_nav": 248539.0687500009
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 13,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
         "max_slots_neutral": 2,
         "max_slots_weak": 0,
         "exit_ma": 40,
-        "trailing_pct": 0.08,
-        "max_hold": 80,
-        "momentum_decay_pct": 0.45
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
       },
       "qualified": false,
-      "end_nav": 248294.71050000002,
-      "cagr": -0.2431784435061366,
+      "end_nav": 356403.9437500002,
+      "cagr": -0.18644203708761675,
       "cagr_years": 5,
-      "max_dd": -0.7551627842560817,
-      "completed_trades": 423,
-      "orders": 922,
-      "buy_fill_rate": 0.8537074148296593,
+      "max_dd": -0.6585530468625939,
+      "completed_trades": 354,
+      "orders": 905,
+      "buy_fill_rate": 0.647912885662432,
       "positive_years": 0,
-      "worst_year": -0.36928012625000006,
-      "annual_std": 0.08807548824748271,
+      "worst_year": -0.31580528624999993,
+      "annual_std": 0.0920731867985648,
       "annual": {
         "2021": {
-          "return": -0.36928012625000006,
-          "max_dd": -0.3888672436516287,
-          "end_nav": 630719.8737499999
+          "return": -0.31580528624999993,
+          "max_dd": -0.3658107191269061,
+          "end_nav": 684194.7137500001
         },
         "2022": {
-          "return": -0.14345725616989857,
-          "max_dd": -0.16904031802109176,
-          "end_nav": 540238.5312500001
+          "return": -0.11105170571043455,
+          "max_dd": -0.13697384079219277,
+          "end_nav": 608213.7237500001
         },
         "2023": {
-          "return": -0.19076078720551293,
-          "max_dd": -0.21991676438921393,
-          "end_nav": 437182.20375
+          "return": -0.08958951495543266,
+          "max_dd": -0.13630675827680883,
+          "end_nav": 553724.1512500001
         },
         "2024": {
-          "return": -0.3148381408697718,
-          "max_dd": -0.3956353379458637,
-          "end_nav": 299540.5715000002
+          "return": -0.2672456690139716,
+          "max_dd": -0.35053192179700166,
+          "end_nav": 405743.77000000025
         },
         "2025": {
-          "return": -0.17108153577786755,
-          "max_dd": -0.17108153577786755,
-          "end_nav": 248294.71050000002
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 34,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.08,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 248294.71050000002,
-      "cagr": -0.2431784435061366,
-      "cagr_years": 5,
-      "max_dd": -0.7551627842560817,
-      "completed_trades": 423,
-      "orders": 922,
-      "buy_fill_rate": 0.8537074148296593,
-      "positive_years": 0,
-      "worst_year": -0.36928012625000006,
-      "annual_std": 0.08807548824748271,
-      "annual": {
-        "2021": {
-          "return": -0.36928012625000006,
-          "max_dd": -0.3888672436516287,
-          "end_nav": 630719.8737499999
-        },
-        "2022": {
-          "return": -0.14345725616989857,
-          "max_dd": -0.16904031802109176,
-          "end_nav": 540238.5312500001
-        },
-        "2023": {
-          "return": -0.19076078720551293,
-          "max_dd": -0.21991676438921393,
-          "end_nav": 437182.20375
-        },
-        "2024": {
-          "return": -0.3148381408697718,
-          "max_dd": -0.3956353379458637,
-          "end_nav": 299540.5715000002
-        },
-        "2025": {
-          "return": -0.17108153577786755,
-          "max_dd": -0.17108153577786755,
-          "end_nav": 248294.71050000002
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 15,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.08,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.45
-      },
-      "qualified": false,
-      "end_nav": 241524.7075000001,
-      "cagr": -0.24735130498196423,
-      "cagr_years": 5,
-      "max_dd": -0.7622591533755715,
-      "completed_trades": 428,
-      "orders": 934,
-      "buy_fill_rate": 0.8517786561264822,
-      "positive_years": 0,
-      "worst_year": -0.36928012625000006,
-      "annual_std": 0.09746631584082976,
-      "annual": {
-        "2021": {
-          "return": -0.36928012625000006,
-          "max_dd": -0.3888672436516287,
-          "end_nav": 630719.8737499999
-        },
-        "2022": {
-          "return": -0.14345725616989857,
-          "max_dd": -0.16904031802109176,
-          "end_nav": 540238.5312500001
-        },
-        "2023": {
-          "return": -0.19076078720551293,
-          "max_dd": -0.21991676438921393,
-          "end_nav": 437182.20375
-        },
-        "2024": {
-          "return": -0.3474417793018404,
-          "max_dd": -0.4243942168299657,
-          "end_nav": 285286.84100000025
-        },
-        "2025": {
-          "return": -0.15339695776574602,
-          "max_dd": -0.15489221863548897,
-          "end_nav": 241524.7075000001
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 5,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.7,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 80,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 238918.19149999972,
-      "cagr": -0.24898286867391484,
-      "cagr_years": 5,
-      "max_dd": -0.7642529534141065,
-      "completed_trades": 360,
-      "orders": 792,
-      "buy_fill_rate": 0.8425925925925926,
-      "positive_years": 0,
-      "worst_year": -0.3599273571214131,
-      "annual_std": 0.08731069935072326,
-      "annual": {
-        "2021": {
-          "return": -0.33003082750000035,
-          "max_dd": -0.373796055143627,
-          "end_nav": 669969.1724999996
-        },
-        "2022": {
-          "return": -0.1547645201540968,
-          "max_dd": -0.15576031517858102,
-          "end_nav": 566281.7149999999
-        },
-        "2023": {
-          "return": -0.14936756124996953,
-          "max_dd": -0.17894652552345602,
-          "end_nav": 481697.5962499996
-        },
-        "2024": {
-          "return": -0.3599273571214131,
-          "max_dd": -0.4218580825372501,
-          "end_nav": 308321.4534999997
-        },
-        "2025": {
-          "return": -0.2251003334738757,
-          "max_dd": -0.2251003334738757,
-          "end_nav": 238918.19149999972
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 22,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 238918.19149999972,
-      "cagr": -0.24898286867391484,
-      "cagr_years": 5,
-      "max_dd": -0.7642529534141065,
-      "completed_trades": 360,
-      "orders": 792,
-      "buy_fill_rate": 0.8425925925925926,
-      "positive_years": 0,
-      "worst_year": -0.3599273571214131,
-      "annual_std": 0.08731069935072326,
-      "annual": {
-        "2021": {
-          "return": -0.33003082750000035,
-          "max_dd": -0.373796055143627,
-          "end_nav": 669969.1724999996
-        },
-        "2022": {
-          "return": -0.1547645201540968,
-          "max_dd": -0.15576031517858102,
-          "end_nav": 566281.7149999999
-        },
-        "2023": {
-          "return": -0.14936756124996953,
-          "max_dd": -0.17894652552345602,
-          "end_nav": 481697.5962499996
-        },
-        "2024": {
-          "return": -0.3599273571214131,
-          "max_dd": -0.4218580825372501,
-          "end_nav": 308321.4534999997
-        },
-        "2025": {
-          "return": -0.2251003334738757,
-          "max_dd": -0.2251003334738757,
-          "end_nav": 238918.19149999972
+          "return": -0.12160341057115931,
+          "max_dd": -0.14367331074485745,
+          "end_nav": 356403.9437500002
         }
       }
     },
@@ -1076,53 +132,348 @@
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.7,
+        "score_threshold": 0.68,
         "limit_discount": 0.005,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 348473.0882499999,
+      "cagr": -0.19009543130745987,
+      "cagr_years": 5,
+      "max_dd": -0.6515269117500001,
+      "completed_trades": 372,
+      "orders": 872,
+      "buy_fill_rate": 0.75,
+      "positive_years": 0,
+      "worst_year": -0.2653274237500004,
+      "annual_std": 0.08421566475251421,
+      "annual": {
+        "2021": {
+          "return": -0.2653274237500004,
+          "max_dd": -0.30501966500000055,
+          "end_nav": 734672.5762499996
+        },
+        "2022": {
+          "return": -0.16988782014578407,
+          "max_dd": -0.18007451655015405,
+          "end_nav": 609860.6537499998
+        },
+        "2023": {
+          "return": -0.030605948482210987,
+          "max_dd": -0.10931763603642641,
+          "end_nav": 591195.2899999998
+        },
+        "2024": {
+          "return": -0.24811821699391412,
+          "max_dd": -0.3364513426230742,
+          "end_nav": 444508.9687499999
+        },
+        "2025": {
+          "return": -0.21604936514568351,
+          "max_dd": -0.21604936514568351,
+          "end_nav": 348473.0882499999
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 11,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.8,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 331586.9692499996,
+      "cagr": -0.19810133391778384,
+      "cagr_years": 5,
+      "max_dd": -0.6821867202500007,
+      "completed_trades": 304,
+      "orders": 720,
+      "buy_fill_rate": 0.7355769230769231,
+      "positive_years": 0,
+      "worst_year": -0.3974704275000003,
+      "annual_std": 0.12242904234575208,
+      "annual": {
+        "2021": {
+          "return": -0.3974704275000003,
+          "max_dd": -0.4164900637500002,
+          "end_nav": 602529.5724999998
+        },
+        "2022": {
+          "return": -0.09516374401689631,
+          "max_dd": -0.11697491943292415,
+          "end_nav": 545190.6024999998
+        },
+        "2023": {
+          "return": -0.13394920448945224,
+          "max_dd": -0.16400208049234077,
+          "end_nav": 472162.75499999966
+        },
+        "2024": {
+          "return": -0.25049577343304064,
+          "max_dd": -0.3322856452479036,
+          "end_nav": 353887.9804999995
+        },
+        "2025": {
+          "return": -0.0630171480209396,
+          "max_dd": -0.10193819156850448,
+          "end_nav": 331586.9692499996
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 29,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 313427.5689999998,
+      "cagr": -0.20708353002040436,
+      "cagr_years": 5,
+      "max_dd": -0.6873614069258767,
+      "completed_trades": 341,
+      "orders": 807,
+      "buy_fill_rate": 0.740343347639485,
+      "positive_years": 0,
+      "worst_year": -0.39854671750000015,
+      "annual_std": 0.10686896971362718,
+      "annual": {
+        "2021": {
+          "return": -0.39854671750000015,
+          "max_dd": -0.4193604055080584,
+          "end_nav": 601453.2824999999
+        },
+        "2022": {
+          "return": -0.13101093184240764,
+          "max_dd": -0.13618143830999085,
+          "end_nav": 522656.3275
+        },
+        "2023": {
+          "return": -0.0911021975525591,
+          "max_dd": -0.13286056350711184,
+          "end_nav": 475041.1875
+        },
+        "2024": {
+          "return": -0.20694449994401842,
+          "max_dd": -0.3238235868721643,
+          "end_nav": 376734.0264999998
+        },
+        "2025": {
+          "return": -0.16804019028528083,
+          "max_dd": -0.16804019028528083,
+          "end_nav": 313427.5689999998
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 14,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.8,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 312262.18675000034,
+      "cagr": -0.2076740512525651,
+      "cagr_years": 5,
+      "max_dd": -0.6885238556160026,
+      "completed_trades": 318,
+      "orders": 755,
+      "buy_fill_rate": 0.7368421052631579,
+      "positive_years": 0,
+      "worst_year": -0.36940414625000006,
+      "annual_std": 0.09139938780317032,
+      "annual": {
+        "2021": {
+          "return": -0.36940414625000006,
+          "max_dd": -0.3902911934306664,
+          "end_nav": 630595.8537499999
+        },
+        "2022": {
+          "return": -0.0911905595446515,
+          "max_dd": -0.1140780173203132,
+          "end_nav": 573091.4650000002
+        },
+        "2023": {
+          "return": -0.1771012481402071,
+          "max_dd": -0.1863978646000316,
+          "end_nav": 471596.2512500003
+        },
+        "2024": {
+          "return": -0.19931879706603162,
+          "max_dd": -0.314778013774209,
+          "end_nav": 377598.25375000027
+        },
+        "2025": {
+          "return": -0.1730306386513576,
+          "max_dd": -0.1730306386513576,
+          "end_nav": 312262.18675000034
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 13,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.74,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 283177.4882499997,
+      "cagr": -0.22301659155332287,
+      "cagr_years": 5,
+      "max_dd": -0.7248207814821928,
+      "completed_trades": 360,
+      "orders": 800,
+      "buy_fill_rate": 0.825,
+      "positive_years": 0,
+      "worst_year": -0.3573946549999998,
+      "annual_std": 0.08095546799432832,
+      "annual": {
+        "2021": {
+          "return": -0.3573946549999998,
+          "max_dd": -0.38272164699303524,
+          "end_nav": 642605.3450000002
+        },
+        "2022": {
+          "return": -0.13503449189330985,
+          "max_dd": -0.15779992626105133,
+          "end_nav": 555831.4587500001
+        },
+        "2023": {
+          "return": -0.23936095493623444,
+          "max_dd": -0.24922070200120028,
+          "end_nav": 422787.10999999987
+        },
+        "2024": {
+          "return": -0.14058349839473572,
+          "max_dd": -0.23019371042851577,
+          "end_nav": 363350.2189999999
+        },
+        "2025": {
+          "return": -0.2206486374788733,
+          "max_dd": -0.2206486374788733,
+          "end_nav": 283177.4882499997
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 6,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
+        "limit_discount": 0.0,
         "max_position_pct": 0.16,
         "max_slots_strong": 4,
         "max_slots_neutral": 2,
         "max_slots_weak": 0,
         "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.3
+        "trailing_pct": 0.14,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.25
       },
       "qualified": false,
-      "end_nav": 226798.2243750001,
-      "cagr": -0.256761958896469,
+      "end_nav": 252890.76225000035,
+      "cagr": -0.24039713676395946,
       "cagr_years": 5,
-      "max_dd": -0.7732017756249999,
-      "completed_trades": 312,
-      "orders": 735,
-      "buy_fill_rate": 0.7446808510638298,
+      "max_dd": -0.7471092377499997,
+      "completed_trades": 284,
+      "orders": 625,
+      "buy_fill_rate": 0.841642228739003,
       "positive_years": 0,
-      "worst_year": -0.4447598924999996,
-      "annual_std": 0.14529397556054063,
+      "worst_year": -0.4429394612499997,
+      "annual_std": 0.13952951849602582,
       "annual": {
         "2021": {
-          "return": -0.4447598924999996,
-          "max_dd": -0.46842252874999957,
-          "end_nav": 555240.1075000004
+          "return": -0.4429394612499997,
+          "max_dd": -0.46565095249999966,
+          "end_nav": 557060.5387500003
         },
         "2022": {
-          "return": -0.10166300216343793,
-          "max_dd": -0.13580854221038907,
-          "end_nav": 498792.73125000036
+          "return": -0.13689275616455587,
+          "max_dd": -0.16652866860711313,
+          "end_nav": 480802.98625000037
         },
         "2023": {
-          "return": -0.10438951640195959,
-          "max_dd": -0.15276154742037307,
-          "end_nav": 446723.9992500002
+          "return": -0.04953539325069045,
+          "max_dd": -0.10468924764374044,
+          "end_nav": 456986.2212500003
         },
         "2024": {
-          "return": -0.38669657784229783,
-          "max_dd": -0.43769098866597334,
-          "end_nav": 273977.3574999999
+          "return": -0.32270222523694925,
+          "max_dd": -0.3794076553966984,
+          "end_nav": 309515.75075000036
         },
         "2025": {
-          "return": -0.1722008473820682,
-          "max_dd": -0.17385929606305206,
-          "end_nav": 226798.2243750001
+          "return": -0.18294703375446864,
+          "max_dd": -0.18294703375446864,
+          "end_nav": 252890.76225000035
         }
       }
     },
@@ -1135,53 +486,112 @@
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.64,
+        "score_threshold": 0.68,
         "limit_discount": 0.01,
-        "max_position_pct": 0.16,
+        "max_position_pct": 0.12,
         "max_slots_strong": 5,
         "max_slots_neutral": 2,
         "max_slots_weak": 0,
         "exit_ma": 40,
-        "trailing_pct": 0.08,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.3
+        "trailing_pct": 0.14,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.4
       },
       "qualified": false,
-      "end_nav": 225605.1750000005,
-      "cagr": -0.2575455553233136,
+      "end_nav": 243748.10899999968,
+      "cagr": -0.24597064955834547,
       "cagr_years": 5,
-      "max_dd": -0.7743948249999995,
-      "completed_trades": 393,
-      "orders": 1005,
-      "buy_fill_rate": 0.6470588235294118,
+      "max_dd": -0.757620145276254,
+      "completed_trades": 383,
+      "orders": 974,
+      "buy_fill_rate": 0.6514382402707276,
       "positive_years": 0,
-      "worst_year": -0.44311751124999954,
-      "annual_std": 0.13415069278819441,
+      "worst_year": -0.3143414050000001,
+      "annual_std": 0.07014230562776985,
       "annual": {
         "2021": {
-          "return": -0.44311751124999954,
-          "max_dd": -0.4712552949999994,
-          "end_nav": 556882.4887500005
+          "return": -0.3143414050000001,
+          "max_dd": -0.3571561341573012,
+          "end_nav": 685658.595
         },
         "2022": {
-          "return": -0.15577309486731428,
-          "max_dd": -0.18639677283262357,
-          "end_nav": 470135.1800000006
+          "return": -0.12070380850399753,
+          "max_dd": -0.14682036294516942,
+          "end_nav": 602896.99125
         },
         "2023": {
-          "return": -0.09325244922109377,
-          "max_dd": -0.1345377570688342,
-          "end_nav": 426293.92300000077
+          "return": -0.25791110008297,
+          "max_dd": -0.2718972475270204,
+          "end_nav": 447403.16499999975
         },
         "2024": {
-          "return": -0.3631658912951474,
-          "max_dd": -0.44219032138705616,
-          "end_nav": 271478.51050000056
+          "return": -0.3037018820597751,
+          "max_dd": -0.34294012846996247,
+          "end_nav": 311525.98174999974
         },
         "2025": {
-          "return": -0.1689759363108041,
-          "max_dd": -0.1689759363108041,
-          "end_nav": 225605.1750000005
+          "return": -0.21756731932680962,
+          "max_dd": -0.21756731932680962,
+          "end_nav": 243748.10899999968
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 28,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.8,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.16,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 242463.36474999998,
+      "cagr": -0.24676719625331955,
+      "cagr_years": 5,
+      "max_dd": -0.7654695191226757,
+      "completed_trades": 331,
+      "orders": 728,
+      "buy_fill_rate": 0.8438287153652393,
+      "positive_years": 0,
+      "worst_year": -0.4271000275000001,
+      "annual_std": 0.09623034468096393,
+      "annual": {
+        "2021": {
+          "return": -0.4271000275000001,
+          "max_dd": -0.4709668248272103,
+          "end_nav": 572899.9724999999
+        },
+        "2022": {
+          "return": -0.17132987818392675,
+          "max_dd": -0.17366854487787475,
+          "end_nav": 474745.08999999997
+        },
+        "2023": {
+          "return": -0.1861332104561625,
+          "max_dd": -0.2105852606513876,
+          "end_nav": 386379.26225000015
+        },
+        "2024": {
+          "return": -0.23514372955972485,
+          "max_dd": -0.3702448609499521,
+          "end_nav": 295524.6015000001
+        },
+        "2025": {
+          "return": -0.17954930479789555,
+          "max_dd": -0.17954930479789555,
+          "end_nav": 242463.36474999998
         }
       }
     },
@@ -1194,53 +604,761 @@
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.64,
+        "score_threshold": 0.68,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 241309.73649999854,
+      "cagr": -0.2474853329071316,
+      "cagr_years": 5,
+      "max_dd": -0.7612588990002251,
+      "completed_trades": 414,
+      "orders": 911,
+      "buy_fill_rate": 0.8390342052313883,
+      "positive_years": 0,
+      "worst_year": -0.31557623625000053,
+      "annual_std": 0.0527976164195392,
+      "annual": {
+        "2021": {
+          "return": -0.31557623625000053,
+          "max_dd": -0.35917885214850576,
+          "end_nav": 684423.7637499995
+        },
+        "2022": {
+          "return": -0.1708568633842974,
+          "max_dd": -0.20121286997336374,
+          "end_nav": 567485.2662499992
+        },
+        "2023": {
+          "return": -0.2890454757247196,
+          "max_dd": -0.2949465828254665,
+          "end_nav": 403456.217499999
+        },
+        "2024": {
+          "return": -0.20602680946415308,
+          "max_dd": -0.32335198788129993,
+          "end_nav": 320333.4202499988
+        },
+        "2025": {
+          "return": -0.24669197390746045,
+          "max_dd": -0.24669197390746045,
+          "end_nav": 241309.73649999854
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 32,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.16,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 231249.67999999993,
+      "cagr": -0.2538670349101163,
+      "cagr_years": 5,
+      "max_dd": -0.7768615322500001,
+      "completed_trades": 303,
+      "orders": 715,
+      "buy_fill_rate": 0.7402912621359223,
+      "positive_years": 0,
+      "worst_year": -0.46404267624999973,
+      "annual_std": 0.1327808298563397,
+      "annual": {
+        "2021": {
+          "return": -0.46404267624999973,
+          "max_dd": -0.4860947137499998,
+          "end_nav": 535957.3237500002
+        },
+        "2022": {
+          "return": -0.16688845787975892,
+          "max_dd": -0.17243212183811885,
+          "end_nav": 446512.2325
+        },
+        "2023": {
+          "return": -0.17059423394408324,
+          "max_dd": -0.20099410791120886,
+          "end_nav": 370339.8202500001
+        },
+        "2024": {
+          "return": -0.31354799470824724,
+          "max_dd": -0.41414470860446584,
+          "end_nav": 254220.51224999985
+        },
+        "2025": {
+          "return": -0.09035790246308073,
+          "max_dd": -0.12226410931559273,
+          "end_nav": 231249.67999999993
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 24,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.8,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.16,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 200922.48174999974,
+      "cagr": -0.27455297044227234,
+      "cagr_years": 5,
+      "max_dd": -0.7990775182500003,
+      "completed_trades": 381,
+      "orders": 906,
+      "buy_fill_rate": 0.7314285714285714,
+      "positive_years": 0,
+      "worst_year": -0.45286601375,
+      "annual_std": 0.10183807603278976,
+      "annual": {
+        "2021": {
+          "return": -0.45286601375,
+          "max_dd": -0.45903338000000005,
+          "end_nav": 547133.98625
+        },
+        "2022": {
+          "return": -0.1757494551911507,
+          "max_dd": -0.1874334670611042,
+          "end_nav": 450975.4862499999
+        },
+        "2023": {
+          "return": -0.22855483256325204,
+          "max_dd": -0.24360887404841913,
+          "end_nav": 347902.8595
+        },
+        "2024": {
+          "return": -0.2921584376198558,
+          "max_dd": -0.4147474269890937,
+          "end_nav": 246260.10362499979
+        },
+        "2025": {
+          "return": -0.18410461624770247,
+          "max_dd": -0.18592278517382388,
+          "end_nav": 200922.48174999974
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 4,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.8,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.16,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 184632.87937499976,
+      "cagr": -0.2867171065585442,
+      "cagr_years": 5,
+      "max_dd": -0.8153671206250003,
+      "completed_trades": 337,
+      "orders": 746,
+      "buy_fill_rate": 0.8337408312958435,
+      "positive_years": 0,
+      "worst_year": -0.46703164249999984,
+      "annual_std": 0.1089759701599096,
+      "annual": {
+        "2021": {
+          "return": -0.46703164249999984,
+          "max_dd": -0.48241846499999985,
+          "end_nav": 532968.3575000002
+        },
+        "2022": {
+          "return": -0.17534996906453337,
+          "max_dd": -0.2010054683554371,
+          "end_nav": 439512.37249999994
+        },
+        "2023": {
+          "return": -0.20754820787212325,
+          "max_dd": -0.2672379937158288,
+          "end_nav": 348292.3672499999
+        },
+        "2024": {
+          "return": -0.3323827013180122,
+          "max_dd": -0.4138622198673788,
+          "end_nav": 232526.0093749998
+        },
+        "2025": {
+          "return": -0.2059689156010145,
+          "max_dd": -0.2059689156010145,
+          "end_nav": 184632.87937499976
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 23,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.74,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.16,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 171285.59350000013,
+      "cagr": -0.29734172147005866,
+      "cagr_years": 5,
+      "max_dd": -0.8287144064999998,
+      "completed_trades": 399,
+      "orders": 953,
+      "buy_fill_rate": 0.7256317689530686,
+      "positive_years": 0,
+      "worst_year": -0.4770755812499998,
+      "annual_std": 0.11813985248632222,
+      "annual": {
+        "2021": {
+          "return": -0.4770755812499998,
+          "max_dd": -0.5023688712499998,
+          "end_nav": 522924.4187500002
+        },
+        "2022": {
+          "return": -0.18150666778362223,
+          "max_dd": -0.18181972173493188,
+          "end_nav": 428010.15000000014
+        },
+        "2023": {
+          "return": -0.19153826433788956,
+          "max_dd": -0.19474576705352742,
+          "end_nav": 346029.82875000034
+        },
+        "2024": {
+          "return": -0.37346521459387383,
+          "max_dd": -0.4708897612548092,
+          "end_nav": 216799.72450000004
+        },
+        "2025": {
+          "return": -0.2099362953756886,
+          "max_dd": -0.21284094502610407,
+          "end_nav": 171285.59350000013
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 7,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.16,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 163745.85924999946,
+      "cagr": -0.30363960124344047,
+      "cagr_years": 5,
+      "max_dd": -0.8377991187420617,
+      "completed_trades": 414,
+      "orders": 912,
+      "buy_fill_rate": 0.8373493975903614,
+      "positive_years": 0,
+      "worst_year": -0.4091967112500001,
+      "annual_std": 0.06884538943971732,
+      "annual": {
+        "2021": {
+          "return": -0.4091967112500001,
+          "max_dd": -0.44530204915461813,
+          "end_nav": 590803.2887499998
+        },
+        "2022": {
+          "return": -0.2092260822744113,
+          "max_dd": -0.2394806302585466,
+          "end_nav": 467191.8312499996
+        },
+        "2023": {
+          "return": -0.33642765773422356,
+          "max_dd": -0.3480738960746742,
+          "end_nav": 310015.5777499996
+        },
+        "2024": {
+          "return": -0.25364641898224827,
+          "max_dd": -0.3951617484939094,
+          "end_nav": 231381.23662499944
+        },
+        "2025": {
+          "return": -0.2923114179937456,
+          "max_dd": -0.2923114179937456,
+          "end_nav": 163745.85924999946
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 31,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.8,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.2,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 163702.32350000017,
+      "cagr": -0.3036766339928939,
+      "cagr_years": 5,
+      "max_dd": -0.8436320304980266,
+      "completed_trades": 329,
+      "orders": 728,
+      "buy_fill_rate": 0.8320802005012531,
+      "positive_years": 0,
+      "worst_year": -0.49890534824999977,
+      "annual_std": 0.1051779608802429,
+      "annual": {
+        "2021": {
+          "return": -0.49890534824999977,
+          "max_dd": -0.5526698013064376,
+          "end_nav": 501094.6517500002
+        },
+        "2022": {
+          "return": -0.2168615502490242,
+          "max_dd": -0.22419433894755092,
+          "end_nav": 392426.48875000025
+        },
+        "2023": {
+          "return": -0.24573477839675972,
+          "max_dd": -0.27297807889793835,
+          "end_nav": 295993.65250000043
+        },
+        "2024": {
+          "return": -0.2880213301195711,
+          "max_dd": -0.4185586277863337,
+          "end_nav": 210741.1670000002
+        },
+        "2025": {
+          "return": -0.22320671451914265,
+          "max_dd": -0.22320671451914265,
+          "end_nav": 163702.32350000017
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 26,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.2,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 156546.02825000047,
+      "cagr": -0.3098739662099984,
+      "cagr_years": 5,
+      "max_dd": -0.8434539717499996,
+      "completed_trades": 340,
+      "orders": 800,
+      "buy_fill_rate": 0.7456521739130435,
+      "positive_years": 0,
+      "worst_year": -0.5069191407499996,
+      "annual_std": 0.1772618655381569,
+      "annual": {
+        "2021": {
+          "return": -0.5069191407499996,
+          "max_dd": -0.5365266832499995,
+          "end_nav": 493080.8592500004
+        },
+        "2022": {
+          "return": -0.18069894638685446,
+          "max_dd": -0.21417809780860986,
+          "end_nav": 403981.66750000045
+        },
+        "2023": {
+          "return": -0.03811600064748044,
+          "max_dd": -0.11636104970047279,
+          "end_nav": 388583.5020000002
+        },
+        "2024": {
+          "return": -0.46958410563194664,
+          "max_dd": -0.5487597267417543,
+          "end_nav": 206110.86575000035
+        },
+        "2025": {
+          "return": -0.24047658680993045,
+          "max_dd": -0.24047658680993045,
+          "end_nav": 156546.02825000047
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 20,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
         "limit_discount": 0.01,
         "max_position_pct": 0.12,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 20,
+        "trailing_pct": 0.14,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 152767.46300000063,
+      "cagr": -0.31323813194712913,
+      "cagr_years": 5,
+      "max_dd": -0.8474160488749993,
+      "completed_trades": 625,
+      "orders": 1614,
+      "buy_fill_rate": 0.6339737108190091,
+      "positive_years": 0,
+      "worst_year": -0.49194335374999965,
+      "annual_std": 0.11249141313489082,
+      "annual": {
+        "2021": {
+          "return": -0.49194335374999965,
+          "max_dd": -0.5034573424999997,
+          "end_nav": 508056.64625000034
+        },
+        "2022": {
+          "return": -0.19258529924211176,
+          "max_dd": -0.20232459216647825,
+          "end_nav": 410212.4050000003
+        },
+        "2023": {
+          "return": -0.2751403123706113,
+          "max_dd": -0.2753007081894008,
+          "end_nav": 297346.4357500005
+        },
+        "2024": {
+          "return": -0.36044644559019123,
+          "max_dd": -0.36044644559019123,
+          "end_nav": 190168.96987500068
+        },
+        "2025": {
+          "return": -0.1966751300150824,
+          "max_dd": -0.19764012380518703,
+          "end_nav": 152767.46300000063
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 15,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.68,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.12,
+        "max_slots_strong": 4,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 20,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 142750.6612499994,
+      "cagr": -0.3224901310689764,
+      "cagr_years": 5,
+      "max_dd": -0.8599645672414765,
+      "completed_trades": 588,
+      "orders": 1293,
+      "buy_fill_rate": 0.8368794326241135,
+      "positive_years": 0,
+      "worst_year": -0.4585928262001535,
+      "annual_std": 0.08998430812622112,
+      "annual": {
+        "2021": {
+          "return": -0.3655634312500001,
+          "max_dd": -0.37912105558860587,
+          "end_nav": 634436.5687499999
+        },
+        "2022": {
+          "return": -0.21877545067030013,
+          "max_dd": -0.22274565119106204,
+          "end_nav": 495637.42249999975
+        },
+        "2023": {
+          "return": -0.31337088454010065,
+          "max_dd": -0.3141028283239513,
+          "end_nav": 340319.08499999926
+        },
+        "2024": {
+          "return": -0.4585928262001535,
+          "max_dd": -0.4585928262001535,
+          "end_nav": 184251.19399999935
+        },
+        "2025": {
+          "return": -0.22523888094858213,
+          "max_dd": -0.23189120351100745,
+          "end_nav": 142750.6612499994
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 5,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.74,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.2,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 3,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
+      },
+      "qualified": false,
+      "end_nav": 138470.56000000032,
+      "cagr": -0.3266025155282172,
+      "cagr_years": 5,
+      "max_dd": -0.8615294399999996,
+      "completed_trades": 365,
+      "orders": 814,
+      "buy_fill_rate": 0.821826280623608,
+      "positive_years": 0,
+      "worst_year": -0.47460912124999977,
+      "annual_std": 0.1130506604077754,
+      "annual": {
+        "2021": {
+          "return": -0.47460912124999977,
+          "max_dd": -0.5039573474999998,
+          "end_nav": 525390.8787500003
+        },
+        "2022": {
+          "return": -0.21713963424988358,
+          "max_dd": -0.2624505420422105,
+          "end_nav": 411307.69550000026
+        },
+        "2023": {
+          "return": -0.16713467375423807,
+          "max_dd": -0.24134235451689223,
+          "end_nav": 342563.91800000024
+        },
+        "2024": {
+          "return": -0.39752489125255674,
+          "max_dd": -0.5118049396043678,
+          "end_nav": 206386.23375000036
+        },
+        "2025": {
+          "return": -0.3290707549432178,
+          "max_dd": -0.3290707549432178,
+          "end_nav": 138470.56000000032
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 25,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.74,
+        "limit_discount": 0.01,
+        "max_position_pct": 0.16,
         "max_slots_strong": 4,
         "max_slots_neutral": 2,
         "max_slots_weak": 0,
         "exit_ma": 20,
-        "trailing_pct": 0.12,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.45
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
       },
       "qualified": false,
-      "end_nav": 201267.27387499923,
-      "cagr": -0.2743041611456898,
+      "end_nav": 132718.2472499997,
+      "cagr": -0.33229269518448346,
       "cagr_years": 5,
-      "max_dd": -0.7994143997391752,
-      "completed_trades": 562,
-      "orders": 1451,
-      "buy_fill_rate": 0.6344206974128234,
+      "max_dd": -0.8684845126794042,
+      "completed_trades": 549,
+      "orders": 1410,
+      "buy_fill_rate": 0.6387921022067363,
       "positive_years": 0,
-      "worst_year": -0.4043170774999999,
-      "annual_std": 0.09190593567099396,
+      "worst_year": -0.47586276874999955,
+      "annual_std": 0.1093649725226653,
       "annual": {
         "2021": {
-          "return": -0.4043170774999999,
-          "max_dd": -0.4269985344580234,
-          "end_nav": 595682.9225000001
+          "return": -0.47586276874999955,
+          "max_dd": -0.5045389229217216,
+          "end_nav": 524137.2312500004
         },
         "2022": {
-          "return": -0.14641383310766354,
-          "max_dd": -0.16891378451557737,
-          "end_nav": 508466.70249999984
+          "return": -0.1888212601573327,
+          "max_dd": -0.21354008082735687,
+          "end_nav": 425168.97875000007
         },
         "2023": {
-          "return": -0.27900712534858774,
-          "max_dd": -0.2791787374079695,
-          "end_nav": 366600.86949999933
+          "return": -0.28799606008414613,
+          "max_dd": -0.2881987256302595,
+          "end_nav": 302721.988
         },
         "2024": {
-          "return": -0.3212696833224512,
-          "max_dd": -0.33473202114159284,
-          "end_nav": 248823.12424999927
+          "return": -0.4238274938257883,
+          "max_dd": -0.4251574938987128,
+          "end_nav": 174420.08649999966
         },
         "2025": {
-          "return": -0.19112311413315186,
-          "max_dd": -0.19112311413315186,
-          "end_nav": 201267.27387499923
+          "return": -0.23908851375326,
+          "max_dd": -0.23908851375326,
+          "end_nav": 132718.2472499997
+        }
+      }
+    },
+    {
+      "family": "PULLBACK_RS",
+      "shard": 2,
+      "lane_trial": 12,
+      "params": {
+        "family": "PULLBACK_RS",
+        "min_avgamt20": 30000000.0,
+        "min_price": 10.0,
+        "max_price": 3000.0,
+        "score_threshold": 0.74,
+        "limit_discount": 0.005,
+        "max_position_pct": 0.2,
+        "max_slots_strong": 5,
+        "max_slots_neutral": 2,
+        "max_slots_weak": 0,
+        "exit_ma": 40,
+        "trailing_pct": 0.14,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.4
+      },
+      "qualified": false,
+      "end_nav": 117792.74662499974,
+      "cagr": -0.3480358587563074,
+      "cagr_years": 5,
+      "max_dd": -0.8823804478714606,
+      "completed_trades": 380,
+      "orders": 906,
+      "buy_fill_rate": 0.7281368821292775,
+      "positive_years": 0,
+      "worst_year": -0.54813819825,
+      "annual_std": 0.11335747681434077,
+      "annual": {
+        "2021": {
+          "return": -0.54813819825,
+          "max_dd": -0.5756669164047612,
+          "end_nav": 451861.80175000004
+        },
+        "2022": {
+          "return": -0.22869225081604305,
+          "max_dd": -0.22869225081604305,
+          "end_nav": 348524.5092499999
+        },
+        "2023": {
+          "return": -0.2787416915357154,
+          "max_dd": -0.302002506530027,
+          "end_nav": 251376.19799999983
+        },
+        "2024": {
+          "return": -0.35604499535791456,
+          "max_dd": -0.47114249265761776,
+          "end_nav": 161874.96074999968
+        },
+        "2025": {
+          "return": -0.2723226243315091,
+          "max_dd": -0.2723226243315091,
+          "end_nav": 117792.74662499974
         }
       }
     },
@@ -1253,112 +1371,53 @@
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.7,
-        "limit_discount": 0.01,
-        "max_position_pct": 0.12,
-        "max_slots_strong": 4,
-        "max_slots_neutral": 2,
-        "max_slots_weak": 0,
-        "exit_ma": 20,
-        "trailing_pct": 0.08,
-        "max_hold": 80,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 197501.82212499902,
-      "cagr": -0.2770400797847007,
-      "cagr_years": 5,
-      "max_dd": -0.8031670982528742,
-      "completed_trades": 562,
-      "orders": 1439,
-      "buy_fill_rate": 0.6419612314709237,
-      "positive_years": 0,
-      "worst_year": -0.40818811374999997,
-      "annual_std": 0.10614102897021946,
-      "annual": {
-        "2021": {
-          "return": -0.40818811374999997,
-          "max_dd": -0.43085645986680077,
-          "end_nav": 591811.88625
-        },
-        "2022": {
-          "return": -0.14668312181098997,
-          "max_dd": -0.1693302100173888,
-          "end_nav": 505003.0712499995
-        },
-        "2023": {
-          "return": -0.21612681429806369,
-          "max_dd": -0.2163146726155818,
-          "end_nav": 395858.36624999903
-        },
-        "2024": {
-          "return": -0.38341122088132773,
-          "max_dd": -0.38341122088132773,
-          "end_nav": 244081.82674999913
-        },
-        "2025": {
-          "return": -0.19083765983409207,
-          "max_dd": -0.19083765983409207,
-          "end_nav": 197501.82212499902
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 46,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
+        "score_threshold": 0.68,
         "limit_discount": 0.005,
-        "max_position_pct": 0.16,
-        "max_slots_strong": 4,
+        "max_position_pct": 0.2,
+        "max_slots_strong": 5,
         "max_slots_neutral": 3,
         "max_slots_weak": 0,
         "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.3
+        "trailing_pct": 0.1,
+        "max_hold": 100,
+        "momentum_decay_pct": 0.25
       },
       "qualified": false,
-      "end_nav": 188847.53000000003,
-      "cagr": -0.2834899904971654,
+      "end_nav": 117132.95362500046,
+      "cagr": -0.34876787057656955,
       "cagr_years": 5,
-      "max_dd": -0.8111524699999999,
-      "completed_trades": 348,
-      "orders": 827,
-      "buy_fill_rate": 0.7306889352818372,
+      "max_dd": -0.8828670463749996,
+      "completed_trades": 394,
+      "orders": 951,
+      "buy_fill_rate": 0.7127468581687613,
       "positive_years": 0,
-      "worst_year": -0.4374692539622699,
-      "annual_std": 0.12954825767539924,
+      "worst_year": -0.47039598375,
+      "annual_std": 0.09203312099839922,
       "annual": {
         "2021": {
-          "return": -0.4180454225000001,
-          "max_dd": -0.42871365125000016,
-          "end_nav": 581954.5774999999
+          "return": -0.47039598375,
+          "max_dd": -0.5107213537499999,
+          "end_nav": 529604.01625
         },
         "2022": {
-          "return": -0.13137383131933467,
-          "max_dd": -0.1665830117529591,
-          "end_nav": 505500.9750000002
+          "return": -0.21412988434828517,
+          "max_dd": -0.2527942569394075,
+          "end_nav": 416199.9695000001
         },
         "2023": {
-          "return": -0.17302716775175375,
-          "max_dd": -0.220817710696803,
-          "end_nav": 418035.5730000001
+          "return": -0.34491272650129257,
+          "max_dd": -0.35593693748343735,
+          "end_nav": 272647.3032500003
         },
         "2024": {
-          "return": -0.4374692539622699,
-          "max_dd": -0.4837539858762383,
-          "end_nav": 235157.86275000006
+          "return": -0.4098699424785155,
+          "max_dd": -0.5161567651614316,
+          "end_nav": 160897.3687500003
         },
         "2025": {
-          "return": -0.19693295477529182,
-          "max_dd": -0.19880682894189972,
-          "end_nav": 188847.53000000003
+          "return": -0.27200205612436257,
+          "max_dd": -0.27200205612436257,
+          "end_nav": 117132.95362500046
         }
       }
     },
@@ -1371,171 +1430,112 @@
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.01,
-        "max_position_pct": 0.16,
+        "score_threshold": 0.68,
+        "limit_discount": 0.0,
+        "max_position_pct": 0.2,
         "max_slots_strong": 5,
         "max_slots_neutral": 2,
         "max_slots_weak": 0,
         "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.3
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.4
       },
       "qualified": false,
-      "end_nav": 183694.66,
-      "cagr": -0.28744349966221194,
+      "end_nav": 115002.0115,
+      "cagr": -0.3511548132128317,
       "cagr_years": 5,
-      "max_dd": -0.816366533098343,
-      "completed_trades": 363,
-      "orders": 929,
-      "buy_fill_rate": 0.6448763250883393,
+      "max_dd": -0.8868223580459749,
+      "completed_trades": 397,
+      "orders": 879,
+      "buy_fill_rate": 0.8298755186721992,
       "positive_years": 0,
-      "worst_year": -0.42863274414455177,
-      "annual_std": 0.11592470532321406,
+      "worst_year": -0.5600714539999999,
+      "annual_std": 0.14024998979321737,
       "annual": {
         "2021": {
-          "return": -0.39783090374999985,
-          "max_dd": -0.429241356756481,
-          "end_nav": 602169.0962500002
+          "return": -0.5600714539999999,
+          "max_dd": -0.5906121654108855,
+          "end_nav": 439928.5460000001
         },
         "2022": {
-          "return": -0.12631549090393912,
-          "max_dd": -0.16311984766687537,
-          "end_nav": 526105.81125
+          "return": -0.18231097238231975,
+          "max_dd": -0.21354051955291076,
+          "end_nav": 359724.745
         },
         "2023": {
-          "return": -0.21886429504821392,
-          "max_dd": -0.2573145278228314,
-          "end_nav": 410960.03375000006
+          "return": -0.2627515407648702,
+          "max_dd": -0.2820373514412856,
+          "end_nav": 265206.51399999997
         },
         "2024": {
-          "return": -0.42863274414455177,
-          "max_dd": -0.46330908380478375,
-          "end_nav": 234809.10674999992
+          "return": -0.432132842050026,
+          "max_dd": -0.5341766364081666,
+          "end_nav": 150602.06937499996
         },
         "2025": {
-          "return": -0.21768511220657727,
-          "max_dd": -0.21768511220657727,
-          "end_nav": 183694.66
+          "return": -0.23638491836626518,
+          "max_dd": -0.23638491836626518,
+          "end_nav": 115002.0115
         }
       }
     },
     {
       "family": "PULLBACK_RS",
       "shard": 2,
-      "lane_trial": 58,
+      "lane_trial": 1,
       "params": {
         "family": "PULLBACK_RS",
         "min_avgamt20": 30000000.0,
         "min_price": 10.0,
         "max_price": 3000.0,
-        "score_threshold": 0.64,
+        "score_threshold": 0.8,
         "limit_discount": 0.0,
-        "max_position_pct": 0.16,
+        "max_position_pct": 0.12,
         "max_slots_strong": 5,
-        "max_slots_neutral": 3,
+        "max_slots_neutral": 2,
         "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.16,
-        "max_hold": 40,
-        "momentum_decay_pct": 0.3
+        "exit_ma": 20,
+        "trailing_pct": 0.1,
+        "max_hold": 60,
+        "momentum_decay_pct": 0.25
       },
       "qualified": false,
-      "end_nav": 182802.5997500002,
-      "cagr": -0.28813691303342637,
+      "end_nav": 112758.26399999979,
+      "cagr": -0.35370666652667393,
       "cagr_years": 5,
-      "max_dd": -0.8171974002499998,
-      "completed_trades": 386,
-      "orders": 853,
-      "buy_fill_rate": 0.8329764453961456,
+      "max_dd": -0.8900382759607893,
+      "completed_trades": 618,
+      "orders": 1360,
+      "buy_fill_rate": 0.8355795148247979,
       "positive_years": 0,
-      "worst_year": -0.35392747499999955,
-      "annual_std": 0.07095228015362391,
+      "worst_year": -0.5382161925000004,
+      "annual_std": 0.13523012728323341,
       "annual": {
         "2021": {
-          "return": -0.35392747499999955,
-          "max_dd": -0.3692515224999995,
-          "end_nav": 646072.5250000005
+          "return": -0.5382161925000004,
+          "max_dd": -0.5611245013113326,
+          "end_nav": 461783.80749999953
         },
         "2022": {
-          "return": -0.225226736348214,
-          "max_dd": -0.23088031594586533,
-          "end_nav": 500559.71875000047
+          "return": -0.1985263591123212,
+          "max_dd": -0.21644116709675887,
+          "end_nav": 370107.5494999996
         },
         "2023": {
-          "return": -0.1781098186898401,
-          "max_dd": -0.21798964127636133,
-          "end_nav": 411405.11800000054
+          "return": -0.33227462170425104,
+          "max_dd": -0.33313464154850747,
+          "end_nav": 247130.20349999986
         },
         "2024": {
-          "return": -0.3530136339966482,
-          "max_dd": -0.42608105893343806,
-          "end_nav": 266173.5022500005
+          "return": -0.43706107942407,
+          "max_dd": -0.4619446232713713,
+          "end_nav": 139119.20999999985
         },
         "2025": {
-          "return": -0.3132201432346,
-          "max_dd": -0.3132201432346,
-          "end_nav": 182802.5997500002
-        }
-      }
-    },
-    {
-      "family": "PULLBACK_RS",
-      "shard": 2,
-      "lane_trial": 42,
-      "params": {
-        "family": "PULLBACK_RS",
-        "min_avgamt20": 30000000.0,
-        "min_price": 10.0,
-        "max_price": 3000.0,
-        "score_threshold": 0.64,
-        "limit_discount": 0.0,
-        "max_position_pct": 0.16,
-        "max_slots_strong": 5,
-        "max_slots_neutral": 3,
-        "max_slots_weak": 0,
-        "exit_ma": 40,
-        "trailing_pct": 0.12,
-        "max_hold": 120,
-        "momentum_decay_pct": 0.3
-      },
-      "qualified": false,
-      "end_nav": 179543.63337499992,
-      "cagr": -0.29069339835162067,
-      "cagr_years": 5,
-      "max_dd": -0.8204563666250001,
-      "completed_trades": 393,
-      "orders": 866,
-      "buy_fill_rate": 0.8393234672304439,
-      "positive_years": 0,
-      "worst_year": -0.35951353250000007,
-      "annual_std": 0.05028465096368491,
-      "annual": {
-        "2021": {
-          "return": -0.35951353250000007,
-          "max_dd": -0.38886175875000006,
-          "end_nav": 640486.4674999999
-        },
-        "2022": {
-          "return": -0.22840220273662526,
-          "max_dd": -0.23305469542738488,
-          "end_nav": 494197.9475
-        },
-        "2023": {
-          "return": -0.2442736101205677,
-          "max_dd": -0.2860375460702632,
-          "end_nav": 373478.43075000023
-        },
-        "2024": {
-          "return": -0.33269752553173404,
-          "max_dd": -0.41614021465453355,
-          "end_nav": 249223.08100000006
-        },
-        "2025": {
-          "return": -0.2795866552384052,
-          "max_dd": -0.2795866552384052,
-          "end_nav": 179543.63337499992
+          "return": -0.18948458663616685,
+          "max_dd": -0.201095894664727,
+          "end_nav": 112758.26399999979
         }
       }
     }
