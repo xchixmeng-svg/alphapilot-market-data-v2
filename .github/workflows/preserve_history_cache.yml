@@ -1,0 +1,116 @@
+name: Preserve 2020-2025 Historical Data
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [clean-research-20260828]
+    paths:
+      - '.github/workflows/preserve_history_cache.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  preserve-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: clean-research-20260828
+          fetch-depth: 0
+
+      - name: Restore complete historical cache
+        uses: actions/cache@v4
+        with:
+          path: .clean_cache
+          key: alphapilot-clean-history-v1
+          restore-keys: |
+            alphapilot-clean-history-
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install audit dependencies
+        run: pip install pandas pyarrow
+
+      - name: Verify exact 2020-2025 cache before preservation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path('.clean_cache')
+          years = range(2020, 2026)
+          ohlcv_files = [root / f'ohlcv_{y}.parquet' for y in years]
+          inst_file = root / 'institutional_2020_2025.parquet'
+          missing = [str(p) for p in [*ohlcv_files, inst_file] if not p.exists()]
+          if missing:
+              raise SystemExit(f'MISSING CACHE FILES: {missing}')
+
+          frames = [pd.read_parquet(p, columns=['date','code']) for p in ohlcv_files]
+          o = pd.concat(frames, ignore_index=True)
+          i = pd.read_parquet(inst_file, columns=['date','market','code'])
+          report = {
+              'status': 'PASS',
+              'source': 'existing GitHub Actions cache alphapilot-clean-history-v1',
+              'years': '2020-2025',
+              'ohlcv_rows': int(len(o)),
+              'ohlcv_dates': int(o.date.nunique()),
+              'ohlcv_min': int(o.date.min()),
+              'ohlcv_max': int(o.date.max()),
+              'institutional_rows': int(len(i)),
+              'institutional_dates': int(i.date.nunique()),
+              'contains_0050': bool((o.code.astype(str).str.zfill(4) == '0050').any()),
+              'preservation_rule': 'immutable historical source; do not overwrite with strategy outputs'
+          }
+          if report['ohlcv_min'] != 20200102 or report['ohlcv_max'] != 20251231:
+              raise SystemExit(report)
+          if report['ohlcv_dates'] < 1450 or report['institutional_dates'] < int(report['ohlcv_dates'] * 0.98):
+              raise SystemExit(report)
+          (root / 'history_audit.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps(report, ensure_ascii=False))
+          PY
+
+      - name: Stage immutable historical archive
+        run: |
+          rm -rf /tmp/alphapilot-history
+          mkdir -p /tmp/alphapilot-history
+          cp .clean_cache/ohlcv_2020.parquet /tmp/alphapilot-history/
+          cp .clean_cache/ohlcv_2021.parquet /tmp/alphapilot-history/
+          cp .clean_cache/ohlcv_2022.parquet /tmp/alphapilot-history/
+          cp .clean_cache/ohlcv_2023.parquet /tmp/alphapilot-history/
+          cp .clean_cache/ohlcv_2024.parquet /tmp/alphapilot-history/
+          cp .clean_cache/ohlcv_2025.parquet /tmp/alphapilot-history/
+          cp .clean_cache/institutional_2020_2025.parquet /tmp/alphapilot-history/
+          cp .clean_cache/history_audit.json /tmp/alphapilot-history/
+          (cd /tmp/alphapilot-history && sha256sum *.parquet history_audit.json > SHA256SUMS)
+
+      - name: Commit archive to data-only main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B main origin/main
+          mkdir -p data/history/2020-2025
+          cp /tmp/alphapilot-history/* data/history/2020-2025/
+          cat > data/history/2020-2025/README.md <<'EOF'
+          # AlphaPilot historical market data — 2020–2025
+
+          Permanent source archive copied from the already-complete `alphapilot-clean-history-v1` Actions cache.
+
+          - 2020 is retained as warm-up/reference history.
+          - 2021–2025 are retained as formal historical evaluation data.
+          - This directory is data-only. Strategy code and backtest outputs must not be written here.
+          - `SHA256SUMS` is the integrity manifest for the preserved files.
+          - Existing historical files must not be overwritten by later daily-download jobs.
+          EOF
+          git add data/history/2020-2025
+          if git diff --cached --quiet; then
+            echo 'Historical archive already identical; nothing to commit.'
+          else
+            git commit -m 'Preserve immutable 2020-2025 historical market data'
+            git push origin HEAD:main
+          fi
