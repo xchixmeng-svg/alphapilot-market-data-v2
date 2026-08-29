@@ -1,0 +1,26 @@
+name: Export Institutional Data Only
+
+on:
+  push:
+    branches: [r10-full-recalc-20260830]
+    paths: ['.github/workflows/export_institutional_for_local.yml']
+  workflow_dispatch:
+
+jobs:
+  export-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main data
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Verify preserved institutional file
+        run: |
+          test -s data/history/2020-2025/institutional_2020_2025.parquet
+          sha256sum data/history/2020-2025/institutional_2020_2025.parquet
+      - name: Upload data artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: institutional-2020-2025
+          path: data/history/2020-2025/institutional_2020_2025.parquet
+          retention-days: 1
