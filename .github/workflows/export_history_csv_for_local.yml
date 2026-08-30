@@ -1,0 +1,33 @@
+name: Export Raw History CSV For Local Research
+on:
+  push:
+    paths:
+      - '.github/workflows/export_history_csv_for_local.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install parquet reader
+        run: python -m pip install --quiet pandas pyarrow
+      - name: Convert raw parquet to csv.gz only
+        run: |
+          mkdir -p export_csv
+          python - <<'PY'
+          import pandas as pd, glob, os
+          for p in sorted(glob.glob('data/history/2020-2025/ohlcv_*.parquet')) + ['data/history/2020-2025/institutional_2020_2025.parquet']:
+              df = pd.read_parquet(p)
+              out = 'export_csv/' + os.path.basename(p).replace('.parquet','.csv.gz')
+              df.to_csv(out,index=False,compression='gzip')
+              print(os.path.basename(p), df.shape, '->', out)
+          PY
+      - name: Package checksums
+        run: sha256sum export_csv/* > export_csv/SHA256SUMS.csv.gz.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-raw-history-csv-local
+          path: export_csv/
+          compression-level: 0
+          retention-days: 1
