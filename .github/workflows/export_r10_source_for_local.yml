@@ -21,3 +21,4 @@ jobs:
             scripts/build_r10_scan.py
             scripts/backtest_r10_stress.py
           retention-days: 1
+# export requested 2026-08-30
