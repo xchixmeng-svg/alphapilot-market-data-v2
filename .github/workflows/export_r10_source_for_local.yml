@@ -1,4 +1,4 @@
-name: Export R10 Source Only
+name: Export R10 Golden Master Full Package
 on:
   push:
     branches: [r10-full-recalc-20260830]
@@ -12,13 +12,28 @@ jobs:
         with:
           ref: backup-pre-clean-reset-20260828
       - run: |
-          test -s scripts/build_r10_scan.py
+          test -s golden/R10_GOLDEN_MASTER_summary.json
           test -s scripts/backtest_r10_stress.py
+          test -s scripts/build_r10_scan.py
+          test -s scripts/r10_fast_validation.py
+          test -s scripts/r10_locked_validation_v2.py
+          test -s scripts/r10_five_year_compound.py
       - uses: actions/upload-artifact@v4
         with:
-          name: archived-r10-source
+          name: r10-golden-master-full-package
           path: |
-            scripts/build_r10_scan.py
-            scripts/backtest_r10_stress.py
+            golden/
+            scripts/
+            tests/fixtures/golden_2021_2025/
+            tests/fixtures/r10_2021_2025_r05_exit_schedule.csv
+            tests/fixtures/r10_2021_2025_r05_orders_65.csv
+            docs/R10_HARD_CONTRACT_V2.md
+            docs/R10_LOCKED_RULES_SOURCE_OF_TRUTH.md
+            docs/R10_STRESS_BACKTEST.md
+            stress_results/full_battery/SUMMARY.md
+            stress_results/full_battery/summary.json
+            .github/workflows/r10_five_year_compound.yml
+            .github/workflows/r10_five_year_validation.yml
+            .github/workflows/r10_full_battery.yml
+            .github/workflows/r10_stress_backtest.yml
           retention-days: 1
-# export requested 2026-08-30
