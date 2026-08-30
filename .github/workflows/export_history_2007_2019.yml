@@ -1,0 +1,23 @@
+name: Export History 2007-2019 For Local Research
+on:
+  push:
+    paths:
+      - '.github/workflows/export_history_2007_2019.yml'
+  workflow_dispatch:
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package raw yearly history only
+        run: |
+          mkdir -p export
+          cp data/history/2007-2019/raw/yearly_*.zip export/
+          cp data/history/2007-2019/manifest.json export/ || true
+          sha256sum export/* > export/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-history-2007-2019-raw
+          path: export/
+          retention-days: 1
+          compression-level: 0
