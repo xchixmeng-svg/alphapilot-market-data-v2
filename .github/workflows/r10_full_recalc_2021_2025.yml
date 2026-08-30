@@ -68,6 +68,26 @@ jobs:
           grep -q 'ADV_CAP = 0.02' scripts/backtest_r10_stress.py
           python -m py_compile scripts/backtest_r10_stress.py scripts/build_r10_scan.py
 
+      - name: Diagnose R7 benchmark/breadth calendar
+        shell: python
+        run: |
+          from scripts import backtest_r10_stress as bt
+          cfg=bt.SCENARIOS['validation2021_2025']
+          raw=bt.load_scenario_ohlcv(cfg)
+          feat,_,bm=bt.build_features(raw)
+          lo,hi=bt.intdate(cfg['eval_start']),bt.intdate(cfg['eval_end'])
+          eval_dates=sorted(int(x) for x in feat.date.unique() if lo<=int(x)<=hi)
+          bm_dates=set(int(x) for x in bm.date.unique())
+          missing_bm=[d for d in eval_dates if d not in bm_dates]
+          missing_breadth=[]
+          for d in eval_dates:
+              x=feat[feat.date==d]
+              e=x[(x.amt20>=30_000_000)&x.aclose.notna()]
+              if e.empty: missing_breadth.append(d)
+          print(f'[R7 CALENDAR] eval_dates={len(eval_dates)} bm_dates={len(bm_dates)}')
+          print(f'[R7 CALENDAR] missing_benchmark_count={len(missing_bm)} first={missing_bm[:20]}')
+          print(f'[R7 CALENDAR] missing_breadth_count={len(missing_breadth)} first={missing_breadth[:20]}')
+
       - name: Full daily recalculation 2021-2025
         run: python scripts/backtest_r10_stress.py --scenario validation2021_2025
 
