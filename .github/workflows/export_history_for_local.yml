@@ -1,0 +1,28 @@
+name: Export Raw History For Local Research
+on:
+  push:
+    paths:
+      - '.github/workflows/export_history_for_local.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify raw history files
+        run: |
+          ls -lh data/history/2020-2025/
+          sha256sum data/history/2020-2025/ohlcv_*.parquet data/history/2020-2025/institutional_2020_2025.parquet > /tmp/SHA256SUMS_LOCAL_EXPORT
+      - name: Package raw data only
+        run: |
+          mkdir -p export
+          cp data/history/2020-2025/ohlcv_*.parquet export/
+          cp data/history/2020-2025/institutional_2020_2025.parquet export/
+          cp /tmp/SHA256SUMS_LOCAL_EXPORT export/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-raw-history-local
+          path: export/
+          compression-level: 0
+          retention-days: 1
