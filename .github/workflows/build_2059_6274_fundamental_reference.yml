@@ -1,0 +1,28 @@
+name: Build 2059 6274 Fundamental Reference
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_2059_6274_fundamental_reference.py'
+      - '.github/workflows/build_2059_6274_fundamental_reference.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - run: python scripts/build_2059_6274_fundamental_reference.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot_2059_6274_Fundamental_Reference
+          path: AlphaPilot_2059_6274_Fundamental_Reference.zip
+          retention-days: 7
