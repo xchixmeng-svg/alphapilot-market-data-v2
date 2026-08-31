@@ -1,121 +1,206 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import csv, gzip, hashlib, json, os, re, time, zipfile
-from datetime import datetime, timezone
+import csv, gzip, hashlib, io, json, re, time, zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+import pandas as pd
 import requests
 
 ROOT=Path(__file__).resolve().parent.parent
-OUT=ROOT/'data'/'history'/'2026-fundamental'
-OUT.mkdir(parents=True, exist_ok=True)
-API='https://api.finmindtrade.com/api/v4/data'
-TOKEN=os.environ.get('FINMIND_TOKEN','').strip()
-S=requests.Session(); S.headers.update({'User-Agent':'Mozilla/5.0 AlphaPilot-Fundamental/1.0','Accept':'application/json'})
+OUT=ROOT/'data'/'history'/'2026-fundamental'; OUT.mkdir(parents=True,exist_ok=True)
+HEAD={'User-Agent':'Mozilla/5.0 AlphaPilot-Fundamental/2.0','Accept':'application/json,text/html,text/csv,*/*'}
 
-def get_dataset(dataset,start,end,timeout=300):
-    params={'dataset':dataset,'start_date':start,'end_date':end}
-    if TOKEN: params['token']=TOKEN
+def get(url,params=None,timeout=90):
     last=None
     for i in range(5):
         try:
-            r=S.get(API,params=params,timeout=timeout); r.raise_for_status(); j=r.json()
-            status=j.get('status')
-            if status not in (200,None): raise RuntimeError(f"FinMind status={status} msg={j.get('msg')}")
-            data=j.get('data')
-            if not isinstance(data,list): raise RuntimeError(f'FinMind {dataset}: data is not list')
-            if not data: raise RuntimeError(f'FinMind {dataset}: empty data')
-            print(f'[DATA] {dataset} rows={len(data)}',flush=True)
-            return data
+            r=requests.get(url,params=params,headers=HEAD,timeout=timeout); r.raise_for_status(); return r
         except Exception as e:
-            last=e
-            if i<4: time.sleep(min(20,2**i))
-    raise RuntimeError(f'{dataset} failed: {last}')
+            last=e; time.sleep(min(8,2**i))
+    raise RuntimeError(f'GET failed {url}: {last}')
 
-def write_gz_csv(path, rows, fields=None):
-    if not rows: raise RuntimeError(f'empty rows: {path}')
+def code4(x):
+    s=str(x or '').strip().replace('=','').replace('"','')
+    return s if re.fullmatch(r'\d{4}',s) else None
+
+def num(x):
+    s=str(x or '').strip().replace(',','').replace('%','')
+    if s in ('','-','--','N/A','nan','None'): return None
+    try:return float(s)
+    except:return None
+
+def flatcols(df):
+    if isinstance(df.columns,pd.MultiIndex):
+        df.columns=['|'.join(str(v) for v in c if str(v)!='nan') for c in df.columns]
+    else: df.columns=[str(c) for c in df.columns]
+    return df
+
+def write_gz(path,rows,fields=None):
+    if not rows: raise RuntimeError(f'empty {path}')
     if fields is None:
-        seen=[]; ss=set()
+        fields=[]; seen=set()
         for r in rows:
             for k in r:
-                if k not in ss: ss.add(k); seen.append(k)
-        fields=seen
+                if k not in seen: seen.add(k); fields.append(k)
     with gzip.open(path,'wt',newline='',encoding='utf-8-sig') as f:
         w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore'); w.writeheader(); w.writerows(rows)
     return fields
 
-def sha256(path):
+def sha256(p):
     h=hashlib.sha256()
-    with path.open('rb') as f:
-        for b in iter(lambda:f.read(1024*1024),b''): h.update(b)
+    with p.open('rb') as f:
+        for b in iter(lambda:f.read(1<<20),b''): h.update(b)
     return h.hexdigest()
 
-def code_ok(v): return bool(re.fullmatch(r'\d{4}',str(v or '').strip()))
+# ---------- 1) Monthly revenue history: official MOPS static archive ----------
+def fetch_month(y,m,market):
+    roc=y-1911
+    url=f'https://mops.twse.com.tw/nas/t21/{market}/t21sc03_{roc}_{m}_0.html'
+    r=get(url,timeout=60); r.encoding='big5'
+    tables=pd.read_html(io.StringIO(r.text))
+    out=[]
+    for t in tables:
+        t=flatcols(t)
+        cols=list(t.columns)
+        code_col=next((c for c in cols if '公司代號' in c),None)
+        name_col=next((c for c in cols if '公司名稱' in c),None)
+        rev_col=next((c for c in cols if ('當月營收' in c and '去年' not in c)),None)
+        prev_col=next((c for c in cols if '上月營收' in c),None)
+        last_col=next((c for c in cols if '去年當月營收' in c),None)
+        yoy_col=next((c for c in cols if '去年同月增減' in c or '去年同月增減%' in c),None)
+        mom_col=next((c for c in cols if '上月比較增減' in c or '上月比較增減%' in c),None)
+        if not code_col or not rev_col: continue
+        for _,row in t.iterrows():
+            c=code4(row.get(code_col))
+            if not c: continue
+            out.append({'year':y,'month':m,'market':'TWSE' if market=='sii' else 'TPEX','code':c,
+                        'name':str(row.get(name_col,'')) if name_col else '',
+                        'revenue_thousand_n':num(row.get(rev_col)),
+                        'prev_month_revenue_thousand_n':num(row.get(prev_col)) if prev_col else None,
+                        'last_year_month_revenue_thousand_n':num(row.get(last_col)) if last_col else None,
+                        'mops_mom_pct':num(row.get(mom_col)) if mom_col else None,
+                        'mops_yoy_pct':num(row.get(yoy_col)) if yoy_col else None,
+                        'source_url':url})
+    return out
 
-# We deliberately fetch enough history to calculate YoY revenue and trailing valuation without future leakage.
-rev=get_dataset('TaiwanStockMonthRevenue','2024-01-01','2026-08-31')
-fs=get_dataset('TaiwanStockFinancialStatements','2024-01-01','2026-08-31')
-per=get_dataset('TaiwanStockPER','2026-01-01','2026-08-31')
-
-# Preserve 4-digit stock universe only, as strings; no numeric conversion of stock codes.
-rev=[r for r in rev if code_ok(r.get('stock_id'))]
-fs=[r for r in fs if code_ok(r.get('stock_id'))]
-per=[r for r in per if code_ok(r.get('stock_id'))]
-
-p_rev=OUT/'month_revenue_2024_2026.csv.gz'; f_rev=write_gz_csv(p_rev,rev)
-p_fs=OUT/'financial_statements_2024_2026.csv.gz'; f_fs=write_gz_csv(p_fs,fs)
-p_per=OUT/'daily_valuation_2026.csv.gz'; f_per=write_gz_csv(p_per,per)
-
-# EPS extract: retain any financial-statement row whose standardized or original label denotes EPS.
-eps=[]
-for r in fs:
-    blob='|'.join(str(r.get(k,'')) for k in ('type','origin_name','name','statement'))
-    low=blob.lower()
-    if ('eps' in low) or ('每股盈餘' in blob) or ('每股盈余' in blob) or ('基本每股' in blob) or ('稀釋每股' in blob):
-        eps.append(r)
-p_eps=OUT/'eps_actual_2024_2026.csv.gz'
-if eps: f_eps=write_gz_csv(p_eps,eps)
-else:
-    # Keep explicit audit instead of silently fabricating an EPS file.
-    p_eps=None; f_eps=[]
-
-# Revenue growth derived table. Use only rows as published in source; no future values are backfilled.
-# We calculate YoY/MoM if fields are available directly from source, otherwise leave derivation for analysis layer.
-rev_der=[]
-by={}
+rev=[]; rev_fail=[]
+for y in (2024,2025,2026):
+    maxm=12 if y<2026 else 7  # Aug revenue is not fully reported on Aug 31.
+    for m in range(1,maxm+1):
+        for market in ('sii','otc'):
+            try:
+                rows=fetch_month(y,m,market); rev.extend(rows)
+                print('[REV]',y,m,market,len(rows),flush=True)
+            except Exception as e:
+                rev_fail.append({'year':y,'month':m,'market':market,'error':str(e)}); print('[REV FAIL]',y,m,market,e,flush=True)
+# dedupe authoritative key
+rev=list({(r['year'],r['month'],r['market'],r['code']):r for r in rev}.values())
+# derive clean YoY/MoM from raw revenue
+idx={(r['code'],r['year'],r['month']):r['revenue_thousand_n'] for r in rev if r['revenue_thousand_n'] is not None}
 for r in rev:
-    sid=str(r.get('stock_id'))
-    y=r.get('revenue_year'); m=r.get('revenue_month'); val=r.get('revenue')
-    try: key=(sid,int(y),int(m)); v=float(val)
-    except Exception: continue
-    by[key]=v
-for (sid,y,m),v in sorted(by.items()):
-    py=by.get((sid,y-1,m)); pm=by.get((sid,y-1,12)) if m==1 else by.get((sid,y,m-1))
-    rev_der.append({'stock_id':sid,'revenue_year':y,'revenue_month':m,'revenue':v,
-                    'yoy_pct':None if py in (None,0) else (v/py-1)*100,
-                    'mom_pct':None if pm in (None,0) else (v/pm-1)*100})
-p_revd=OUT/'month_revenue_growth_2024_2026.csv.gz'; f_revd=write_gz_csv(p_revd,rev_der)
+    v=r['revenue_thousand_n']; y=r['year']; m=r['month']; c=r['code']
+    py=idx.get((c,y-1,m)); pm=idx.get((c,y-1,12)) if m==1 else idx.get((c,y,m-1))
+    r['yoy_pct']=None if v is None or py in (None,0) else (v/py-1)*100
+    r['mom_pct']=None if v is None or pm in (None,0) else (v/pm-1)*100
+rev=sorted(rev,key=lambda r:(r['year'],r['month'],r['market'],r['code']))
+p_rev=OUT/'monthly_revenue_2024_2026.csv.gz'; write_gz(p_rev,rev)
 
+# ---------- 2) Latest reported EPS / income statement snapshot: official MOPS open data ----------
+def fetch_eps_csv(suffix):
+    url=f'https://mopsfin.twse.com.tw/opendata/t187ap14_{suffix}.csv'
+    r=get(url,timeout=90)
+    text=r.content.decode('utf-8-sig','ignore')
+    rows=[]
+    for x in csv.DictReader(io.StringIO(text)):
+        c=code4(x.get('公司代號'))
+        if not c: continue
+        rows.append({'market':'TWSE' if suffix=='L' else 'TPEX','report_date':x.get('出表日期'),'year_roc':x.get('年度'),'quarter':x.get('季別'),
+                     'code':c,'name':x.get('公司名稱',''),'industry':x.get('產業別',''),'eps_basic':num(x.get('基本每股盈餘(元)')),
+                     'revenue':num(x.get('營業收入')),'operating_income':num(x.get('營業利益')),'non_operating':num(x.get('營業外收入及支出')),'net_income':num(x.get('稅後淨利')),
+                     'source_url':url})
+    if not rows: raise RuntimeError(f'empty EPS {suffix}')
+    return rows
+
+eps=[]; eps_fail=[]
+for suffix in ('L','O'):
+    try:
+        rows=fetch_eps_csv(suffix); eps.extend(rows); print('[EPS]',suffix,len(rows),flush=True)
+    except Exception as e:
+        eps_fail.append({'market':suffix,'error':str(e)}); print('[EPS FAIL]',suffix,e,flush=True)
+eps=sorted(eps,key=lambda r:(r['market'],r['code']))
+p_eps=OUT/'eps_latest_2026.csv.gz'; write_gz(p_eps,eps)
+
+# ---------- 3) Daily P/E, P/B, dividend yield history 2026: official TWSE + TPEx ----------
+def weekdays(start,end):
+    d=start
+    while d<=end:
+        if d.weekday()<5: yield d
+        d+=timedelta(days=1)
+
+def twse_val(d):
+    ds=d.strftime('%Y%m%d')
+    j=get('https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d',{'response':'json','date':ds,'selectType':'ALL'},timeout=60).json()
+    fields=j.get('fields') or []; data=j.get('data') or []
+    out=[]
+    for vals in data:
+        r=dict(zip(fields,vals)); c=code4(r.get('證券代號'))
+        if not c: continue
+        out.append({'date':d.isoformat(),'market':'TWSE','code':c,'name':r.get('證券名稱',''),
+                    'pe':num(r.get('本益比')),'pb':num(r.get('股價淨值比')),'dividend_yield_pct':num(r.get('殖利率(%)'))})
+    return out
+
+def tpex_val(d):
+    roc=f'{d.year-1911}/{d.month:02d}/{d.day:02d}'
+    j=get('https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php',{'l':'zh-tw','o':'json','d':roc,'c':''},timeout=60).json()
+    data=j.get('aaData') or (j.get('tables',[{}])[0].get('data') if j.get('tables') else []) or []
+    out=[]
+    for row in data:
+        if isinstance(row,dict):
+            c=code4(row.get('SecuritiesCompanyCode') or row.get('股票代號') or row.get('代號'))
+            if not c: continue
+            out.append({'date':d.isoformat(),'market':'TPEX','code':c,'name':row.get('CompanyName') or row.get('名稱') or '',
+                        'pe':num(row.get('PriceEarningRatio') or row.get('本益比')),'pb':num(row.get('PriceBookRatio') or row.get('股價淨值比')),
+                        'dividend_yield_pct':num(row.get('DividendYield') or row.get('殖利率(%)'))})
+        elif isinstance(row,list) and len(row)>=7:
+            c=code4(row[0])
+            if c: out.append({'date':d.isoformat(),'market':'TPEX','code':c,'name':str(row[1]),'pe':num(row[2]),'pb':num(row[6]),'dividend_yield_pct':num(row[5])})
+    return out
+
+dates=list(weekdays(date(2026,1,1),date(2026,8,28)))
+vals=[]; val_fail=[]
+def task(m,d): return m,d,(twse_val(d) if m=='TWSE' else tpex_val(d))
+with ThreadPoolExecutor(max_workers=6) as ex:
+    fut=[ex.submit(task,m,d) for d in dates for m in ('TWSE','TPEX')]
+    for i,f in enumerate(as_completed(fut),1):
+        try:
+            m,d,rows=f.result()
+            if rows: vals.extend(rows)
+        except Exception as e:
+            val_fail.append({'error':str(e)})
+        if i%40==0 or i==len(fut): print('[VAL]',i,'/',len(fut),'rows',len(vals),'fails',len(val_fail),flush=True)
+vals=list({(r['date'],r['market'],r['code']):r for r in vals}.values()); vals=sorted(vals,key=lambda r:(r['date'],r['market'],r['code']))
+p_val=OUT/'daily_valuation_2026.csv.gz'; write_gz(p_val,vals)
+
+# Audit coverage and package.
+coverage={'revenue_rows':len(rev),'revenue_months':len({(r['year'],r['month']) for r in rev}),'eps_rows':len(eps),
+          'eps_markets':sorted({r['market'] for r in eps}),'valuation_rows':len(vals),
+          'valuation_dates_twse':len({r['date'] for r in vals if r['market']=='TWSE'}),'valuation_dates_tpex':len({r['date'] for r in vals if r['market']=='TPEX'})}
+if len(rev)<20000: raise RuntimeError(f'revenue coverage too low: {coverage}')
+if len(eps)<1000: raise RuntimeError(f'EPS coverage too low: {coverage}, failures={eps_fail}')
+if coverage['valuation_dates_twse']<140 or coverage['valuation_dates_tpex']<140: raise RuntimeError(f'valuation date coverage too low: {coverage}')
 files=[]
-for p in [p_rev,p_revd,p_fs,p_eps,p_per]:
-    if p and p.exists(): files.append({'file':p.name,'bytes':p.stat().st_size,'sha256':sha256(p)})
-manifest={
- 'dataset':'AlphaPilot 2026 Fundamental Layer',
- 'generated_at_utc':datetime.now(timezone.utc).isoformat(),
- 'source':'FinMind API v4 public datasets (token used only if repository secret exists)',
- 'source_datasets':['TaiwanStockMonthRevenue','TaiwanStockFinancialStatements','TaiwanStockPER'],
- 'coverage':{'revenue':'2024-01 through 2026-08 requested','financial_statements':'2024-01-01 through 2026-08-31 requested','valuation':'2026-01-01 through 2026-08-31 requested'},
- 'rows':{'month_revenue':len(rev),'month_revenue_growth':len(rev_der),'financial_statements':len(fs),'eps_extract':len(eps),'daily_valuation':len(per)},
- 'stock_code_policy':'stock_id preserved as string; only exact 4-digit codes retained; leading-zero ETFs/securities excluded from stock universe',
- 'point_in_time_note':'Raw source dates are preserved. Backtests must apply publication/availability dates and must not use reports before they were public.',
- 'eps_revision_note':'This package contains actual reported EPS/fundamentals, not historical analyst-consensus EPS revisions. AlphaPilot EPS Revision Proxy must be derived point-in-time from revenue/financial trends.',
- 'files':files,
- 'fields':{'month_revenue':f_rev,'financial_statements':f_fs,'eps_extract':f_eps,'daily_valuation':f_per}
-}
+for p in (p_rev,p_eps,p_val): files.append({'file':p.name,'bytes':p.stat().st_size,'sha256':sha256(p)})
+manifest={'dataset':'AlphaPilot 2026 Fundamental Layer','generated_at_utc':datetime.now(timezone.utc).isoformat(),'sources':{
+ 'monthly_revenue':'Official MOPS static monthly revenue archive (listed + OTC)','eps':'Official MOPS financial open data t187ap14_L/O','valuation':'Official TWSE BWIBBU_d + TPEx peratio_analysis'},
+ 'coverage':coverage,'failures':{'revenue':rev_fail,'eps':eps_fail,'valuation_count':len(val_fail)},
+ 'point_in_time_note':'Revenue rows are monthly historical publications. EPS file is the latest official reported-quarter snapshot as of build time. Daily valuation rows preserve historical dates. For backtests, never expose latest EPS snapshot to dates before its report date.',
+ 'analyst_revision_note':'This is actual public fundamental/valuation data, not paid historical analyst-consensus EPS revisions. Use monthly revenue acceleration + reported EPS + historical P/E/P/B to construct the AlphaPilot EPS Revision / Re-rating proxy.',
+ 'stock_code_policy':'4-digit stock codes retained as strings; leading-zero ETFs excluded.','files':files}
 (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
-readme=OUT/'README.txt'
-readme.write_text('AlphaPilot 2026 Fundamental Layer\n\nIncludes monthly revenue + YoY/MoM, reported financial statements/EPS extract, and daily PER/PBR valuation source rows.\nHistorical analyst consensus EPS revisions are NOT claimed; use the data to construct a point-in-time EPS Revision Proxy.\n',encoding='utf-8')
+(OUT/'README.txt').write_text('AlphaPilot 2026 Fundamental Layer\nOfficial monthly revenue history, latest reported EPS snapshot, and 2026 daily P/E/P/B/dividend-yield history.\n',encoding='utf-8')
 zip_path=ROOT/'AlphaPilot_2026_Fundamental_Layer.zip'
 with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as z:
     for p in sorted(OUT.iterdir()): z.write(p,arcname='2026-Fundamental/'+p.name)
 print('[DONE]',zip_path,'bytes',zip_path.stat().st_size,flush=True)
-print(json.dumps(manifest['rows'],ensure_ascii=False),flush=True)
+print(json.dumps(coverage,ensure_ascii=False),flush=True)
