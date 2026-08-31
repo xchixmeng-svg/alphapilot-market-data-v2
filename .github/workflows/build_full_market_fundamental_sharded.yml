@@ -1,0 +1,58 @@
+name: Build Full Market Fundamental Sharded
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_full_market_fundamental_sharded.py'
+      - '.github/workflows/build_full_market_fundamental_sharded.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Fetch shard
+        run: python scripts/build_full_market_fundamental_sharded.py shard --index ${{ matrix.shard }} --total 20
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.shard }}
+          path: shard_out/${{ format('{0:00}', matrix.shard) }}
+          retention-days: 7
+  aggregate:
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shard-*
+          path: downloaded_shards
+          merge-multiple: false
+      - name: Aggregate full market package
+        run: python scripts/build_full_market_fundamental_sharded.py aggregate --root downloaded_shards --total 20
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot_Full_Market_Fundamental_2024_2026
+          path: AlphaPilot_Full_Market_Fundamental_2024_2026.zip
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot_Full_Market_Fundamental_Audit
+          path: data/history/full-market-fundamental-2024-2026
+          retention-days: 7
