@@ -2,6 +2,15 @@ name: Research strategy versus 0050
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/research_beat_0050.py'
+      - '.github/workflows/research_beat_0050.yml'
+
+concurrency:
+  group: research-beat-0050
+  cancel-in-progress: true
 
 jobs:
   research:
