@@ -28,7 +28,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: shard-${{ matrix.shard }}
-          path: shard_out/${{ format('{0:00}', matrix.shard) }}
+          path: shard_out/*
           retention-days: 7
   aggregate:
     needs: shard
