@@ -12,14 +12,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install requests
+      - run: pip install requests pandas lxml
       - name: Build fundamental package
         run: python scripts/build_2026_fundamental_layer.py
       - uses: actions/upload-artifact@v4
