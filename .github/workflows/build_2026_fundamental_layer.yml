@@ -1,0 +1,34 @@
+name: Build 2026 Fundamental Layer
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_2026_fundamental_layer.py'
+      - '.github/workflows/build_2026_fundamental_layer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Build fundamental package
+        run: python scripts/build_2026_fundamental_layer.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot_2026_Fundamental_Layer
+          path: AlphaPilot_2026_Fundamental_Layer.zip
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot_2026_Fundamental_Audit
+          path: data/history/2026-fundamental
+          retention-days: 7
