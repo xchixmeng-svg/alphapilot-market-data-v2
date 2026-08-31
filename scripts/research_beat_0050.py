@@ -44,21 +44,38 @@ def load_data(root: Path) -> pd.DataFrame:
         d[c] = pd.to_numeric(d[c], errors="coerce")
     d = d.dropna(subset=["date", "code", "open", "high", "low", "close", "volume"])
     d = d[(d.open > 0) & (d.high > 0) & (d.low > 0) & (d.close > 0) & (d.volume >= 0)]
-    return d.sort_values(["code", "date"]).reset_index(drop=True)
+    d = d.sort_values(["code", "date"]).reset_index(drop=True)
+    # Detect true share splits from the overnight price ratio. Taiwan's daily
+    # price limit makes a ~50%/67%/75% gap unambiguous; ordinary ex-dividend
+    # gaps are intentionally left untouched.
+    prev_close = d.groupby("code", sort=False).close.shift()
+    overnight = d.open / prev_close
+    d["split_mult"] = 1
+    for mult in (2, 3, 4, 5, 10):
+        is_split = (overnight - 1 / mult).abs() <= 0.03 / mult
+        d.loc[is_split, "split_mult"] = mult
+    # Back-adjust prices only for signal continuity. Raw OHLC remains the
+    # execution price, and live positions receive the split multiplier below.
+    future_mult = d.groupby("code", sort=False).split_mult.transform(
+        lambda s: s.iloc[::-1].cumprod().iloc[::-1] / s
+    )
+    for col in ("open", "high", "low", "close"):
+        d[f"adj_{col}"] = d[col] / future_mult
+    return d
 
 
 def features(d: pd.DataFrame, p: Params) -> tuple[pd.DataFrame, pd.DataFrame]:
     x = d.copy()
     g = x.groupby("code", sort=False)
-    x["mom"] = g.close.pct_change(p.momentum_days) - g.close.pct_change(p.skip_days)
-    x["ma60"] = g.close.transform(lambda s: s.rolling(60, min_periods=60).mean())
-    x["ma120"] = g.close.transform(lambda s: s.rolling(120, min_periods=120).mean())
+    x["mom"] = g.adj_close.pct_change(p.momentum_days) - g.adj_close.pct_change(p.skip_days)
+    x["ma60"] = g.adj_close.transform(lambda s: s.rolling(60, min_periods=60).mean())
+    x["ma120"] = g.adj_close.transform(lambda s: s.rolling(120, min_periods=120).mean())
     x["adv20"] = (x.close * x.volume).groupby(x.code).transform(lambda s: s.rolling(20, min_periods=20).mean())
-    x["vol20"] = g.close.pct_change().groupby(x.code).transform(lambda s: s.rolling(20, min_periods=20).std())
+    x["vol20"] = g.adj_close.pct_change().groupby(x.code).transform(lambda s: s.rolling(20, min_periods=20).std())
     idx = x[x.code == "0050"].set_index("date").copy()
-    idx["market_ma"] = idx.close.rolling(p.market_ma, min_periods=p.market_ma).mean()
-    idx["market_ret"] = idx.close.pct_change(p.market_ret_days)
-    market = idx[["open", "low", "close", "market_ma", "market_ret"]]
+    idx["market_ma"] = idx.adj_close.rolling(p.market_ma, min_periods=p.market_ma).mean()
+    idx["market_ret"] = idx.adj_close.pct_change(p.market_ret_days)
+    market = idx[["open", "low", "close", "adj_close", "split_mult", "market_ma", "market_ret"]]
     return x, market
 
 
@@ -78,7 +95,11 @@ def benchmark(market: pd.DataFrame) -> tuple[pd.Series, dict]:
     buy = m.iloc[0].open * (1 + BUY_SLIP)
     shares = int((INITIAL_CASH / (buy * (1 + BUY_FEE))) // LOT_STEP * LOT_STEP)
     cash = INITIAL_CASH - shares * buy - shares * m.iloc[0].open * BUY_FEE
-    curve = cash + shares * m.close
+    values = []
+    for _, bar in m.iterrows():
+        shares *= int(bar.split_mult)
+        values.append(cash + shares * bar.close)
+    curve = pd.Series(values, index=m.index, name="benchmark_0050")
     curve.iloc[0] = INITIAL_CASH
     return curve, metrics(curve)
 
@@ -93,6 +114,15 @@ def simulate(d: pd.DataFrame, market: pd.DataFrame, p: Params) -> tuple[pd.Serie
         bars = by_day.get(day)
         if bars is None:
             continue
+        # Apply corporate-action share multipliers before valuation/execution.
+        for code in list(pos):
+            if code in bars.index:
+                mult = int(bars.at[code, "split_mult"])
+                if mult > 1:
+                    pos[code] *= mult
+                    trades.append({"date": str(day.date()), "side": "SPLIT", "code": code,
+                                   "shares": pos[code], "raw_price": float(bars.at[code, "open"]),
+                                   "modeled_price": float(bars.at[code, "open"])})
         # Execute yesterday's fully precommitted rebalance at today's prices.
         if pending:
             for code in list(pos):
@@ -122,11 +152,11 @@ def simulate(d: pd.DataFrame, market: pd.DataFrame, p: Params) -> tuple[pd.Serie
         # Signal uses this completed T bar only, for T+1.
         if i - last_rebalance >= p.rebalance_days and i + 1 < len(days):
             mr = market.loc[day]
-            risk_on = mr.close > mr.market_ma and mr.market_ret > 0
+            risk_on = mr.adj_close > mr.market_ma and mr.market_ret > 0
             targets, orders = [], []
             if risk_on:
                 q = bars[(bars.index.str.fullmatch(r"\d{4}")) & (bars.adv20 >= p.volume_floor_m * 1e6) &
-                         (bars.close > bars.ma60) & (bars.ma60 > bars.ma120) & bars.mom.notna() & bars.vol20.notna()].copy()
+                         (bars.adj_close > bars.ma60) & (bars.ma60 > bars.ma120) & bars.mom.notna() & bars.vol20.notna()].copy()
                 q["score"] = q.mom / q.vol20.clip(lower=0.005)
                 targets = list(q.nlargest(p.max_positions, "score").index)
                 orders = [(c, float(q.at[c, "close"]) * 1.02) for c in targets]
@@ -139,7 +169,10 @@ def simulate(d: pd.DataFrame, market: pd.DataFrame, p: Params) -> tuple[pd.Serie
 def main() -> None:
     ap = argparse.ArgumentParser(); ap.add_argument("--data", default="data/history/2020-2025"); ap.add_argument("--out", default="artifacts/beat_0050")
     a = ap.parse_args(); out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
-    raw = load_data(Path(a.data)); grid = itertools.product([10, 20, 40], [60, 120, 180], [5, 20], [60, 120], [20, 60], [30, 50])
+    raw = load_data(Path(a.data))
+    split_events = raw[raw.split_mult > 1][["date", "code", "split_mult", "open", "close"]]
+    split_events.to_csv(out / "detected_splits.csv", index=False)
+    grid = itertools.product([10, 20, 40], [60, 120, 180], [5, 20], [60, 120], [20, 60], [30, 50])
     rows, best = [], None
     for values in grid:
         p = Params(*values); d, market = features(raw, p); bcurve, bm = benchmark(market); curve, trades = simulate(d, market, p); m = metrics(curve)
