@@ -149,19 +149,21 @@ def simulate(d: pd.DataFrame, market: pd.DataFrame, p: Params) -> tuple[pd.Serie
             pending = None
         nav = cash + sum(sh * float(bars.at[c, "close"]) for c, sh in pos.items() if c in bars.index)
         curve.append(nav); curve_days.append(day)
-        # Signal uses this completed T bar only, for T+1.
-        if i - last_rebalance >= p.rebalance_days and i + 1 < len(days):
+        # Market risk is evaluated every close. A Risk-Off signal exits all
+        # positions at T+1 rather than waiting for the next selection cycle.
+        if i + 1 < len(days):
             mr = market.loc[day]
             risk_on = mr.adj_close > mr.market_ma and mr.market_ret > 0
-            targets, orders = [], []
-            if risk_on:
+            if not risk_on and pos:
+                pending = {"targets": [], "orders": []}
+            elif risk_on and i - last_rebalance >= p.rebalance_days:
                 q = bars[(bars.index.str.fullmatch(r"\d{4}")) & (bars.adv20 >= p.volume_floor_m * 1e6) &
                          (bars.adj_close > bars.ma60) & (bars.ma60 > bars.ma120) & bars.mom.notna() & bars.vol20.notna()].copy()
                 q["score"] = q.mom / q.vol20.clip(lower=0.005)
                 targets = list(q.nlargest(p.max_positions, "score").index)
                 orders = [(c, float(q.at[c, "close"]) * 1.02) for c in targets]
-            pending = {"targets": targets, "orders": orders}
-            last_rebalance = i
+                pending = {"targets": targets, "orders": orders}
+                last_rebalance = i
     s = pd.Series(curve, index=pd.DatetimeIndex(curve_days), name="nav")
     return s, trades
 
