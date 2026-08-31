@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import csv, io, json, re, time, zipfile, hashlib, os
+import csv, io, json, re, time, zipfile, hashlib
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,7 +27,7 @@ def n(x):
     except:return None
 
 def code4(x):
-    s=str(x or '').strip(); return s if re.fullmatch(r'\d{4}',s) else None
+    s=str(x or '').strip().strip('=').strip('"'); return s if re.fullmatch(r'\d{4}',s) else None
 
 def parse_date(v):
     s=re.sub(r'[^0-9]','',str(v or ''))
@@ -67,7 +67,7 @@ rows_ohlcv=sorted(ohlcv.values(),key=lambda r:(r['date'],r['code']))
 trade_dates=sorted({r['date'] for r in rows_ohlcv})
 write_csv(OUT/'ohlcv_2026_ytd.csv',rows_ohlcv,['date','code','name','volume','open','high','low','close'])
 
-# Official TWSE T86, parallel by trading date.
+# Official TWSE T86.
 def twse_t86(ds):
     j=get('https://www.twse.com.tw/rwd/zh/fund/T86',{'response':'json','date':ds.replace('-',''),'selectType':'ALLBUT0999'},timeout=60).json()
     fields=j.get('fields') or []; data=j.get('data') or []; out=[]
@@ -82,48 +82,50 @@ def twse_t86(ds):
     if not out: raise RuntimeError(f'TWSE T86 empty {ds}')
     return out
 
-twse=[]; failures=[]
-with ThreadPoolExecutor(max_workers=8) as ex:
-    fut={ex.submit(twse_t86,ds):ds for ds in trade_dates}
-    for i,f in enumerate(as_completed(fut),1):
-        ds=fut[f]
-        try: twse.extend(f.result())
-        except Exception as e: failures.append({'date':ds,'market':'TWSE','error':str(e)})
-        if i%20==0 or i==len(fut): print('[TWSE INST]',i,'/',len(fut),'rows',len(twse),'failures',len(failures),flush=True)
+def roc(ds):
+    d=datetime.strptime(ds,'%Y-%m-%d').date(); return f'{d.year-1911:03d}/{d.month:02d}/{d.day:02d}'
 
-# TPEx: use FinMind all-market institutional wide data, then keep non-TWSE 4-digit codes.
-token=os.environ.get('FINMIND_TOKEN','').strip()
-if not token: raise RuntimeError('FINMIND_TOKEN missing; cannot complete TPEx historical institutional data')
-params={'dataset':'TaiwanStockInstitutionalInvestorsBuySellWide','start_date':trade_dates[0],'end_date':trade_dates[-1],'token':token}
-fj=get('https://api.finmindtrade.com/api/v4/data',params,timeout=240).json()
-if fj.get('status') not in (200,None) or not isinstance(fj.get('data'),list): raise RuntimeError(f'FinMind failed: {fj.get("status")} {fj.get("msg")}')
-fm=fj['data']; print('[FINMIND] rows',len(fm),flush=True)
-twse_codes={r['code'] for r in twse}
-tpex=[]
-for r in fm:
-    c=code4(r.get('stock_id')); ds=str(r.get('date',''))[:10]
-    if not c or c in twse_codes or ds not in trade_dates: continue
-    fb=n(r.get('Foreign_Investor_buy')); fs=n(r.get('Foreign_Investor_sell'))
-    tb=n(r.get('Investment_Trust_buy')); ts=n(r.get('Investment_Trust_sell'))
-    db=n(r.get('Dealer_buy')); dsell=n(r.get('Dealer_sell'))
-    if db is None:
-        db=(n(r.get('Dealer_self_buy')) or 0)+(n(r.get('Dealer_Hedging_buy')) or 0)
-    if dsell is None:
-        dsell=(n(r.get('Dealer_self_sell')) or 0)+(n(r.get('Dealer_Hedging_sell')) or 0)
-    tpex.append({'date':ds,'market':'TPEX','code':c,'name':'',
-      'foreign_buy':fb,'foreign_sell':fs,'foreign_net':None if fb is None or fs is None else fb-fs,
-      'trust_buy':tb,'trust_sell':ts,'trust_net':None if tb is None or ts is None else tb-ts,
-      'dealer_buy':db,'dealer_sell':dsell,'dealer_net':None if db is None or dsell is None else db-dsell,
-      'total_net':None})
-# dedupe FinMind rows by date/code
-idx={(r['date'],r['code']):r for r in tpex}; tpex=list(idx.values())
+# Official TPEx new dailyTrade JSON API (old 3itrade endpoint retired in 2025/12).
+def tpex_daily(ds):
+    params={'type':'Daily','sect':'EW','date':roc(ds),'id':'','response':'json'}
+    j=get('https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade',params,timeout=60).json()
+    tables=j.get('tables') or []
+    if not tables: raise RuntimeError(f'TPEX empty tables {ds}')
+    rows=tables[0].get('data') or []
+    if not rows: raise RuntimeError(f'TPEX empty data {ds}')
+    out=[]
+    for r in rows:
+        if not isinstance(r,list) or len(r)<24: continue
+        c=code4(r[0])
+        if not c:continue
+        out.append({'date':ds,'market':'TPEX','code':c,'name':str(r[1]).strip(),
+          'foreign_buy':n(r[8]),'foreign_sell':n(r[9]),'foreign_net':n(r[10]),
+          'trust_buy':n(r[11]),'trust_sell':n(r[12]),'trust_net':n(r[13]),
+          'dealer_buy':n(r[20]),'dealer_sell':n(r[21]),'dealer_net':n(r[22]),'total_net':n(r[23])})
+    if not out: raise RuntimeError(f'TPEX no parsed rows {ds}')
+    return out
+
+def fetch_all(fn,market):
+    rows=[]; fails=[]
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        fut={ex.submit(fn,ds):ds for ds in trade_dates}
+        for i,f in enumerate(as_completed(fut),1):
+            ds=fut[f]
+            try: rows.extend(f.result())
+            except Exception as e: fails.append({'date':ds,'market':market,'error':str(e)})
+            if i%20==0 or i==len(fut): print(f'[{market} INST]',i,'/',len(fut),'rows',len(rows),'failures',len(fails),flush=True)
+    return rows,fails
+
+twse,f1=fetch_all(twse_t86,'TWSE')
+tpex,f2=fetch_all(tpex_daily,'TPEX')
+failures=f1+f2
 inst=twse+tpex
 cov={m:len({r['date'] for r in inst if r['market']==m})/len(trade_dates) for m in ('TWSE','TPEX')}
-if min(cov.values())<0.95: raise RuntimeError(f'institutional coverage too low {cov}; TWSE failures={len(failures)}')
+if min(cov.values())<0.95: raise RuntimeError(f'institutional coverage too low {cov}; failures={len(failures)}')
 inst=sorted(inst,key=lambda r:(r['date'],r['market'],r['code']))
 write_csv(OUT/'institutional_2026_ytd.csv',inst)
 if failures:(OUT/'institutional_failures.json').write_text(json.dumps(failures,ensure_ascii=False,indent=2),encoding='utf-8')
-manifest={'dataset':'AlphaPilot 2026 YTD Taiwan market package','generated_at_utc':datetime.utcnow().isoformat()+'Z','coverage':{'start':trade_dates[0],'end':trade_dates[-1],'trading_days':len(trade_dates),'ohlcv_rows':len(rows_ohlcv),'institutional_rows':len(inst),'twse_institutional_rows':len(twse),'tpex_institutional_rows':len(tpex),'institutional_market_date_coverage':cov},'ohlcv_source':'GitHub release yukishirotsubasa/tw-stock-data-release (TWSE MI_INDEX + TPEx daily close)','institutional_source':'TWSE official T86; TPEx historical rows via FinMind TaiwanStockInstitutionalInvestorsBuySellWide fallback','weekly_assets':used,'failures':failures}
+manifest={'dataset':'AlphaPilot 2026 YTD Taiwan market package','generated_at_utc':datetime.utcnow().isoformat()+'Z','coverage':{'start':trade_dates[0],'end':trade_dates[-1],'trading_days':len(trade_dates),'ohlcv_rows':len(rows_ohlcv),'institutional_rows':len(inst),'twse_institutional_rows':len(twse),'tpex_institutional_rows':len(tpex),'institutional_market_date_coverage':cov},'ohlcv_source':'GitHub release yukishirotsubasa/tw-stock-data-release (TWSE MI_INDEX + TPEx daily close)','institutional_source':'Official TWSE T86 + official TPEx /www/zh-tw/insti/dailyTrade','weekly_assets':used,'failures':failures}
 (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
 zip_path=ROOT/'AlphaPilot_2026_YTD_Data_Package.zip'
 with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as z:
