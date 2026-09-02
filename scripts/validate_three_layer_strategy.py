@@ -163,7 +163,7 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
         candidates=[]
         for layer in enabled:
             z=bars[bars[layer] & ~bars.index.isin(pos)].copy()
-            if layer=="large": z=z[(mr.adj_close>mr.ma20)|(mr.adj_close>mr.ma60)]
+            if layer=="large" and not ((mr.adj_close>mr.ma20) or (mr.adj_close>mr.ma60)): continue
             if not z.empty:
                 z["pct_score"]=layer_score(z,layer)
                 candidates.extend((c,layer,float(z.at[c,"pct_score"]),float(z.at[c,"box_hi60"])) for c in z.index)
