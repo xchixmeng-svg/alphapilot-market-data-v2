@@ -1,0 +1,34 @@
+name: V2 real-data preflight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - three-layer-v2-real-data-20260902
+    paths:
+      - scripts/preflight_v2_real_data.py
+      - .github/workflows/v2-real-data-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas requests
+      - name: Verify real historical industry and broker data
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python scripts/preflight_v2_real_data.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-real-data-preflight
+          path: artifacts/v2_real_data_preflight/
+          if-no-files-found: error
