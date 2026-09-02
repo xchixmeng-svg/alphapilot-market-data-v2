@@ -3,7 +3,7 @@ name: Validate six Taiwan-stock factors
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [claude-test]
     paths:
       - 'scripts/validate_six_factor_strategies.py'
       - '.github/workflows/validate_six_factor_strategies.yml'
@@ -21,7 +21,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
       - run: python scripts/validate_six_factor_strategies.py
       - uses: actions/upload-artifact@v4
