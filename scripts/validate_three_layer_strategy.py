@@ -217,6 +217,7 @@ def audit(x, results, ledgers, curves, split_audits):
         "held_split_share_and_entry_invariant": bool(held_split_ok),
         "performance_finite": all(np.isfinite(r["final_nav"]) and np.isfinite(r["max_drawdown"]) for r in results),
     }
+    checks={k:bool(v) for k,v in checks.items()}
     (OUT/"contract_audit.json").write_text(json.dumps(checks,indent=2),encoding="utf-8")
     if not all(checks.values()): raise RuntimeError(f"contract audit failed: {checks}")
 
