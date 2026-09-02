@@ -96,22 +96,24 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
     idx=x[x.code.eq("0050")].set_index("date").sort_index()
     days=list(idx.loc["2021-01-04":"2026-08-28"].index.unique())
     by={d:z.set_index("code") for d,z in x[x.date.isin(days)].groupby("date")}
-    cash=INITIAL; pos={}; pending_buys=[]; pending_sells={}; ledger=[]; vals=[]
+    cash=INITIAL; pos={}; pending_buys=[]; pending_sells={}; ledger=[]; vals=[]; split_events=[]
     last={}; peak=INITIAL; lock=0; cool=0; max_slots=8
     for day in days:
         bars=by[day]
         last.update({str(c):float(v) for c,v in bars.close.items() if pd.notna(v)})
         for c in list(pos):
             if c in bars.index and int(bars.at[c,"split_mult"])>1:
-                m=int(bars.at[c,"split_mult"]); old=pos[c]["shares"]
+                m=int(bars.at[c,"split_mult"]); old=pos[c]["shares"]; old_entry=pos[c]["entry"]
                 pos[c]["shares"]*=m; pos[c]["entry"]/=m; pos[c]["high"]/=m
                 assert pos[c]["shares"]==old*m
+                split_events.append(dict(date=day,code=c,multiplier=m,shares_before=old,
+                    shares_after=pos[c]["shares"],entry_before=old_entry,entry_after=pos[c]["entry"]))
         for c,reason in list(pending_sells.items()):
             if c in pos and c in bars.index:
                 raw=float(bars.at[c,"open"]); fill=raw*(1-SELL_ADVERSE); sh=pos[c]["shares"]
-                fee=raw*sh*FEE; tax=raw*sh*TAX; cash += fill*sh-fee-tax
+                fee=fill*sh*FEE; tax=fill*sh*TAX; cash += fill*sh-fee-tax
                 ledger.append(dict(execute_date=day,decision_date=pos[c]["sell_decision"],side="SELL",code=c,
-                    layer=pos[c]["layer"],shares=sh,raw_price=raw,fill_price=fill,commission=fee,tax=tax,reason=reason))
+                    layer=pos[c]["layer"],cash_pool="shared_1m_account",shares=sh,raw_price=raw,fill_price=fill,commission=fee,tax=tax,reason=reason))
                 del pos[c]; del pending_sells[c]
         for order in pending_buys:
             c=order["code"]
@@ -121,13 +123,14 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
             if fill is None: continue
             nav=cash+sum(p["shares"]*last[k] for k,p in pos.items())
             budget=min(order["budget"],nav*MAX_W,cash/(1+FEE)); sh=int(budget/fill//LOT*LOT)
-            while sh>0 and sh*fill+sh*op*FEE>cash: sh-=LOT
+            while sh>0 and sh*fill*(1+FEE)>cash: sh-=LOT
             if sh<=0: continue
-            fee=sh*op*FEE; cash-=sh*fill+fee
+            fee=sh*fill*FEE; cash-=sh*fill+fee
             pos[c]={"shares":sh,"entry":fill,"high":float(bars.at[c,"close"]),"days":0,
                     "layer":order["layer"],"box_hi":order["box_hi"]}
             ledger.append(dict(execute_date=day,decision_date=order["decision_date"],side="BUY",code=c,
-                layer=order["layer"],shares=sh,raw_price=op,fill_price=fill,commission=fee,tax=0,reason="signal"))
+                layer=order["layer"],cash_pool="shared_1m_account",shares=sh,raw_price=op,fill_price=fill,commission=fee,tax=0,reason="signal"))
+            if cash < -1e-6: raise RuntimeError(f"shared cash pool went negative: {cash}")
         pending_buys=[]
         nav=cash+sum(p["shares"]*last[c] for c,p in pos.items()); peak=max(peak,nav); dd=nav/peak-1
         vals.append((day,nav,cash,len(pos),dd))
@@ -180,7 +183,7 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
     result=dict(strategy=label,final_nav=float(curve.nav.iloc[-1]),total_return=float(curve.nav.iloc[-1]/INITIAL-1),
         cagr=float((curve.nav.iloc[-1]/INITIAL)**(1/years)-1),max_drawdown=float(curve.drawdown.min()),
         buys=sum(t["side"]=="BUY" for t in ledger),sells=sum(t["side"]=="SELL" for t in ledger))
-    return result,curve,pd.DataFrame(ledger)
+    return result,curve,pd.DataFrame(ledger),pd.DataFrame(split_events)
 
 
 def audit(x, results, ledgers):
