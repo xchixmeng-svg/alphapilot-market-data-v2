@@ -204,7 +204,7 @@ def features(d,rev):
     x=pd.concat(parts,ignore_index=True).sort_values(["date","code"])
     # Base universe, including contemporaneous name when available.
     names=x["name"].fillna("") if "name" in x else pd.Series("",index=x.index)
-    code_ok=x.code.str.fullmatch(r"[1-9]\\d{3}")
+    code_ok=x.code.str.fullmatch(r"[1-9]\d{3}")
     liquid=x.adv20.ge(30e6)
     x["base"]=code_ok & ~names.str.contains("KY",case=False,na=False) & liquid & x.ca_clean
     diag={"rows":len(x),"codes":int(x.code.nunique()),"code_ok_rows":int(code_ok.sum()),
