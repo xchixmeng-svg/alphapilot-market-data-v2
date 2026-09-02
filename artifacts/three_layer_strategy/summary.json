@@ -1,0 +1,60 @@
+{
+  "period": {
+    "warmup": "2020",
+    "train": "2021-2023",
+    "test": "2024-2025",
+    "blind": "2026-01-01..2026-08-28"
+  },
+  "execution": "T close decision, T+1 precommitted 98% close limit, sells next open less 2%, full fee/tax, 100-share step",
+  "data_limitations": {
+    "sector_flow": "market breadth proxy (archive has no point-in-time sector map)",
+    "broker_concentration": "institutional net/volume proxy; buyer/seller broker counts absent and never fabricated"
+  },
+  "results": [
+    {
+      "strategy": "short_layer",
+      "final_nav": 530308.7026249993,
+      "total_return": -0.4696912973750007,
+      "cagr": -0.10627126926258157,
+      "max_drawdown": -0.48847456906523956,
+      "buys": 258,
+      "sells": 258
+    },
+    {
+      "strategy": "swing_layer",
+      "final_nav": 378942.1410500003,
+      "total_return": -0.6210578589499997,
+      "cagr": -0.1579215977229036,
+      "max_drawdown": -0.6215541277407378,
+      "buys": 430,
+      "sells": 430
+    },
+    {
+      "strategy": "large_layer",
+      "final_nav": 899001.4943749999,
+      "total_return": -0.10099850562500012,
+      "cagr": -0.01868243573386441,
+      "max_drawdown": -0.2883962137881787,
+      "buys": 97,
+      "sells": 97
+    },
+    {
+      "strategy": "combined_three_layer",
+      "final_nav": 359831.3130999981,
+      "total_return": -0.6401686869000018,
+      "cagr": -0.1656049616422577,
+      "max_drawdown": -0.6406238273889893,
+      "buys": 505,
+      "sells": 505
+    },
+    {
+      "strategy": "0050_BH",
+      "final_nav": 3473949.5065,
+      "total_return": 2.4739495065000003,
+      "cagr": 0.24679824492922053,
+      "max_drawdown": -0.36124275448059184,
+      "buys": 1,
+      "completed_sells": 0
+    }
+  ]
+}

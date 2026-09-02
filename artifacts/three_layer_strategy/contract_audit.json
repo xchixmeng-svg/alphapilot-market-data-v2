@@ -1,0 +1,8 @@
+{
+  "coverage_2021_2026": true,
+  "0050_market_gate_present": true,
+  "all_shares_integer_100_step": true,
+  "all_execution_after_decision": true,
+  "split_notional_audit_exists": true,
+  "performance_finite": true
+}
