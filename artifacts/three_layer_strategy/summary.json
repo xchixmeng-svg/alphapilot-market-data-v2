@@ -13,37 +13,37 @@
   "results": [
     {
       "strategy": "short_layer",
-      "final_nav": 530308.7026249993,
-      "total_return": -0.4696912973750007,
-      "cagr": -0.10627126926258157,
-      "max_drawdown": -0.48847456906523956,
+      "final_nav": 533962.0765512496,
+      "total_return": -0.4660379234487504,
+      "cagr": -0.10518375202048758,
+      "max_drawdown": -0.4859888787420721,
       "buys": 258,
       "sells": 258
     },
     {
       "strategy": "swing_layer",
-      "final_nav": 378942.1410500003,
-      "total_return": -0.6210578589499997,
-      "cagr": -0.1579215977229036,
-      "max_drawdown": -0.6215541277407378,
-      "buys": 430,
-      "sells": 430
+      "final_nav": 371318.6521337497,
+      "total_return": -0.6286813478662503,
+      "cagr": -0.16094746716454755,
+      "max_drawdown": -0.6291765389460333,
+      "buys": 431,
+      "sells": 431
     },
     {
       "strategy": "large_layer",
-      "final_nav": 899001.4943749999,
-      "total_return": -0.10099850562500012,
-      "cagr": -0.01868243573386441,
-      "max_drawdown": -0.2883962137881787,
-      "buys": 97,
-      "sells": 97
+      "final_nav": 753496.4137162497,
+      "total_return": -0.24650358628375024,
+      "cagr": -0.04889740877124926,
+      "max_drawdown": -0.38676178247887016,
+      "buys": 100,
+      "sells": 100
     },
     {
       "strategy": "combined_three_layer",
-      "final_nav": 359831.3130999981,
-      "total_return": -0.6401686869000018,
-      "cagr": -0.1656049616422577,
-      "max_drawdown": -0.6406238273889893,
+      "final_nav": 361037.60190674954,
+      "total_return": -0.6389623980932504,
+      "cagr": -0.16511017439960074,
+      "max_drawdown": -0.6394210880373608,
       "buys": 505,
       "sells": 505
     },

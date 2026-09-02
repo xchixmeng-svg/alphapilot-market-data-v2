@@ -1,8 +1,11 @@
 {
   "coverage_2021_2026": true,
-  "0050_market_gate_present": true,
+  "0050_market_gate_and_benchmark_present": true,
   "all_shares_integer_100_step": true,
-  "all_execution_after_decision": true,
-  "split_notional_audit_exists": true,
+  "all_execution_exact_next_market_day": true,
+  "shared_cash_pool_single_nonnegative": true,
+  "fees_and_sell_tax_use_fill_price": true,
+  "split_price_notional_invariant": true,
+  "held_split_share_and_entry_invariant": true,
   "performance_finite": true
 }
