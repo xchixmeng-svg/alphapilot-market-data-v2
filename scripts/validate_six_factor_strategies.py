@@ -41,7 +41,8 @@ def load_ohlcv():
     fs=[pd.read_parquet(DATA/f"ohlcv_{y}.parquet") for y in range(2020,2026)]
     # Same archived weekly source already used by this repository's 2026 builder.
     rel=json.loads(get("https://api.github.com/repos/yukishirotsubasa/tw-stock-data-release/releases/tags/daily-close-csv"))
-    assets=sorted((a for a in rel.get("assets",[]) if re.fullmatch(r"weekly_2026_W\\d+\\.zip",a["name"])),key=lambda x:x["name"])
+    assets=sorted((a for a in rel.get("assets",[]) if a["name"].startswith("weekly_2026_W") and a["name"].endswith(".zip")),key=lambda x:x["name"])
+    if not assets: raise RuntimeError("no 2026 weekly OHLCV release assets")
     rows=[]
     for a in assets:
         with zipfile.ZipFile(io.BytesIO(get(a["browser_download_url"]))) as z:
