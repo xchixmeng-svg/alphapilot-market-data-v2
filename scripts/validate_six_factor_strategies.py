@@ -272,12 +272,15 @@ def score(z,strat):
     return z.near_high.rank(pct=True)+z.ret5.rank(pct=True)+z.accel.rank(pct=True)
 
 def simulate(x,strat):
-    days=sorted(x.date.unique()); by={d:z.set_index("code") for d,z in x.groupby("date")}
+    idx=x[x.code.eq("0050")].set_index("date").sort_index()
+    days=list(idx.loc["2021-01-01":].index.unique())
+    by={d:z.set_index("code") for d,z in x[x.date.isin(days)].groupby("date")}
     cash=INITIAL; pos={}; pending_buys=[]; pending_sells=set(); trades=[]; vals=[]; peak=INITIAL; lock=0; cool=0
-    idx=x[x.code.eq("0050")].set_index("date")
+    last_close={}
     for day in days:
         if day<pd.Timestamp("2021-01-01"): continue
         bars=by[day]
+        last_close.update({str(c):float(v) for c,v in bars["close"].items() if pd.notna(v)})
         for c in list(pos):
             if c in bars.index and int(bars.at[c,"split_mult"])>1:
                 mult=int(bars.at[c,"split_mult"])
@@ -287,13 +290,16 @@ def simulate(x,strat):
                 pos[c]["high"]=pos[c]["high"]/mult
                 if pos[c]["shares"] != old_sh*mult:
                     raise RuntimeError(f"split share invariant failed {day} {c}")
+        executed_sells=set()
         for c in list(pending_sells):
             if c in pos and c in bars.index:
                 p=float(bars.at[c,"open"])*(1-SELL_ADVERSE); sh=pos[c]["shares"]
                 cash+=sh*p-sh*float(bars.at[c,"open"])*(FEE+TAX)
                 trades.append({"date":day,"side":"SELL","code":c,"shares":sh,"price":p,"reason":pos[c].get("exit_reason","exit")})
-                del pos[c]
-        pending_sells=set()
+                del pos[c]; executed_sells.add(c)
+            elif c not in pos:
+                executed_sells.add(c)
+        pending_sells-=executed_sells
         for c,limit,target_cash in pending_buys:
             if c in pos or c not in bars.index: continue
             op,lo=float(bars.at[c,"open"]),float(bars.at[c,"low"])
@@ -305,7 +311,9 @@ def simulate(x,strat):
                 pos[c]={"shares":sh,"entry":fill,"high":float(bars.at[c,"close"]),"days":0}
                 trades.append({"date":day,"side":"BUY","code":c,"shares":sh,"price":fill,"reason":"signal"})
         pending_buys=[]
-        nav=cash+sum(p["shares"]*float(bars.at[c,"close"]) for c,p in pos.items() if c in bars.index)
+        missing=[c for c in pos if c not in last_close]
+        if missing: raise RuntimeError(f"held positions missing all valuation history: {missing}")
+        nav=cash+sum(p["shares"]*last_close[c] for c,p in pos.items())
         peak=max(peak,nav); dd=nav/peak-1; vals.append((day,nav))
         # Close decisions for T+1.
         for c,p in pos.items():
@@ -317,11 +325,11 @@ def simulate(x,strat):
             if reason and p["days"]>=1: p["exit_reason"]=reason; pending_sells.add(c)
         if dd<=-.14 and cool==0:
             lock=10; cool=15
-            expo=sum(p["shares"]*float(bars.at[c,"close"]) for c,p in pos.items() if c in bars.index)/nav
+            expo=sum(p["shares"]*last_close[c] for c,p in pos.items())/nav
             if expo>.50:
                 for c in sorted(pos,key=lambda k:pos[k]["days"],reverse=True):
                     pos[c]["exit_reason"]="dd_guard"; pending_sells.add(c)
-                    expo-=pos[c]["shares"]*float(bars.at[c,"close"])/nav
+                    expo-=pos[c]["shares"]*last_close[c]/nav
                     if expo<=.50: break
         lock=max(0,lock-1); cool=max(0,cool-1)
         if lock: continue
