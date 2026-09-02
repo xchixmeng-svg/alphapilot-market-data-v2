@@ -21,7 +21,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
       - name: Run three independent layers and combined portfolio
         run: python -u scripts/validate_three_layer_strategy.py
