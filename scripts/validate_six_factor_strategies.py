@@ -154,7 +154,7 @@ def fetch_revenue():
     prev={(r.code,r.year,r.month):r.revenue for r in q.itertuples()}
     q["yoy"]=[(r.revenue/prev.get((r.code,r.year-1,r.month))-1) if prev.get((r.code,r.year-1,r.month)) not in (None,0) else np.nan for r in q.itertuples()]
     q["period"]=pd.to_datetime(dict(year=q.year,month=q.month,day=1))
-    q["available_date"]=q.period+pd.offsets.MonthBegin(1)+pd.Timedelta(days=9)
+    q["available_date"]=pd.to_datetime(q.period+pd.offsets.MonthBegin(1)+pd.Timedelta(days=9)).astype("datetime64[ns]")
     q=q.sort_values(["code","available_date"])
     q["avg_yoy_90d"]=q.groupby("code").yoy.transform(lambda z:z.shift(1).rolling(3,min_periods=2).mean())
     q["accel"]=q.yoy-q.avg_yoy_90d
@@ -162,7 +162,7 @@ def fetch_revenue():
     return q
 
 def features(d,rev):
-    x=d.copy(); g=x.groupby("code",sort=False)
+    x=d.copy(); x["date"]=pd.to_datetime(x.date).astype("datetime64[ns]"); g=x.groupby("code",sort=False)
     x["ret5"]=g.adj_close.pct_change(5)
     x["hi60"]=g.adj_close.transform(lambda s:s.rolling(60,min_periods=60).max())
     x["near_high"]=x.adj_close/x.hi60
