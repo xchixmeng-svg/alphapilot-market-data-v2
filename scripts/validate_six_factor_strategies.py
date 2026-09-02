@@ -53,7 +53,12 @@ def load_ohlcv():
                     rows.append(q)
     if rows:
         y=pd.concat(rows,ignore_index=True)
-        y["date"]=pd.to_datetime(y["date"],errors="coerce")
+        yd=y["date"].astype(str).str.strip().str.replace(r"\\.0$","",regex=True)
+        yp=pd.Series(pd.NaT,index=y.index,dtype="datetime64[ns]")
+        ym=yd.str.fullmatch(r"\\d{8}")
+        yp.loc[ym]=pd.to_datetime(yd.loc[ym],format="%Y%m%d",errors="coerce")
+        yp.loc[~ym]=pd.to_datetime(yd.loc[~ym],format="mixed",errors="coerce")
+        y["date"]=yp
         y=y[y.date.dt.year.eq(2026)]
         fs.append(y)
     d=pd.concat(fs,ignore_index=True)
