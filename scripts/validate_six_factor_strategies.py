@@ -134,7 +134,10 @@ def _fetch_revenue_month(y,m,market):
 
 def fetch_revenue():
     cache=OUT/"monthly_revenue.csv"
-    if cache.exists(): return pd.read_csv(cache,dtype={"code":str},parse_dates=["available_date"])
+    if cache.exists():
+        q=pd.read_csv(cache,dtype={"code":str},parse_dates=["available_date"])
+        q["available_date"]=pd.to_datetime(q["available_date"]).astype("datetime64[ns]")
+        return q
     archived=ROOT/"external_fundamentals"/"monthly_revenue_2019_2026.csv"
     if archived.exists():
         a=pd.read_csv(archived,dtype={"stock_id":str})
