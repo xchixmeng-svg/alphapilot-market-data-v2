@@ -72,6 +72,23 @@ def load_ohlcv():
     future=d.groupby("code",sort=False).split_mult.transform(lambda s:s.iloc[::-1].cumprod().iloc[::-1]/s)
     for c in ["open","high","low","close"]:
         d["adj_"+c]=d[c]/future
+    # Corporate-action audit: every modeled split must preserve overnight
+    # notional within 3%; any unexplained >35% discontinuity fails closed.
+    prev_close=d.groupby("code",sort=False).close.shift()
+    audit=d.loc[d.split_mult.gt(1),["date","code","name","open","close","split_mult"]].copy()
+    audit["prev_close"]=prev_close.loc[audit.index]
+    audit["notional_ratio"]=audit.open*audit.split_mult/audit.prev_close
+    audit["invariant_pass"]=audit.notional_ratio.between(.97,1.03)
+    audit.to_csv(OUT/"corporate_action_audit.csv",index=False)
+    unexplained=(ratio.lt(.65)|ratio.gt(1.55)) & d.split_mult.eq(1) & prev_close.notna()
+    suspects=d.loc[unexplained,["date","code","name","open","close"]].copy()
+    suspects["prev_close"]=prev_close.loc[suspects.index]
+    suspects["overnight_ratio"]=ratio.loc[suspects.index]
+    suspects.to_csv(OUT/"unresolved_price_discontinuities.csv",index=False)
+    if not audit.invariant_pass.all():
+        raise RuntimeError("split notional invariant failed; refusing corrupted backtest")
+    if len(suspects):
+        raise RuntimeError(f"{len(suspects)} unresolved large price discontinuities; inspect audit before backtest")
     return d.reset_index(drop=True)
 
 def fetch_revenue():
@@ -203,7 +220,14 @@ def simulate(x,strat):
         if day<pd.Timestamp("2021-01-01"): continue
         bars=by[day]
         for c in list(pos):
-            if c in bars.index and int(bars.at[c,"split_mult"])>1: pos[c]["shares"]*=int(bars.at[c,"split_mult"])
+            if c in bars.index and int(bars.at[c,"split_mult"])>1:
+                mult=int(bars.at[c,"split_mult"])
+                old_sh=pos[c]["shares"]
+                pos[c]["shares"]=old_sh*mult
+                pos[c]["entry"]=pos[c]["entry"]/mult
+                pos[c]["high"]=pos[c]["high"]/mult
+                if pos[c]["shares"] != old_sh*mult:
+                    raise RuntimeError(f"split share invariant failed {day} {c}")
         for c in list(pending_sells):
             if c in pos and c in bars.index:
                 p=float(bars.at[c,"open"])*(1-SELL_ADVERSE); sh=pos[c]["shares"]
