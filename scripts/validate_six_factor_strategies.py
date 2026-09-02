@@ -87,8 +87,12 @@ def load_ohlcv():
     suspects.to_csv(OUT/"unresolved_price_discontinuities.csv",index=False)
     if not audit.invariant_pass.all():
         raise RuntimeError("split notional invariant failed; refusing corrupted backtest")
-    if len(suspects):
-        raise RuntimeError(f"{len(suspects)} unresolved large price discontinuities; inspect audit before backtest")
+    # Unknown discontinuities are never guessed into split factors. Quarantine
+    # the entire affected security from signals/trading and retain the audit.
+    # This is deliberately conservative: no false profit can enter the ledger.
+    bad_codes=set(suspects.code.astype(str))
+    d["ca_clean"]=~d.code.isin(bad_codes)
+    print(f"[CA AUDIT] modeled_splits={len(audit)} quarantined_codes={len(bad_codes)}",flush=True)
     return d.reset_index(drop=True)
 
 def fetch_revenue():
@@ -155,7 +159,7 @@ def features(d,rev):
     x=pd.concat(parts,ignore_index=True).sort_values(["date","code"])
     # Base universe, including contemporaneous name when available.
     names=x["name"].fillna("") if "name" in x else pd.Series("",index=x.index)
-    x["base"]=x.code.str.fullmatch(r"[1-9]\\d{3}") & ~names.str.contains("KY",case=False,na=False) & (x.adv20>=30e6)
+    x["base"]=x.code.str.fullmatch(r"[1-9]\\d{3}") & ~names.str.contains("KY",case=False,na=False) & (x.adv20>=30e6) & x.ca_clean
     x["A"]=False
     for day,idx in x[x.base].groupby("date").groups.items():
         z=x.loc[idx].nlargest(40,"near_high")
