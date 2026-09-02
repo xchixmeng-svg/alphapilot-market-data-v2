@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 import numpy as np
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/"artifacts"/"six_factor_validation"
@@ -95,39 +96,52 @@ def load_ohlcv():
     print(f"[CA AUDIT] modeled_splits={len(audit)} quarantined_codes={len(bad_codes)}",flush=True)
     return d.reset_index(drop=True)
 
+def _fetch_revenue_month(y,m,market):
+    url=f"https://mops.twse.com.tw/nas/t21/{market}/t21sc03_{y-1911}_{m}_0.html"
+    raw=get(url,tries=3).decode("big5","ignore")
+    out=[]
+    for t in pd.read_html(io.StringIO(raw)):
+        if isinstance(t.columns,pd.MultiIndex):
+            t.columns=["|".join(str(v) for v in c if str(v)!="nan") for c in t.columns]
+        cols=list(map(str,t.columns))
+        cc=next((c for c in cols if "公司代號" in c),None)
+        nc=next((c for c in cols if "公司名稱" in c),None)
+        rc=next((c for c in cols if "當月營收" in c and "去年" not in c),None)
+        if not cc or not rc: continue
+        for _,r in t.iterrows():
+            code=str(r.get(cc,"")).strip().replace("=","").replace('"',"")
+            if not re.fullmatch(r"\\d{4}",code): continue
+            val=pd.to_numeric(str(r.get(rc,"")).replace(",",""),errors="coerce")
+            if pd.notna(val): out.append((y,m,code,str(r.get(nc,"")),float(val)))
+    if not out: raise RuntimeError(f"empty revenue {y}-{m:02d} {market}")
+    return out
+
 def fetch_revenue():
     cache=OUT/"monthly_revenue.csv"
     if cache.exists(): return pd.read_csv(cache,dtype={"code":str},parse_dates=["available_date"])
-    out=[]
-    for y in range(2019,2027):
-        maxm=12 if y<2026 else 8
-        for m in range(1,maxm+1):
-            for market in ("sii","otc"):
-                url=f"https://mops.twse.com.tw/nas/t21/{market}/t21sc03_{y-1911}_{m}_0.html"
-                try:
-                    raw=get(url).decode("big5","ignore")
-                    for t in pd.read_html(io.StringIO(raw)):
-                        if isinstance(t.columns,pd.MultiIndex):
-                            t.columns=["|".join(str(v) for v in c if str(v)!="nan") for c in t.columns]
-                        cols=list(map(str,t.columns))
-                        cc=next((c for c in cols if "公司代號" in c),None)
-                        nc=next((c for c in cols if "公司名稱" in c),None)
-                        rc=next((c for c in cols if "當月營收" in c and "去年" not in c),None)
-                        if not cc or not rc: continue
-                        for _,r in t.iterrows():
-                            code=str(r.get(cc,"")).strip().replace("=","").replace('"',"")
-                            if not re.fullmatch(r"\\d{4}",code): continue
-                            val=pd.to_numeric(str(r.get(rc,"")).replace(",",""),errors="coerce")
-                            if pd.notna(val): out.append((y,m,code,str(r.get(nc,"")),float(val)))
-                except Exception as e:
-                    print("revenue warning",y,m,market,e,flush=True)
+    tasks=[(y,m,market) for y in range(2019,2027)
+           for m in range(1,(12 if y<2026 else 8)+1) for market in ("sii","otc")]
+    out=[]; failures=[]
+    # Bounded parallelism prevents the 150+ archive requests from taking hours.
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        fut={ex.submit(_fetch_revenue_month,*t):t for t in tasks}
+        for i,f in enumerate(as_completed(fut),1):
+            t=fut[f]
+            try: out.extend(f.result())
+            except Exception as e: failures.append({"year":t[0],"month":t[1],"market":t[2],"error":str(e)})
+            if i%20==0 or i==len(tasks):
+                print(f"[REVENUE] {i}/{len(tasks)} rows={len(out)} failures={len(failures)}",flush=True)
+    pd.DataFrame(failures).to_csv(OUT/"revenue_download_failures.csv",index=False)
     q=pd.DataFrame(out,columns=["year","month","code","name","revenue"]).drop_duplicates(["year","month","code"],keep="last")
+    covered=len(q[["year","month"]].drop_duplicates())
+    if covered<88 or len(q)<100000:
+        raise RuntimeError(f"revenue coverage insufficient months={covered} rows={len(q)} failures={len(failures)}")
     prev={(r.code,r.year,r.month):r.revenue for r in q.itertuples()}
     q["yoy"]=[(r.revenue/prev.get((r.code,r.year-1,r.month))-1) if prev.get((r.code,r.year-1,r.month)) not in (None,0) else np.nan for r in q.itertuples()]
     q["period"]=pd.to_datetime(dict(year=q.year,month=q.month,day=1))
     q["available_date"]=q.period+pd.offsets.MonthBegin(1)+pd.Timedelta(days=9)
     q=q.sort_values(["code","available_date"])
-    q["avg_yoy_90d"]=q.groupby("code").yoy.transform(lambda s:s.shift(1).rolling(3,min_periods=2).mean())
+    q["avg_yoy_90d"]=q.groupby("code").yoy.transform(lambda z:z.shift(1).rolling(3,min_periods=2).mean())
     q["accel"]=q.yoy-q.avg_yoy_90d
     q.to_csv(cache,index=False)
     return q
