@@ -119,19 +119,34 @@ def _fetch_revenue_month(y,m,market):
 def fetch_revenue():
     cache=OUT/"monthly_revenue.csv"
     if cache.exists(): return pd.read_csv(cache,dtype={"code":str},parse_dates=["available_date"])
-    tasks=[(y,m,market) for y in range(2019,2027)
+    archived=ROOT/"external_fundamentals"/"monthly_revenue_2019_2026.csv"
+    if archived.exists():
+        a=pd.read_csv(archived,dtype={"stock_id":str})
+        a=a.rename(columns={"stock_id":"code"})[["year","month","code","name","revenue"]]
+        a["code"]=a.code.astype(str).str.zfill(4)
+        a["year"]=pd.to_numeric(a.year,errors="coerce")
+        a["month"]=pd.to_numeric(a.month,errors="coerce")
+        a["revenue"]=pd.to_numeric(a.revenue,errors="coerce")
+        a=a.dropna(subset=["year","month","code","revenue"])
+        a[["year","month"]]=a[["year","month"]].astype(int)
+        out=list(a.itertuples(index=False,name=None))
+        failures=[]
+        print(f"[REVENUE ARCHIVE] rows={len(out)}",flush=True)
+    else:
+        out=[]; failures=[]
+        tasks=[(y,m,market) for y in range(2019,2027)
            for m in range(1,(12 if y<2026 else 8)+1) for market in ("sii","otc")]
-    out=[]; failures=[]
-    # Bounded parallelism prevents the 150+ archive requests from taking hours.
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        fut={ex.submit(_fetch_revenue_month,*t):t for t in tasks}
-        for i,f in enumerate(as_completed(fut),1):
-            t=fut[f]
-            try: out.extend(f.result())
-            except Exception as e: failures.append({"year":t[0],"month":t[1],"market":t[2],"error":str(e)})
-            if i%20==0 or i==len(tasks):
-                print(f"[REVENUE] {i}/{len(tasks)} rows={len(out)} failures={len(failures)}",flush=True)
-    pd.DataFrame(failures).to_csv(OUT/"revenue_download_failures.csv",index=False)
+        # Bounded parallelism is fallback only; primary path uses the already
+        # completed and checksum-tracked GitHub fundamentals artifact.
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            fut={ex.submit(_fetch_revenue_month,*t):t for t in tasks}
+            for i,f in enumerate(as_completed(fut),1):
+                t=fut[f]
+                try: out.extend(f.result())
+                except Exception as e: failures.append({"year":t[0],"month":t[1],"market":t[2],"error":str(e)})
+                if i%20==0 or i==len(tasks):
+                    print(f"[REVENUE] {i}/{len(tasks)} rows={len(out)} failures={len(failures)}",flush=True)
+        pd.DataFrame(failures).to_csv(OUT/"revenue_download_failures.csv",index=False)
     q=pd.DataFrame(out,columns=["year","month","code","name","revenue"]).drop_duplicates(["year","month","code"],keep="last")
     covered=len(q[["year","month"]].drop_duplicates())
     if covered<88 or len(q)<100000:
