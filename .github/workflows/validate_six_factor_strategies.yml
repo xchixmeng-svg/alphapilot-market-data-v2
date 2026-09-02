@@ -1,0 +1,32 @@
+name: Validate six Taiwan-stock factors
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/validate_six_factor_strategies.py'
+      - '.github/workflows/validate_six_factor_strategies.yml'
+
+concurrency:
+  group: validate-six-factor-strategies
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
+      - run: python scripts/validate_six_factor_strategies.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: six-factor-independent-validation
+          path: artifacts/six_factor_validation/
+          if-no-files-found: error
+          retention-days: 30
