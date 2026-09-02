@@ -186,13 +186,35 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
     return result,curve,pd.DataFrame(ledger),pd.DataFrame(split_events)
 
 
-def audit(x, results, ledgers):
+def audit(x, results, ledgers, curves, split_audits):
+    market_days=sorted(x.loc[x.code.eq("0050"),"date"].drop_duplicates())
+    next_market_day={market_days[i]:market_days[i+1] for i in range(len(market_days)-1)}
+    exact_t1=[]; fee_tax=[]
+    for t in ledgers:
+        if t.empty: continue
+        exact_t1.extend(next_market_day.get(pd.Timestamp(d))==pd.Timestamp(e)
+                        for d,e in zip(t.decision_date,t.execute_date))
+        buy=t.side.eq("BUY"); sell=t.side.eq("SELL")
+        fee_tax.append(np.allclose(t.commission,t.shares*t.fill_price*FEE,rtol=0,atol=.01))
+        fee_tax.append((t.loc[buy,"tax"].abs()<=.01).all())
+        fee_tax.append(np.allclose(t.loc[sell,"tax"],t.loc[sell,"shares"]*t.loc[sell,"fill_price"]*TAX,rtol=0,atol=.01))
+    ca=pd.read_csv(core.OUT/"corporate_action_audit.csv")
+    held_split_ok=True
+    for s in split_audits:
+        if s.empty: continue
+        held_split_ok &= bool(((s.shares_after==s.shares_before*s.multiplier) &
+                          np.isclose(s.entry_after*s.multiplier,s.entry_before,rtol=0,atol=1e-9)).all())
+    combined=ledgers[3]
     checks={
         "coverage_2021_2026": set(range(2021,2027)).issubset(set(x.date.dt.year.unique())),
-        "0050_market_gate_present": bool(x.code.eq("0050").any()),
+        "0050_market_gate_and_benchmark_present": bool(x.code.eq("0050").any()) and any(r["strategy"]=="0050_BH" for r in results),
         "all_shares_integer_100_step": all(t.empty or ((t.shares.astype(int)==t.shares)&(t.shares%100==0)).all() for t in ledgers),
-        "all_execution_after_decision": all(t.empty or (pd.to_datetime(t.execute_date)>pd.to_datetime(t.decision_date)).all() for t in ledgers),
-        "split_notional_audit_exists": (core.OUT/"corporate_action_audit.csv").exists(),
+        "all_execution_exact_next_market_day": bool(exact_t1) and all(exact_t1),
+        "shared_cash_pool_single_nonnegative": (not combined.empty and combined.cash_pool.nunique()==1 and
+            all((curve.cash>=-1e-6).all() and (curve.holdings<=8).all() for curve in curves)),
+        "fees_and_sell_tax_use_fill_price": bool(fee_tax) and all(fee_tax),
+        "split_price_notional_invariant": (not ca.empty and ca.invariant_pass.astype(str).str.lower().eq("true").all()),
+        "held_split_share_and_entry_invariant": bool(held_split_ok),
         "performance_finite": all(np.isfinite(r["final_nav"]) and np.isfinite(r["max_drawdown"]) for r in results),
     }
     (OUT/"contract_audit.json").write_text(json.dumps(checks,indent=2),encoding="utf-8")
@@ -203,14 +225,15 @@ def main():
     raw=core.load_ohlcv(); revenue=core.fetch_revenue(); x=add_features(raw,revenue)
     configs=[(("short",),"short_layer"),(("swing",),"swing_layer"),(("large",),"large_layer"),
              (("short","swing","large"),"combined_three_layer")]
-    results=[]; curves=[]; ledgers=[]
+    results=[]; curves=[]; ledgers=[]; split_audits=[]
     for layers,label in configs:
-        r,c,t=simulate(x,layers,label); results.append(r); ledgers.append(t); curves.append(c.nav.rename(label))
-        t.to_csv(OUT/f"trades_{label}.csv",index=False); print(label,r,flush=True)
+        r,c,t,s=simulate(x,layers,label); results.append(r); ledgers.append(t); curves.append(c)
+        split_audits.append(s); t.to_csv(OUT/f"trades_{label}.csv",index=False)
+        s.to_csv(OUT/f"held_split_audit_{label}.csv",index=False); print(label,r,flush=True)
     bm,bc=core.benchmark(x); results.append(bm); curves.append(bc.rename("0050_BH"))
     pd.DataFrame(results).to_csv(OUT/"performance_summary.csv",index=False)
-    pd.concat(curves,axis=1).to_csv(OUT/"equity_curves.csv")
-    audit(x,results,ledgers)
+    pd.concat([curve.nav.rename(configs[i][1]) for i,curve in enumerate(curves)]+[bc.rename("0050_BH")],axis=1).to_csv(OUT/"equity_curves.csv")
+    audit(x,results,ledgers,curves,split_audits)
     report={"period":{"warmup":"2020","train":"2021-2023","test":"2024-2025","blind":"2026-01-01..2026-08-28"},
       "execution":"T close decision, T+1 precommitted 98% close limit, sells next open less 2%, full fee/tax, 100-share step",
       "data_limitations":{"sector_flow":"market breadth proxy (archive has no point-in-time sector map)",
