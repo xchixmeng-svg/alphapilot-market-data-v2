@@ -58,7 +58,12 @@ def load_ohlcv():
     d=pd.concat(fs,ignore_index=True)
     d.columns=[str(c).lower() for c in d.columns]
     d["code"]=d["code"].astype(str).str.replace(r"\\.0$","",regex=True).str.zfill(4)
-    d["date"]=pd.to_datetime(d["date"],errors="coerce")
+    raw_date=d["date"].astype(str).str.strip().str.replace(r"\\.0$","",regex=True)
+    parsed=pd.Series(pd.NaT,index=d.index,dtype="datetime64[ns]")
+    ymd=raw_date.str.fullmatch(r"\\d{8}")
+    parsed.loc[ymd]=pd.to_datetime(raw_date.loc[ymd],format="%Y%m%d",errors="coerce")
+    parsed.loc[~ymd]=pd.to_datetime(raw_date.loc[~ymd],format="mixed",errors="coerce")
+    d["date"]=parsed
     for c in ["open","high","low","close","volume"]:
         d[c]=pd.to_numeric(d[c],errors="coerce")
     d=d.dropna(subset=["date","code","open","high","low","close","volume"])
@@ -94,6 +99,11 @@ def load_ohlcv():
     bad_codes=set(suspects.code.astype(str))
     d["ca_clean"]=~d.code.isin(bad_codes)
     print(f"[CA AUDIT] modeled_splits={len(audit)} quarantined_codes={len(bad_codes)}",flush=True)
+    cover=d.groupby(d.date.dt.year).size().to_dict()
+    required={2020,2021,2022,2023,2024,2025,2026}
+    if not required.issubset(cover):
+        raise RuntimeError(f"OHLCV date coverage invalid: {cover}")
+    print(f"[OHLCV COVERAGE] {cover}",flush=True)
     return d.reset_index(drop=True)
 
 def _fetch_revenue_month(y,m,market):
