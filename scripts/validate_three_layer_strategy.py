@@ -230,7 +230,7 @@ def main():
         r,c,t,s=simulate(x,layers,label); results.append(r); ledgers.append(t); curves.append(c)
         split_audits.append(s); t.to_csv(OUT/f"trades_{label}.csv",index=False)
         s.to_csv(OUT/f"held_split_audit_{label}.csv",index=False); print(label,r,flush=True)
-    bm,bc=core.benchmark(x); results.append(bm); curves.append(bc.rename("0050_BH"))
+    bm,bc=core.benchmark(x); results.append(bm)
     pd.DataFrame(results).to_csv(OUT/"performance_summary.csv",index=False)
     pd.concat([curve.nav.rename(configs[i][1]) for i,curve in enumerate(curves)]+[bc.rename("0050_BH")],axis=1).to_csv(OUT/"equity_curves.csv")
     audit(x,results,ledgers,curves,split_audits)
