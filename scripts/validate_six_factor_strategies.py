@@ -204,7 +204,17 @@ def features(d,rev):
     x=pd.concat(parts,ignore_index=True).sort_values(["date","code"])
     # Base universe, including contemporaneous name when available.
     names=x["name"].fillna("") if "name" in x else pd.Series("",index=x.index)
-    x["base"]=x.code.str.fullmatch(r"[1-9]\\d{3}") & ~names.str.contains("KY",case=False,na=False) & (x.adv20>=30e6) & x.ca_clean
+    code_ok=x.code.str.fullmatch(r"[1-9]\\d{3}")
+    liquid=x.adv20.ge(30e6)
+    x["base"]=code_ok & ~names.str.contains("KY",case=False,na=False) & liquid & x.ca_clean
+    diag={"rows":len(x),"codes":int(x.code.nunique()),"code_ok_rows":int(code_ok.sum()),
+          "adv20_nonnull":int(x.adv20.notna().sum()),"liquid_rows":int(liquid.sum()),
+          "ca_clean_rows":int(x.ca_clean.sum()),"base_rows":int(x.base.sum()),
+          "date_min":str(x.date.min()),"date_max":str(x.date.max()),
+          "code_samples":x.code.drop_duplicates().head(12).tolist()}
+    (OUT/"universe_diagnostics.json").write_text(json.dumps(diag,ensure_ascii=False,indent=2),encoding="utf-8")
+    print("[UNIVERSE]",diag,flush=True)
+    if not x.base.any(): raise RuntimeError(f"empty base universe: {diag}")
     x["A"]=False
     for day,idx in x[x.base].groupby("date").groups.items():
         z=x.loc[idx].nlargest(40,"near_high")
@@ -336,7 +346,12 @@ def simulate(x,strat):
 def benchmark(x):
     m=x[x.code.eq("0050")&x.date.ge("2021-01-01")].set_index("date").sort_index()
     p=float(m.iloc[0].open); sh=int(INITIAL/(p*(1+FEE))//LOT*LOT); cash=INITIAL-sh*p*(1+FEE)
-    curve=cash+sh*m.close
+    vals=[]
+    for day,row in m.iterrows():
+        mult=int(row.split_mult)
+        if mult>1: sh*=mult
+        vals.append((day,cash+sh*float(row.close)))
+    curve=pd.Series(dict(vals)).sort_index()
     years=(curve.index[-1]-curve.index[0]).days/365.2425; dd=curve/curve.cummax()-1
     return {"strategy":"0050_BH","final_nav":curve.iloc[-1],"total_return":curve.iloc[-1]/INITIAL-1,
             "cagr":(curve.iloc[-1]/INITIAL)**(1/years)-1,"max_drawdown":dd.min(),"buys":1,"completed_sells":0},curve
@@ -344,6 +359,8 @@ def benchmark(x):
 def main():
     d=load_ohlcv(); rev=fetch_revenue(); x=features(d,rev)
     stats=signal_stats(x); stats.to_csv(OUT/"factor_statistics.csv",index=False)
+    totals=stats.groupby("strategy").signals.sum()
+    if (totals<=0).any(): raise RuntimeError(f"zero-signal strategy detected: {totals.to_dict()}")
     results=[]; curves={}
     for s in ("A","B","C","D","E","AE"):
         m,c,t=simulate(x,s); results.append(m); curves[s]=c; t.to_csv(OUT/f"trades_{s}.csv",index=False)
