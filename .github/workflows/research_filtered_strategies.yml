@@ -1,0 +1,42 @@
+name: Research filtered factor strategies
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude-test]
+    paths:
+      - 'scripts/research_filtered_strategies.py'
+      - '.github/workflows/research_filtered_strategies.yml'
+
+concurrency:
+  group: research-filtered-factor-strategies
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
+      - uses: actions/download-artifact@v4
+        with:
+          name: AlphaPilot_Fundamentals_2019_Latest
+          path: external_fundamentals_package
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 33494195574
+      - run: |
+          mkdir -p external_fundamentals
+          unzip -q external_fundamentals_package/AlphaPilot_Fundamentals_2019_Latest.zip -d external_fundamentals
+          test -s external_fundamentals/monthly_revenue_2019_2026.csv
+      - run: python scripts/research_filtered_strategies.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: filtered-factor-research
+          path: artifacts/filtered_factor_research/
+          if-no-files-found: error
+          retention-days: 30
