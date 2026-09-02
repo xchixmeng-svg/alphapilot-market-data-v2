@@ -1,0 +1,42 @@
+name: Validate three-layer strategy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [three-layer-strategy-20260902]
+    paths:
+      - scripts/validate_three_layer_strategy.py
+      - scripts/validate_six_factor_strategies.py
+      - .github/workflows/validate_three_layer_strategy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
+      - name: Run three independent layers and combined portfolio
+        run: python -u scripts/validate_three_layer_strategy.py
+      - name: Commit audited results
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add artifacts/three_layer_strategy artifacts/six_factor_validation/corporate_action_audit.csv artifacts/six_factor_validation/unresolved_price_discontinuities.csv
+          git diff --cached --quiet || git commit -m "results: audited three-layer validation"
+          git push
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: three-layer-validation
+          path: |
+            artifacts/three_layer_strategy
+            artifacts/six_factor_validation/corporate_action_audit.csv
+            artifacts/six_factor_validation/unresolved_price_discontinuities.csv
