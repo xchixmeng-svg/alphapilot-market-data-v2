@@ -22,6 +22,17 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
+      - uses: actions/download-artifact@v4
+        with:
+          name: AlphaPilot_Fundamentals_2019_Latest
+          path: external_fundamentals_package
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 33494195574
+      - run: |
+          mkdir -p external_fundamentals
+          unzip -q external_fundamentals_package/AlphaPilot_Fundamentals_2019_Latest.zip -d external_fundamentals
+          test -s external_fundamentals/monthly_revenue_2019_2026.csv
       - run: python scripts/validate_six_factor_strategies.py
       - uses: actions/upload-artifact@v4
         with:
