@@ -1,0 +1,5 @@
+date,event,level,nav,true_drawdown,days_active,rebound_from_guard_low,reason
+2021-09-28,trigger,6,938655.086943125,-0.06134491305687495,0,0.0,drawdown_minus_6pct
+2021-10-27,unlock,6,928553.446285625,-0.07144655371437503,20,0.0,20d_and_dd_within_minus_9pct
+2022-06-30,trigger,6,865038.4037906249,-0.1349615962093751,0,0.0,drawdown_minus_6pct
+2023-02-07,trigger,9,844227.099635625,-0.15577290036437497,0,0.0,drawdown_minus_9pct

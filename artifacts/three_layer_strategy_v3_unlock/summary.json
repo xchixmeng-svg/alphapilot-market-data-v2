@@ -1,0 +1,168 @@
+{
+  "period": {
+    "warmup": "2020",
+    "train": "2021-2023",
+    "test": "2024-2025",
+    "blind": "2026-01-01..2026-08-28"
+  },
+  "version": "V3 plus drawdown-guard unlock supplement",
+  "execution": "T close decision, T+1 precommitted limit (large layer volatility discount; other layers 98% close), sells next open less 2%, full fee/tax, 100-share step",
+  "contract_audit": {
+    "coverage_2021_2026": true,
+    "0050_market_gate_and_benchmark_present": true,
+    "all_shares_integer_100_step": true,
+    "all_execution_exact_next_market_day": true,
+    "shared_cash_pool_single_nonnegative": true,
+    "fees_and_sell_tax_use_fill_price": true,
+    "split_price_notional_invariant": true,
+    "held_split_share_and_entry_invariant": true,
+    "expected_reward_risk_at_least_1p5": true,
+    "rejected_orders_have_reasons": true,
+    "performance_finite": true,
+    "v3_short_signals_have_box_reference": true,
+    "v3_swing_signals_have_support_reference": true,
+    "v3_swing_has_no_ma20_exit": true,
+    "v3_large_has_no_indiscriminate_dd_exit": true
+  },
+  "unlock_audit": {
+    "unlock_events_exist": true,
+    "every_unlock_satisfies_6pct_or_20d_plus_dd9": true,
+    "no_automatic_position_restoration": true,
+    "each_layer_has_new_buy_in_2022_2026": false,
+    "each_layer_each_year_has_new_buy_2022_2026": false,
+    "short_complete_trades_at_least_80": false
+  },
+  "validation_gates": {
+    "short_complete_trades_at_least_80": false,
+    "short_complete_trades": 19,
+    "post_2021_new_buys_by_layer_year": [
+      {
+        "layer": "short",
+        "year": 2022,
+        "new_buys": 9
+      },
+      {
+        "layer": "short",
+        "year": 2023,
+        "new_buys": 1
+      },
+      {
+        "layer": "short",
+        "year": 2024,
+        "new_buys": 0
+      },
+      {
+        "layer": "short",
+        "year": 2025,
+        "new_buys": 0
+      },
+      {
+        "layer": "short",
+        "year": 2026,
+        "new_buys": 0
+      },
+      {
+        "layer": "swing",
+        "year": 2022,
+        "new_buys": 0
+      },
+      {
+        "layer": "swing",
+        "year": 2023,
+        "new_buys": 0
+      },
+      {
+        "layer": "swing",
+        "year": 2024,
+        "new_buys": 0
+      },
+      {
+        "layer": "swing",
+        "year": 2025,
+        "new_buys": 0
+      },
+      {
+        "layer": "swing",
+        "year": 2026,
+        "new_buys": 0
+      },
+      {
+        "layer": "large",
+        "year": 2022,
+        "new_buys": 0
+      },
+      {
+        "layer": "large",
+        "year": 2023,
+        "new_buys": 0
+      },
+      {
+        "layer": "large",
+        "year": 2024,
+        "new_buys": 0
+      },
+      {
+        "layer": "large",
+        "year": 2025,
+        "new_buys": 0
+      },
+      {
+        "layer": "large",
+        "year": 2026,
+        "new_buys": 0
+      }
+    ]
+  },
+  "data_limitations": {
+    "sector_flow": "market breadth proxy (archive has no point-in-time sector map)",
+    "broker_concentration": "institutional net/volume proxy; buyer/seller broker counts absent and never fabricated",
+    "validation_warning": "V2 was designed after observing V1; historical results are reference only and require at least three months forward validation"
+  },
+  "results": [
+    {
+      "strategy": "short_layer",
+      "final_nav": 844227.099635625,
+      "total_return": -0.15577290036437497,
+      "cagr": -0.029548762561066866,
+      "max_drawdown": -0.15577290036437497,
+      "buys": 19,
+      "sells": 19
+    },
+    {
+      "strategy": "swing_layer",
+      "final_nav": 842278.0631982498,
+      "total_return": -0.15772193680175017,
+      "cagr": -0.029945990637998854,
+      "max_drawdown": -0.15850559760797545,
+      "buys": 48,
+      "sells": 48
+    },
+    {
+      "strategy": "large_layer",
+      "final_nav": 1026609.9327187978,
+      "total_return": 0.026609932718797857,
+      "cagr": 0.004662638318781331,
+      "max_drawdown": -0.14277637909471141,
+      "buys": 10,
+      "sells": 10
+    },
+    {
+      "strategy": "combined_three_layer",
+      "final_nav": 941102.1013523751,
+      "total_return": -0.05889789864762485,
+      "cagr": -0.010694848159656822,
+      "max_drawdown": -0.1527101778936527,
+      "buys": 27,
+      "sells": 27
+    },
+    {
+      "strategy": "0050_BH",
+      "final_nav": 3473949.5065,
+      "total_return": 2.4739495065000003,
+      "cagr": 0.24679824492922053,
+      "max_drawdown": -0.36124275448059184,
+      "buys": 1,
+      "completed_sells": 0
+    }
+  ]
+}
