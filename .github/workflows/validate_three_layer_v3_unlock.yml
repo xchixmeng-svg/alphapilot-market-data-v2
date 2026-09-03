@@ -1,0 +1,40 @@
+name: Validate three-layer V3 guard unlock
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [three-layer-strategy-20260902]
+    paths:
+      - scripts/validate_three_layer_strategy_v3_unlock.py
+      - .github/workflows/validate_three_layer_v3_unlock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
+      - name: Run V3 with audited guard release cycles
+        run: python -u scripts/validate_three_layer_strategy_v3_unlock.py
+      - name: Commit audited results
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add artifacts/three_layer_strategy_v3_unlock artifacts/six_factor_validation/corporate_action_audit.csv artifacts/six_factor_validation/unresolved_price_discontinuities.csv
+          git diff --cached --quiet || git commit -m "results: V3 drawdown guard unlock validation"
+          git push
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: three-layer-v3-guard-unlock
+          path: |
+            artifacts/three_layer_strategy_v3_unlock
+            artifacts/six_factor_validation/corporate_action_audit.csv
+            artifacts/six_factor_validation/unresolved_price_discontinuities.csv
