@@ -139,7 +139,18 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
                 split_events.append(dict(date=day,code=c,multiplier=m,shares_before=old,
                     shares_after=pos[c]["shares"],entry_before=old_entry,entry_after=pos[c]["entry"]))
         for c,reason in list(pending_sells.items()):
-            if c in pos and c in bars.index:
+            if c not in pos:
+                del pending_sells[c]
+                continue
+            # A T decision is valid for T+1 only.  If the security has no bar
+            # on that market day (for example, a suspension), cancel instead
+            # of silently carrying the order to T+2 or later.  The position is
+            # re-analysed when it trades again and must generate a fresh exit.
+            if c not in bars.index:
+                del pending_sells[c]
+                pos[c].pop("sell_decision",None)
+                continue
+            if c in bars.index:
                 raw=float(bars.at[c,"open"]); fill=raw*(1-SELL_ADVERSE); sh=pos[c]["shares"]
                 fee=fill*sh*FEE; tax=fill*sh*TAX; cash += fill*sh-fee-tax
                 ledger.append(dict(execute_date=day,decision_date=pos[c]["sell_decision"],side="SELL",code=c,
