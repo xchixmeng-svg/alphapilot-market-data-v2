@@ -1,4 +1,4 @@
-name: Validate three-layer strategy
+name: Validate three-layer strategy V3
 
 on:
   workflow_dispatch:
@@ -6,11 +6,11 @@ on:
     branches: [three-layer-strategy-20260902]
     paths:
       - scripts/validate_three_layer_strategy.py
+      - scripts/validate_three_layer_strategy_v3.py
       - scripts/validate_six_factor_strategies.py
       - .github/workflows/validate_three_layer_strategy.yml
 
 permissions:
-  actions: read
   contents: write
 
 jobs:
@@ -23,28 +23,20 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pandas numpy pyarrow lxml html5lib beautifulsoup4
-      - name: Restore checksum-tracked fundamentals artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p external_fundamentals
-          gh run download 33494195574 --repo ${{ github.repository }} --name AlphaPilot_Fundamentals_2019_Latest --dir external_fundamentals
-          unzip -q external_fundamentals/AlphaPilot_Fundamentals_2019_Latest.zip -d external_fundamentals
-          test -s external_fundamentals/monthly_revenue_2019_2026.csv
       - name: Run three independent layers and combined portfolio
-        run: python -u scripts/validate_three_layer_strategy.py
+        run: python -u scripts/validate_three_layer_strategy_v3.py
       - name: Commit audited results
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add artifacts/three_layer_strategy artifacts/six_factor_validation/corporate_action_audit.csv artifacts/six_factor_validation/unresolved_price_discontinuities.csv artifacts/six_factor_validation/monthly_revenue.csv
+          git add artifacts/three_layer_strategy_v3 artifacts/six_factor_validation/corporate_action_audit.csv artifacts/six_factor_validation/unresolved_price_discontinuities.csv
           git diff --cached --quiet || git commit -m "results: audited three-layer validation"
           git push
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: three-layer-validation
+          name: three-layer-validation-v3
           path: |
-            artifacts/three_layer_strategy
+            artifacts/three_layer_strategy_v3
             artifacts/six_factor_validation/corporate_action_audit.csv
             artifacts/six_factor_validation/unresolved_price_discontinuities.csv
