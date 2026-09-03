@@ -299,6 +299,24 @@ def audit(x, results, ledgers, curves, split_audits, rejected_orders):
     if not all(checks.values()): raise RuntimeError(f"contract audit failed: {checks}")
 
 
+def completed_trade_rows(ledger: pd.DataFrame) -> pd.DataFrame:
+    """Pair each buy with its later sell and attribute net P&L to exit reason."""
+    if ledger.empty: return pd.DataFrame()
+    opened={}; rows=[]
+    for r in ledger.itertuples(index=False):
+        if r.side=="BUY": opened[str(r.code)]=r
+        else:
+            b=opened.pop(str(r.code),None)
+            if b is None: continue
+            buy_cost=b.shares*b.fill_price+b.commission+b.tax
+            sell_net=r.shares*r.fill_price-r.commission-r.tax
+            pnl=sell_net-buy_cost
+            rows.append(dict(code=str(r.code),layer=r.layer,exit_reason=r.reason,
+                buy_date=b.execute_date,sell_date=r.execute_date,pnl=pnl,
+                return_pct=pnl/buy_cost,win=pnl>0))
+    return pd.DataFrame(rows)
+
+
 def main():
     raw=core.load_ohlcv(); revenue=core.fetch_revenue(); x=add_features(raw,revenue)
     configs=[(("short",),"short_layer"),(("swing",),"swing_layer"),(("large",),"large_layer"),
@@ -325,9 +343,13 @@ def main():
     exits=[]
     for i,t in enumerate(ledgers):
         label=configs[i][1]
-        if t.empty: continue
-        for (layer,reason),z in t[t.side.eq("SELL")].groupby(["layer","reason"]):
-            exits.append(dict(strategy=label,layer=layer,reason=reason,count=len(z)))
+        paired=completed_trade_rows(t)
+        paired.to_csv(OUT/f"completed_trades_{label}.csv",index=False)
+        if paired.empty: continue
+        for (layer,reason),z in paired.groupby(["layer","exit_reason"]):
+            exits.append(dict(strategy=label,layer=layer,reason=reason,count=len(z),
+                wins=int(z.win.sum()),win_rate=float(z.win.mean()),net_pnl=float(z.pnl.sum()),
+                average_pnl=float(z.pnl.mean()),average_return=float(z.return_pct.mean())))
     pd.DataFrame(exits).to_csv(OUT/"exit_reason_distribution.csv",index=False)
     audit(x,results,ledgers,curves,split_audits,rejected_orders)
     report={"period":{"warmup":"2020","train":"2021-2023","test":"2024-2025","blind":"2026-01-01..2026-08-28"},
