@@ -1,0 +1,86 @@
+{
+  "test": "large signal, then 10%-12% close drawdown from causal post-signal peak",
+  "watch_days": 20,
+  "confirmation_days": 3,
+  "results": [
+    {
+      "strategy": "v3_original_large_layer",
+      "final_nav": 1026609.9327187978,
+      "total_return": 0.026609932718797857,
+      "cagr": 0.004662638318781331,
+      "max_drawdown": -0.14277637909471141,
+      "buys": 10,
+      "sells": 10,
+      "completed_trades": 10,
+      "wins": 4,
+      "win_rate": 0.4,
+      "average_mae": -0.10237967667199413,
+      "average_mfe": 0.2736608200947926
+    },
+    {
+      "strategy": "v3_original_combined_three_layer",
+      "final_nav": 941102.1013523751,
+      "total_return": -0.05889789864762485,
+      "cagr": -0.010694848159656822,
+      "max_drawdown": -0.1527101778936527,
+      "buys": 27,
+      "sells": 27,
+      "completed_trades": 27,
+      "wins": 5,
+      "win_rate": 0.18518518518518517,
+      "average_mae": -0.05157568532866606,
+      "average_mfe": 0.09504739296881694
+    },
+    {
+      "strategy": "pullback_10_12_large_layer",
+      "final_nav": 957826.6135099999,
+      "total_return": -0.04217338649000002,
+      "cagr": -0.007603224289832178,
+      "max_drawdown": -0.07699112209799364,
+      "buys": 2,
+      "sells": 2,
+      "completed_trades": 2,
+      "wins": 0,
+      "win_rate": 0.0,
+      "average_mae": -0.04802875832400261,
+      "average_mfe": 0.1271141493311333
+    },
+    {
+      "strategy": "pullback_10_12_combined_three_layer",
+      "final_nav": 867633.7678107502,
+      "total_return": -0.1323662321892498,
+      "cagr": -0.0248363111301525,
+      "max_drawdown": -0.13317348410248264,
+      "buys": 43,
+      "sells": 43,
+      "completed_trades": 43,
+      "wins": 5,
+      "win_rate": 0.11627906976744186,
+      "average_mae": -0.019024167926948325,
+      "average_mfe": 0.025585112706049042
+    },
+    {
+      "strategy": "0050_BH",
+      "final_nav": 3473949.5065,
+      "total_return": 2.4739495065000003,
+      "cagr": 0.24679824492922053,
+      "max_drawdown": -0.36124275448059184,
+      "buys": 1,
+      "completed_sells": 0
+    }
+  ],
+  "signal_funnel": {
+    "cancel_structure": 366,
+    "expired_20d": 322,
+    "confirmed": 9
+  },
+  "contract_audit": {
+    "coverage_2021_2026": true,
+    "pullback_exactly_10_to_12pct": true,
+    "confirmation_is_after_pullback": true,
+    "all_execution_exact_t1": true,
+    "all_shares_100_step": true,
+    "fees_and_taxes_present": true,
+    "performance_finite": true
+  }
+}

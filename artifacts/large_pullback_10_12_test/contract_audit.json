@@ -1,0 +1,9 @@
+{
+  "coverage_2021_2026": true,
+  "pullback_exactly_10_to_12pct": true,
+  "confirmation_is_after_pullback": true,
+  "all_execution_exact_t1": true,
+  "all_shares_100_step": true,
+  "fees_and_taxes_present": true,
+  "performance_finite": true
+}
