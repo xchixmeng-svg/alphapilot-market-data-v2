@@ -110,6 +110,17 @@ def dj_branch_probe():
         test=get(url,**params)
         historical.append({"params":params,"final_url":test.url,"dates":page_dates(test.text)[-20:],
                            "broker_tables":table_summary(test.text),"bytes":len(test.content)})
+    query_url="https://fubon-ebrokerdj.fbs.com.tw/z/zc/zco/zco.djhtm"
+    for start_end in (("2021/1/5","2021/1/5"),("20210105","20210105")):
+        params={"a":"2330","e":start_end[0],"f":start_end[1]}
+        test=get(query_url,**params)
+        all_tables=[]
+        for i,t in enumerate(pd.read_html(io.StringIO(test.text))):
+            all_tables.append({"table":i,"rows":len(t),"columns":[str(c) for c in t.columns],
+                               "sample":t.head(2).fillna("").astype(str).to_dict("records")})
+        historical.append({"params":params,"final_url":test.url,"dates":page_dates(test.text)[-20:],
+                           "broker_tables":table_summary(test.text),"all_tables":all_tables,
+                           "bytes":len(test.content)})
     return {"url":r.url,"status":r.status_code,"dates":page_dates(r.text)[-20:],
             "broker_tables":table_summary(r.text),"forms":forms,
             "script_snippets":script_snippets[:30],"historical_gets":historical,
