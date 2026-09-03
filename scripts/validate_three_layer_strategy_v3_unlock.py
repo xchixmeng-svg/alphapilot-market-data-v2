@@ -127,7 +127,7 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
     by={d:z.set_index("code") for d,z in x[x.date.isin(days)].groupby("date")}
     cash=INITIAL; pos={}; pending_buys=[]; pending_sells={}; ledger=[]; rejected=[]; vals=[]; split_events=[]
     last={}; equity_peak=INITIAL; risk_peak=INITIAL; max_slots=8; dd_events=[]
-    guard_level=0; guard_start_i=None; guard_low=None; guard_events=[]
+    guard_level=0; guard_start_i=None; guard_low=None; guard_cycle_peak=None; guard_events=[]
     for day_i,day in enumerate(days):
         bars=by[day]
         last.update({str(c):float(v) for c,v in bars.close.items() if pd.notna(v)})
@@ -196,20 +196,25 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
         # to use the true all-time equity peak.
         if guard_level:
             guard_low=min(guard_low,nav)
+            guard_cycle_peak=max(guard_cycle_peak,nav)
             rebound=nav/guard_low-1>=.06
-            timed_recovery=(day_i-guard_start_i>=20 and true_dd>=-.09)
+            guard_cycle_dd=nav/guard_cycle_peak-1
+            timed_recovery=(day_i-guard_start_i>=20 and guard_cycle_dd>=-.09)
             if rebound or timed_recovery:
                 guard_events.append(dict(date=day,event="unlock",level=guard_level,nav=nav,
-                    true_drawdown=true_dd,days_active=day_i-guard_start_i,
+                    true_drawdown=true_dd,guard_cycle_drawdown=guard_cycle_dd,
+                    days_active=day_i-guard_start_i,
                     rebound_from_guard_low=nav/guard_low-1,
                     reason="rebound_6pct" if rebound else "20d_and_dd_within_minus_9pct"))
                 guard_level=0; guard_start_i=None; guard_low=None
+                guard_cycle_peak=None
                 risk_peak=nav; risk_dd=0.0
         trigger_level=14 if risk_dd<=-.14 else (12 if risk_dd<=-.12 else (9 if risk_dd<=-.09 else (6 if risk_dd<=-.06 else 0)))
         if trigger_level>guard_level:
-            guard_level=trigger_level; guard_start_i=day_i; guard_low=nav
+            guard_level=trigger_level; guard_start_i=day_i; guard_low=nav; guard_cycle_peak=nav
             guard_events.append(dict(date=day,event="trigger",level=guard_level,nav=nav,
-                true_drawdown=true_dd,days_active=0,rebound_from_guard_low=0.0,reason=f"drawdown_minus_{guard_level}pct"))
+                true_drawdown=true_dd,guard_cycle_drawdown=0.0,days_active=0,
+                rebound_from_guard_low=0.0,reason=f"drawdown_minus_{guard_level}pct"))
 
         # Never indiscriminately liquidate the large layer.
         if guard_level>=6:
@@ -351,6 +356,17 @@ def completed_trade_rows(ledger: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     raw=core.load_ohlcv(); revenue=core.fetch_revenue(); x=add_features(raw,revenue)
+    signal_rows=[]
+    live=x[x.date.between("2021-01-01","2026-08-28")]
+    for layer in ("short","swing","large"):
+        q=live[live[layer]].copy()
+        q["year"]=q.date.dt.year
+        counts=q.groupby("year").size()
+        for year in range(2021,2027):
+            signal_rows.append(dict(layer=layer,year=year,
+                raw_signal_rows=int(counts.get(year,0))))
+    signal_df=pd.DataFrame(signal_rows)
+    signal_df.to_csv(OUT/"raw_signal_audit.csv",index=False)
     configs=[(("short",),"short_layer"),(("swing",),"swing_layer"),(("large",),"large_layer"),
              (("short","swing","large"),"combined_three_layer")]
     results=[]; curves=[]; ledgers=[]; split_audits=[]; rejected_orders=[]; guard_logs=[]
@@ -397,7 +413,7 @@ def main():
     all_guard_events=pd.concat(guard_frames,ignore_index=True) if guard_frames else pd.DataFrame()
     unlock_rows=all_guard_events[all_guard_events.event.eq("unlock")] if not all_guard_events.empty else pd.DataFrame()
     unlock_valid=(not unlock_rows.empty and ((unlock_rows.rebound_from_guard_low>=.06-1e-12) |
-        ((unlock_rows.days_active>=20)&(unlock_rows.true_drawdown>=-.09-1e-12))).all())
+        ((unlock_rows.days_active>=20)&(unlock_rows.guard_cycle_drawdown>=-.09-1e-12))).all())
     short_complete=int(results[0]["sells"])
     unlock_checks={
         "unlock_events_exist":bool(not unlock_rows.empty),
@@ -415,7 +431,8 @@ def main():
       "unlock_audit":unlock_checks,
       "validation_gates":{"short_complete_trades_at_least_80":short_complete>=80,
         "short_complete_trades":short_complete,
-        "post_2021_new_buys_by_layer_year":post},
+        "post_2021_new_buys_by_layer_year":post,
+        "raw_signals_by_layer_year":signal_rows},
       "data_limitations":{"sector_flow":"market breadth proxy (archive has no point-in-time sector map)",
         "broker_concentration":"institutional net/volume proxy; buyer/seller broker counts absent and never fabricated",
         "validation_warning":"V2 was designed after observing V1; historical results are reference only and require at least three months forward validation"},
