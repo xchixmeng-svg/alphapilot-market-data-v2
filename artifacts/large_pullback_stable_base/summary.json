@@ -1,0 +1,87 @@
+{
+  "test": "large signal, >=10% pullback, ten-day stable base, full reanalysis, then T+1",
+  "watch_days": 60,
+  "stabilization_days": 10,
+  "results": [
+    {
+      "strategy": "v3_original_large_layer",
+      "final_nav": 1026609.9327187978,
+      "total_return": 0.026609932718797857,
+      "cagr": 0.004662638318781331,
+      "max_drawdown": -0.14277637909471141,
+      "buys": 10,
+      "sells": 10,
+      "completed_trades": 10,
+      "wins": 4,
+      "win_rate": 0.4,
+      "average_mae": -0.10237967667199413,
+      "average_mfe": 0.2736608200947926
+    },
+    {
+      "strategy": "v3_original_combined_three_layer",
+      "final_nav": 941102.1013523751,
+      "total_return": -0.05889789864762485,
+      "cagr": -0.010694848159656822,
+      "max_drawdown": -0.1527101778936527,
+      "buys": 27,
+      "sells": 27,
+      "completed_trades": 27,
+      "wins": 5,
+      "win_rate": 0.18518518518518517,
+      "average_mae": -0.05157568532866606,
+      "average_mfe": 0.09504739296881694
+    },
+    {
+      "strategy": "pullback_stable_base_large_layer",
+      "final_nav": 855356.394284375,
+      "total_return": -0.14464360571562496,
+      "cagr": -0.027294878654192667,
+      "max_drawdown": -0.15273156346195071,
+      "buys": 5,
+      "sells": 5,
+      "completed_trades": 5,
+      "wins": 0,
+      "win_rate": 0.0,
+      "average_mae": -0.16601429220925726,
+      "average_mfe": 0.021509595311753317
+    },
+    {
+      "strategy": "pullback_stable_base_combined_three_layer",
+      "final_nav": 867975.6450745002,
+      "total_return": -0.1320243549254998,
+      "cagr": -0.02476826028172141,
+      "max_drawdown": -0.1328319249234885,
+      "buys": 43,
+      "sells": 43,
+      "completed_trades": 43,
+      "wins": 5,
+      "win_rate": 0.11627906976744186,
+      "average_mae": -0.019024167926948325,
+      "average_mfe": 0.025585112706049042
+    },
+    {
+      "strategy": "0050_BH",
+      "final_nav": 3473949.5065,
+      "total_return": 2.4739495065000003,
+      "cagr": 0.24679824492922053,
+      "max_drawdown": -0.36124275448059184,
+      "buys": 1,
+      "completed_sells": 0
+    }
+  ],
+  "signal_funnel": {
+    "reanalysis_rejected": 11341,
+    "expired_60d": 522,
+    "cancel_over_30pct": 112,
+    "reanalysis_passed": 63
+  },
+  "contract_audit": {
+    "coverage_2021_2026": true,
+    "pullback_at_least_10pct": true,
+    "base_uses_ten_prior_days": true,
+    "all_execution_exact_t1": true,
+    "all_shares_100_step": true,
+    "fees_and_taxes_present": true,
+    "performance_finite": true
+  }
+}
