@@ -2,7 +2,7 @@
   "unlock_events_exist": true,
   "every_unlock_satisfies_6pct_or_20d_plus_dd9": true,
   "no_automatic_position_restoration": true,
-  "each_layer_has_new_buy_in_2022_2026": false,
+  "each_layer_has_new_buy_in_2022_2026": true,
   "each_layer_each_year_has_new_buy_2022_2026": false,
   "short_complete_trades_at_least_80": false
 }

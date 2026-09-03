@@ -28,13 +28,13 @@
     "unlock_events_exist": true,
     "every_unlock_satisfies_6pct_or_20d_plus_dd9": true,
     "no_automatic_position_restoration": true,
-    "each_layer_has_new_buy_in_2022_2026": false,
+    "each_layer_has_new_buy_in_2022_2026": true,
     "each_layer_each_year_has_new_buy_2022_2026": false,
     "short_complete_trades_at_least_80": false
   },
   "validation_gates": {
     "short_complete_trades_at_least_80": false,
-    "short_complete_trades": 19,
+    "short_complete_trades": 56,
     "post_2021_new_buys_by_layer_year": [
       {
         "layer": "short",
@@ -44,72 +44,164 @@
       {
         "layer": "short",
         "year": 2023,
-        "new_buys": 1
+        "new_buys": 8
       },
       {
         "layer": "short",
         "year": 2024,
-        "new_buys": 0
+        "new_buys": 7
       },
       {
         "layer": "short",
         "year": 2025,
-        "new_buys": 0
+        "new_buys": 8
       },
       {
         "layer": "short",
         "year": 2026,
-        "new_buys": 0
+        "new_buys": 15
       },
       {
         "layer": "swing",
         "year": 2022,
-        "new_buys": 0
+        "new_buys": 136
       },
       {
         "layer": "swing",
         "year": 2023,
-        "new_buys": 0
+        "new_buys": 94
       },
       {
         "layer": "swing",
         "year": 2024,
-        "new_buys": 0
+        "new_buys": 114
       },
       {
         "layer": "swing",
         "year": 2025,
-        "new_buys": 0
+        "new_buys": 116
       },
       {
         "layer": "swing",
         "year": 2026,
-        "new_buys": 0
+        "new_buys": 3
       },
       {
         "layer": "large",
         "year": 2022,
-        "new_buys": 0
+        "new_buys": 7
       },
       {
         "layer": "large",
         "year": 2023,
-        "new_buys": 0
+        "new_buys": 25
       },
       {
         "layer": "large",
         "year": 2024,
-        "new_buys": 0
+        "new_buys": 28
       },
       {
         "layer": "large",
         "year": 2025,
-        "new_buys": 0
+        "new_buys": 19
       },
       {
         "layer": "large",
         "year": 2026,
         "new_buys": 0
+      }
+    ],
+    "raw_signals_by_layer_year": [
+      {
+        "layer": "short",
+        "year": 2021,
+        "raw_signal_rows": 46
+      },
+      {
+        "layer": "short",
+        "year": 2022,
+        "raw_signal_rows": 30
+      },
+      {
+        "layer": "short",
+        "year": 2023,
+        "raw_signal_rows": 38
+      },
+      {
+        "layer": "short",
+        "year": 2024,
+        "raw_signal_rows": 48
+      },
+      {
+        "layer": "short",
+        "year": 2025,
+        "raw_signal_rows": 37
+      },
+      {
+        "layer": "short",
+        "year": 2026,
+        "raw_signal_rows": 51
+      },
+      {
+        "layer": "swing",
+        "year": 2021,
+        "raw_signal_rows": 2663
+      },
+      {
+        "layer": "swing",
+        "year": 2022,
+        "raw_signal_rows": 2594
+      },
+      {
+        "layer": "swing",
+        "year": 2023,
+        "raw_signal_rows": 3921
+      },
+      {
+        "layer": "swing",
+        "year": 2024,
+        "raw_signal_rows": 3282
+      },
+      {
+        "layer": "swing",
+        "year": 2025,
+        "raw_signal_rows": 2891
+      },
+      {
+        "layer": "swing",
+        "year": 2026,
+        "raw_signal_rows": 51
+      },
+      {
+        "layer": "large",
+        "year": 2021,
+        "raw_signal_rows": 160
+      },
+      {
+        "layer": "large",
+        "year": 2022,
+        "raw_signal_rows": 93
+      },
+      {
+        "layer": "large",
+        "year": 2023,
+        "raw_signal_rows": 120
+      },
+      {
+        "layer": "large",
+        "year": 2024,
+        "raw_signal_rows": 132
+      },
+      {
+        "layer": "large",
+        "year": 2025,
+        "raw_signal_rows": 104
+      },
+      {
+        "layer": "large",
+        "year": 2026,
+        "raw_signal_rows": 1
       }
     ]
   },
@@ -121,39 +213,39 @@
   "results": [
     {
       "strategy": "short_layer",
-      "final_nav": 844227.099635625,
-      "total_return": -0.15577290036437497,
-      "cagr": -0.029548762561066866,
-      "max_drawdown": -0.15577290036437497,
-      "buys": 19,
-      "sells": 19
+      "final_nav": 662421.0594893754,
+      "total_return": -0.33757894051062454,
+      "cagr": -0.07035433080979492,
+      "max_drawdown": -0.33757894051062454,
+      "buys": 56,
+      "sells": 56
     },
     {
       "strategy": "swing_layer",
-      "final_nav": 842278.0631982498,
-      "total_return": -0.15772193680175017,
-      "cagr": -0.029945990637998854,
-      "max_drawdown": -0.15850559760797545,
-      "buys": 48,
-      "sells": 48
+      "final_nav": 322349.4382134995,
+      "total_return": -0.6776505617865005,
+      "cagr": -0.18170510460887257,
+      "max_drawdown": -0.6779504777307404,
+      "buys": 563,
+      "sells": 563
     },
     {
       "strategy": "large_layer",
-      "final_nav": 1026609.9327187978,
-      "total_return": 0.026609932718797857,
-      "cagr": 0.004662638318781331,
-      "max_drawdown": -0.14277637909471141,
-      "buys": 10,
-      "sells": 10
+      "final_nav": 1186587.0852794922,
+      "total_return": 0.1865870852794922,
+      "cagr": 0.030767476782031844,
+      "max_drawdown": -0.3382658204346213,
+      "buys": 110,
+      "sells": 110
     },
     {
       "strategy": "combined_three_layer",
-      "final_nav": 941102.1013523751,
-      "total_return": -0.05889789864762485,
-      "cagr": -0.010694848159656822,
-      "max_drawdown": -0.1527101778936527,
-      "buys": 27,
-      "sells": 27
+      "final_nav": 532108.8696861734,
+      "total_return": -0.46789113031382656,
+      "cagr": -0.10573463710538378,
+      "max_drawdown": -0.5462670742554545,
+      "buys": 382,
+      "sells": 382
     },
     {
       "strategy": "0050_BH",
