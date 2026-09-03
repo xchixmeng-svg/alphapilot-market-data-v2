@@ -20,8 +20,19 @@ def get(url, **params):
     return r
 
 def mops_industry_probe():
-    url="https://mops.twse.com.tw/nas/t21/sii/t21sc03_110_1_0.html"
-    r=get(url)
+    urls=[
+        "https://mops.twse.com.tw/nas/t21/sii/t21sc03_110_1.html",
+        "https://mops.twse.com.tw/nas/t21/sii/t21sc03_110_1_0.html",
+    ]
+    errors=[]
+    r=None; url=None
+    for candidate in urls:
+        try:
+            r=get(candidate); url=candidate; break
+        except Exception as exc:
+            errors.append({"url":candidate,"error":str(exc)})
+    if r is None:
+        raise RuntimeError(f"MOPS historical URL variants failed: {errors}")
     tables=pd.read_html(io.StringIO(r.content.decode("big5","ignore")))
     found=[]
     for i,t in enumerate(tables):
@@ -59,10 +70,15 @@ def histock_probe():
     return probes
 
 def main():
-    report={"policy":"real observations only; no proxies",
-            "mops_historical_industry":mops_industry_probe(),
-            "histock_candidate_date_probe":histock_probe()}
+    report={"policy":"real observations only; no proxies"}
+    errors={}
+    for key,fn in (("mops_historical_industry",mops_industry_probe),
+                   ("histock_candidate_date_probe",histock_probe)):
+        try: report[key]=fn()
+        except Exception as exc: errors[key]=str(exc)
+    report["errors"]=errors
     (OUT/"probe.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False,indent=2))
+    if errors: raise SystemExit(f"crawler probe incomplete: {errors}")
 
 if __name__=="__main__": main()
