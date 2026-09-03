@@ -99,8 +99,21 @@ def dj_branch_probe():
                 item["option_count"]=len(values); item["option_first_last"]=[values[:2],values[-2:]]
             fields.append(item)
         forms.append({"action":form.get("action"),"method":form.get("method"),"fields":fields})
+    script_text="\n".join(s.get_text(" ",strip=True) for s in soup.find_all("script"))
+    script_snippets=[]
+    for line in script_text.splitlines():
+        if any(k in line for k in ("bDate","eDate","zco_","location.href")):
+            script_snippets.append(line.strip()[:1000])
+    historical=[]
+    for params in ({"bDate":"20210105","eDate":"20210105"},
+                   {"bDate":"2021/01/05","eDate":"2021/01/05"}):
+        test=get(url,**params)
+        historical.append({"params":params,"final_url":test.url,"dates":page_dates(test.text)[-20:],
+                           "broker_tables":table_summary(test.text),"bytes":len(test.content)})
     return {"url":r.url,"status":r.status_code,"dates":page_dates(r.text)[-20:],
-            "broker_tables":table_summary(r.text),"forms":forms,"bytes":len(r.content)}
+            "broker_tables":table_summary(r.text),"forms":forms,
+            "script_snippets":script_snippets[:30],"historical_gets":historical,
+            "bytes":len(r.content)}
 
 def histock_probe():
     base="https://histock.tw/stock/branch.aspx"
