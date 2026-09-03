@@ -15,7 +15,7 @@ import pandas as pd
 import validate_six_factor_strategies as core
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "artifacts" / "three_layer_strategy"
+OUT = ROOT / "artifacts" / "three_layer_strategy_v2_proxy"
 OUT.mkdir(parents=True, exist_ok=True)
 INITIAL = 1_000_000.0
 FEE, TAX, SELL_ADVERSE, LOT, MAX_W = .001425, .003, .02, 100, .20
@@ -50,11 +50,17 @@ def add_features(raw: pd.DataFrame, revenue: pd.DataFrame) -> pd.DataFrame:
     x["flow_ratio5"] = x.inst5 / g.volume.transform(lambda s:s.rolling(5,min_periods=5).sum()).replace(0,np.nan)
     x["ma20_slope"] = g.ma20.diff(5)
     x["ret1"] = g.adj_close.pct_change()
+    x["ret_std20"] = g.adj_close.transform(lambda s:s.pct_change().rolling(20,min_periods=20).std())
     x["prev_low"] = g.adj_low.shift()
     x["gap"] = x.adj_open / g.adj_close.shift() - 1
     x["body"] = x.adj_close / x.adj_open - 1
     x["quiet"] = x.vol5 / x.vol20
+    x["quiet_prev"] = x.groupby("code",sort=False).quiet.shift()
     x["volume_burst"] = x.volume / x.vol20
+    x["accel_prev90"] = g.accel.transform(lambda s:s.rolling(90,min_periods=30).mean().shift())
+    x["inst_sell5"] = g.inst_net.transform(lambda s:s.lt(0).rolling(5,min_periods=5).sum())
+    x["inst_sell5_recent10"] = x.groupby("code",sort=False).inst_sell5.transform(
+        lambda s:s.rolling(10,min_periods=1).max())
     # Sector history is absent from the immutable archive.  A market-wide
     # breadth pulse is the conservative, reproducible proxy; it never uses a
     # future classification or future return.
@@ -77,7 +83,7 @@ def add_features(raw: pd.DataFrame, revenue: pd.DataFrame) -> pd.DataFrame:
     # Layer 3: market gate is added per decision day in simulation. Revenue is
     # point-in-time (available on the 10th of the following month).
     x["large"] = (x.base & (x.yoy > 0) & (x.accel.notna()) &
-        ((x.foreign_pos5 >= 3) | (x.trust_pos5 >= 3)) & (x.quiet.shift(1) < .75) &
+        ((x.foreign_pos5 >= 3) | (x.trust_pos5 >= 3)) & (x.quiet_prev < .75) &
         (x.volume_burst >= 2) & ((x.adj_close > x.prev_hi20) | (x.adj_close > x.prev_hi100)))
     return x.sort_values(["date", "code"]).reset_index(drop=True)
 
@@ -96,7 +102,7 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
     idx=x[x.code.eq("0050")].set_index("date").sort_index()
     days=list(idx.loc["2021-01-04":"2026-08-28"].index.unique())
     by={d:z.set_index("code") for d,z in x[x.date.isin(days)].groupby("date")}
-    cash=INITIAL; pos={}; pending_buys=[]; pending_sells={}; ledger=[]; vals=[]; split_events=[]
+    cash=INITIAL; pos={}; pending_buys=[]; pending_sells={}; ledger=[]; rejected=[]; vals=[]; split_events=[]
     last={}; peak=INITIAL; lock=0; cool=0; max_slots=8
     for day in days:
         bars=by[day]
@@ -129,7 +135,8 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
             pos[c]={"shares":sh,"entry":fill,"high":float(bars.at[c,"close"]),"days":0,
                     "layer":order["layer"],"box_hi":order["box_hi"]}
             ledger.append(dict(execute_date=day,decision_date=order["decision_date"],side="BUY",code=c,
-                layer=order["layer"],cash_pool="shared_1m_account",shares=sh,raw_price=op,fill_price=fill,commission=fee,tax=0,reason="signal"))
+                layer=order["layer"],cash_pool="shared_1m_account",shares=sh,raw_price=op,fill_price=fill,
+                commission=fee,tax=0,reason="signal",expected_rr=order["expected_rr"]))
             if cash < -1e-6: raise RuntimeError(f"shared cash pool went negative: {cash}")
         pending_buys=[]
         nav=cash+sum(p["shares"]*last[c] for c,p in pos.items()); peak=max(peak,nav); dd=nav/peak-1
@@ -138,7 +145,7 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
             if c not in bars.index: continue
             r=bars.loc[c]; cl=float(r.close); p["days"]+=1; p["high"]=max(p["high"],cl); reason=None
             if p["layer"]=="short":
-                if cl < p["box_hi"]*.99: reason="box_failure"
+                if cl < p["box_hi"]*.98: reason="box_retest_below_minus_2pct"
                 elif p["days"]>1 and cl<float(r.ma3): reason="ma3_break"
                 elif p["days"]>1 and cl<float(r.prev_low): reason="prior_low_break"
                 elif r.inst_net<0 and r.volume<r.vol20: reason="flow_cools"
@@ -146,17 +153,17 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
                 if cl<float(r.ma20) or r.ma20_slope<=0: reason="ma20_break"
                 elif cl/p["high"]-1<=-.08: reason="trail_8pct"
             else:
-                if cl/p["high"]-1<=-.10: reason="trail_10pct"
-                elif p["days"]>=60: reason="max_60_days"
+                gain=p["high"]/p["entry"]-1
+                if gain>=.15 and cl/p["high"]-1<=-.13: reason="trail_13pct_after_gain_15pct"
+                elif p["days"]>90 and not (pd.notna(r.accel_prev90) and r.accel>r.accel_prev90 and r.inst_sell5_recent10<5):
+                    reason="over_90d_continuation_failed"
             if reason and p["days"]>=1:
                 p["sell_decision"]=day; pending_sells[c]=reason
-        if dd<=-.14 and cool==0:
+        if dd<=-.09 and cool==0:
             lock=10; cool=15
-            exposure=sum(pos[c]["shares"]*last[c] for c in pos)/nav
-            for c in sorted(pos,key=lambda k:pos[k]["days"],reverse=True):
-                if exposure<=.50: break
+            ranked=sorted(pos,key=lambda c:last[c]/pos[c]["entry"]-1,reverse=True)
+            for c in ranked[2:]:
                 pos[c]["sell_decision"]=day; pending_sells[c]="portfolio_dd_guard"
-                exposure-=pos[c]["shares"]*last[c]/nav
         lock=max(0,lock-1); cool=max(0,cool-1)
         if lock or day not in idx.index: continue
         mr=idx.loc[day]
@@ -176,17 +183,30 @@ def simulate(x: pd.DataFrame, enabled: tuple[str,...], label: str):
             if q[0] not in seen: chosen.append(q); seen.add(q[0])
             if len(chosen)>=slots: break
         target=max(0,exposure*nav-sum(pos[c]["shares"]*last[c] for c in pos)); each=min(nav*MAX_W,target/max(1,len(chosen)))
-        pending_buys=[dict(code=c,layer=l,limit=float(bars.at[c,"close"])*.98,budget=each,
-                           decision_date=day,box_hi=box) for c,l,_,box in chosen]
+        pending_buys=[]
+        for c,l,_,box in chosen:
+            row=bars.loc[c]
+            discount=min(.015,float(row.ret_std20)) if pd.notna(row.ret_std20) else .015
+            limit=float(row.close)*(1-discount) if l=="large" else float(row.close)*.98
+            stop=box*.98 if l=="short" else (float(row.ma20)*.98 if l=="swing" else limit*.87)
+            reward=limit*(1.08 if l=="short" else (1.15 if l=="swing" else 1.25))
+            risk=limit-stop
+            rr=(reward-limit)/risk if risk>0 else -np.inf
+            if rr<1.5:
+                rejected.append(dict(decision_date=day,code=c,layer=l,reason="expected_rr_below_1p5",
+                                     limit=limit,stop=stop,reward=reward,expected_rr=rr))
+                continue
+            pending_buys.append(dict(code=c,layer=l,limit=limit,budget=each,
+                               decision_date=day,box_hi=box,expected_rr=rr))
     curve=pd.DataFrame(vals,columns=["date","nav","cash","holdings","drawdown"]).set_index("date")
     years=(curve.index[-1]-curve.index[0]).days/365.2425
     result=dict(strategy=label,final_nav=float(curve.nav.iloc[-1]),total_return=float(curve.nav.iloc[-1]/INITIAL-1),
         cagr=float((curve.nav.iloc[-1]/INITIAL)**(1/years)-1),max_drawdown=float(curve.drawdown.min()),
         buys=sum(t["side"]=="BUY" for t in ledger),sells=sum(t["side"]=="SELL" for t in ledger))
-    return result,curve,pd.DataFrame(ledger),pd.DataFrame(split_events)
+    return result,curve,pd.DataFrame(ledger),pd.DataFrame(split_events),pd.DataFrame(rejected)
 
 
-def audit(x, results, ledgers, curves, split_audits):
+def audit(x, results, ledgers, curves, split_audits, rejected_orders):
     market_days=sorted(x.loc[x.code.eq("0050"),"date"].drop_duplicates())
     next_market_day={market_days[i]:market_days[i+1] for i in range(len(market_days)-1)}
     exact_t1=[]; fee_tax=[]
@@ -215,6 +235,10 @@ def audit(x, results, ledgers, curves, split_audits):
         "fees_and_sell_tax_use_fill_price": bool(fee_tax) and all(fee_tax),
         "split_price_notional_invariant": (not ca.empty and ca.invariant_pass.astype(str).str.lower().eq("true").all()),
         "held_split_share_and_entry_invariant": bool(held_split_ok),
+        "expected_reward_risk_at_least_1p5": (all(
+            t.empty or (t.loc[t.side.eq("BUY"),"expected_rr"]>=1.5).all() for t in ledgers) and all(
+            j.empty or (j.expected_rr<1.5).all() for j in rejected_orders)),
+        "rejected_orders_have_reasons": all(j.empty or j.reason.notna().all() for j in rejected_orders),
         "performance_finite": all(np.isfinite(r["final_nav"]) and np.isfinite(r["max_drawdown"]) for r in results),
     }
     checks={k:bool(v) for k,v in checks.items()}
@@ -226,19 +250,31 @@ def main():
     raw=core.load_ohlcv(); revenue=core.fetch_revenue(); x=add_features(raw,revenue)
     configs=[(("short",),"short_layer"),(("swing",),"swing_layer"),(("large",),"large_layer"),
              (("short","swing","large"),"combined_three_layer")]
-    results=[]; curves=[]; ledgers=[]; split_audits=[]
+    results=[]; curves=[]; ledgers=[]; split_audits=[]; rejected_orders=[]
     for layers,label in configs:
-        r,c,t,s=simulate(x,layers,label); results.append(r); ledgers.append(t); curves.append(c)
-        split_audits.append(s); t.to_csv(OUT/f"trades_{label}.csv",index=False)
+        r,c,t,s,j=simulate(x,layers,label); results.append(r); ledgers.append(t); curves.append(c)
+        split_audits.append(s); rejected_orders.append(j); t.to_csv(OUT/f"trades_{label}.csv",index=False)
+        j.to_csv(OUT/f"rejected_orders_{label}.csv",index=False)
         s.to_csv(OUT/f"held_split_audit_{label}.csv",index=False); print(label,r,flush=True)
     bm,bc=core.benchmark(x); results.append(bm)
     pd.DataFrame(results).to_csv(OUT/"performance_summary.csv",index=False)
     pd.concat([curve.nav.rename(configs[i][1]) for i,curve in enumerate(curves)]+[bc.rename("0050_BH")],axis=1).to_csv(OUT/"equity_curves.csv")
-    audit(x,results,ledgers,curves,split_audits)
+    annual=[]
+    named_curves={configs[i][1]:curve.nav for i,curve in enumerate(curves)}
+    named_curves["0050_BH"]=bc
+    for strategy,series in named_curves.items():
+        for year,z in series.dropna().groupby(series.dropna().index.year):
+            if 2021<=year<=2026 and len(z)>1:
+                annual.append(dict(strategy=strategy,year=int(year),start_nav=float(z.iloc[0]),
+                    end_nav=float(z.iloc[-1]),year_return=float(z.iloc[-1]/z.iloc[0]-1),
+                    year_max_drawdown=float((z/z.cummax()-1).min())))
+    pd.DataFrame(annual).to_csv(OUT/"yearly_performance.csv",index=False)
+    audit(x,results,ledgers,curves,split_audits,rejected_orders)
     report={"period":{"warmup":"2020","train":"2021-2023","test":"2024-2025","blind":"2026-01-01..2026-08-28"},
-      "execution":"T close decision, T+1 precommitted 98% close limit, sells next open less 2%, full fee/tax, 100-share step",
+      "execution":"T close decision, T+1 precommitted limit (large layer volatility discount; other layers 98% close), sells next open less 2%, full fee/tax, 100-share step",
       "data_limitations":{"sector_flow":"market breadth proxy (archive has no point-in-time sector map)",
-        "broker_concentration":"institutional net/volume proxy; buyer/seller broker counts absent and never fabricated"},
+        "broker_concentration":"institutional net/volume proxy; buyer/seller broker counts absent and never fabricated",
+        "validation_warning":"V2 was designed after observing V1; historical results are reference only and require at least three months forward validation"},
       "results":results}
     (OUT/"summary.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False,indent=2),flush=True)
