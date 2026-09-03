@@ -1,0 +1,28 @@
+name: V2 crawler source probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [three-layer-v2-real-data-20260902]
+    paths:
+      - scripts/probe_v2_crawlers.py
+      - .github/workflows/v2-crawler-probe.yml
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas requests beautifulsoup4 lxml html5lib
+      - name: Probe historical industry and candidate-date branch sources
+        run: python scripts/probe_v2_crawlers.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-crawler-probe
+          path: artifacts/v2_crawler_probe/
+          if-no-files-found: error
