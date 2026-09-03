@@ -46,13 +46,28 @@ def page_dates(text):
     return sorted(set(x for p in patterns for x in re.findall(p,text)))
 
 def mops_industry_probe():
-    url="https://mops.twse.com.tw/server-java/FileDownLoad"
+    urls=("https://mops.twse.com.tw/mops/server-java/FileDownLoad",
+          "https://mops.twse.com.tw/server-java/FileDownLoad",
+          "https://mopsov.twse.com.tw/mops/server-java/FileDownLoad")
     results=[]
     for market,path in (("listed","/t21/sii/"),("otc","/t21/otc/")):
         filename="t21sc03_110_1.csv"
-        r=post(url,{"step":"9","functionName":"show_file2",
-                    "filePath":path,"fileName":filename})
-        text=decode_tw_text(r.content)
+        attempts=[]; r=None; text=""; used_url=""; used_path=""
+        for url in urls:
+            for full_path in (path,"/home/html/nas"+path):
+                try:
+                    candidate=post(url,{"step":"9","functionName":"show_file",
+                                        "filePath":full_path,"fileName":filename})
+                    candidate_text=decode_tw_text(candidate.content)
+                    attempts.append({"url":url,"file_path":full_path,"status":candidate.status_code,
+                                     "bytes":len(candidate.content),"has_company_code":"公司代號" in candidate_text})
+                    if "公司代號" in candidate_text:
+                        r,text,used_url,used_path=candidate,candidate_text,url,full_path; break
+                except Exception as exc:
+                    attempts.append({"url":url,"file_path":full_path,"error":str(exc)})
+            if r is not None: break
+        if r is None:
+            raise RuntimeError(f"MOPS {market} historical CSV variants failed: {attempts}")
         if "公司代號" not in text:
             raise RuntimeError(f"MOPS {market} CSV lacks 公司代號; first bytes={text[:120]!r}")
         df=pd.read_csv(io.StringIO(text))
@@ -62,12 +77,30 @@ def mops_industry_probe():
         valid_codes=int(df[code_col].astype(str).str.strip().str.fullmatch(r"\d{4}").sum()) if code_col else 0
         if not code_col or valid_codes == 0:
             raise RuntimeError(f"MOPS {market} CSV company codes not detected")
-        results.append({"market":market,"url":url,"file_path":path,"file_name":filename,
+        results.append({"market":market,"url":used_url,"file_path":used_path,"file_name":filename,
                         "status":r.status_code,"rows":len(df),"columns":df.columns.tolist(),
                         "industry_columns":industry_cols,"valid_4digit_codes":valid_codes,
                         "sample":df.head(2).fillna("").astype(str).to_dict("records"),
-                        "bytes":len(r.content)})
+                        "bytes":len(r.content),"attempts":attempts})
     return results
+
+def dj_branch_probe():
+    url="https://fubon-ebrokerdj.fbs.com.tw/z/zc/zco/zco_2330.djhtm"
+    r=get(url)
+    soup=BeautifulSoup(r.text,"html.parser")
+    forms=[]
+    for form in soup.find_all("form"):
+        fields=[]
+        for element in form.find_all(["input","select"]):
+            item={"tag":element.name,"name":element.get("name"),"type":element.get("type"),
+                  "value":element.get("value")}
+            if element.name == "select":
+                values=[o.get("value") or o.get_text(strip=True) for o in element.find_all("option")]
+                item["option_count"]=len(values); item["option_first_last"]=[values[:2],values[-2:]]
+            fields.append(item)
+        forms.append({"action":form.get("action"),"method":form.get("method"),"fields":fields})
+    return {"url":r.url,"status":r.status_code,"dates":page_dates(r.text)[-20:],
+            "broker_tables":table_summary(r.text),"forms":forms,"bytes":len(r.content)}
 
 def histock_probe():
     base="https://histock.tw/stock/branch.aspx"
@@ -105,7 +138,8 @@ def main():
     report={"policy":"real observations only; no proxies"}
     errors={}
     for key,fn in (("mops_historical_industry",mops_industry_probe),
-                   ("histock_candidate_date_probe",histock_probe)):
+                   ("histock_candidate_date_probe",histock_probe),
+                   ("dj_branch_form_probe",dj_branch_probe)):
         try: report[key]=fn()
         except Exception as exc: errors[key]=str(exc)
     report["errors"]=errors
