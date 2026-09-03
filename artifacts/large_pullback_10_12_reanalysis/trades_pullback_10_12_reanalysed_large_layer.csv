@@ -1,0 +1,7 @@
+execute_date,decision_date,side,code,layer,cash_pool,shares,raw_price,fill_price,commission,tax,reason,expected_rr
+2021-04-20,2021-04-19,BUY,1568,large,shared_1m_account,6200,32.4,31.963250000000002,282.39531375000007,0.0,signal,1.6666666666666667
+2021-05-05,2021-05-04,SELL,1568,large,shared_1m_account,6200,27.0,26.46,233.7741,492.156,large_hard_stop_minus_15pct,
+2024-08-02,2024-08-01,BUY,1709,large,shared_1m_account,8000,24.2,23.9355,272.8647,0.0,signal,1.666666666666667
+2024-12-16,2024-12-13,SELL,1709,large,shared_1m_account,8000,21.05,20.629,235.1706,495.096,over_90d_continuation_failed,
+2025-10-30,2025-10-29,BUY,4739,large,shared_1m_account,2900,65.0,64.41900000000001,266.21151750000007,0.0,signal,1.6666666666666652
+2025-12-31,2025-12-30,SELL,4739,large,shared_1m_account,2900,66.7,65.366,270.124995,568.6842,trail_13pct_after_gain_15pct,

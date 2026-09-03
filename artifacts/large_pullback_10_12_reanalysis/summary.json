@@ -1,0 +1,87 @@
+{
+  "test": "large signal, 10%-12% pullback, three-day stabilization, full reanalysis, then T+1",
+  "watch_days": 20,
+  "stabilization_days": 3,
+  "results": [
+    {
+      "strategy": "v3_original_large_layer",
+      "final_nav": 1026609.9327187978,
+      "total_return": 0.026609932718797857,
+      "cagr": 0.004662638318781331,
+      "max_drawdown": -0.14277637909471141,
+      "buys": 10,
+      "sells": 10,
+      "completed_trades": 10,
+      "wins": 4,
+      "win_rate": 0.4,
+      "average_mae": -0.10237967667199413,
+      "average_mfe": 0.2736608200947926
+    },
+    {
+      "strategy": "v3_original_combined_three_layer",
+      "final_nav": 941102.1013523751,
+      "total_return": -0.05889789864762485,
+      "cagr": -0.010694848159656822,
+      "max_drawdown": -0.1527101778936527,
+      "buys": 27,
+      "sells": 27,
+      "completed_trades": 27,
+      "wins": 5,
+      "win_rate": 0.18518518518518517,
+      "average_mae": -0.05157568532866606,
+      "average_mfe": 0.09504739296881694
+    },
+    {
+      "strategy": "pullback_10_12_reanalysed_large_layer",
+      "final_nav": 939057.67257375,
+      "total_return": -0.06094232742624994,
+      "cagr": -0.011075867189837885,
+      "max_drawdown": -0.0703814840771837,
+      "buys": 3,
+      "sells": 3,
+      "completed_trades": 3,
+      "wins": 1,
+      "win_rate": 0.3333333333333333,
+      "average_mae": -0.10402354527017565,
+      "average_mfe": 0.08304680195787273
+    },
+    {
+      "strategy": "pullback_10_12_reanalysed_combined_three_layer",
+      "final_nav": 865131.4521545003,
+      "total_return": -0.13486854784549973,
+      "cagr": -0.02533507128308976,
+      "max_drawdown": -0.1356734715885114,
+      "buys": 41,
+      "sells": 41,
+      "completed_trades": 41,
+      "wins": 5,
+      "win_rate": 0.12195121951219512,
+      "average_mae": -0.02051917316451833,
+      "average_mfe": 0.026791616313349562
+    },
+    {
+      "strategy": "0050_BH",
+      "final_nav": 3473949.5065,
+      "total_return": 2.4739495065000003,
+      "cagr": 0.24679824492922053,
+      "max_drawdown": -0.36124275448059184,
+      "buys": 1,
+      "completed_sells": 0
+    }
+  ],
+  "signal_funnel": {
+    "cancel_structure": 364,
+    "reanalysis_rejected": 332,
+    "expired_20d": 321,
+    "reanalysis_passed": 12
+  },
+  "contract_audit": {
+    "coverage_2021_2026": true,
+    "pullback_exactly_10_to_12pct": true,
+    "confirmation_is_after_pullback": true,
+    "all_execution_exact_t1": true,
+    "all_shares_100_step": true,
+    "fees_and_taxes_present": true,
+    "performance_finite": true
+  }
+}
