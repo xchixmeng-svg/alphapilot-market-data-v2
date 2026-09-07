@@ -62,7 +62,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: margin-overlay-${{ matrix.policy }}
-          path: results/${{ matrix.policy }}
+          path: |
+            results/${{ matrix.policy }}/overlay_summary.json
+            results/${{ matrix.policy }}/r10max_formal_trades.csv
+            results/${{ matrix.policy }}/margin_entry_blocks.csv
+            results/${{ matrix.policy }}/contract_audit.json
           retention-days: 30
           if-no-files-found: error
 
@@ -80,7 +84,9 @@ jobs:
           pattern: margin-overlay-*
           path: all_results
       - name: Build complete no-cherry-picking report
-        run: python scripts/summarize_margin_overlays.py | tee aggregate/summary.txt
+        run: |
+          mkdir -p aggregate
+          python scripts/summarize_margin_overlays.py | tee aggregate/summary.txt
       - uses: actions/upload-artifact@v4
         with:
           name: R10_Margin_Overlay_Complete_Report
