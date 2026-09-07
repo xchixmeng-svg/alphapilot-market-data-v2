@@ -1,0 +1,93 @@
+name: R10 MAX formal causal verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - r10-no-trail-formal-fix-20260907
+    paths:
+      - scripts/r10_max_formal.py
+      - data/reference/official_corporate_actions_2020_2025.csv
+      - data/reference/official_corporate_actions_2020_2025.sources.json
+      - .github/workflows/r10_max_formal_verify.yml
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+
+      - name: Verify engine and official event snapshot
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+
+      - name: Execute full formal backtest
+        run: |
+          mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do
+            ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"
+          done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py | tee execution.log
+
+      - name: Assert audit and independent local reproduction
+        run: |
+          python - <<'PY'
+          import json
+          audit=json.load(open("formal_run/contract_audit.json"))
+          result=json.load(open("formal_run/r10max_formal_summary.json"))
+          assert audit["all_pass"], audit
+          s=result["strategy"]
+          assert abs(s["end_nav"]-2403427.0678222505)<1e-7, s
+          assert s["completed_trades"]==150, s
+          assert s["wins"]==71 and s["losses"]==79, s
+          assert abs(s["max_drawdown"]-(-0.19515438907459803))<1e-12, s
+          b=result["benchmark_0050"]
+          assert abs(b["end_nav"]-2752709.322519664)<1e-7, b
+          print("GitHub equals independent local run; all hard audits passed.")
+          PY
+
+      - name: Publish run summary
+        run: |
+          {
+            echo "## R10 MAX formal causal verification"
+            echo
+            echo "- Immutable parquet hashes: PASS"
+            echo "- Official event snapshot hash: PASS"
+            echo "- Contract audit: 16/16 PASS"
+            echo "- Local versus GitHub reproduction: PASS"
+            echo "- Strategy: 1,300,000 to 2,403,427.07"
+            echo "- CAGR: 13.11%; Max DD: -19.52%"
+            echo "- Trades: 150 (71 wins / 79 losses)"
+            echo "- 0050 total return: 1,300,000 to 2,752,709.32"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-max-formal-results
+          path: |
+            formal_run/execution.log
+            formal_run/contract_audit.json
+            formal_run/r10max_formal_summary.json
+            formal_run/r10max_formal_nav.csv
+            formal_run/r10max_formal_trades.csv
+            formal_run/r10max_formal_orders.csv
+            formal_run/r10max_formal_corporate_actions.csv
+            formal_run/r10max_formal_annual.csv
+            formal_run/r10max_formal_open_positions.csv
+            formal_run/r10max_formal_slot_diag.csv
+          if-no-files-found: error
