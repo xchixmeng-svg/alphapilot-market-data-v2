@@ -34,6 +34,23 @@ POLICIES = {
     "H5_M5_10_S5_20_P5NEG": {"group": "holding", "rule": "m5>=10%; short5>=20%; p5<=0%"},
 }
 
+# Official MOPS par-value change omitted from the locked event extract. The
+# shares became 10-for-1 on the first resumed trading date; the official
+# reference price was the prior close divided by ten. Keeping this research
+# supplement outside the formal branch preserves the immutable baseline files.
+OFFICIAL_EVENT_SUPPLEMENTS = [{
+    "date": 20250721,
+    "code": "6919",
+    "market": "TWSE",
+    "event_type": "SPLIT:PAR_VALUE_5_TO_0.5",
+    "official_prev_close": 1215.0,
+    "reference_price": 121.5,
+    "cash_dividend_per_share": 0.0,
+    "stock_shares_per_1000": 9000.0,
+    "continuity_bridge": 10.0,
+    "source": "MOPS_20250529_6919_PAR_VALUE_CHANGE",
+}]
+
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -192,7 +209,13 @@ def main() -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     for path in args.history.glob("*.parquet"):
         os.symlink(path.resolve(), run_dir / path.name)
-    os.symlink(args.events.resolve(), run_dir / args.events.name)
+    event_data = pd.read_csv(args.events, dtype={"code": str})
+    event_data["code"] = event_data["code"].str.zfill(4)
+    supplements = pd.DataFrame(OFFICIAL_EVENT_SUPPLEMENTS)
+    event_data = pd.concat([event_data, supplements], ignore_index=True)
+    event_data = event_data.sort_values(["date", "code", "source"]).drop_duplicates(
+        ["date", "code"], keep="last")
+    event_data.to_csv(run_dir / args.events.name, index=False)
     variant = inject(args.formal.read_text(encoding="utf-8"), args.policy, args.margin.resolve())
     variant_path = run_dir / "derived_overlay_engine.py"
     variant_path.write_text(variant, encoding="utf-8")
