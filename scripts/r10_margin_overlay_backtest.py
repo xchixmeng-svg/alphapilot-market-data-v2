@@ -129,6 +129,15 @@ px['margin_hold_exit'] = _risk if {group!r} == 'holding' else False
         "pd.DataFrame(entry_block_rows, columns=['signal_date','scheduled_date','code','strategy']).to_csv('margin_entry_blocks.csv', index=False)",
         1,
     )
+    if group == "holding":
+        # Preserve the locked three-session minimum for every formal exit.
+        # MARGIN_EXIT is the separately defined overlay intervention: a T-close
+        # warning submitted for T+1, including during the first three sessions.
+        audit_marker = "'minimum_hold_three_sessions': bool((trades_df.hold_days >= 3).all()) if len(trades_df) else True,"
+        audit_repl = "'minimum_hold_three_sessions': bool((trades_df.loc[trades_df.reason != 'MARGIN_EXIT', 'hold_days'] >= 3).all()) if len(trades_df) else True,"
+        if audit_marker not in formal:
+            raise RuntimeError("formal minimum-hold audit marker changed")
+        formal = formal.replace(audit_marker, audit_repl, 1)
     return formal
 
 
@@ -187,9 +196,16 @@ def main() -> None:
     variant = inject(args.formal.read_text(encoding="utf-8"), args.policy, args.margin.resolve())
     variant_path = run_dir / "derived_overlay_engine.py"
     variant_path.write_text(variant, encoding="utf-8")
-    with (run_dir / "execution.log").open("w", encoding="utf-8") as log:
-        subprocess.run([sys.executable, variant_path.name], cwd=run_dir, stdout=log,
-                       stderr=subprocess.STDOUT, check=True)
+    execution_log = run_dir / "execution.log"
+    with execution_log.open("w", encoding="utf-8") as log:
+        completed = subprocess.run([sys.executable, variant_path.name], cwd=run_dir,
+                                   stdout=log, stderr=subprocess.STDOUT)
+    if completed.returncode:
+        # Surface the inner engine traceback in Actions logs while retaining the
+        # complete execution log in the policy directory.
+        tail = execution_log.read_text(encoding="utf-8", errors="replace").splitlines()[-120:]
+        print("\n".join(tail), file=sys.stderr)
+        raise subprocess.CalledProcessError(completed.returncode, completed.args)
     result = summarize(run_dir, args.policy, manifest)
     (run_dir / "overlay_summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False, indent=2))
