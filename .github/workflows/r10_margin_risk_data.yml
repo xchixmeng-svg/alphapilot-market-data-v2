@@ -1,0 +1,36 @@
+name: R10 Margin Risk Data Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - r10-margin-risk-overlay-research-20260907
+    paths:
+      - scripts/build_official_margin_2021_2025.py
+      - .github/workflows/r10_margin_risk_data.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-margin-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install locked dependencies
+        run: pip install pandas==2.2.3 pyarrow==18.1.0 requests==2.32.3
+      - name: Verify locked formal baseline
+        run: |
+          test "$(git merge-base HEAD 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+          sha256sum -c data/history/2020-2025/SHA256SUMS
+      - name: Build and audit official margin data
+        run: python scripts/build_official_margin_2021_2025.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R10_Official_Margin_2021_2025
+          path: research_output/margin_2021_2025
+          retention-days: 30
