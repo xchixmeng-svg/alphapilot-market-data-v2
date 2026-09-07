@@ -51,7 +51,7 @@ jobs:
         with: {python-version: "3.12"}
       - uses: actions/download-artifact@v4
         with: {pattern: "crash-overlay-*", path: all_results}
-      - run: python scripts/summarize_crash_overlays.py | tee aggregate/summary.csv
+      - run: mkdir -p aggregate && python scripts/summarize_crash_overlays.py | tee aggregate/summary.csv
       - uses: actions/upload-artifact@v4
         with:
           name: R10_Crash_Overlay_Complete_Report
