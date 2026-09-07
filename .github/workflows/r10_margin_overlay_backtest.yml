@@ -1,0 +1,89 @@
+name: R10 MAX Margin Overlay Causal Backtest
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - r10-margin-risk-overlay-research-20260907
+    paths:
+      - scripts/r10_margin_overlay_backtest.py
+      - scripts/summarize_margin_overlays.py
+      - .github/workflows/r10_margin_overlay_backtest.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  backtest:
+    strategy:
+      fail-fast: false
+      matrix:
+        policy:
+          - BASE
+          - E1_M5_10_P5NEG
+          - E2_M10_20_P10NEG
+          - E3_USE50_M5_05_P5NEG
+          - E4_M20_30_P20LE5
+          - E5_M5_10_S5_20_P5NEG
+          - H1_M5_10_P5NEG
+          - H2_M10_20_P10NEG
+          - H3_USE50_M5_05_P5NEG
+          - H4_M20_30_P20LE5
+          - H5_M5_10_S5_20_P5NEG
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Verify immutable formal baseline and data
+        run: |
+          test "$(git merge-base HEAD 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          cd data/history/2020-2025
+          sha256sum --check SHA256SUMS
+      - name: Download passed official margin audit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 34145680032 -n R10_Official_Margin_2021_2025 -D margin_data
+      - name: Run isolated policy
+        run: |
+          python scripts/r10_margin_overlay_backtest.py \
+            --policy "${{ matrix.policy }}" \
+            --margin margin_data/official_margin_short_2021_2025.csv.gz \
+            --manifest margin_data/manifest.json \
+            --output "results/${{ matrix.policy }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: margin-overlay-${{ matrix.policy }}
+          path: results/${{ matrix.policy }}
+          retention-days: 30
+          if-no-files-found: error
+
+  aggregate:
+    needs: backtest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pandas==2.2.3
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: margin-overlay-*
+          path: all_results
+      - name: Build complete no-cherry-picking report
+        run: python scripts/summarize_margin_overlays.py | tee aggregate/summary.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R10_Margin_Overlay_Complete_Report
+          path: aggregate
+          retention-days: 30
+          if-no-files-found: error
