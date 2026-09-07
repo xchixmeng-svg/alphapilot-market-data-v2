@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -26,7 +28,8 @@ jobs:
       - name: Verify locked formal baseline
         run: |
           test "$(git merge-base HEAD 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
-          sha256sum -c data/history/2020-2025/SHA256SUMS
+          cd data/history/2020-2025
+          sha256sum -c SHA256SUMS
       - name: Build and audit official margin data
         run: python scripts/build_official_margin_2021_2025.py
       - uses: actions/upload-artifact@v4
