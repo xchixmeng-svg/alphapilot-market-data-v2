@@ -1,0 +1,32 @@
+{
+  "retrieved_utc": "2026-09-07",
+  "coverage": "2020-01-01 through 2025-12-31",
+  "records": 9458,
+  "csv_sha256": "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc",
+  "sources": [
+    {
+      "name": "TWSE ex-right/ex-dividend calculation results",
+      "url": "https://www.twse.com.tw/rwd/zh/exRight/TWT49U?startDate=20200101&endDate=20251231&response=json"
+    },
+    {
+      "name": "TPEx ex-right/ex-dividend results",
+      "url": "https://www.tpex.org.tw/www/zh-tw/bulletin/exDailyQ?startDate=109/01/01&endDate=114/12/31"
+    },
+    {
+      "name": "TWSE capital-reduction resumption reference prices",
+      "url": "https://www.twse.com.tw/rwd/zh/reducation/TWTAUU?startDate=20200101&endDate=20251231&response=json"
+    },
+    {
+      "name": "TPEx capital-reduction resumption reference prices",
+      "url": "https://www.tpex.org.tw/www/zh-tw/bulletin/revivt"
+    }
+  ],
+  "explicit_events": [
+    {
+      "date": "2025-06-18",
+      "code": "0050",
+      "event": "4-for-1 split",
+      "share_factor": 4.0
+    }
+  ]
+}
