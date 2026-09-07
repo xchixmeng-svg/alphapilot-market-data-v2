@@ -1,0 +1,116 @@
+name: R10 MAX no trailing-profit independent verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - r10-no-trail-verified-20260907
+    paths:
+      - scripts/r10_max_no_trailing_profit.py
+      - .github/workflows/r10_no_trail_verify.yml
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+
+      - name: Verify immutable parquet data
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+
+      - name: Verify confirmed program identity
+        run: echo "b2b04c0c45b226bfb2c5d1c9b55c5c5bca93f99dcdbaf573052906101e060f50  scripts/r10_max_no_trailing_profit.py" | sha256sum --check -
+
+      - name: Run confirmed program
+        run: |
+          mkdir run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do
+            ln -s "$f" "$GITHUB_WORKSPACE/run/$(basename "$f")"
+          done
+          cd run
+          python ../scripts/r10_max_no_trailing_profit.py | tee execution.log
+
+      - name: Cross-check deterministic outputs
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          import pandas as pd
+          base = "run"
+          nav = pd.read_csv(f"{base}/r10max_nav.csv", dtype={"date": str})
+          trades = pd.read_csv(
+              f"{base}/r10max_trades.csv",
+              dtype={"entry_date": str, "exit_date": str, "code": str},
+          )
+          actual = {
+              "first_date": nav.date.iloc[0],
+              "last_date": nav.date.iloc[-1],
+              "nav_rows": len(nav),
+              "end_nav": float(nav.nav.iloc[-1]),
+              "max_dd": float(nav.drawdown.min()),
+              "trades": len(trades),
+              "wins": int((trades.pnl > 0).sum()),
+              "losses": int((trades.pnl < 0).sum()),
+          }
+          expected = {
+              "first_date": "20210125",
+              "last_date": "20251231",
+              "nav_rows": 1199,
+              "end_nav": 3634315.486414498,
+              "max_dd": -0.2033655123116275,
+              "trades": 147,
+              "wins": 74,
+              "losses": 73,
+          }
+          for key in ("first_date", "last_date", "nav_rows", "trades", "wins", "losses"):
+              assert actual[key] == expected[key], (key, actual[key], expected[key])
+          for key in ("end_nav", "max_dd"):
+              assert abs(actual[key] - expected[key]) <= 1e-7, (key, actual[key], expected[key])
+
+          hashes = {}
+          for name in (
+              "r10max_nav.csv", "r10max_trades.csv", "r10max_unfilled.csv",
+              "r10max_no_buy_log.csv", "r10max_slot_diag.csv",
+          ):
+              with open(f"{base}/{name}", "rb") as fh:
+                  hashes[name] = hashlib.sha256(fh.read()).hexdigest()
+
+          result = {"actual": actual, "output_sha256": hashes}
+          with open(f"{base}/github_verification.json", "w", encoding="utf-8") as fh:
+              json.dump(result, fh, indent=2, ensure_ascii=False)
+          print(json.dumps(result, indent=2, ensure_ascii=False))
+          PY
+
+      - name: Publish summary
+        run: |
+          {
+            echo "## R10 MAX 無移動停利版"
+            echo
+            echo "- Input parquet SHA-256: PASS"
+            echo "- Program SHA-256: PASS"
+            echo "- Local/GitHub deterministic values: PASS"
+            echo "- End NAV: 3,634,315.486414498"
+            echo "- Completed trades: 147 (74 wins / 73 losses)"
+            echo "- Max drawdown: -20.336551%"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-no-trail-verification
+          path: |
+            run/execution.log
+            run/github_verification.json
+            run/r10max_nav.csv
+            run/r10max_trades.csv
+            run/r10max_unfilled.csv
+            run/r10max_no_buy_log.csv
+            run/r10max_slot_diag.csv
+          if-no-files-found: error
