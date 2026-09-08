@@ -6,7 +6,7 @@ on:
     paths: [.github/workflows/package_three_alphapilot_systems.yml]
 permissions:
   actions: read
-  contents: read
+  contents: write
 jobs:
   package:
     runs-on: ubuntu-latest
@@ -68,3 +68,13 @@ jobs:
             out/AlphaPilot_Three_Systems_20260908.zip
           retention-days: 90
           if-no-files-found: error
+      - name: Publish direct-download release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag='alphapilot-three-systems-20260908'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" out/AlphaPilot_R10_MAX_LOCKED.zip out/AlphaPilot_Holding_Risk_Sentinel.zip out/AlphaPilot_Market_Risk_Alarm.zip out/AlphaPilot_Three_Systems_20260908.zip --clobber
+          else
+            gh release create "$tag" out/AlphaPilot_R10_MAX_LOCKED.zip out/AlphaPilot_Holding_Risk_Sentinel.zip out/AlphaPilot_Market_Risk_Alarm.zip out/AlphaPilot_Three_Systems_20260908.zip --title 'AlphaPilot 三系統封存包 2026-09-08' --notes 'R10 MAX 鎖定策略、持股風險哨兵、大盤風險警報。三套獨立，不修改正式策略。'
+          fi
