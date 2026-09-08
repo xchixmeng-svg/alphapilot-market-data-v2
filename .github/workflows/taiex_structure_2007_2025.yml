@@ -1,0 +1,26 @@
+name: TAIEX structure 2007-2025
+
+on:
+  push:
+    branches:
+      - r10-regime-controller-v2-research-20260908
+    paths:
+      - scripts/analyze_taiex_market_structure_2007_2025.py
+      - .github/workflows/taiex_structure_2007_2025.yml
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy requests
+      - name: Analyze official TAIEX daily data
+        run: python scripts/analyze_taiex_market_structure_2007_2025.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taiex-structure-2007-2025
+          path: taiex_structure_2007_2025/
