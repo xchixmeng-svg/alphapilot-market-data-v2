@@ -1,0 +1,54 @@
+{
+  "version": "AlphaPilot-Data-V3.7",
+  "execution_time": "2026-09-08T17:50:06.468063+08:00",
+  "trade_date": "2026-09-08",
+  "status": "PASS",
+  "source_dates": {
+    "twse_ohlcv": "2026-09-08",
+    "tpex_ohlcv": "2026-09-08",
+    "twse_institutional": "2026-09-08",
+    "tpex_institutional": "2026-09-08"
+  },
+  "row_counts": {
+    "twse_ohlcv": 1095,
+    "tpex_ohlcv": 887,
+    "twse_institutional": 1088,
+    "tpex_institutional": 773
+  },
+  "coverage": {
+    "twse": {
+      "price_codes": 1095,
+      "institutional_codes": 1088,
+      "overlap": 1088,
+      "coverage": 0.993607305936073
+    },
+    "tpex": {
+      "price_codes": 887,
+      "institutional_codes": 773,
+      "overlap": 773,
+      "coverage": 0.8714768883878241
+    }
+  },
+  "flattened_fields": {
+    "twse_institutional": {
+      "foreign_net": 1088,
+      "trust_net": 1088,
+      "dealer_net": 1088
+    },
+    "tpex_institutional": {
+      "foreign_net": 773,
+      "trust_net": 773,
+      "dealer_net": 773
+    }
+  },
+  "warnings": [
+    "TWSE STOCK_DAY_ALL lagged target date; date-addressable MI_INDEX fallback was used."
+  ],
+  "errors": [],
+  "sources": {
+    "twse_ohlcv": "TWSE MI_INDEX fallback",
+    "tpex_ohlcv": "TPEx tpex_mainboard_daily_close_quotes",
+    "twse_institutional": "TWSE T86",
+    "tpex_institutional": "TPEx tpex_3insti_daily_trading"
+  }
+}
