@@ -57,10 +57,14 @@ jobs:
       - name: Rebuild audited 2015-2020 local inputs
         env:
           INSTITUTIONAL_SHARD_DIR: institutional_shards
-        run: python scripts/build_2015_2020_validation_inputs.py | tee data_build.log
+        run: |
+          set -o pipefail
+          python scripts/build_2015_2020_validation_inputs.py | tee data_build.log
 
       - name: Run preregistered controller comparison
-        run: python scripts/run_r10_regime_controller_v2.py | tee regime_v2.log
+        run: |
+          set -o pipefail
+          python scripts/run_r10_regime_controller_v2.py | tee regime_v2.log
 
       - name: Print complete compact matrices
         if: always()
