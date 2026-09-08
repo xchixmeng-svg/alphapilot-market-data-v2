@@ -95,10 +95,13 @@ for row in manifest["ohlcv"]:
 prefix="MANIFEST_HASHES="+repr(h)+"\n"
 generated=Path("r10_max_full_exposure_2016_2020_generated.py")
 generated.write_text(prefix+src,encoding="utf-8")
-locked_hash=hashlib.sha256((root/"scripts"/"r10_max_formal.py").read_bytes()).hexdigest()
-if locked_hash!="2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0":
-    raise RuntimeError("locked engine SHA changed: "+locked_hash)
-print("LOCKED_ENGINE_SHA PASS",locked_hash,flush=True)
+locked_bytes=(root/"scripts"/"r10_max_formal.py").read_bytes()
+locked_blob_hash=hashlib.sha1(
+    f"blob {len(locked_bytes)}\\0".encode("ascii")+locked_bytes
+).hexdigest()
+if locked_blob_hash!="cc5d3ee1f59f44914a74bd2c3b379e3b17f2f034":
+    raise RuntimeError("locked engine blob changed: "+locked_blob_hash)
+print("LOCKED_ENGINE_BLOB PASS",locked_blob_hash,flush=True)
 exec(compile(generated.read_text(encoding="utf-8"),str(generated),"exec"),{"__name__":"__main__","__file__":str(generated)})
 
 experiment={
