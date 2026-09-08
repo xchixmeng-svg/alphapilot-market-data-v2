@@ -97,7 +97,7 @@ generated=Path("r10_max_full_exposure_2016_2020_generated.py")
 generated.write_text(prefix+src,encoding="utf-8")
 locked_bytes=(root/"scripts"/"r10_max_formal.py").read_bytes()
 locked_blob_hash=hashlib.sha1(
-    f"blob {len(locked_bytes)}\\0".encode("ascii")+locked_bytes
+    f"blob {len(locked_bytes)}".encode("ascii")+bytes([0])+locked_bytes
 ).hexdigest()
 if locked_blob_hash!="cc5d3ee1f59f44914a74bd2c3b379e3b17f2f034":
     raise RuntimeError("locked engine blob changed: "+locked_blob_hash)
