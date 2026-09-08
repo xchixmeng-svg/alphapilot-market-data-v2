@@ -30,6 +30,7 @@ jobs:
       - name: Fetch official annual institutional flows
         run: python scripts/fetch_institutional_year.py ${{ matrix.year }} shard_input/yearly_${{ matrix.year }}.zip shard_output
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: institutional-${{ matrix.year }}
           path: shard_output/
