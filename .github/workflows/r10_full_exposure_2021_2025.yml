@@ -1,0 +1,87 @@
+name: R10 MAX Full Exposure 2021-2025 research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-full-exposure-2021-2025-research-20260908]
+    paths:
+      - scripts/run_r10_full_exposure_2021_2025.py
+      - .github/workflows/r10_full_exposure_2021_2025.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r10-full-exposure-2021-2025
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+
+      - name: Stage existing locked 2020-2025 data
+        run: |
+          mkdir run
+          for y in 2020 2021 2022 2023 2024 2025; do
+            ln -s "$GITHUB_WORKSPACE/data/history/2020-2025/ohlcv_${y}.parquet" "run/ohlcv_${y}.parquet"
+          done
+          ln -s "$GITHUB_WORKSPACE/data/history/2020-2025/institutional_2020_2025.parquet" "run/institutional_2020_2025.parquet"
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "run/official_corporate_actions_2020_2025.csv"
+
+      - name: Execute full-exposure research overlay
+        run: |
+          cd run
+          python ../scripts/run_r10_full_exposure_2021_2025.py | tee execution.log
+
+      - name: Audit and compare with locked baseline
+        run: |
+          python - <<'PY'
+          import json
+          audit=json.load(open("run/contract_audit.json"))
+          summary=json.load(open("run/r10max_formal_summary.json"))
+          experiment=json.load(open("run/full_exposure_experiment.json"))
+          assert audit["all_pass"],audit
+          assert summary["strategy"]["initial"]==1300000.0,summary
+          assert experiment["base_locked_commit"]=="3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+          baseline={
+              "end_nav":2403427.0678222505,
+              "total_return":0.848790052171,
+              "cagr":0.1311,
+              "max_drawdown":-0.1952,
+              "completed_trades":150,
+              "win_rate":0.4733,
+              "profit_factor":1.8627,
+          }
+          comparison={"baseline":baseline,"full_exposure":summary["strategy"],"benchmark_0050":summary["benchmark_0050"]}
+          open("run/full_exposure_comparison.json","w").write(json.dumps(comparison,ensure_ascii=False,indent=2))
+          print(json.dumps(comparison,ensure_ascii=False))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R10-MAX-full-exposure-2021-2025-results
+          path: |
+            run/execution.log
+            run/contract_audit.json
+            run/full_exposure_experiment.json
+            run/full_exposure_comparison.json
+            run/r10max_formal_summary.json
+            run/r10max_formal_nav.csv
+            run/r10max_formal_trades.csv
+            run/r10max_formal_orders.csv
+            run/r10max_formal_corporate_actions.csv
+            run/r10max_formal_annual.csv
+            run/r10max_formal_open_positions.csv
+            run/r10max_formal_slot_diag.csv
+            run/r10_max_full_exposure_2021_2025_generated.py
+          retention-days: 90
+          if-no-files-found: error
