@@ -5,6 +5,7 @@ on:
     branches: [alphapilot-risk-sentinel-data-20260908]
     paths:
       - 'scripts/build_2026_ytd_package.py'
+      - 'scripts/run_2026_ytd_resilient.py'
       - 'scripts/build_2026_margin_short.py'
       - 'scripts/build_2026_market_risk.py'
       - '.github/workflows/build_2026_sentinel_data.yml'
@@ -17,8 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install requests pandas
-      - name: Rebuild 2026 OHLCV and institutional data
-        run: python scripts/build_2026_ytd_package.py
+      - name: Rebuild 2026 OHLCV and institutional data with repair passes
+        run: python scripts/run_2026_ytd_resilient.py
       - name: Fetch official 2026 margin and short data
         run: python scripts/build_2026_margin_short.py
       - name: Derive broad-market risk features
