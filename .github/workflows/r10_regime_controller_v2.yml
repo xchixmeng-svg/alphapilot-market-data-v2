@@ -1,0 +1,103 @@
+name: R10 regime controller V2 preregistered validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-regime-controller-v2-research-20260908]
+    paths:
+      - scripts/run_r10_regime_controller_v2.py
+      - research/R10_REGIME_CONTROLLER_V2_CONTRACT.md
+      - .github/workflows/r10_regime_controller_v2.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: r10-regime-controller-v2
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
+
+      - name: Reuse audited institutional artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p institutional_shards
+          gh run download 34228123650 -p 'institutional-*' -D institutional_shards
+          test "$(find institutional_shards -name 'institutional_*.csv.gz' | wc -l)" -eq 5
+          test "$(find institutional_shards -name 'manifest_*.json' | wc -l)" -eq 5
+
+      - name: Stage preserved historical files
+        run: |
+          git fetch origin main
+          mkdir -p input/raw input/base2020
+          git show origin/main:data/history/2007-2019/manifest.json > input/raw/manifest.json
+          for y in 2015 2016 2017 2018 2019; do
+            git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > input/raw/yearly_${y}.zip
+          done
+          cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
+          cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
+          cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
+
+      - name: Rebuild audited 2015-2020 local inputs
+        env:
+          INSTITUTIONAL_SHARD_DIR: institutional_shards
+        run: python scripts/build_2015_2020_validation_inputs.py | tee data_build.log
+
+      - name: Run preregistered controller comparison
+        run: python scripts/run_r10_regime_controller_v2.py | tee regime_v2.log
+
+      - name: Print complete compact matrices
+        if: always()
+        run: |
+          test -f regime_v2_results/variant_matrix.csv && cat regime_v2_results/variant_matrix.csv || true
+          test -f regime_v2_results/time_slice_matrix.csv && cat regime_v2_results/time_slice_matrix.csv || true
+
+      - name: Contract audit
+        run: |
+          python - <<'PY'
+          import json
+          p="regime_v2_results/regime_controller_v2_summary.json"
+          r=json.load(open(p))
+          assert r["status"] in {"CANDIDATE_PASS","RESEARCH_FAIL"},r
+          assert r["preregistered_candidate"]=="simple_3",r
+          assert len(r["results"])==7,r
+          for x in r["results"]:
+              assert len(x["annual"])==10,x
+              assert set(x["slices"])=={"2016_2019","stress_2020","2021_2022","2023_2025"},x
+          print(json.dumps({"status":r["status"],"checks":r["checks"]},ensure_ascii=False))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: R10-regime-controller-V2-results
+          retention-days: 90
+          if-no-files-found: warn
+          path: |
+            research/R10_REGIME_CONTROLLER_V2_CONTRACT.md
+            data_build.log
+            regime_v2.log
+            combined_input/combined_manifest.json
+            regime_v2_results/
+            regime_v2_runs/**/execution.log
+            regime_v2_runs/**/contract_audit.json
+            regime_v2_runs/**/r10max_formal_summary.json
+            regime_v2_runs/**/r10max_formal_nav.csv
+            regime_v2_runs/**/r10max_formal_trades.csv
+            regime_v2_runs/**/r10max_formal_orders.csv
