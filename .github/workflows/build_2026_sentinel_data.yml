@@ -1,0 +1,33 @@
+name: Build 2026 AlphaPilot Sentinel Data
+on:
+  workflow_dispatch:
+  push:
+    branches: [alphapilot-risk-sentinel-data-20260908]
+    paths:
+      - 'scripts/build_2026_ytd_package.py'
+      - 'scripts/build_2026_margin_short.py'
+      - 'scripts/build_2026_market_risk.py'
+      - '.github/workflows/build_2026_sentinel_data.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install requests pandas
+      - name: Rebuild 2026 OHLCV and institutional data
+        run: python scripts/build_2026_ytd_package.py
+      - name: Fetch official 2026 margin and short data
+        run: python scripts/build_2026_margin_short.py
+      - name: Derive broad-market risk features
+        run: python scripts/build_2026_market_risk.py
+      - name: Package audited sentinel data
+        run: zip -r AlphaPilot_2026_Sentinel_Data.zip data/history/2026-YTD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot-2026-Sentinel-Data
+          path: AlphaPilot_2026_Sentinel_Data.zip
+          retention-days: 30
+          if-no-files-found: error
