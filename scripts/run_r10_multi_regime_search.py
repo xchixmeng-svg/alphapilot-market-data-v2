@@ -156,10 +156,14 @@ def main():
     for profile in PROFILES:
         print("[DEV]",profile,flush=True)
         results.append(run_case("dev_"+profile,apply_profile(dev_base,profile),"old",profile))
-    eligible=[r for r in results if r["max_drawdown"]>=-0.25 and r["profit_factor"]>=1.20]
+    # Contract gate: the development period must meet the formal balance targets.
+    eligible=[r for r in results if r["max_drawdown"]>=-0.22 and r["profit_factor"]>=1.50]
     if not eligible:
-        selected=max(results,key=lambda r:(r["max_drawdown"],r["cagr"]))
-        gate="RELAXED_NO_PROFILE_PASSED"
+        # Still run the least-bad candidate through later periods for diagnosis,
+        # but never promote it as an accepted balanced strategy.
+        diagnostic=[r for r in results if r["max_drawdown"]>=-0.25]
+        selected=max(diagnostic or results,key=lambda r:(r["max_drawdown"],r["profit_factor"],r["cagr"]))
+        gate="NO_PROFILE_MET_MAXDD_22_AND_PF_150"
     else:
         selected=max(eligible,key=lambda r:(r["cagr"],r["profit_factor"]))
         gate="PASS"
