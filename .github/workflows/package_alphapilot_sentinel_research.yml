@@ -25,15 +25,16 @@ jobs:
           gh run download 34177811301 -n AlphaPilot-2026-Sentinel-Data -D package/data/2026
       - name: Collect locked sources and research code
         run: |
+          git fetch origin r10-margin-risk-overlay-research-20260907 alphapilot-risk-sentinel-data-20260908
           mkdir -p package/code/formal package/code/sentinel package/code/margin package/docs
           git show 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9:scripts/r10_max_formal.py > package/code/formal/r10_max_formal_LOCKED.py
           cp scripts/r10_crash_overlay_backtest.py scripts/summarize_crash_overlays.py package/code/sentinel/
-          git show r10-margin-risk-overlay-research-20260907:scripts/r10_margin_overlay_backtest.py > package/code/margin/r10_margin_overlay_backtest.py
-          git show r10-margin-risk-overlay-research-20260907:scripts/summarize_margin_overlays.py > package/code/margin/summarize_margin_overlays.py
-          git show alphapilot-risk-sentinel-data-20260908:scripts/build_2026_margin_short.py > package/code/sentinel/build_2026_margin_short.py
-          git show alphapilot-risk-sentinel-data-20260908:scripts/build_2026_market_risk.py > package/code/sentinel/build_2026_market_risk.py
-          git show alphapilot-risk-sentinel-data-20260908:scripts/run_2026_ytd_resilient.py > package/code/sentinel/run_2026_ytd_resilient.py
-          git show alphapilot-risk-sentinel-data-20260908:research/ALPHAPILOT_RISK_SENTINEL_CHARTER.md > package/docs/ALPHAPILOT_RISK_SENTINEL_CHARTER.md
+          git show origin/r10-margin-risk-overlay-research-20260907:scripts/r10_margin_overlay_backtest.py > package/code/margin/r10_margin_overlay_backtest.py
+          git show origin/r10-margin-risk-overlay-research-20260907:scripts/summarize_margin_overlays.py > package/code/margin/summarize_margin_overlays.py
+          git show origin/alphapilot-risk-sentinel-data-20260908:scripts/build_2026_margin_short.py > package/code/sentinel/build_2026_margin_short.py
+          git show origin/alphapilot-risk-sentinel-data-20260908:scripts/build_2026_market_risk.py > package/code/sentinel/build_2026_market_risk.py
+          git show origin/alphapilot-risk-sentinel-data-20260908:scripts/run_2026_ytd_resilient.py > package/code/sentinel/run_2026_ytd_resilient.py
+          git show origin/alphapilot-risk-sentinel-data-20260908:research/ALPHAPILOT_RISK_SENTINEL_CHARTER.md > package/docs/ALPHAPILOT_RISK_SENTINEL_CHARTER.md
           cp .github/workflows/alphapilot_holding_sentinel_phase1.yml package/code/sentinel/
       - name: Write provenance and checksums
         run: |
