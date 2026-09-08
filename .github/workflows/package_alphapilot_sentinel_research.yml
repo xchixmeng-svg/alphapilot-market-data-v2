@@ -1,0 +1,49 @@
+name: Package AlphaPilot Sentinel Research
+on:
+  workflow_dispatch:
+  push:
+    branches: [alphapilot-holding-sentinel-research-20260908]
+    paths: [.github/workflows/package_alphapilot_sentinel_research.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Download completed research artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p package/results/phase1 package/results/margin package/data/2026
+          gh run download 34180347289 -p 'sentinel-phase1-*' -D package/results/phase1
+          gh run download 34180347289 -n AlphaPilot-Holding-Sentinel-Phase1-Report -D package/results/phase1-summary
+          gh run download 34164007004 -n R10_Margin_Overlay_Complete_Report -D package/results/margin
+          gh run download 34177811301 -n AlphaPilot-2026-Sentinel-Data -D package/data/2026
+      - name: Collect locked sources and research code
+        run: |
+          mkdir -p package/code/formal package/code/sentinel package/code/margin package/docs
+          git show 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9:scripts/r10_max_formal.py > package/code/formal/r10_max_formal_LOCKED.py
+          cp scripts/r10_crash_overlay_backtest.py scripts/summarize_crash_overlays.py package/code/sentinel/
+          git show r10-margin-risk-overlay-research-20260907:scripts/r10_margin_overlay_backtest.py > package/code/margin/r10_margin_overlay_backtest.py
+          git show r10-margin-risk-overlay-research-20260907:scripts/summarize_margin_overlays.py > package/code/margin/summarize_margin_overlays.py
+          git show alphapilot-risk-sentinel-data-20260908:scripts/build_2026_margin_short.py > package/code/sentinel/build_2026_margin_short.py
+          git show alphapilot-risk-sentinel-data-20260908:scripts/build_2026_market_risk.py > package/code/sentinel/build_2026_market_risk.py
+          git show alphapilot-risk-sentinel-data-20260908:scripts/run_2026_ytd_resilient.py > package/code/sentinel/run_2026_ytd_resilient.py
+          git show alphapilot-risk-sentinel-data-20260908:research/ALPHAPILOT_RISK_SENTINEL_CHARTER.md > package/docs/ALPHAPILOT_RISK_SENTINEL_CHARTER.md
+          cp .github/workflows/alphapilot_holding_sentinel_phase1.yml package/code/sentinel/
+      - name: Write provenance and checksums
+        run: |
+          printf '%s\n' '# AlphaPilot 持股風險哨兵研究完整包' '' '正式R10鎖定commit: 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9' '2026資料run: 34177811301' '資券研究run: 34164007004' '哨兵第一階段run: 34180347289' '' '研究警報不得回寫或冒充正式R10績效。' > package/README.md
+          find package -type f -print0 | sort -z | xargs -0 sha256sum > package/SHA256SUMS
+          zip -r AlphaPilot_Holding_Risk_Sentinel_Research_20260908.zip package
+          sha256sum AlphaPilot_Holding_Risk_Sentinel_Research_20260908.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot-Holding-Risk-Sentinel-Complete-Package
+          path: AlphaPilot_Holding_Risk_Sentinel_Research_20260908.zip
+          retention-days: 90
+          if-no-files-found: error
