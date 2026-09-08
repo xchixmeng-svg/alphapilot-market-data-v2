@@ -24,3 +24,4 @@ jobs:
         with:
           name: taiex-structure-2007-2025
           path: taiex_structure_2007_2025/
+# trigger: 2026-09-09 TAIEX structure audit
