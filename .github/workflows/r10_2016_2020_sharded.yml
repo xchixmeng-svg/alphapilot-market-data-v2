@@ -1,8 +1,8 @@
-name: R10 MAX 2016-2020 sharded validation
+name: R10 MAX Full Exposure 2016-2020 research
 on:
   workflow_dispatch:
   push:
-    branches: [r10-2016-2020-backward-validation-20260908]
+    branches: [r10-full-exposure-research-20260908]
     paths:
       - scripts/fetch_institutional_year.py
       - .github/workflows/r10_2016_2020_sharded.yml
@@ -85,7 +85,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: R10-MAX-locked-2016-2020-sharded-results
+          name: R10-MAX-full-exposure-2016-2020-results
           path: |
             data_build.log
             validation_input/input_manifest.json
@@ -99,6 +99,6 @@ jobs:
             backward_run/r10max_formal_annual.csv
             backward_run/r10max_formal_open_positions.csv
             backward_run/r10max_formal_slot_diag.csv
-            backward_run/r10_max_locked_2016_2020_generated.py
+            backward_run/r10_max_full_exposure_2016_2020_generated.py\n            backward_run/full_exposure_experiment.json
           retention-days: 90
           if-no-files-found: error
