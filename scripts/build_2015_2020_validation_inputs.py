@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import hashlib, json, random, re, time, zipfile
+import hashlib, json, os, random, re, time, zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -136,9 +136,21 @@ def fetch_market(fn,market,workers):
         pending=sorted(nxt); failed=nxt
     return rows,failed
 
-tpex_rows,tpex_fail=fetch_market(tpex_daily,"TPEX",4)
-# Deliberately low TWSE concurrency to reduce official endpoint throttling.
-twse_rows,twse_fail=fetch_market(twse_t86,"TWSE",2)
+shard_dir=os.environ.get("INSTITUTIONAL_SHARD_DIR")
+if shard_dir:
+    parts=list(Path(shard_dir).glob("**/institutional_*.csv.gz"))
+    if len(parts)!=5: raise RuntimeError(f"expected 5 annual institutional shards, got {len(parts)}")
+    shard_df=pd.concat([pd.read_csv(p,dtype={"code":str}) for p in parts],ignore_index=True)
+    shard_df["code"]=shard_df.code.astype(str).str.zfill(4)
+    recs=shard_df.to_dict("records")
+    twse_rows=[r for r in recs if r.get("market")=="TWSE"]
+    tpex_rows=[r for r in recs if r.get("market")=="TPEX"]
+    twse_fail={}; tpex_fail={}
+    print(f"[SHARDS] files={len(parts)} rows={len(recs)}",flush=True)
+else:
+    tpex_rows,tpex_fail=fetch_market(tpex_daily,"TPEX",4)
+    # Deliberately low TWSE concurrency to reduce official endpoint throttling.
+    twse_rows,twse_fail=fetch_market(twse_t86,"TWSE",2)
 inst_old=pd.DataFrame(twse_rows+tpex_rows)
 if inst_old.empty: raise RuntimeError("no historical institutional data")
 inst_old["date"]=pd.to_datetime(inst_old.date).dt.strftime("%Y%m%d").astype(int)
