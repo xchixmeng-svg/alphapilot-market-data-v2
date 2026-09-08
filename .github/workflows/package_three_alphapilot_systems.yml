@@ -1,0 +1,70 @@
+name: Package Three AlphaPilot Systems
+on:
+  workflow_dispatch:
+  push:
+    branches: [alphapilot-holding-sentinel-research-20260908]
+    paths: [.github/workflows/package_three_alphapilot_systems.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Fetch source branches and completed artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch origin r10-margin-risk-overlay-research-20260907 alphapilot-risk-sentinel-data-20260908
+          mkdir -p downloads/base downloads/phase1 downloads/margin downloads/data2026
+          gh run download 34180347289 -n sentinel-phase1-BASE -D downloads/base
+          gh run download 34180347289 -p 'sentinel-phase1-*' -D downloads/phase1
+          gh run download 34180347289 -n AlphaPilot-Holding-Sentinel-Phase1-Report -D downloads/phase1-summary
+          gh run download 34164007004 -n R10_Margin_Overlay_Complete_Report -D downloads/margin
+          gh run download 34177811301 -n AlphaPilot-2026-Sentinel-Data -D downloads/data2026
+      - name: Build three isolated packages
+        run: |
+          mkdir -p out/r10/code out/r10/results out/holding/code out/holding/results out/holding/docs out/market/code out/market/data out/market/docs
+          git show 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9:scripts/r10_max_formal.py > out/r10/code/r10_max_formal_LOCKED.py
+          cp -r downloads/base/. out/r10/results/
+          printf '%s\n' '# AlphaPilot R10 MAX 正式策略包' '鎖定commit: 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9' '本包只含鎖定引擎與正式基準輸出；哨兵不得回寫本系統。' > out/r10/README.md
+
+          cp scripts/r10_crash_overlay_backtest.py scripts/summarize_crash_overlays.py out/holding/code/
+          git show origin/r10-margin-risk-overlay-research-20260907:scripts/r10_margin_overlay_backtest.py > out/holding/code/r10_margin_overlay_backtest.py
+          git show origin/r10-margin-risk-overlay-research-20260907:scripts/summarize_margin_overlays.py > out/holding/code/summarize_margin_overlays.py
+          cp -r downloads/phase1/. out/holding/results/
+          cp -r downloads/phase1-summary downloads/margin out/holding/results/
+          git show origin/alphapilot-risk-sentinel-data-20260908:research/ALPHAPILOT_RISK_SENTINEL_CHARTER.md > out/holding/docs/ALPHAPILOT_RISK_SENTINEL_CHARTER.md
+          printf '%s\n' '# AlphaPilot 持股風險哨兵包' '含價格、量價法人、資券警報研究及逐組交易輸出。' '目前研究方案均未核准取代R10正式退出規則。' > out/holding/README.md
+
+          git show origin/alphapilot-risk-sentinel-data-20260908:scripts/build_2026_market_risk.py > out/market/code/build_2026_market_risk.py
+          git show origin/alphapilot-risk-sentinel-data-20260908:scripts/build_2026_margin_short.py > out/market/code/build_2026_margin_short.py
+          git show origin/alphapilot-risk-sentinel-data-20260908:scripts/run_2026_ytd_resilient.py > out/market/code/run_2026_ytd_resilient.py
+          cp -r downloads/data2026/. out/market/data/
+          git show origin/alphapilot-risk-sentinel-data-20260908:research/ALPHAPILOT_RISK_SENTINEL_CHARTER.md > out/market/docs/ALPHAPILOT_RISK_SENTINEL_CHARTER.md
+          printf '%s\n' '# AlphaPilot 大盤風險警報包' '含2026 YTD OHLCV、法人、資券與大盤風險特徵資料及建置程式。' > out/market/README.md
+
+          for d in r10 holding market; do
+            find "out/$d" -type f -print0 | sort -z | xargs -0 sha256sum > "out/$d/SHA256SUMS"
+          done
+          cd out
+          zip -r AlphaPilot_R10_MAX_LOCKED.zip r10
+          zip -r AlphaPilot_Holding_Risk_Sentinel.zip holding
+          zip -r AlphaPilot_Market_Risk_Alarm.zip market
+          mkdir AlphaPilot_Three_Systems
+          cp AlphaPilot_R10_MAX_LOCKED.zip AlphaPilot_Holding_Risk_Sentinel.zip AlphaPilot_Market_Risk_Alarm.zip AlphaPilot_Three_Systems/
+          sha256sum AlphaPilot_*.zip > AlphaPilot_Three_Systems/SHA256SUMS
+          zip -r AlphaPilot_Three_Systems_20260908.zip AlphaPilot_Three_Systems
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot-Three-Independent-System-Packages
+          path: |
+            out/AlphaPilot_R10_MAX_LOCKED.zip
+            out/AlphaPilot_Holding_Risk_Sentinel.zip
+            out/AlphaPilot_Market_Risk_Alarm.zip
+            out/AlphaPilot_Three_Systems_20260908.zip
+          retention-days: 90
+          if-no-files-found: error
