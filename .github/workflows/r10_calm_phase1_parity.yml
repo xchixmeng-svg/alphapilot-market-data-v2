@@ -1,0 +1,65 @@
+name: R10 Calm Phase1 Invariance Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-calm-regime-research-20260909]
+    paths:
+      - .github/workflows/r10_calm_phase1_parity.yml
+      - scripts/r10_max_formal.py
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Verify locked engine byte identity
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+      - name: Verify immutable 2020-2025 inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Execute untouched formal R10
+        run: |
+          mkdir -p parity_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "parity_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" parity_run/official_corporate_actions_2020_2025.csv
+          cd parity_run
+          python ../scripts/r10_max_formal.py | tee execution.log
+      - name: Hard invariance assertions
+        run: |
+          python - <<'PY'
+          import json, hashlib, pathlib
+          a=json.load(open('parity_run/contract_audit.json'))
+          s=json.load(open('parity_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          expected={'end_nav':2403427.0678222505,'completed_trades':150,'wins':71,'losses':79,'max_drawdown':-0.19515438907459803}
+          for k,v in expected.items():
+              got=s[k]
+              if isinstance(v,float): assert abs(got-v)<1e-9,(k,got,v)
+              else: assert got==v,(k,got,v)
+          files=['r10max_formal_nav.csv','r10max_formal_trades.csv','r10max_formal_orders.csv','r10max_formal_slot_diag.csv']
+          dig={f:hashlib.sha256(pathlib.Path('parity_run',f).read_bytes()).hexdigest() for f in files}
+          pathlib.Path('parity_run/parity_identity.json').write_text(json.dumps({'status':'PASS','locked_commit':'3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9','engine_sha256':'2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0','expected':expected,'output_sha256':dig},indent=2),encoding='utf-8')
+          print('R10_INVARIANCE_GATE PASS',json.dumps(expected))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-calm-phase1-parity
+          path: |
+            parity_run/parity_identity.json
+            parity_run/contract_audit.json
+            parity_run/r10max_formal_summary.json
+            parity_run/r10max_formal_nav.csv
+            parity_run/r10max_formal_trades.csv
+            parity_run/r10max_formal_orders.csv
+            parity_run/r10max_formal_slot_diag.csv
+            parity_run/execution.log
+          if-no-files-found: error
+          retention-days: 90
