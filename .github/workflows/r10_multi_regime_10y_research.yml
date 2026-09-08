@@ -1,0 +1,106 @@
+name: R10 multi-regime 10Y balance research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-balanced-exposure-research-20260908]
+    paths:
+      - scripts/run_r10_multi_regime_search.py
+      - research/R10_MULTI_REGIME_10Y_CONTRACT.md
+      - .github/workflows/r10_multi_regime_10y_research.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: r10-multi-regime-10y
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
+
+      - name: Reuse audited institutional artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p institutional_shards
+          gh run download 34228123650 -p 'institutional-*' -D institutional_shards
+          test "$(find institutional_shards -name 'institutional_*.csv.gz' | wc -l)" -eq 5
+          test "$(find institutional_shards -name 'manifest_*.json' | wc -l)" -eq 5
+
+      - name: Stage preserved OHLCV and locked 2020 inputs
+        run: |
+          git fetch origin main
+          mkdir -p input/raw input/base2020
+          git show origin/main:data/history/2007-2019/manifest.json > input/raw/manifest.json
+          for y in 2015 2016 2017 2018 2019; do
+            git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > input/raw/yearly_${y}.zip
+          done
+          cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
+          cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
+          cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
+
+      - name: Rebuild causal input files from preserved data
+        env:
+          INSTITUTIONAL_SHARD_DIR: institutional_shards
+        run: python scripts/build_2015_2020_validation_inputs.py | tee data_build.log
+
+      - name: Run development selection and sealed validations
+        run: python scripts/run_r10_multi_regime_search.py | tee multi_regime_search.log
+
+      - name: Audit research output
+        run: |
+          python - <<'PY'
+          import json
+          p="multi_regime_results/multi_regime_search_summary.json"
+          r=json.load(open(p))
+          assert r["status"] in {"PASS","RESEARCH_INCONCLUSIVE"},r
+          assert len(r["development_results"])==5,r
+          assert r["stress_2020"],r
+          assert r["holdout_2021_2025"],r
+          print(json.dumps({
+            "status":r["status"],
+            "selection_gate":r["selection_gate"],
+            "selected_profile":r["selected_profile"],
+            "stress_2020":r["stress_2020"]["strategy"] if "strategy" in r["stress_2020"] else {
+              k:r["stress_2020"][k] for k in ("total_return","cagr","max_drawdown","profit_factor")
+            },
+            "holdout_2021_2025":r["holdout_2021_2025"]["strategy"] if "strategy" in r["holdout_2021_2025"] else {
+              k:r["holdout_2021_2025"][k] for k in ("total_return","cagr","max_drawdown","profit_factor")
+            }
+          },ensure_ascii=False))
+          PY
+
+      - name: Upload compact research package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: R10-multi-regime-10Y-research-results
+          retention-days: 90
+          if-no-files-found: warn
+          path: |
+            research/R10_MULTI_REGIME_10Y_CONTRACT.md
+            data_build.log
+            multi_regime_search.log
+            validation_input/input_manifest.json
+            multi_regime_results/
+            multi_regime_runs/**/execution.log
+            multi_regime_runs/**/contract_audit.json
+            multi_regime_runs/**/r10max_formal_summary.json
+            multi_regime_runs/**/r10max_formal_nav.csv
+            multi_regime_runs/**/r10max_formal_trades.csv
+            multi_regime_runs/**/r10max_formal_orders.csv
