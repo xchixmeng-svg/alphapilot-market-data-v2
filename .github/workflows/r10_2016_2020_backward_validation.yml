@@ -1,0 +1,103 @@
+name: R10 MAX locked backward validation 2016-2020
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-2016-2020-backward-validation-20260908]
+    paths:
+      - scripts/build_2015_2020_validation_inputs.py
+      - scripts/run_r10_locked_2016_2020.py
+      - .github/workflows/r10_2016_2020_backward_validation.yml
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
+      - name: Stage already-preserved historical data
+        run: |
+          git fetch origin main
+          mkdir -p input/raw input/base2020
+          git show origin/main:data/history/2007-2019/manifest.json > input/raw/manifest.json
+          for y in 2015 2016 2017 2018 2019; do
+            git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > input/raw/yearly_${y}.zip
+          done
+          cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
+          cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
+          cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
+      - name: Verify preserved ZIP hashes
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          m=json.load(open("input/raw/manifest.json"))
+          by={x["year"]:x for x in m["files"]}
+          for y in range(2015,2020):
+              p=pathlib.Path(f"input/raw/yearly_{y}.zip")
+              got=hashlib.sha256(p.read_bytes()).hexdigest()
+              assert got==by[y]["sha256"],(y,got,by[y]["sha256"])
+          print("PASS preserved OHLCV SHA 2015-2019")
+          PY
+      - name: Build and audit 2015-2020 causal inputs
+        run: python scripts/build_2015_2020_validation_inputs.py | tee data_build.log
+      - name: Execute locked R10 MAX on 2016-2020
+        run: |
+          mkdir -p backward_run
+          for f in validation_input/*; do ln -s "$GITHUB_WORKSPACE/$f" "backward_run/$(basename "$f")"; done
+          cd backward_run
+          python ../scripts/run_r10_locked_2016_2020.py | tee execution.log
+      - name: Contract and output audit
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          a=json.load(open("backward_run/contract_audit.json"))
+          s=json.load(open("backward_run/r10max_formal_summary.json"))
+          m=json.load(open("validation_input/input_manifest.json"))
+          assert a["all_pass"],a
+          assert m["status"]=="PASS",m
+          assert s["strategy"]["initial"]==1300000.0,s
+          assert s["strategy"]["completed_trades"]>=0,s
+          print(json.dumps({"contract":"PASS","strategy":s["strategy"],"benchmark_0050":s["benchmark_0050"]},ensure_ascii=False))
+          PY
+      - name: Publish summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          s=json.load(open("backward_run/r10max_formal_summary.json"))
+          a=json.load(open("backward_run/contract_audit.json"))
+          m=json.load(open("validation_input/input_manifest.json"))
+          x=s["strategy"]; b=s["benchmark_0050"]
+          print("## R10 MAX locked backward validation: 2016-2020")
+          print()
+          print("- Warm-up: 2015")
+          print("- Locked engine SHA: 2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0")
+          print(f"- Input audit: {m['status']}; contract: {sum(bool(v) for v in a.values())}/{len(a)}")
+          print(f"- Strategy: {x['initial']:,.0f} → {x['end_nav']:,.2f}; total {x['total_return']:.2%}; CAGR {x['cagr']:.2%}; Max DD {x['max_drawdown']:.2%}")
+          print(f"- Trades: {x['completed_trades']} ({x['wins']} wins / {x['losses']} losses); PF {x['profit_factor']:.4f}")
+          print(f"- 0050: {b['end_nav']:,.2f}; total {b['total_return']:.2%}; CAGR {b['cagr']:.2%}; Max DD {b['max_drawdown']:.2%}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R10-MAX-locked-2016-2020-backward-validation
+          path: |
+            data_build.log
+            validation_input/input_manifest.json
+            backward_run/execution.log
+            backward_run/contract_audit.json
+            backward_run/r10max_formal_summary.json
+            backward_run/r10max_formal_nav.csv
+            backward_run/r10max_formal_trades.csv
+            backward_run/r10max_formal_orders.csv
+            backward_run/r10max_formal_corporate_actions.csv
+            backward_run/r10max_formal_annual.csv
+            backward_run/r10max_formal_open_positions.csv
+            backward_run/r10max_formal_slot_diag.csv
+            backward_run/r10_max_locked_2016_2020_generated.py
+          retention-days: 90
+          if-no-files-found: error
