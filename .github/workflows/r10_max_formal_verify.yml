@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - r10-no-trail-formal-fix-20260907
+      - r10-calm-regime-research-20260909
     paths:
       - scripts/r10_max_formal.py
       - data/reference/official_corporate_actions_2020_2025.csv
