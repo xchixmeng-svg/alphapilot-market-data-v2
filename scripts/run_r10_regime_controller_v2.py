@@ -127,6 +127,9 @@ def bind_continuous(src: str, hashes: dict[str, str]) -> str:
         if old not in src:
             raise RuntimeError(f"formal signature changed: {old}")
         src = src.replace(old, new, 1)
+    # The formal engine references the causal cache in its save, log and reload paths.
+    # Replace every remaining occurrence so the widened 2015-2025 cache name stays consistent.
+    src = src.replace("ohlcv_causal_2020_2025.csv.gz", "ohlcv_causal_2015_2025.csv.gz")
     return src
 
 
