@@ -1,0 +1,99 @@
+name: R10 controller V2 preregistered validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-controller-v2-preregistered-20260908]
+    paths:
+      - scripts/run_r10_controller_v2.py
+      - research/R10_CONTROLLER_V2_PREREGISTERED_CONTRACT.md
+      - .github/workflows/r10_controller_v2.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: r10-controller-v2-preregistered
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned validation dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
+
+      - name: Reuse audited 2015-2019 institutional artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p institutional_shards
+          gh run download 34228123650 -p 'institutional-*' -D institutional_shards
+          test "$(find institutional_shards -name 'institutional_*.csv.gz' | wc -l)" -eq 5
+          test "$(find institutional_shards -name 'manifest_*.json' | wc -l)" -eq 5
+
+      - name: Stage preserved OHLCV and official actions
+        run: |
+          git fetch origin main
+          mkdir -p input/raw input/base2020
+          git show origin/main:data/history/2007-2019/manifest.json > input/raw/manifest.json
+          for y in 2015 2016 2017 2018 2019; do
+            git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > input/raw/yearly_${y}.zip
+          done
+          cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
+          cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
+          cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
+
+      - name: Rebuild old-period causal inputs from preserved files
+        env:
+          INSTITUTIONAL_SHARD_DIR: institutional_shards
+        run: python scripts/build_2015_2020_validation_inputs.py | tee controller_v2_data_build.log
+
+      - name: Execute preregistered A B C and robustness grid
+        run: python scripts/run_r10_controller_v2.py | tee controller_v2_run.log
+
+      - name: Audit V2 report contract
+        run: |
+          python - <<'PY'
+          import json
+          p='controller_v2_results/controller_v2_summary.json'
+          r=json.load(open(p))
+          assert r['status'] in {'CANDIDATE_PASS','CANNOT_PROVE'}
+          assert r['research_only'] is True
+          assert r['primary_parameters_fixed']=={'ma':120,'short':20,'long':60}
+          assert len(r['slice_results'])==15
+          assert len(r['expanding_results'])==10
+          assert len(r['sensitivity_results'])==9
+          assert all(x['contract_all_pass'] for x in r['slice_results']+r['expanding_results']+r['sensitivity_results'])
+          print(json.dumps({'status':r['status'],'gate':r['candidate_gate']},ensure_ascii=False))
+          PY
+
+      - name: Upload complete V2 research package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: R10-controller-V2-preregistered-results
+          retention-days: 90
+          if-no-files-found: warn
+          path: |
+            research/R10_CONTROLLER_V2_PREREGISTERED_CONTRACT.md
+            controller_v2_data_build.log
+            controller_v2_run.log
+            validation_input/input_manifest.json
+            controller_v2_results/
+            controller_v2_runs/**/execution.log
+            controller_v2_runs/**/contract_audit.json
+            controller_v2_runs/**/r10max_formal_summary.json
+            controller_v2_runs/**/r10max_formal_nav.csv
+            controller_v2_runs/**/r10max_formal_trades.csv
+            controller_v2_runs/**/r10max_formal_orders.csv
