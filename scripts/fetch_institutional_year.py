@@ -14,7 +14,7 @@ out=Path(sys.argv[3]); out.mkdir(parents=True,exist_ok=True)
 HEAD={"User-Agent":f"Mozilla/5.0 AlphaPilot-Institutional-{year}/2.0","Accept":"application/json,text/plain,*/*"}
 
 def num(v):
-    s=str(v if v is not None else "").strip().replace(",","").replace("+","")
+    s=re.sub(r"<[^>]+>","",str(v if v is not None else "")).strip().replace(",","").replace("+","")
     if s in ("","--","---","null","None"): return None
     try:return float(s)
     except:return None
@@ -56,19 +56,37 @@ def twse(ds):
 def roc(ds):
     x=datetime.strptime(ds,"%Y-%m-%d");return f"{x.year-1911:03d}/{x.month:02d}/{x.day:02d}"
 
-def tpex(ds):
-    j=get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",{"type":"Daily","sect":"EW","date":roc(ds),"id":"","response":"json"})
-    tabs=j.get("tables") or []; rows=tabs[0].get("data") if tabs else []
+def parse_tpex(ds,rows):
     out=[]
     for r in rows or []:
-        if isinstance(r,list) and len(r)>=24:
+        if isinstance(r,list) and len(r)>=14:
             c=code4(r[0])
-            if c:out.append({"date":ds,"market":"TPEX","code":c,"name":str(r[1]).strip(),"foreign_net":num(r[10]),"trust_net":num(r[13])})
-    if not out:raise RuntimeError("TPEX empty "+ds)
+            if c:out.append({"date":ds,"market":"TPEX","code":c,"name":re.sub(r"<[^>]+>","",str(r[1])).strip(),"foreign_net":num(r[10]),"trust_net":num(r[13])})
     return out
 
+def tpex_current(ds):
+    j=get_json("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",{"type":"Daily","sect":"EW","date":roc(ds),"id":"","response":"json"})
+    tabs=j.get("tables") or []
+    return parse_tpex(ds,tabs[0].get("data") if tabs else [])
+
+def tpex_legacy(ds):
+    j=get_json("https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php",
+      {"l":"zh-tw","o":"json","se":"EW","t":"D","d":roc(ds),"s":"0,asc"})
+    return parse_tpex(ds,j.get("aaData") or j.get("data") or [])
+
+def tpex(ds):
+    errors=[]
+    fns=(tpex_legacy,tpex_current) if year<=2017 else (tpex_current,tpex_legacy)
+    for fn in fns:
+        try:
+            got=fn(ds)
+            if got:return got
+            errors.append(fn.__name__+": empty")
+        except Exception as e:errors.append(fn.__name__+": "+str(e))
+    raise RuntimeError("TPEX empty "+ds+" | "+" | ".join(errors))
+
 def collect(fn,market,workers):
-    final={}; rows=[]
+    final={}; by_date={}
     pending=list(dates)
     for rnd in range(4):
         if rnd:time.sleep(20*rnd)
@@ -77,12 +95,12 @@ def collect(fn,market,workers):
             fs={ex.submit(fn,ds):ds for ds in pending}
             for i,f in enumerate(as_completed(fs),1):
                 ds=fs[f]
-                try:rows.extend(f.result())
+                try:by_date[ds]=f.result()
                 except Exception as e:nxt[ds]=str(e)
                 if i%40==0 or i==len(fs):print(f"[{year} {market}] round={rnd+1} {i}/{len(fs)} pending={len(nxt)}",flush=True)
-        if not nxt:return rows,{}
+        if not nxt:break
         pending=sorted(nxt);final=nxt
-    return rows,final
+    return [r for ds in sorted(by_date) for r in by_date[ds]],final
 
 # Independent market streams. Annual jobs are the durable checkpoint.
 tr,tf=collect(tpex,"TPEX",3)
@@ -92,9 +110,13 @@ coverage={}
 for market,part,fail in [("TWSE",wr,wf),("TPEX",tr,tf)]:
     have={r["date"] for r in part}
     coverage[market]={"expected":len(dates),"present":len(have),"ratio":len(have)/len(dates),"missing":sorted(set(dates)-have),"failures":fail}
-if min(x["ratio"] for x in coverage.values())<0.98:
+df=pd.DataFrame(rows)
+if not df.empty:
+    df=df.sort_values(["date","market","code"]).drop_duplicates(["date","market","code"],keep="last")
+    df.to_csv(out/f"institutional_{year}.csv.gz",index=False,compression="gzip")
+manifest={"year":year,"rows":len(df),"coverage":coverage,
+  "status":"PASS" if min(x["ratio"] for x in coverage.values())>=0.98 else "FAIL"}
+(out/f"manifest_{year}.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
+if manifest["status"]!="PASS":
     raise RuntimeError("coverage below 98% "+json.dumps({k:v["ratio"] for k,v in coverage.items()}))
-df=pd.DataFrame(rows).sort_values(["date","market","code"]).drop_duplicates(["date","market","code"],keep="last")
-df.to_csv(out/f"institutional_{year}.csv.gz",index=False,compression="gzip")
-(out/f"manifest_{year}.json").write_text(json.dumps({"year":year,"rows":len(df),"coverage":coverage},ensure_ascii=False,indent=2),encoding="utf-8")
 print("[PASS]",year,len(df),{k:v["ratio"] for k,v in coverage.items()},flush=True)
