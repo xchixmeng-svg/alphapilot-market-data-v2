@@ -4,6 +4,7 @@ on:
   push:
     branches: [r10-calm-regime-research-20260909]
     paths:
+      - scripts/build_2015_2020_validation_inputs.py
       - scripts/run_r10_pure_2016_2020.py
       - scripts/calm_phase3_trade_forensics.py
       - .github/workflows/calm_phase3_trade_forensics.yml
