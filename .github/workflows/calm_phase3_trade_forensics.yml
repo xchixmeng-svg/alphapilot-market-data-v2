@@ -4,14 +4,15 @@ on:
   push:
     branches: [r10-calm-regime-research-20260909]
     paths:
+      - scripts/build_2015_2020_validation_inputs.py
       - scripts/run_r10_pure_2016_2020.py
       - scripts/calm_phase3_trade_forensics.py
       - .github/workflows/calm_phase3_trade_forensics.yml
-# trigger: phase3-20260909
+# trigger: phase3-bounded-build-20260909
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
@@ -28,15 +29,18 @@ jobs:
           cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
           cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
           cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
-      - name: Build audited 2015-2020 causal inputs
-        run: python scripts/build_2015_2020_validation_inputs.py | tee phase3_data_build.log
+      - name: Build bounded audited 2015-2020 causal inputs
+        timeout-minutes: 35
+        run: python -u scripts/build_2015_2020_validation_inputs.py | tee phase3_data_build.log
       - name: Run pure locked R10 on 2016-2020
+        timeout-minutes: 30
         run: |
           mkdir -p phase3_old
           for f in validation_input/*; do ln -s "$GITHUB_WORKSPACE/$f" "phase3_old/$(basename "$f")"; done
           cd phase3_old
           python ../scripts/run_r10_pure_2016_2020.py | tee execution.log
       - name: Run untouched formal R10 on 2021-2025
+        timeout-minutes: 30
         run: |
           mkdir -p phase3_new
           for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "phase3_new/$(basename "$f")"; done
