@@ -1,0 +1,57 @@
+name: Adaptive Router Stage4 Detector V2
+
+on:
+  push:
+    branches: [r10-adaptive-router-research-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage4_detector_v2.py'
+      - '.github/workflows/adaptive_router_stage4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  detector-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy
+      - name: Restore Phase2 cached artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase2-cross-section-forensics
+          path: calm_phase2_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34301124538
+      - name: Restore Phase3 exact R10 forensics
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase3-r10-trade-forensics
+          path: calm_phase3_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34321915478
+      - name: Run causal detector v2
+        run: python scripts/adaptive_router_stage4_detector_v2.py
+      - name: Guard detector contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage4/stage4_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['state_assignment_uses_forward_data'] is False
+          assert m['selection_uses_2021_2025'] is False
+          print('ROUTER_STAGE4_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage4
+          path: adaptive_router_stage4/
+          if-no-files-found: error
