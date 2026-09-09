@@ -1,0 +1,76 @@
+name: Export R10 2016-2020 Reference Bundle
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-calm-regime-research-20260909]
+    paths:
+      - .github/workflows/export_r10_2016_2020_reference_bundle.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Stage preserved OHLCV 2015-2019 and formal 2020 inputs
+        run: |
+          set -euxo pipefail
+          git fetch origin main
+          mkdir -p bundle/ohlcv_raw bundle/formal_2020 bundle/reference
+          git show origin/main:data/history/2007-2019/manifest.json > bundle/reference/ohlcv_2007_2019_manifest.json
+          for y in 2015 2016 2017 2018 2019; do
+            git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > bundle/ohlcv_raw/yearly_${y}.zip
+          done
+          cp data/history/2020-2025/ohlcv_2020.parquet bundle/formal_2020/
+          cp data/history/2020-2025/institutional_2020_2025.parquet bundle/formal_2020/
+          cp data/reference/official_corporate_actions_2020_2025.csv bundle/reference/
+          cp data/history/2020-2025/SHA256SUMS bundle/reference/SHA256SUMS_2020_2025
+          cp data/history/2020-2025/history_audit.json bundle/reference/
+
+      - name: Download already-audited 2015-2019 institutional shards
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          mkdir -p downloaded bundle/institutional_2015_2019
+          gh run download 34228123650 -p 'institutional-*' -D downloaded
+          find downloaded -type f -print
+          test "$(find downloaded -name 'institutional_*.csv.gz' | wc -l)" -eq 5
+          test "$(find downloaded -name 'manifest_*.json' | wc -l)" -eq 5
+          find downloaded -name 'institutional_*.csv.gz' -exec cp {} bundle/institutional_2015_2019/ \;
+          find downloaded -name 'manifest_*.json' -exec cp {} bundle/institutional_2015_2019/ \;
+
+      - name: Create bundle audit and checksums
+        run: |
+          cat > bundle/README.txt <<'EOF'
+          AlphaPilot R10 2016-2020 reference data bundle
+          Generated from preserved GitHub inputs; no market API refetch is performed here.
+
+          Scope:
+          - 2015: warm-up/reference year
+          - 2016-2019: preserved yearly raw OHLCV ZIPs + audited institutional shards
+          - 2020: formal OHLCV parquet; institutional_2020_2025.parquet is included as the immutable formal source containing 2020 rows (and later rows as source container)
+          - official_corporate_actions_2020_2025.csv: formal corporate-action source; pre-2020 corporate-action completeness is NOT asserted by this bundle
+
+          IMPORTANT:
+          This is a research/reference data package, not a claim that 2016-2019 is FULL_R10 corporate-action-complete.
+          Use each institutional manifest and checksums to audit provenance.
+          EOF
+          (cd bundle && find . -type f ! -name SHA256SUMS_BUNDLE -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS_BUNDLE)
+          echo '--- bundle files ---'
+          find bundle -type f -printf '%p %s bytes\n' | sort
+
+      - name: Upload complete reference bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: bundle/
+          compression-level: 0
+          retention-days: 90
+          if-no-files-found: error
