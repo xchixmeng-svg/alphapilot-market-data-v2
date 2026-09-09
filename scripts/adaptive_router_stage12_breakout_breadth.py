@@ -1,5 +1,5 @@
 from pathlib import Path
-import json, zipfile, math
+import json, zipfile
 import numpy as np, pandas as pd
 
 ROOT=Path('reference_bundle'); OUT=Path('adaptive_router_stage12'); OUT.mkdir(exist_ok=True)
@@ -14,8 +14,7 @@ def load_year(y):
         parts=[]
         for n in names:
             with zz.open(n) as f:
-                x=pd.read_parquet(f) if n.endswith('.parquet') else pd.read_csv(f)
-                parts.append(x)
+                parts.append(pd.read_parquet(f) if n.endswith('.parquet') else pd.read_csv(f))
     return pd.concat(parts,ignore_index=True)
 
 def norm(x):
@@ -32,13 +31,30 @@ def norm(x):
         elif c in ('amount','trade_value','turnover'): ren[c]='amount'
     x=x.rename(columns=ren)
     need=['date','code','open','high','low','close','volume']
+    missing=[c for c in need if c not in x.columns]
+    if missing: raise RuntimeError(f'missing required columns: {missing}; got={list(x.columns)}')
     x=x[[c for c in list(dict.fromkeys(need+['amount'])) if c in x.columns]]
-    x['date']=pd.to_datetime(x.date); x['code']=x.code.astype(str).str.extract(r'(\d+)')[0]
-    for c in ['open','high','low','close','volume']+[c for c in ['amount'] if c in x]: x[c]=pd.to_numeric(x[c],errors='coerce')
-    if 'amount' not in x: x['amount']=x.close*x.volume
+    s=x['date']
+    if pd.api.types.is_datetime64_any_dtype(s):
+        x['date']=pd.to_datetime(s,errors='coerce')
+    else:
+        ss=s.astype(str).str.strip().str.replace(r'\.0$','',regex=True)
+        m=ss.str.fullmatch(r'\d{8}')
+        dt=pd.Series(pd.NaT,index=x.index,dtype='datetime64[ns]')
+        dt.loc[m]=pd.to_datetime(ss.loc[m],format='%Y%m%d',errors='coerce')
+        dt.loc[~m]=pd.to_datetime(ss.loc[~m],errors='coerce')
+        x['date']=dt
+    x['code']=x['code'].astype(str).str.extract(r'(\d+)')[0].str.zfill(4)
+    for c in ['open','high','low','close','volume']+[c for c in ['amount'] if c in x.columns]:
+        x[c]=pd.to_numeric(x[c],errors='coerce')
+    if 'amount' not in x.columns: x['amount']=x.close*x.volume
     return x.dropna(subset=['date','code','open','high','low','close']).sort_values(['code','date'])
 
 raw=pd.concat([norm(load_year(y)) for y in range(2015,2021)],ignore_index=True).drop_duplicates(['date','code'],keep='last')
+for y in range(2016,2021):
+    n=int((raw.date.dt.year==y).sum())
+    if n==0: raise RuntimeError(f'data contract: no normalized rows for {y}')
+
 g=raw.groupby('code',group_keys=False)
 raw['ma20']=g.close.transform(lambda s:s.rolling(20).mean()); raw['ma60']=g.close.transform(lambda s:s.rolling(60).mean())
 raw['hi60_prev']=g.high.transform(lambda s:s.shift(1).rolling(60).max())
@@ -59,19 +75,25 @@ variants={
 
 def benchmark(year):
     b=raw[(raw.code=='0050')&(raw.date.dt.year==year)].sort_values('date')
-    if len(b)<2: return np.nan
+    if len(b)<2: raise RuntimeError(f'benchmark contract: 0050 missing for {year}; rows={len(b)}')
     return float(b.close.iloc[-1]/b.close.iloc[0]-1)
+
+for y in range(2016,2021): benchmark(y)
 
 def run(year,name,maskfn):
     d=raw[raw.date.dt.year==year].copy(); dates=sorted(d.date.unique()); cash=INIT; pos={}; trades=[]; navs=[]
+    if not dates: raise RuntimeError(f'no trading dates for {year}')
     by={dt:z.set_index('code') for dt,z in d.groupby('date')}
-    sig=d[maskfn(d)&(d.liq_pct>=.35)].copy(); sig['score']=sig.break60.rank(pct=True)+sig.r20.rank(pct=True)
+    sig=d[maskfn(d)&(d.liq_pct>=.35)].copy()
+    sig['break60_pct']=sig.groupby('date')['break60'].rank(pct=True)
+    sig['r20_pct']=sig.groupby('date')['r20'].rank(pct=True)
+    sig['score']=sig.break60_pct+sig.r20_pct
     sigby={dt:z.sort_values('score',ascending=False) for dt,z in sig.groupby('date')}
     for i,dt in enumerate(dates):
         day=by[dt]
         for c,p in list(pos.items()):
             if i-p['entry_i']>=20 and c in day.index:
-                px=float(day.loc[c,'open'])*(1-SLIP); proceeds=p['shares']*px*(1-FEE-TAX); cash+=proceeds
+                px=float(day.loc[c,'open'])*(1-SLIP); cash+=p['shares']*px*(1-FEE-TAX)
                 trades.append({'code':c,'buy':p['buy'],'sell':px,'ret':px*(1-FEE-TAX)/(p['buy']*(1+FEE))-1}); del pos[c]
         if i>0:
             prev=dates[i-1]
@@ -91,11 +113,12 @@ def run(year,name,maskfn):
     last=by[dates[-1]]
     for c,p in list(pos.items()):
         if c in last.index:
-            px=float(last.loc[c,'close'])*(1-SLIP); cash+=p['shares']*px*(1-FEE-TAX); trades.append({'code':c,'buy':p['buy'],'sell':px,'ret':px*(1-FEE-TAX)/(p['buy']*(1+FEE))-1})
+            px=float(last.loc[c,'close'])*(1-SLIP); cash+=p['shares']*px*(1-FEE-TAX)
+            trades.append({'code':c,'buy':p['buy'],'sell':px,'ret':px*(1-FEE-TAX)/(p['buy']*(1+FEE))-1})
     nav=np.array(navs or [INIT],float); peak=np.maximum.accumulate(nav); dd=float(np.min(nav/peak-1))
     rets=np.array([t['ret'] for t in trades]); wins=rets[rets>0].sum(); losses=-rets[rets<0].sum(); pf=float(wins/losses) if losses>0 else (999. if wins>0 else 0.)
     ret=float(cash/INIT-1); bench=benchmark(year)
-    return {'variant':name,'year':year,'return':ret,'benchmark_return':bench,'alpha':ret-bench if pd.notna(bench) else np.nan,'max_dd':dd,'trades':len(trades),'win_rate':float((rets>0).mean()) if len(rets) else 0.,'pf':pf}
+    return {'variant':name,'year':year,'return':ret,'benchmark_return':bench,'alpha':ret-bench,'max_dd':dd,'trades':len(trades),'win_rate':float((rets>0).mean()) if len(rets) else 0.,'pf':pf}
 
 rows=[]
 for name,fn in variants.items():
@@ -110,7 +133,7 @@ if selected:
     oos1=bool(o19.alpha>0 and o19['return']>0 and o19.pf>1 and o19.max_dd>=-.25 and o19.trades>=3)
     oos2=bool(oos1 and o20.alpha>0 and o20['return']>0 and o20.pf>1 and o20.max_dd>=-.25 and o20.trades>=3)
 else: oos1=oos2=False
-manifest={'stage':'12_breakout_breadth_engine','market_refetch':False,'formal_r10_modified':False,'uses_2021_2025':False,'benchmark_gate_required':True,'benchmark':'0050','discovery_years':[2016,2017,2018],'oos1':2019,'oos2':2020,'selected':selected,'oos1_pass':oos1,'oos2_pass':oos2,'transaction_parameters_retuned_from_stage10':False,'variants':list(variants)}
+manifest={'stage':'12_breakout_breadth_engine','market_refetch':False,'formal_r10_modified':False,'uses_2021_2025':False,'benchmark_gate_required':True,'benchmark':'0050','discovery_years':[2016,2017,2018],'oos1':2019,'oos2':2020,'selected':selected,'oos1_pass':oos1,'oos2_pass':oos2,'transaction_parameters_retuned_from_stage10':False,'causal_per_date_cross_sectional_rank':True,'variants':list(variants)}
 (OUT/'stage12_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2))
 disc.to_csv(OUT/'stage12_discovery.csv',index=False)
 print('STAGE12_COMPLETE'); print(json.dumps(manifest,ensure_ascii=False,indent=2)); print('\nDISCOVERY'); print(disc.to_string(index=False)); print('\nYEARLY'); print(r.to_string(index=False))
