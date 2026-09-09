@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install pandas numpy pyarrow
+      - run: pip install pandas numpy pyarrow scipy
       - name: Restore cached 2015-2020 reference bundle
         uses: actions/download-artifact@v4
         with:
