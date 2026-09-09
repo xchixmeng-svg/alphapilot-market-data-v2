@@ -1,0 +1,44 @@
+name: Adaptive Router Stage12 Benchmark-Gated Breakout Breadth
+on:
+  push:
+    branches: [r10-stage12-breakout-breadth-20260909]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  stage12:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached market bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Run Stage12
+        run: python scripts/adaptive_router_stage12_breakout_breadth.py
+      - name: Guard benchmark and holdout contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage12/stage12_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['benchmark_gate_required'] is True
+          assert m['benchmark']=='0050'
+          assert m['transaction_parameters_retuned_from_stage10'] is False
+          print('STAGE12_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage12
+          path: adaptive_router_stage12/
+          if-no-files-found: error
