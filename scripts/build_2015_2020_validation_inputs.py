@@ -160,11 +160,70 @@ for market,rows,fail in [("TWSE",twse_rows,twse_fail),("TPEX",tpex_rows,tpex_fai
     have={r["date"] for r in rows}; coverage[market]={"expected":len(hist_dates),"present":len(have),"ratio":len(have)/len(hist_dates),"missing":sorted(set(hist_dates)-have),"failures":fail}
 if min(v["ratio"] for v in coverage.values())<0.95: raise RuntimeError("institutional coverage below 95%: "+json.dumps({k:v["ratio"] for k,v in coverage.items()}))
 
-# Reuse locked 2020 corporate actions only for this fast diagnostic build; pre-2020 corporate-action
-# completeness is explicitly marked partial and the adapter must quarantine impacted rows.
+# Restore the previously audited official corporate-action build. This performs only four
+# bounded official endpoint queries; historical institutional data stays fixed to audited shards.
+def findval(rec,*parts):
+    for k,v in rec.items():
+        ks=str(k).replace(" ","")
+        if all(p in ks for p in parts): return v
+    return None
+
+events=[]
+def add_event(date,code,market,etype,prev,ref,cash,shares,source):
+    d=parse_date(date); c=code4(code); a=num(prev); b=num(ref)
+    if not d or not c or not (datetime(2015,1,1).date()<=d<=datetime(2020,12,31).date()) or not a or not b: return
+    cash=float(num(cash) or 0); shares=float(num(shares) or 0)
+    events.append({"date":int(d.strftime("%Y%m%d")),"code":c,"market":market,"event_type":str(etype or ""),
+      "official_prev_close":a,"reference_price":b,"cash_dividend_per_share":cash,
+      "stock_shares_per_1000":shares,"continuity_bridge":a/b,"source":source})
+
+for url,market,source,params in [
+ ("https://www.twse.com.tw/rwd/zh/exRight/TWT49U","TWSE","TWSE_TWT49U",{"startDate":"20150101","endDate":"20201231","response":"json"}),
+ ("https://www.tpex.org.tw/www/zh-tw/bulletin/exDailyQ","TPEX","TPEX_exDailyQ",{"startDate":"104/01/01","endDate":"109/12/31","response":"json"})]:
+    j=get_json(url,params,attempts=8,base=3)
+    tables=j.get("tables") or [{"fields":j.get("fields"),"data":j.get("data")}]
+    for t in tables:
+        fields=t.get("fields") or []
+        for vals in t.get("data") or []:
+            r=dict(zip(fields,vals))
+            date=findval(r,"日期") or (vals[0] if vals else None)
+            code=findval(r,"代號") or (vals[1] if len(vals)>1 else None)
+            prev=findval(r,"前","收盤") or findval(r,"除權息前收盤")
+            ref=findval(r,"參考價") or findval(r,"基準")
+            typ=findval(r,"權/息") or findval(r,"類別") or findval(r,"名稱")
+            cash=findval(r,"現金股利") or findval(r,"息值")
+            if cash is None and typ and "息" in str(typ) and "權" not in str(typ):
+                av,bv=num(prev),num(ref); cash=(av-bv) if av and bv else 0
+            add_event(date,code,market,typ,prev,ref,cash,0,source)
+
+for url,market,source,params in [
+ ("https://www.twse.com.tw/rwd/zh/reducation/TWTAUU","TWSE","TWSE_TWTAUU",{"startDate":"20150101","endDate":"20201231","response":"json"}),
+ ("https://www.tpex.org.tw/www/zh-tw/bulletin/revivt","TPEX","TPEX_revivt",{"response":"json"})]:
+    j=get_json(url,params,attempts=8,base=3)
+    tables=j.get("tables") or [{"fields":j.get("fields"),"data":j.get("data")}]
+    for t in tables:
+        fields=t.get("fields") or []
+        for vals in t.get("data") or []:
+            r=dict(zip(fields,vals))
+            date=findval(r,"恢復","日期") or findval(r,"開始","日期") or findval(r,"日期")
+            code=findval(r,"代號")
+            prev=findval(r,"停止","收盤") or findval(r,"前","收盤")
+            ref=findval(r,"參考價") or findval(r,"基準")
+            reason=findval(r,"原因") or "CAPITAL_REDUCTION"
+            av,bv=num(prev),num(ref)
+            shares=(av/bv*1000) if av and bv else 0
+            add_event(date,code,market,"REDUCTION:"+str(reason),prev,ref,0,shares,source)
+
 official20=pd.read_csv(BASE2020/"official_corporate_actions_2020_2025.csv",dtype={"code":str})
 official20=official20[(official20.date>=20200101)&(official20.date<=20201231)].copy()
-official20.to_csv(OUT/"official_corporate_actions_2015_2020.csv",index=False)
-manifest={"status":"PASS_PARTIAL_CORP_ACTIONS","generated_at_utc":datetime.now(timezone.utc).isoformat(),"ohlcv":years+[{"year":2020,"sha256":hashlib.sha256((OUT/"ohlcv_2020.parquet").read_bytes()).hexdigest()}],"institutional":{"rows":len(inst),"coverage":coverage,"sha256":hashlib.sha256((OUT/"institutional_2015_2020.parquet").read_bytes()).hexdigest()},"corporate_actions":{"rows":len(official20),"pre2020_rows":0,"coverage":"2020_locked_only_pre2020_quarantine_required","sha256":hashlib.sha256((OUT/"official_corporate_actions_2015_2020.csv").read_bytes()).hexdigest()},"rules":{"warmup":"2015","evaluation":"2016-2020","incomplete_data_quarantined":True}}
+ev=pd.DataFrame(events)
+ev=ev[ev.date<20200101] if not ev.empty else pd.DataFrame(columns=official20.columns)
+events_all=pd.concat([ev[official20.columns],official20],ignore_index=True)
+events_all["code"]=events_all.code.astype(str).str.zfill(4)
+events_all=events_all.sort_values(["date","code","source"]).drop_duplicates(["date","code"],keep="last")
+if not len(events_all[events_all.date<20200101]): raise RuntimeError("no 2015-2019 official corporate actions parsed")
+events_all.to_csv(OUT/"official_corporate_actions_2015_2020.csv",index=False)
+
+manifest={"status":"PASS","generated_at_utc":datetime.now(timezone.utc).isoformat(),"ohlcv":years+[{"year":2020,"sha256":hashlib.sha256((OUT/"ohlcv_2020.parquet").read_bytes()).hexdigest()}],"institutional":{"rows":len(inst),"coverage":coverage,"sha256":hashlib.sha256((OUT/"institutional_2015_2020.parquet").read_bytes()).hexdigest()},"corporate_actions":{"rows":len(events_all),"pre2020_rows":int((events_all.date<20200101).sum()),"sha256":hashlib.sha256((OUT/"official_corporate_actions_2015_2020.csv").read_bytes()).hexdigest()},"rules":{"warmup":"2015","evaluation":"2016-2020","incomplete_data_quarantined":True}}
 (OUT/"input_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
-print(json.dumps({"status":manifest["status"],"institutional_coverage":{k:v["ratio"] for k,v in coverage.items()},"institutional_rows":len(inst)},ensure_ascii=False),flush=True)
+print(json.dumps({"status":manifest["status"],"institutional_coverage":{k:v["ratio"] for k,v in coverage.items()},"corporate_actions":manifest["corporate_actions"],"institutional_rows":len(inst)},ensure_ascii=False),flush=True)
