@@ -1,0 +1,49 @@
+name: Adaptive Router Stage10 Context Edge Trading
+on:
+  push:
+    branches: [r10-stage10-context-trading-20260909]
+    paths: ['scripts/adaptive_router_stage10_context_trading.py','.github/workflows/adaptive_router_stage10.yml']
+  workflow_dispatch:
+permissions: {contents: read, actions: read}
+jobs:
+  trade-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached market bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Restore Stage9 frozen edges
+        uses: actions/download-artifact@v4
+        with:
+          name: adaptive-router-stage9
+          path: stage9_input
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34361920279
+      - name: Run Stage10 transaction validation
+        run: python scripts/adaptive_router_stage10_context_trading.py
+      - name: Guard anti-overfit and execution contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage10/stage10_manifest.json'))
+          assert m['market_refetch'] is False and m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False and m['stage9_oos2_used_for_selection'] is False
+          assert m['oos2_2020_used_for_tuning'] is False
+          assert m['t_plus_1'] and m['integer_shares'] and m['shared_cash'] and m['scale_invariant_liquidity_rank']
+          print('STAGE10_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage10
+          path: adaptive_router_stage10/
+          if-no-files-found: error
