@@ -1,0 +1,52 @@
+name: Adaptive Router Stage11 Edge Decomposition
+
+on:
+  push:
+    branches: [r10-stage11-edge-decomposition-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage11_edge_decomposition.py'
+      - '.github/workflows/adaptive_router_stage11.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  edge-decomposition:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached market bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Run Stage11 decomposition
+        run: python scripts/adaptive_router_stage11_edge_decomposition.py
+      - name: Guard Stage11 contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage11/stage11_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['transaction_parameters_retuned'] is False
+          assert m['stage10_failure_used_to_change_thresholds'] is False
+          assert m['context_thresholds_past_only'] is True
+          assert m['scale_invariant_liquidity_rank'] is True
+          print('STAGE11_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage11
+          path: adaptive_router_stage11/
+          if-no-files-found: error
