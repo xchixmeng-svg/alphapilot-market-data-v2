@@ -1,0 +1,71 @@
+name: Adaptive Router Stage2
+
+on:
+  push:
+    branches: [r10-adaptive-router-research-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage2_edge_audit.py'
+      - '.github/workflows/adaptive_router_stage2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  stage2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy
+      - name: Restore Stage1 cached artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: adaptive-router-stage1
+          path: adaptive_router_stage1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34335604119
+      - name: Restore Phase2 cached artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase2-cross-section-forensics
+          path: calm_phase2_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34301124538
+      - name: Restore Phase3 cached artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase3-r10-trade-forensics
+          path: calm_phase3_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34321915478
+      - name: Assert cached inputs and no refetch
+        run: |
+          test -f adaptive_router_stage1/stage1_daily_states.csv
+          test -f calm_phase2_output/daily_cross_section_panel.csv
+          test -f calm_phase3_output/phase3_old/r10max_formal_trades.csv
+          test -f calm_phase3_output/phase3_new/r10max_formal_trades.csv
+          grep -q "network_market_refetch':False" scripts/adaptive_router_stage2_edge_audit.py
+      - name: Run state-edge audit
+        run: python scripts/adaptive_router_stage2_edge_audit.py
+      - name: Guard research contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage2/stage2_manifest.json'))
+          assert m['network_market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['candidate_map_uses_2021_2025'] is False
+          print('ROUTER_STAGE2_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage2
+          path: adaptive_router_stage2/
+          if-no-files-found: error
