@@ -1,0 +1,58 @@
+name: Adaptive Router Stage6 Opportunity Quality
+
+on:
+  push:
+    branches: [r10-adaptive-router-research-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage6_opportunity_quality.py'
+      - '.github/workflows/adaptive_router_stage6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  quality-v3:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy
+      - name: Restore Phase2 cached opportunity panel
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase2-cross-section-forensics
+          path: calm_phase2_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34301124538
+      - name: Restore exact R10 forensics
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase3-r10-trade-forensics
+          path: calm_phase3_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34321915478
+      - name: Run opportunity-quality detector v3
+        run: python scripts/adaptive_router_stage6_opportunity_quality.py
+      - name: Guard Stage6 contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage6/stage6_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['future_leakage'] is False
+          assert m['state_definition_uses_r10_outcome'] is False
+          assert m['uses_2021_2025_to_define_thresholds'] is False
+          print('ROUTER_STAGE6_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage6
+          path: adaptive_router_stage6/
+          if-no-files-found: error
