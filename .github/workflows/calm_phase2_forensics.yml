@@ -12,10 +12,30 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Stage SHA-preserved 2015-2019 history
+        run: |
+          git fetch origin main
+          mkdir -p input/raw
+          git show origin/main:data/history/2007-2019/manifest.json > input/raw/manifest.json
+          for y in 2015 2016 2017 2018 2019; do
+            git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > input/raw/yearly_${y}.zip
+          done
+          python - <<'PY'
+          import hashlib,json,pathlib
+          m=json.load(open('input/raw/manifest.json'))
+          by={int(x['year']):x for x in m['files']}
+          for y in range(2015,2020):
+              p=pathlib.Path(f'input/raw/yearly_{y}.zip')
+              got=hashlib.sha256(p.read_bytes()).hexdigest()
+              assert got==by[y]['sha256'],(y,got,by[y]['sha256'])
+          print('PASS preserved historical ZIP SHA 2015-2019')
+          PY
       - name: Verify formal 2020-2025 immutable inputs
         working-directory: data/history/2020-2025
         run: sha256sum --check SHA256SUMS
