@@ -1,0 +1,61 @@
+name: Adaptive Router Stage9 Context Edge Discovery
+
+on:
+  push:
+    branches: [r10-stage9-context-edge-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage9_context_edge.py'
+      - '.github/workflows/adaptive_router_stage9.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  context-edge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached 2015-2020 reference bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Assert cached-only and holdout contract
+        run: |
+          test -f reference_bundle/ohlcv_raw/yearly_2015.zip
+          test -f reference_bundle/ohlcv_raw/yearly_2019.zip
+          test -f reference_bundle/formal_2020/ohlcv_2020.parquet
+          grep -q "market_refetch':False" scripts/adaptive_router_stage9_context_edge.py
+          grep -q "uses_2021_2025':False" scripts/adaptive_router_stage9_context_edge.py
+          grep -q "oos1_2019_used_for_discovery':False" scripts/adaptive_router_stage9_context_edge.py
+          grep -q "oos2_2020_used_for_discovery':False" scripts/adaptive_router_stage9_context_edge.py
+      - name: Run Stage9 context edge discovery
+        run: python scripts/adaptive_router_stage9_context_edge.py
+      - name: Guard Stage9 anti-overfit contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage9/stage9_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['oos1_2019_used_for_discovery'] is False
+          assert m['oos2_2020_used_for_discovery'] is False
+          assert m['context_thresholds_past_only'] is True
+          assert m['scale_invariant_liquidity_rank'] is True
+          print('ROUTER_STAGE9_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage9
+          path: adaptive_router_stage9/
+          if-no-files-found: error
