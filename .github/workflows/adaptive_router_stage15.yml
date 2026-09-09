@@ -1,0 +1,47 @@
+name: Adaptive Router Stage15 Winner Persistence
+on:
+  push:
+    branches: [r10-stage15-winner-persistence-20260910]
+    paths:
+      - 'scripts/adaptive_router_stage15_winner_persistence.py'
+      - '.github/workflows/adaptive_router_stage15.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  stage15:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached market bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ github.token }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Run Stage15
+        run: python scripts/adaptive_router_stage15_winner_persistence.py
+      - name: Guard research contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage15/manifest.json'))
+          assert m['market_refetch'] is False and m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False and m['future_labels_used'] is False
+          assert m['benchmark_gate_required'] is True and m['benchmark']=='0050'
+          assert m['oos1_used_for_selection'] is False and m['oos2_used_for_selection'] is False
+          assert m['t_plus_1'] is True and m['integer_shares'] is True and m['shared_cash'] is True
+          print('STAGE15_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage15
+          path: adaptive_router_stage15/
+          if-no-files-found: error
