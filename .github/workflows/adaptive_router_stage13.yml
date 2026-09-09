@@ -1,0 +1,53 @@
+name: Adaptive Router Stage13 Long-History Alpha Discovery
+on:
+  push:
+    branches: [r10-stage13-long-history-alpha-20260910]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  stage13:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Stage13 research branch
+        uses: actions/checkout@v4
+      - name: Checkout preserved 2007-2019 snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          ref: dc17eff999c4f4bd0a4ea7303b5d178b9100ec35
+          path: historical_snapshot
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached 2020 reference bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Run Stage13
+        run: python scripts/adaptive_router_stage13_long_history_alpha.py
+      - name: Guard research contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage13/stage13_manifest.json'))
+          assert m['historical_source_commit']=='dc17eff999c4f4bd0a4ea7303b5d178b9100ec35'
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['stress_used_for_selection'] is False
+          assert m['benchmark']=='0050'
+          assert m['objective']=='forward_20d_excess_return_vs_0050'
+          assert m['scale_invariant_features'] is True
+          print('STAGE13_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage13
+          path: adaptive_router_stage13/
+          if-no-files-found: error
