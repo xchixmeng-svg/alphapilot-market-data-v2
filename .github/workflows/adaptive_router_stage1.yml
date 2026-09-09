@@ -6,7 +6,6 @@ on:
     paths:
       - 'scripts/adaptive_router_stage1.py'
       - '.github/workflows/adaptive_router_stage1.yml'
-      - 'calm_phase2_output/**'
   workflow_dispatch:
 
 jobs:
@@ -18,6 +17,14 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install pandas numpy
+      - name: Restore validated Phase2 cached artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase2-cross-section-forensics
+          path: calm_phase2_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34301124538
       - name: Assert cached inputs only
         run: |
           test -f calm_phase2_output/daily_cross_section_panel.csv
