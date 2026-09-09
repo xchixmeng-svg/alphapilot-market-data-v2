@@ -4,23 +4,35 @@ on:
   push:
     branches: [r10-calm-regime-research-20260909]
     paths:
-      - scripts/build_2015_2020_validation_inputs.py
       - scripts/run_r10_pure_2016_2020.py
       - scripts/calm_phase3_trade_forensics.py
       - .github/workflows/calm_phase3_trade_forensics.yml
-# trigger: phase3-bounded-build-20260909
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: calm-phase3-r10-trade-forensics
+  cancel-in-progress: true
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: {python-version: '3.12'}
       - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
-      - name: Stage preserved 2015-2019 history and 2020 base
+      - name: Reuse already audited 100-percent institutional shards
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p institutional_shards
+          gh run download 34228123650 -p 'institutional-*' -D institutional_shards
+          test "$(find institutional_shards -name 'institutional_*.csv.gz' | wc -l)" -eq 5
+          test "$(find institutional_shards -name 'manifest_*.json' | wc -l)" -eq 5
+          echo "AUDITED_SHARDS_READY"
+      - name: Stage preserved 2015-2019 history and immutable 2020 base
         run: |
           git fetch origin main
           mkdir -p input/raw input/base2020
@@ -29,8 +41,10 @@ jobs:
           cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
           cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
           cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
-      - name: Build bounded audited 2015-2020 causal inputs
-        timeout-minutes: 35
+      - name: Assemble causal inputs without institutional refetch
+        timeout-minutes: 12
+        env:
+          INSTITUTIONAL_SHARD_DIR: institutional_shards
         run: python -u scripts/build_2015_2020_validation_inputs.py | tee phase3_data_build.log
       - name: Run pure locked R10 on 2016-2020
         timeout-minutes: 30
@@ -69,6 +83,7 @@ jobs:
           path: |
             calm_phase3_output/
             phase3_data_build.log
+            validation_input/input_manifest.json
             phase3_old/pure_adapter_audit.json
             phase3_old/contract_audit.json
             phase3_old/r10max_formal_summary.json
