@@ -1,0 +1,81 @@
+name: Calm Phase3 R10 Trade Forensics
+on:
+  workflow_dispatch:
+  push:
+    branches: [r10-calm-regime-research-20260909]
+    paths:
+      - scripts/run_r10_pure_2016_2020.py
+      - scripts/calm_phase3_trade_forensics.py
+      - .github/workflows/calm_phase3_trade_forensics.yml
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
+      - name: Stage preserved 2015-2019 history and 2020 base
+        run: |
+          git fetch origin main
+          mkdir -p input/raw input/base2020
+          git show origin/main:data/history/2007-2019/manifest.json > input/raw/manifest.json
+          for y in 2015 2016 2017 2018 2019; do git show origin/main:data/history/2007-2019/raw/yearly_${y}.zip > input/raw/yearly_${y}.zip; done
+          cp data/history/2020-2025/ohlcv_2020.parquet input/base2020/
+          cp data/history/2020-2025/institutional_2020_2025.parquet input/base2020/
+          cp data/reference/official_corporate_actions_2020_2025.csv input/base2020/
+      - name: Build audited 2015-2020 causal inputs
+        run: python scripts/build_2015_2020_validation_inputs.py | tee phase3_data_build.log
+      - name: Run pure locked R10 on 2016-2020
+        run: |
+          mkdir -p phase3_old
+          for f in validation_input/*; do ln -s "$GITHUB_WORKSPACE/$f" "phase3_old/$(basename "$f")"; done
+          cd phase3_old
+          python ../scripts/run_r10_pure_2016_2020.py | tee execution.log
+      - name: Run untouched formal R10 on 2021-2025
+        run: |
+          mkdir -p phase3_new
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "phase3_new/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" phase3_new/official_corporate_actions_2020_2025.csv
+          cd phase3_new
+          python ../scripts/r10_max_formal.py | tee execution.log
+      - name: Assert formal invariance on 2021-2025
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open('phase3_new/r10max_formal_summary.json'))['strategy']
+          a=json.load(open('phase3_new/contract_audit.json'))
+          assert a['all_pass'],a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7,s
+          assert s['completed_trades']==150,s
+          assert abs(s['max_drawdown']-(-0.19515438907459803))<1e-12,s
+          old=json.load(open('phase3_old/contract_audit.json')); assert old['all_pass'],old
+          adapter=json.load(open('phase3_old/pure_adapter_audit.json')); assert adapter['formal_strategy_modified'] is False,adapter
+          print('PHASE3_INVARIANCE_PASS')
+          PY
+      - name: Generate trade-level forensic comparison
+        run: python scripts/calm_phase3_trade_forensics.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calm-phase3-r10-trade-forensics
+          path: |
+            calm_phase3_output/
+            phase3_data_build.log
+            phase3_old/pure_adapter_audit.json
+            phase3_old/contract_audit.json
+            phase3_old/r10max_formal_summary.json
+            phase3_old/r10max_formal_nav.csv
+            phase3_old/r10max_formal_trades.csv
+            phase3_old/r10max_formal_orders.csv
+            phase3_old/r10max_formal_slot_diag.csv
+            phase3_new/contract_audit.json
+            phase3_new/r10max_formal_summary.json
+            phase3_new/r10max_formal_nav.csv
+            phase3_new/r10max_formal_trades.csv
+            phase3_new/r10max_formal_orders.csv
+            phase3_new/r10max_formal_slot_diag.csv
+          if-no-files-found: error
+          retention-days: 90
