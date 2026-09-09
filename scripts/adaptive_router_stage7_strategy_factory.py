@@ -84,7 +84,7 @@ def prepare():
     d['action_recent']=g.action_flag.transform(lambda s:s.shift(1).rolling(5,min_periods=1).max()).fillna(False).astype(bool)
     d['liquid']=(d.amt20>=30_000_000)&(d.close>=3.0)&~d.action_recent
     # Cross-sectional ranks use same-day T-close data only.
-    for c in ['r20','r60','r80','inst_ratio']:
+    for c in ['r20','r40','r60','r80','inst_ratio']:
         d[c+'_pct']=d.groupby('date')[c].rank(pct=True)
     return d.sort_values(['date','code']).reset_index(drop=True)
 
