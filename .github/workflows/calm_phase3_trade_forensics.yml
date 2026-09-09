@@ -7,6 +7,7 @@ on:
       - scripts/run_r10_pure_2016_2020.py
       - scripts/calm_phase3_trade_forensics.py
       - .github/workflows/calm_phase3_trade_forensics.yml
+# trigger: phase3-20260909
 jobs:
   analyze:
     runs-on: ubuntu-latest
