@@ -1,0 +1,61 @@
+name: Adaptive Router Stage7 Multi Strategy Factory
+
+on:
+  push:
+    branches: [r10-adaptive-router-research-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage7_strategy_factory.py'
+      - '.github/workflows/adaptive_router_stage7.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  strategy-factory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy pyarrow
+      - name: Restore complete cached 2015-2020 reference bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Assert cached-only research contract
+        run: |
+          test -f reference_bundle/ohlcv_raw/yearly_2015.zip
+          test -f reference_bundle/ohlcv_raw/yearly_2019.zip
+          test -f reference_bundle/formal_2020/ohlcv_2020.parquet
+          test -f reference_bundle/institutional_2015_2019/institutional_2018.csv.gz
+          grep -q "market_refetch':False" scripts/adaptive_router_stage7_strategy_factory.py
+      - name: Run Stage7 strategy factory
+        run: python scripts/adaptive_router_stage7_strategy_factory.py
+      - name: Guard Stage7 anti-overfit contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage7/stage7_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['oos2_2020_used_for_tuning'] is False
+          assert m['fine_grid_optimization'] is False
+          assert m['research_period']=='2016-2018'
+          assert m['oos1']=='2019'
+          assert m['oos2']=='2020'
+          print('ROUTER_STAGE7_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage7
+          path: adaptive_router_stage7/
+          if-no-files-found: error
