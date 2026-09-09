@@ -1,0 +1,57 @@
+name: Adaptive Router Stage5 Shadow Meta Gate
+
+on:
+  push:
+    branches: [r10-adaptive-router-research-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage5_shadow_meta_gate.py'
+      - '.github/workflows/adaptive_router_stage5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  meta-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy
+      - name: Restore exact R10 forensics
+        uses: actions/download-artifact@v4
+        with:
+          name: calm-phase3-r10-trade-forensics
+          path: calm_phase3_output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34321915478
+      - name: Restore detector v2
+        uses: actions/download-artifact@v4
+        with:
+          name: adaptive-router-stage4
+          path: adaptive_router_stage4
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34337086604
+      - name: Run causal shadow meta gate
+        run: python scripts/adaptive_router_stage5_shadow_meta_gate.py
+      - name: Guard Stage5 contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage5/stage5_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_current_or_future_trade_outcome'] is False
+          assert m['policy_thresholds_tuned_on_2021_2025'] is False
+          print('ROUTER_STAGE5_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage5
+          path: adaptive_router_stage5/
+          if-no-files-found: error
