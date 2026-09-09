@@ -1,0 +1,40 @@
+name: Adaptive Router Stage1
+
+on:
+  push:
+    branches: [r10-adaptive-router-research-20260909]
+    paths:
+      - 'scripts/adaptive_router_stage1.py'
+      - '.github/workflows/adaptive_router_stage1.yml'
+      - 'calm_phase2_output/**'
+  workflow_dispatch:
+
+jobs:
+  stage1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy
+      - name: Assert cached inputs only
+        run: |
+          test -f calm_phase2_output/daily_cross_section_panel.csv
+          grep -q "network_fetch':False" scripts/adaptive_router_stage1.py
+      - name: Run causal regime discovery
+        run: python scripts/adaptive_router_stage1.py
+      - name: Guard Formal R10 untouched
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_output/stage1_manifest.json'))
+          assert m['formal_r10_modified'] is False
+          assert m['network_fetch'] is False
+          assert m['state_assignment_uses_forward_data'] is False
+          print('ROUTER_STAGE1_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage1
+          path: adaptive_router_output/
