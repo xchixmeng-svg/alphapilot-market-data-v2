@@ -15,6 +15,7 @@ on:
       - 'scripts/fetch_2026_corporate_actions.py'
       - 'scripts/build_2026_forward_window.py'
       - 'config/forward_state.json'
+      - 'data/reference/official_corporate_actions_2026.csv'
       - '.github/workflows/r10_forward_live.yml'
 
 permissions:
@@ -63,10 +64,10 @@ jobs:
           echo "T=$TD"
       - name: Build rolling 2026 Forward input window
         run: python scripts/build_2026_forward_window.py
-      - name: Fetch official 2026 corporate actions through T
+      - name: Update persistent 2026 corporate-action ledger through T
         run: |
           TD='${{ steps.td.outputs.trade_date }}'; END="${TD//-/}"
-          python scripts/fetch_2026_corporate_actions.py --end "$END"
+          python scripts/fetch_2026_corporate_actions.py --end "$END" --out data/reference/official_corporate_actions_2026.csv
       - name: Run locked Forward engine
         run: python scripts/r10_forward_live.py --trade-date '${{ steps.td.outputs.trade_date }}'
       - name: Assert auditable outputs
@@ -89,9 +90,9 @@ jobs:
           path: forward_runtime/${{ steps.td.outputs.trade_date }}
           if-no-files-found: error
           retention-days: 30
-      - name: Commit auditable T+1 decision
+      - name: Commit incremental ledger and auditable T+1 decision
         run: |
           TD='${{ steps.td.outputs.trade_date }}'
           git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "forward_runtime/$TD"
-          if ! git diff --cached --quiet; then git commit -m "forward: ${TD} locked T+1 decision" && git push origin HEAD:r10-forward-live-20260910; fi
+          git add data/reference/official_corporate_actions_2026.csv data/reference/official_corporate_actions_2026.csv.meta.json "forward_runtime/$TD"
+          if ! git diff --cached --quiet; then git commit -m "forward: ${TD} locked T+1 decision and corp-action increment" && git push origin HEAD:r10-forward-live-20260910; fi
