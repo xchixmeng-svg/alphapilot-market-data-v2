@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "locked_version": {
+    "branch": "r10-no-trail-formal-fix-20260907",
+    "commit": "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9",
+    "engine_sha256": "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0",
+    "corp_action_sha256_2020_2025": "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc"
+  },
+  "initial_capital": 1300000.0,
+  "cash_model": {
+    "basis": "formal_fee_until_user_supplies_actual_broker_fee",
+    "buy_fee_rate": 0.000855
+  },
+  "confirmed_forward_positions": [
+    {
+      "code": "2884",
+      "name": "玉山金",
+      "strategy": "R05",
+      "shares": 5000,
+      "entry_date": "2026-08-26",
+      "entry_raw_price": 38.8
+    }
+  ],
+  "legacy_positions": [
+    {"code": "1314", "name": "中石化", "shares": 4000, "cost": 8.73},
+    {"code": "2002", "name": "中鋼", "shares": 6000, "cost": 19.13},
+    {"code": "2752", "name": "豆府", "shares": 1000, "cost": 189.0},
+    {"code": "2890", "name": "永豐金", "shares": null, "cost": 28.0},
+    {"code": "009829", "name": "009829", "shares": 5000, "cost": 11.34, "entry_date": "2026-09-08"}
+  ],
+  "confirmed_closed_positions": [
+    {"code": "2609", "name": "陽明", "status": "SOLD_0_SHARES"}
+  ]
+}
