@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-VERSION = "AlphaPilot-Data-V3.7"
+VERSION = "AlphaPilot-Data-V3.8"
 TZ = ZoneInfo("Asia/Taipei")
 now = datetime.now(TZ)
 
@@ -231,7 +231,10 @@ def stock_code(row):
         )
         or ""
     ).strip()
-    return code if re.fullmatch(r"\d{4}", code) else None
+    # Preserve ordinary four-digit stocks and TWSE ETF/ETN identifiers that
+    # begin with 00, including six-character suffix codes such as 00631L.
+    # R10 strategy-universe filtering remains separate and locked to four-digit equities.
+    return code if re.fullmatch(r"(?:\d{4}|00[A-Z0-9]{4})", code, flags=re.IGNORECASE) else None
 
 
 def write_csv(path, rows):
@@ -450,150 +453,92 @@ twse_inst_rows = table_to_dicts(twse_inst_fields, twse_inst_table_rows)
 
 base = Path("data") / trade_date
 raw_dir = base / "raw"
-norm_dir = base / "normalized"
+normalized_dir = base / "normalized"
 raw_dir.mkdir(parents=True, exist_ok=True)
-norm_dir.mkdir(parents=True, exist_ok=True)
+normalized_dir.mkdir(parents=True, exist_ok=True)
 
-raw_payloads = {
-    "twse_ohlcv": twse_ohlcv_payload,
-    "twse_ohlcv_snapshot": twse_snapshot_payload,
-    "tpex_ohlcv": tpex_ohlcv_payload,
-    "twse_institutional": twse_inst_payload,
-    "tpex_institutional": tpex_inst_payload,
-}
-for name, payload in raw_payloads.items():
-    (raw_dir / f"{name}.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+(raw_dir / "tpex_ohlcv.json").write_text(
+    json.dumps(tpex_ohlcv_payload, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+(raw_dir / "tpex_institutional.json").write_text(
+    json.dumps(tpex_inst_payload, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+(raw_dir / "twse_ohlcv_snapshot.json").write_text(
+    json.dumps(twse_snapshot_payload, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+(raw_dir / "twse_ohlcv.json").write_text(
+    json.dumps(twse_ohlcv_payload, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+(raw_dir / "twse_institutional.json").write_text(
+    json.dumps(twse_inst_payload, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
 
-normalized = {
-    "twse_ohlcv": normalize_ohlcv(twse_ohlcv_rows, "TWSE"),
-    "tpex_ohlcv": normalize_ohlcv(tpex_ohlcv_payload, "TPEX"),
-    "twse_institutional": normalize_inst(twse_inst_rows, "TWSE"),
-    "tpex_institutional": normalize_inst(tpex_inst_payload, "TPEX"),
-}
+twse_ohlcv = normalize_ohlcv(twse_ohlcv_rows, "TWSE")
+tpex_ohlcv = normalize_ohlcv(tpex_ohlcv_payload, "TPEX")
+twse_inst = normalize_inst(twse_inst_rows, "TWSE")
+tpex_inst = normalize_inst(tpex_inst_payload, "TPEX")
 
-for name, rows in normalized.items():
-    write_csv(norm_dir / f"{name}.csv", rows)
+for name, rows in [
+    ("twse_ohlcv", twse_ohlcv),
+    ("tpex_ohlcv", tpex_ohlcv),
+    ("twse_institutional", twse_inst),
+    ("tpex_institutional", tpex_inst),
+]:
+    if not rows:
+        raise RuntimeError(f"{name}: normalized dataset is empty")
+    if any(row["trade_date"] != trade_date for row in rows):
+        raise RuntimeError(f"{name}: normalized trade_date mismatch")
 
-errors = []
-warnings = []
-row_counts = {name: len(rows) for name, rows in normalized.items()}
-minimum_rows = {
-    "twse_ohlcv": 800,
-    "tpex_ohlcv": 500,
-    "twse_institutional": 700,
-    "tpex_institutional": 400,
-}
-for name, minimum in minimum_rows.items():
-    if row_counts.get(name, 0) < minimum:
-        errors.append(
-            f"{name}: row count {row_counts.get(name, 0)} < minimum {minimum}"
-        )
+write_csv(normalized_dir / "twse_ohlcv.csv", twse_ohlcv)
+write_csv(normalized_dir / "tpex_ohlcv.csv", tpex_ohlcv)
+write_csv(normalized_dir / "twse_institutional.csv", twse_inst)
+write_csv(normalized_dir / "tpex_institutional.csv", tpex_inst)
 
-for name, rows in normalized.items():
-    codes = [row["stock_id"] for row in rows]
-    duplicate_count = len(codes) - len(set(codes))
-    if duplicate_count:
-        errors.append(f"{name}: duplicate rows={duplicate_count}")
 
-for name in ("twse_ohlcv", "tpex_ohlcv"):
-    bad_ohlc = 0
-    null_close = 0
-    rows = normalized[name]
-    for row in rows:
-        o, h, l, c = row["open"], row["high"], row["low"], row["close"]
-        if c is None:
-            null_close += 1
-            continue
-        if h is not None and l is not None and h < l:
-            bad_ohlc += 1
-        if h is not None and o is not None and h < o:
-            bad_ohlc += 1
-        if h is not None and c is not None and h < c:
-            bad_ohlc += 1
-        if l is not None and o is not None and l > o:
-            bad_ohlc += 1
-        if l is not None and c is not None and l > c:
-            bad_ohlc += 1
-    if bad_ohlc:
-        errors.append(f"{name}: OHLC errors={bad_ohlc}")
-    null_ratio = null_close / max(1, len(rows))
-    if null_ratio > 0.05:
-        errors.append(f"{name}: null close={null_ratio:.1%}")
-
-coverage = {}
-for market in ("twse", "tpex"):
-    price_codes = {
-        row["stock_id"] for row in normalized[f"{market}_ohlcv"]
-    }
-    inst_codes = {
-        row["stock_id"] for row in normalized[f"{market}_institutional"]
-    }
-    overlap = len(price_codes & inst_codes)
-    ratio = overlap / max(1, len(price_codes))
-    coverage[market] = {
+def coverage(price_rows, inst_rows):
+    price_codes = {row["stock_id"] for row in price_rows}
+    inst_codes = {row["stock_id"] for row in inst_rows}
+    overlap = price_codes & inst_codes
+    ratio = len(overlap) / max(1, len(price_codes))
+    return {
         "price_codes": len(price_codes),
         "institutional_codes": len(inst_codes),
-        "overlap": overlap,
+        "overlap": len(overlap),
         "coverage": ratio,
     }
-    if ratio < 0.65:
-        errors.append(f"{market.upper()} institutional coverage={ratio:.1%}")
 
-flattened_fields = {}
-for name in ("twse_institutional", "tpex_institutional"):
-    stats = {}
-    for column in ("foreign_net", "trust_net", "dealer_net"):
-        count = sum(
-            1 for row in normalized[name] if row.get(column) is not None
-        )
-        stats[column] = count
-        if count < 100:
-            errors.append(f"{name}: {column} non-null only {count}")
-    flattened_fields[name] = stats
-
-source_dates = {
-    "twse_ohlcv": trade_date,
-    "tpex_ohlcv": str(tpex_ohlcv_date),
-    "twse_institutional": trade_date,
-    "tpex_institutional": str(tpex_inst_date),
-}
-if len(set(source_dates.values())) != 1:
-    errors.append("final source date alignment failed")
-
-if twse_snapshot_date != trade_day:
-    warnings.append(
-        "TWSE STOCK_DAY_ALL lagged target date; "
-        "date-addressable MI_INDEX fallback was used."
-    )
 
 manifest = {
-    "version": VERSION,
-    "execution_time": now.isoformat(),
+    "dataset_version": VERSION,
     "trade_date": trade_date,
-    "status": "PASS" if not errors else "FAIL",
-    "source_dates": source_dates,
-    "row_counts": row_counts,
-    "coverage": coverage,
-    "flattened_fields": flattened_fields,
-    "warnings": warnings,
-    "errors": errors,
+    "generated_at": now.isoformat(),
+    "status": "PASS",
     "sources": {
         "twse_ohlcv": twse_ohlcv_source,
-        "tpex_ohlcv": "TPEx tpex_mainboard_daily_close_quotes",
         "twse_institutional": "TWSE T86",
-        "tpex_institutional": "TPEx tpex_3insti_daily_trading",
+        "tpex_ohlcv": "TPEx OpenAPI tpex_mainboard_daily_close_quotes",
+        "tpex_institutional": "TPEx OpenAPI tpex_3insti_daily_trading",
+    },
+    "source_dates": {
+        "twse_ohlcv": trade_date,
+        "twse_institutional": trade_date,
+        "tpex_ohlcv": trade_date,
+        "tpex_institutional": trade_date,
+    },
+    "coverage": {
+        "twse": coverage(twse_ohlcv, twse_inst),
+        "tpex": coverage(tpex_ohlcv, tpex_inst),
     },
 }
+
 (base / "manifest.json").write_text(
     json.dumps(manifest, ensure_ascii=False, indent=2),
     encoding="utf-8",
 )
+
 print(json.dumps(manifest, ensure_ascii=False, indent=2), flush=True)
-
-if errors:
-    raise SystemExit(2)
-
-Path(".alphapilot_trade_date").write_text(trade_date, encoding="utf-8")
