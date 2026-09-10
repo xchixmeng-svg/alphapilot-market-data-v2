@@ -1,0 +1,134 @@
+name: R10 MAX Forward Live Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      trade_date:
+        description: "T date YYYY-MM-DD; blank = latest PASS main snapshot"
+        required: false
+        type: string
+  push:
+    branches:
+      - r10-forward-live-20260910
+    paths:
+      - 'scripts/r10_forward_live.py'
+      - 'scripts/forward_parts/**'
+      - 'scripts/fetch_2026_corporate_actions.py'
+      - 'config/forward_state.json'
+      - '.github/workflows/r10_forward_live.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: r10-forward-live
+  cancel-in-progress: false
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Forward branch with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: r10-forward-live-20260910
+
+      - name: Fetch data-only main
+        run: git fetch origin main:refs/remotes/origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.5
+
+      - name: Syntax gate
+        run: |
+          python -m py_compile scripts/fetch_2026_corporate_actions.py scripts/r10_forward_live.py
+          cat scripts/forward_parts/*.part > /tmp/r10_forward_live_generated.py
+          python -m py_compile /tmp/r10_forward_live_generated.py
+
+      - name: Version gate — immutable formal fingerprints
+        run: |
+          echo '2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py' | sha256sum --check -
+          echo '8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv' | sha256sum --check -
+          test "$(git rev-parse r10-no-trail-formal-fix-20260907)" = '3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9'
+          git show 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9:scripts/r10_max_formal.py | sha256sum | grep '^2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0'
+
+      - name: Resolve T date
+        id: td
+        shell: bash
+        env:
+          INPUT_TRADE_DATE: ${{ github.event.inputs.trade_date }}
+        run: |
+          if [ -n "${INPUT_TRADE_DATE:-}" ]; then
+            TD="$INPUT_TRADE_DATE"
+          else
+            TD="$(git ls-tree -r --name-only origin/main data | sed -n 's#^data/\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)/manifest.json$#\1#p' | sort | tail -1)"
+          fi
+          test -n "$TD"
+          echo "trade_date=$TD" >> "$GITHUB_OUTPUT"
+          echo "T=$TD"
+
+      - name: Rebuild 2026 YTD causal input window
+        run: |
+          git show 66469a72cc5681ad88f18204f2f4b87bf37cd739:scripts/build_2026_ytd_package.py > scripts/_build_2026_ytd_runtime.py
+          python -m py_compile scripts/_build_2026_ytd_runtime.py
+          python scripts/_build_2026_ytd_runtime.py
+
+      - name: Fetch official 2026 corporate actions through T
+        shell: bash
+        run: |
+          TD='${{ steps.td.outputs.trade_date }}'
+          END="${TD//-/}"
+          python scripts/fetch_2026_corporate_actions.py --end "$END"
+
+      - name: Run locked Forward engine
+        run: python scripts/r10_forward_live.py --trade-date '${{ steps.td.outputs.trade_date }}'
+
+      - name: Assert auditable outputs
+        shell: bash
+        run: |
+          TD='${{ steps.td.outputs.trade_date }}'
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          td=os.environ['TD']
+          p=Path('forward_runtime')/td
+          required=['forward_summary.json','forward_candidates.csv','forward_orders.csv','forward_positions.csv','legacy_positions.csv','T1_OPERATION_TABLE.md']
+          missing=[f for f in required if not (p/f).exists()]
+          assert not missing, missing
+          s=json.loads((p/'forward_summary.json').read_text())
+          assert s['VERSION_GATE']['status']=='PASS', s
+          assert s['DATA_GATE']['status']=='PASS', s
+          assert s['trade_date']==td, s
+          print(json.dumps(s,ensure_ascii=False,indent=2))
+          PY
+        env:
+          TD: ${{ steps.td.outputs.trade_date }}
+
+      - name: Publish decision artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-forward-${{ steps.td.outputs.trade_date }}
+          path: forward_runtime/${{ steps.td.outputs.trade_date }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit auditable T+1 decision
+        shell: bash
+        run: |
+          TD='${{ steps.td.outputs.trade_date }}'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "forward_runtime/$TD"
+          if git diff --cached --quiet; then
+            echo 'No changed Forward output to commit.'
+          else
+            git commit -m "forward: ${TD} locked T+1 decision"
+            git push origin HEAD:r10-forward-live-20260910
+          fi
