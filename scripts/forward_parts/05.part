@@ -1,0 +1,64 @@
+    summary={"trade_date":trade_date,"t_plus_1":next_weekday(trade_date),"VERSION_GATE":version_gate,"DATA_GATE":data_gate,
+             "portfolio":{k:live[k] for k in ("cash","market_value","nav","hwm","dd","exposure")},
+             "holding_count":len(live["positions"]),"market":market_meta,
+             "formal_buy_count":len(orders),"formal_sell_count":len(sells),
+             "message_buy":"明日無 R10-MAX 新掛單" if not orders else None,
+             "message_sell":"明日無 R10-MAX 賣出指令" if not sells else None}
+    (out/"forward_summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
+    lines=[f"# AlphaPilot R10-MAX Forward — {trade_date} → {next_weekday(trade_date)}",
+           f"- VERSION_GATE: {version_gate['status']}",f"- DATA_GATE: {data_gate['status']}",
+           f"- NAV: {live['nav']:.2f}; HWM: {live['hwm']:.2f}; DD: {live['dd']:.2%}; Cash: {live['cash']:.2f}; Exposure: {live['exposure']:.2%}",
+           f"- Regime: {market_meta.get('regime')}; R7 exposure: {market_meta.get('r7_exposure')}",
+           "", "## Orders"]
+    if not all_orders: lines+=["明日無 R10-MAX 新掛單","明日無 R10-MAX 賣出指令"]
+    else:
+        for o in all_orders: lines.append(f"- {o['side']} {o['strategy']} {o['code']} {o.get('name','')} shares={o['shares']} limit={o.get('limit_price','OPEN')} reason={o['reason']}")
+    (out/"T1_OPERATION_TABLE.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
+    return out
+
+def main():
+    ap=argparse.ArgumentParser(); ap.add_argument("--trade-date"); ap.add_argument("--repo",default="."); a=ap.parse_args()
+    repo=Path(a.repo).resolve()
+    version=verify_version(repo)
+    latest,manifest=latest_main_trade_date()
+    trade=a.trade_date or latest
+    if trade>latest: raise RuntimeError(f"DATA_GATE_FAIL requested {trade} newer than latest PASS {latest}")
+    # Verify exact T manifest too.
+    m=json.loads(git_show("origin/main",f"data/{trade}/manifest.json"))
+    if m.get("status")!="PASS" or any(v!=trade for v in m.get("source_dates",{}).values()):
+        raise RuntimeError(f"DATA_GATE_FAIL manifest {trade}: {m}")
+    px,inst,px2026=combine_market(repo,trade)
+    events=load_events(repo,trade)
+    causal=causal_adjust(px,events)
+    bad=unexplained_jump_audit(causal,events)
+    if len(bad):
+        raise RuntimeError("DATA_GATE_FAIL unexplained >12% adjacent-session raw jumps:\n"+bad.to_string(index=False))
+    feat=build_features(causal,inst)
+    t=int(trade.replace("-",""))
+    today=feat[feat.date==t]
+    if today.empty or "0050" not in set(today.code.astype(str)):
+        raise RuntimeError("DATA_GATE_FAIL no T-day 0050")
+    bm=today[today.code=="0050"].iloc[-1]
+    if pd.isna(bm["ma120"]) or pd.isna(bm["breadth"]):
+        raise RuntimeError("DATA_GATE_FAIL insufficient lookback")
+    # Current-day institutional coverage directly from official normalized manifest.
+    cov=m.get("coverage",{})
+    if cov.get("twse",{}).get("coverage",0)<0.65 or cov.get("tpex",{}).get("coverage",0)<0.65:
+        raise RuntimeError("DATA_GATE_FAIL current institutional coverage")
+    data_gate={"status":"PASS","trade_date":trade,"manifest_status":"PASS","current_coverage":cov,
+               "price_rows_t":int(today.shape[0]),"institutional_dates":int(inst.date.nunique()),
+               "corporate_action_rows_2025_2026":int(len(events)),"unexplained_jump_count":0}
+    state=load_state(repo)
+    live=compute_live_state(state,feat,events,trade)
+    buys,sells,candidates,meta=formal_orders(feat,live,trade)
+    meta.update({"regime":str(bm["regime"]),"breadth":float(bm["breadth"]),"advance10":float(bm["advance10"]),
+                 "0050_close":float(bm["close"]),"0050_ma60":float(bm["mkt_ma60"]),"0050_ma120":float(bm["mkt_ma120"]),
+                 "0050_r20":float(bm["mr20"]),"0050_r60":float(bm["mr60"])})
+    legacy=legacy_snapshot(state,feat,trade)
+    out=write_outputs(repo,trade,version,data_gate,live,buys,sells,candidates,meta,legacy)
+    print(json.dumps({"VERSION_GATE":"PASS","DATA_GATE":"PASS","trade_date":trade,"output_dir":str(out),
+                      "formal_buys":len(buys),"formal_sells":len(sells),"r7_hard":meta["r7_hard_count"],"r05_hard":meta["r05_hard_count"],
+                      "nav":live["nav"],"dd":live["dd"],"regime":meta["regime"]},ensure_ascii=False,indent=2))
+
+if __name__=="__main__":
+    main()
