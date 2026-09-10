@@ -68,13 +68,61 @@ def formal_orders(feat,live,trade_date):
             candidates.append({"strategy":strat,"code":c,"name":str(r.get("name","")),"rank":rank,"score":float(r[score]),"close":float(r["close"]),"status":status,"r7_exposure":float(r.get("r7_exposure",np.nan)) if np.isfinite(r.get("r7_exposure",np.nan)) else np.nan,"risk_on":bool(r.get("risk_on",False))})
     return orders,sells,candidates,{"r7_exposure":r7_exp,"r7_slots":r7_slots,"r7_hard_count":len(r7_all),"r05_hard_count":len(r05_all),"dd_multiplier":mult}
 
+def _raw_twse_close_for_legacy(trade_date,code):
+    """Recover a current Legacy quote from the exact-date audited TWSE raw file.
+    This is price display/review only; it never enters the R7/R0.5 feature universe."""
+    path=f"data/{trade_date}/raw/twse_ohlcv.json"
+    try:
+        payload=json.loads(git_show("origin/main",path))
+    except Exception:
+        return None,None
+    target=str(code)
+    def n(v):
+        if v is None:return None
+        try:return float(str(v).replace(",","").strip())
+        except:return None
+    def scan(obj):
+        if isinstance(obj,list):
+            for item in obj:
+                got=scan(item)
+                if got:return got
+        elif isinstance(obj,dict):
+            fields=obj.get("fields"); data=obj.get("data")
+            if isinstance(fields,list) and isinstance(data,list):
+                for vals in data:
+                    if not isinstance(vals,list):continue
+                    r={fields[i]:vals[i] if i<len(vals) else None for i in range(len(fields))}
+                    c=str(r.get("證券代號") or r.get("股票代號") or r.get("代號") or "").strip()
+                    if c==target:
+                        close=n(r.get("收盤價") or r.get("ClosingPrice") or r.get("Close"))
+                        name=r.get("證券名稱") or r.get("股票名稱") or r.get("名稱")
+                        if close is not None:return close,name
+            c=str(obj.get("Code") or obj.get("證券代號") or obj.get("代號") or "").strip()
+            if c==target:
+                close=n(obj.get("ClosingPrice") or obj.get("收盤價") or obj.get("Close"))
+                name=obj.get("Name") or obj.get("證券名稱") or obj.get("名稱")
+                if close is not None:return close,name
+            for v in obj.values():
+                if isinstance(v,(dict,list)):
+                    got=scan(v)
+                    if got:return got
+        return None
+    got=scan(payload)
+    return got if got else (None,None)
+
 def legacy_snapshot(state,feat,trade_date):
     t=int(trade_date.replace("-","")); sub=feat[feat.date==t].set_index("code")
     out=[]
     for p in state.get("legacy_positions",[]):
         c=str(p["code"])
         if c not in sub.index:
-            out.append({**p,"close":np.nan,"pnl_pct":np.nan,"status":"PRICE_UNAVAILABLE"}); continue
+            close,name=_raw_twse_close_for_legacy(trade_date,c)
+            if close is None:
+                out.append({**p,"close":np.nan,"pnl_pct":np.nan,"status":"PRICE_UNAVAILABLE"}); continue
+            cost=p.get("cost"); pnl=(close/float(cost)-1) if cost not in (None,0) else np.nan
+            q={**p,"close":close,"pnl_pct":pnl,"status":"LEGACY_REVIEW_RAW_OFFICIAL"}
+            if (not q.get("name")) and name:q["name"]=str(name)
+            out.append(q); continue
         r=sub.loc[c]
         if isinstance(r,pd.DataFrame): r=r.iloc[-1]
         close=float(r["close"]); cost=p.get("cost")
