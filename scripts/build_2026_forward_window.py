@@ -24,13 +24,13 @@ def get(url,params=None,timeout=90):
 
 def n(x):
     if x is None:return None
-    s=str(x).strip().replace(',','').replace('+','')
+    s=str(x).strip().replace(',','').replace('+','').replace('−','-').replace('－','-')
     if s in ('','--','---','null','None'):return None
     try:return float(s)
     except:return None
 
 def code4(x):
-    s=str(x or '').strip(); return s if re.fullmatch(r'\d{4}',s) else None
+    s=str(x or '').strip().strip('=').strip('"'); return s if re.fullmatch(r'\d{4}',s) else None
 
 def parse_date(v):
     s=re.sub(r'[^0-9]','',str(v or ''))
@@ -41,6 +41,9 @@ def parse_date(v):
         try:return datetime.strptime(str(int(s[:3])+1911)+s[3:],'%Y%m%d').date()
         except:pass
     return None
+
+def roc_date(ds):
+    d=datetime.strptime(ds,'%Y-%m-%d').date(); return f'{d.year-1911:03d}/{d.month:02d}/{d.day:02d}'
 
 def write_csv(path,rows,fields=None):
     if not rows:raise RuntimeError(f'empty {path}')
@@ -85,25 +88,22 @@ def twse(ds):
     return out
 
 def tpex(ds):
-    j=get('https://www.tpex.org.tw/www/zh-tw/insti/daily',{'date':ds.replace('-','/'),'id':'','response':'json'}).json();tables=[]
-    def walk(x):
-        if isinstance(x,dict):
-            if isinstance(x.get('fields'),list) and isinstance(x.get('data'),list):tables.append((x['fields'],x['data']))
-            for v in x.values():walk(v)
-        elif isinstance(x,list):
-            for v in x:walk(v)
-    walk(j)
+    j=get('https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade',{'type':'Daily','sect':'EW','date':roc_date(ds),'id':'','response':'json'}).json()
+    tables=j.get('tables') or []
     if not tables:raise RuntimeError(f'TPEx no table {ds}')
-    fields,data=max(tables,key=lambda t:len(t[1]));out=[]
-    def pick(r,*tokens):
-        for k,v in r.items():
-            kk=re.sub(r'\s+','',str(k))
-            if all(t in kk for t in tokens):return v
-        return None
-    for vals in data:
-        r=dict(zip(fields,vals));c=code4(pick(r,'代號'))
+    resp=str(tables[0].get('date') or j.get('date') or '').strip()
+    if resp and resp!=roc_date(ds):raise RuntimeError(f'TPEx wrong date {ds}: {resp}')
+    data=tables[0].get('data') or [];out=[]; corrupt=0
+    for r in data:
+        if not isinstance(r,list) or len(r)<24:continue
+        c=code4(r[0])
         if not c:continue
-        out.append({'date':ds,'market':'TPEX','code':c,'name':pick(r,'名稱') or '','foreign_net':n(pick(r,'外資','買賣超')),'trust_net':n(pick(r,'投信','買賣超'))})
+        foreign=n(r[10]); trust=n(r[13]); dealer=n(r[22]); total=n(r[23])
+        if None in (foreign,trust,dealer,total):continue
+        if abs((foreign+trust+dealer)-total)>0.5:
+            corrupt+=1; continue
+        out.append({'date':ds,'market':'TPEX','code':c,'name':str(r[1]).strip(),'foreign_net':foreign,'trust_net':trust})
+    if corrupt:print('[WARN] TPEx corrupt rows',ds,corrupt,flush=True)
     if len(out)<400:raise RuntimeError(f'TPEx inst too few rows {ds}: {len(out)}')
     return out
 
