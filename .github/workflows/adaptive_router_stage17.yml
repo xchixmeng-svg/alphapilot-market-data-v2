@@ -1,0 +1,52 @@
+name: Adaptive Router Stage17 Exit Engineering
+on:
+  push:
+    branches: [r10-stage17-exit-engineering-20260910]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  stage17:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout preserved 2007-2019 snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          ref: dc17eff999c4f4bd0a4ea7303b5d178b9100ec35
+          path: historical_snapshot
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached 2020 reference bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Run Stage17 T+1 exit engineering
+        run: python scripts/adaptive_router_stage17_exit_engineering.py
+      - name: Guard contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage17/stage17_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['entry_rules_identical_to_stage14'] is True
+          assert m['selection_rules_identical_to_stage14'] is True
+          assert m['variant_count']==5
+          assert m['retuned_after_result'] is False
+          assert 'earliest execution T+1' in m['execution']
+          print('STAGE17_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage17
+          path: adaptive_router_stage17/
+          if-no-files-found: error
