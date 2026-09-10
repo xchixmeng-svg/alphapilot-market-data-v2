@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import io
+import json
+import math
+import os
+import re
+import subprocess
+from datetime import date, datetime, timedelta
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+LOCKED_COMMIT="3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+LOCKED_ENGINE_SHA="2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0"
+LOCKED_CORP_SHA="8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc"
+BUY_FEE=0.000855
+INITIAL_CAPITAL=1_300_000.0
+SINGLE_CAP=0.25
+TOTAL_CAP=0.95
+MAX_POSITIONS=5
+R7_BASE=0.22
+R05_BASE=0.20
+R05_MAX_SLOTS=5
+MIN_HOLD_DAYS=3
+FORCE_DD=0.14
+FORCE_TARGET=0.50
+
+def sh(*args, check=True):
+    p=subprocess.run(args,text=True,capture_output=True)
+    if check and p.returncode:
+        raise RuntimeError(f"command failed {' '.join(args)}\nSTDOUT:\n{p.stdout}\nSTDERR:\n{p.stderr}")
+    return p.stdout
+
+def git_show(ref,path):
+    return sh("git","show",f"{ref}:{path}")
+
+def sha256_bytes(b):
+    return hashlib.sha256(b).hexdigest()
+
+def verify_version(repo:Path):
+    engine=(repo/"scripts/r10_max_formal.py").read_bytes()
+    corp=(repo/"data/reference/official_corporate_actions_2020_2025.csv").read_bytes()
+    got_engine=sha256_bytes(engine); got_corp=sha256_bytes(corp)
+    if got_engine!=LOCKED_ENGINE_SHA:
+        raise RuntimeError(f"VERSION_GATE_FAIL engine sha {got_engine}")
+    if got_corp!=LOCKED_CORP_SHA:
+        raise RuntimeError(f"VERSION_GATE_FAIL corp sha {got_corp}")
+    locked=sh("git","show",f"{LOCKED_COMMIT}:scripts/r10_max_formal.py").encode()
+    if sha256_bytes(locked)!=LOCKED_ENGINE_SHA:
+        raise RuntimeError("VERSION_GATE_FAIL locked commit engine mismatch")
+    return {"status":"PASS","locked_commit":LOCKED_COMMIT,"engine_sha256":got_engine,"corp_action_sha256":got_corp}
+
+def parse_date(x):
+    return pd.to_datetime(str(x)).date()
+
+def latest_main_trade_date():
+    paths=sh("git","ls-tree","-r","--name-only","origin/main","data").splitlines()
+    dates=set()
+    for p in paths:
+        m=re.fullmatch(r"data/(\d{4}-\d{2}-\d{2})/manifest\.json",p)
+        if m: dates.add(m.group(1))
+    if not dates: raise RuntimeError("DATA_GATE_FAIL no main daily manifests")
+    for ds in sorted(dates,reverse=True):
+        try: m=json.loads(git_show("origin/main",f"data/{ds}/manifest.json"))
+        except Exception: continue
+        src=m.get("source_dates",{})
+        if m.get("status")=="PASS" and src and all(v==ds for v in src.values()):
+            return ds,m
+    raise RuntimeError("DATA_GATE_FAIL no PASS main manifest")
+
+def read_csv_git(ref,path,dtype=None):
+    return pd.read_csv(io.StringIO(git_show(ref,path)),dtype=dtype)
+
+def load_main_daily_overlay(cutoff):
+    paths=sh("git","ls-tree","-r","--name-only","origin/main","data").splitlines()
+    day_paths={}
+    pat=re.compile(r"data/(\d{4}-\d{2}-\d{2})/normalized/(twse|tpex)_(ohlcv|institutional)\.csv")
+    for p in paths:
+        m=pat.fullmatch(p)
+        if not m: continue
+        ds,market,kind=m.groups()
+        if ds<=cutoff:
+            day_paths.setdefault(ds,{})[(market,kind)]=p
+    olist=[]; ilist=[]
+    for ds in sorted(day_paths):
+        parts=day_paths[ds]
+        for market in ("twse","tpex"):
+            op=parts.get((market,"ohlcv")); ip=parts.get((market,"institutional"))
+            if op:
+                x=read_csv_git("origin/main",op,dtype={"stock_id":str})
+                x=x.rename(columns={"trade_date":"date","stock_id":"code"})
+                x["date"]=pd.to_datetime(x["date"]).dt.strftime("%Y%m%d").astype(int)
+                x["code"]=x["code"].astype(str)
+                olist.append(x[["date","code","name","open","high","low","close","volume"]])
+            if ip:
+                x=read_csv_git("origin/main",ip,dtype={"stock_id":str})
+                x=x.rename(columns={"trade_date":"date","stock_id":"code"})
+                x["date"]=pd.to_datetime(x["date"]).dt.strftime("%Y%m%d").astype(int)
+                x["code"]=x["code"].astype(str)
+                ilist.append(x[["date","code","foreign_net","trust_net"]])
+    o=pd.concat(olist,ignore_index=True) if olist else pd.DataFrame()
+    i=pd.concat(ilist,ignore_index=True) if ilist else pd.DataFrame()
+    return o,i
+
+def load_base_ytd(repo:Path):
+    root=repo/"data/history/2026-YTD"
+    op=root/"ohlcv_2026_ytd.csv"; ip=root/"institutional_2026_ytd.csv"
+    if not op.exists() or not ip.exists(): raise RuntimeError("DATA_GATE_FAIL missing generated 2026-YTD package")
+    o=pd.read_csv(op,dtype={"code":str}); i=pd.read_csv(ip,dtype={"code":str})
+    o["date"]=pd.to_datetime(o["date"]).dt.strftime("%Y%m%d").astype(int)
+    i["date"]=pd.to_datetime(i["date"]).dt.strftime("%Y%m%d").astype(int)
+    o["code"]=o["code"].astype(str); i["code"]=i["code"].astype(str)
+    return o[["date","code","name","open","high","low","close","volume"]],i[["date","code","foreign_net","trust_net"]]
+
+def load_2025(repo:Path):
+    x=pd.read_parquet(repo/"data/history/2020-2025/ohlcv_2025.parquet")
+    x["code"]=x["code"].astype(str).str.zfill(4)
+    if pd.api.types.is_datetime64_any_dtype(x["date"]): x["date"]=x["date"].dt.strftime("%Y%m%d").astype(int)
+    else: x["date"]=x["date"].astype(str).str.replace("-","",regex=False).astype(int)
+    return x[["date","code","name","open","high","low","close","volume"]]
+
+def combine_market(repo,cutoff):
+    ytd_o,ytd_i=load_base_ytd(repo); ov_o,ov_i=load_main_daily_overlay(cutoff)
+    o=pd.concat([ytd_o,ov_o],ignore_index=True)
+    o=o[o["date"]<=int(cutoff.replace("-",""))].sort_values(["date","code"]).drop_duplicates(["date","code"],keep="last")
+    i=pd.concat([ytd_i,ov_i],ignore_index=True)
+    i=i[i["date"]<=int(cutoff.replace("-",""))].sort_values(["date","code"]).drop_duplicates(["date","code"],keep="last")
+    hist=load_2025(repo)
+    px=pd.concat([hist,o],ignore_index=True).sort_values(["code","date"]).drop_duplicates(["date","code"],keep="last")
+    return px,i,o
+
+def load_events(repo,cutoff):
+    old=pd.read_csv(repo/"data/reference/official_corporate_actions_2020_2025.csv",dtype={"code":str})
+    old["code"]=old["code"].astype(str).str.zfill(4)
+    old=old[old["date"].astype(int)>=20250101]
