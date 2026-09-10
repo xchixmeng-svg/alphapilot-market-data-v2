@@ -82,11 +82,18 @@ def build_features(px,inst):
     above10=(x["r10"]>0) & elig
     breadth=above_ma60.groupby(x["date"]).sum()/elig.groupby(x["date"]).sum()
     adv10=above10.groupby(x["date"]).sum()/elig.groupby(x["date"]).sum()
-    breadth_df=pd.DataFrame({"breadth":breadth,"advance10":adv10}).reset_index()
-    breadth_df["breadth_mean20"]=breadth_df["breadth"].rolling(20,min_periods=10).mean()
-
+    bdf=pd.DataFrame({"breadth":breadth,"advance10":adv10}).reset_index()
+    bdf["breadth_mean20"]=bdf["breadth"].rolling(20,min_periods=10).mean()
     bm=x[x.code=="0050"][["date","aclose"]].rename(columns={"aclose":"mkt"}).drop_duplicates("date").sort_values("date")
     bm["mkt_ma60"]=bm["mkt"].rolling(60,min_periods=60).mean()
     bm["mkt_ma120"]=bm["mkt"].rolling(120,min_periods=120).mean()
     bm["mr20"]=bm["mkt"].pct_change(20); bm["mr60"]=bm["mkt"].pct_change(60)
-    bm=bm.merge(breadth_df,on="date",how="left")
+    bm=bm.merge(bdf,on="date",how="left")
+
+    def classify(r):
+        m,ma60,ma120,mr20,mr60,bd,adv,bmean=r["mkt"],r["mkt_ma60"],r["mkt_ma120"],r["mr20"],r["mr60"],r["breadth"],r["advance10"],r["breadth_mean20"]
+        if pd.isna(ma120) or pd.isna(bd): return pd.Series(["Unknown",np.nan,np.nan])
+        if mr20<=-0.08 or (m<ma120 and mr60<0 and bd<0.40): return pd.Series(["Bear",0.0,0])
+        if m<ma120*1.02 and mr20>0 and bd>0.42 and bd>bmean: return pd.Series(["Repair",0.60,3])
+        if m>ma60 and m>ma120 and mr20>0 and mr60>0 and bd>=0.60 and adv>=0.52: return pd.Series(["Strong Bull",1.00,5])
+        if m>ma120 and mr60>0 and bd>=0.45: return pd.Series(["Normal Bull",0.80,4])
