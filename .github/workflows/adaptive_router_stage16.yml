@@ -1,0 +1,51 @@
+name: Adaptive Router Stage16 Explicit Core Satellite
+on:
+  push:
+    branches: [r10-stage16-core-satellite-20260910]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  stage16:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout preserved 2007-2019 snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          ref: dc17eff999c4f4bd0a4ea7303b5d178b9100ec35
+          path: historical_snapshot
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install pandas numpy pyarrow
+      - name: Restore cached 2020 reference bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: R10-2016-2020-reference-data-complete
+          path: reference_bundle
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: xchixmeng-svg/alphapilot-market-data-v2
+          run-id: 34313660140
+      - name: Run Stage16 explicit core-satellite portfolio
+        run: python scripts/adaptive_router_stage16_core_satellite.py
+      - name: Guard contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('adaptive_router_stage16/stage16_manifest.json'))
+          assert m['market_refetch'] is False
+          assert m['formal_r10_modified'] is False
+          assert m['uses_2021_2025'] is False
+          assert m['variant_count']==1
+          assert m['stock_rules_identical_to_stage14'] is True
+          assert m['retuned_after_result'] is False
+          assert m['treatment_valid'] is True, 'core treatment exposure was not material'
+          print('STAGE16_GATES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adaptive-router-stage16
+          path: adaptive_router_stage16/
+          if-no-files-found: error
