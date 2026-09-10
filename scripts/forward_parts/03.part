@@ -1,0 +1,91 @@
+        if m>ma120*0.98 and bd>=0.38: return pd.Series(["Weak",0.20,3])
+        return pd.Series(["Fallback/Bear",0.0,0])
+    bm[["regime","r7_exposure","r7_slots"]]=bm.apply(classify,axis=1)
+    x=x.merge(bm[["date","mkt","mkt_ma60","mkt_ma120","mr20","mr60","breadth","advance10","regime","r7_exposure","r7_slots"]],on="date",how="left")
+    x["rel20"]=x["r20"]-x["mr20"]; x["rel60"]=x["r60"]-x["mr60"]
+    bm05=x[x.code=="0050"][["date","aclose"]].rename(columns={"aclose":"bmclose"}).drop_duplicates("date").sort_values("date")
+    bm05["m60"]=bm05["bmclose"].rolling(60,min_periods=60).mean()
+    bm05["r20x"]=bm05["bmclose"].pct_change(20); bm05["r60x"]=bm05["bmclose"].pct_change(60)
+    bm05["risk_on"]=(bm05["bmclose"]>bm05["m60"]) & (bm05["r20x"]>0) & (bm05["r60x"]>0)
+    x=x.merge(bm05[["date","risk_on"]],on="date",how="left")
+
+    factor_cols=["r10","rel20","rel60","flow20","amount_ratio","clvflow20","nearhigh","clvflow10","clvflow5","ma20gap","Foreign3D","Foreign10D","Trust5D"]
+    valid=x.loc[x["is_valid_universe"],["date","code"]+factor_cols].copy()
+    for c in factor_cols:
+        valid[c+"_rk"]=valid.groupby("date")[c].rank(method="average",pct=True)
+    x=x.merge(valid[["date","code"]+[c+"_rk" for c in factor_cols]],on=["date","code"],how="left")
+    x["r7_score"]=0.26*x["r10_rk"]+0.22*x["rel20_rk"]+0.10*x["rel60_rk"]+0.14*x["flow20_rk"]+0.12*x["amount_ratio_rk"]+0.08*x["clvflow20_rk"]+0.08*x["nearhigh_rk"]
+    x["r7_hard"]=x["is_valid_universe"] & (x["amt20"]>=30_000_000) & (x["aclose"]>x["ma120"]) & (x["nearhigh"]>=0.78) & x["r7_score"].notna()
+    x["r05_score"]=0.5251*x["clvflow10_rk"]+0.2465*x["amount_ratio_rk"]+0.0683*x["clvflow5_rk"]+0.0628*x["Foreign3D_rk"]-0.0778*x["Foreign10D_rk"]+0.0195*x["Trust5D_rk"]-0.20*x["ma20gap_rk"]
+    x["prior60_position"]=x["aclose"]/x["prior_high60"]-1
+    x["r05_hard"]=x["is_valid_universe"] & x["close"].between(10,40) & (x["amt20"]>=50_000_000) & (x["amount_ratio"]>=1) & x["r20"].between(0,0.20) & (x["ma20gap"]<=0.18) & (x["prior60_position"]>=-0.15) & (x["aclose"]>x["prior_high10"]) & x["r05_score"].notna() & x["risk_on"].fillna(False)
+    return x
+
+def tick(p):
+    return 0.01 if p<10 else 0.05 if p<50 else 0.1 if p<100 else 0.5 if p<500 else 1.0 if p<1000 else 5.0
+def floor_tick(p):
+    t=tick(p); return round(np.floor((p+1e-10)/t)*t,4)
+def dd_multiplier(dd):
+    if dd<=-0.15:return 0.40
+    if dd<=-0.09:return 0.45
+    if dd<=-0.06:return 0.85
+    return 1.0
+
+def next_weekday(ds):
+    d=parse_date(ds)+timedelta(days=1)
+    while d.weekday()>=5:d+=timedelta(days=1)
+    return d.isoformat()
+
+def load_state(repo):
+    return json.loads((repo/"config/forward_state.json").read_text(encoding="utf-8"))
+
+def compute_live_state(state,feat,events,trade_date):
+    t=int(trade_date.replace("-",""))
+    initial=float(state["initial_capital"])
+    positions=[]
+    cash=initial
+    for p in state.get("confirmed_forward_positions",[]):
+        p=dict(p); c=str(p["code"]); entry=int(p["entry_date"].replace("-","")); shares=int(p["shares"]); ep=float(p["entry_raw_price"])
+        cash-=shares*ep*(1+BUY_FEE)
+        hist=feat[(feat.code==c)&(feat.date>=entry)&(feat.date<=t)].sort_values("date")
+        if hist.empty or int(hist.date.iloc[-1])!=t:
+            raise RuntimeError(f"DATA_GATE_FAIL missing current price for held {c}")
+        entry_row=hist.iloc[0]
+        entry_idx=float(entry_row.aclose)
+        peak=float(hist.aclose.max()); cur=hist.iloc[-1]; ret=float(cur.aclose/entry_idx-1)
+        state_name=None
+        for _,r in hist.iterrows():
+            rr=float(r.aclose/entry_idx-1); ar=r.get("amount_ratio",np.nan)
+            if state_name is None and rr>=0.40 and np.isfinite(ar) and ar>=2.0: state_name="runner"
+            if state_name=="runner" and rr>=0.80: state_name="mega" if np.isfinite(ar) and ar>=1.2 else "target"
+        held_events=events[(events.code==c)&(events.date>=entry)&(events.date<=t)]
+        corp_income=0.0; shares_now=shares
+        for _,e in held_events.iterrows():
+            cashdiv=e.get("cash_dividend_per_share",np.nan); stock=e.get("stock_shares_per_1000",np.nan)
+            if np.isfinite(cashdiv):
+                credit=shares_now*float(cashdiv); cash+=credit; corp_income+=credit
+            if np.isfinite(stock) and float(stock)!=0:
+                shares_now=int(np.floor(shares_now*(1+float(stock)/1000.0)+1e-10))
+            elif "RIGHT" in str(e.get("event_type","")) and str(e.get("market",""))=="TWSE":
+                raise RuntimeError(f"DATA_GATE_FAIL held TWSE rights event needs explicit share factor: {c} {int(e.date)}")
+        hold_days=int(hist["date"].nunique())
+        reason=None
+        if hold_days>=MIN_HOLD_DAYS:
+            if p["strategy"]=="R7":
+                if ret<=-0.12: reason="R7_HARD"
+                elif float(cur.get("r7_exposure",1.0))<=0.0 or not bool(cur.get("r7_hard",False)): reason="R7_REB"
+            else:
+                if ret<=-0.10: reason="R05_HARD"
+                else:
+                    if state_name=="target" and (ret>=2.00 or float(cur.aclose)<=peak*0.80): reason="R05_TARGET"
+                    elif state_name=="mega" and float(cur.aclose)<=peak*0.84: reason="R05_MEGA_TRAIL"
+                    elif state_name=="runner" and float(cur.aclose)<=peak*0.86: reason="R05_RUNNER_TRAIL"
+                    elif state_name is None and ret>=0.50 and float(cur.aclose)<=peak*0.88: reason="R05_BASE_TRAIL"
+                    if reason is None and hold_days>=(120 if state_name is not None else 60): reason="R05_MAXHOLD"
+        positions.append({**p,"shares":shares_now,"close":float(cur.close),"aclose":float(cur.aclose),"entry_index":entry_idx,"return":ret,"hold_days":hold_days,"runner_state":state_name,"exit_reason":reason,"market_value":shares_now*float(cur.close),"corp_income":corp_income})
+    start=min([parse_date(p["entry_date"]) for p in state.get("confirmed_forward_positions",[])],default=parse_date(trade_date))
+    nav_series=[]
+    for di in sorted(feat.loc[(feat.date>=int(start.strftime("%Y%m%d")))&(feat.date<=t),"date"].unique()):
+        daily_cash=initial
+        mv=0.0
+        for p in state.get("confirmed_forward_positions",[]):
