@@ -1,0 +1,92 @@
+            entry=int(p["entry_date"].replace("-",""))
+            if di<entry: continue
+            daily_cash-=int(p["shares"])*float(p["entry_raw_price"])*(1+BUY_FEE)
+            rr=feat[(feat.code.astype(str)==str(p["code"]))&(feat.date==di)]
+            if not rr.empty: mv+=int(p["shares"])*float(rr.iloc[-1].close)
+        nav_series.append((di,daily_cash+mv))
+    mv=sum(p["market_value"] for p in positions)
+    nav=cash+mv
+    hwm=max([initial]+[v for _,v in nav_series]+[nav])
+    dd=nav/hwm-1
+    return {"cash":cash,"market_value":mv,"nav":nav,"hwm":hwm,"dd":dd,"exposure":mv/nav if nav else 0.0,"positions":positions}
+
+def formal_orders(feat,live,trade_date):
+    t=int(trade_date.replace("-","")); sub=feat[feat.date==t].set_index("code")
+    if sub.empty: raise RuntimeError("DATA_GATE_FAIL empty T-day feature frame")
+    positions=live["positions"]; held={str(p["code"]) for p in positions}
+    nav=live["nav"]; cash=live["cash"]; mv=live["market_value"]; dd=live["dd"]
+    r7_exp=float(sub["r7_exposure"].dropna().iloc[0]) if sub["r7_exposure"].notna().any() else 0.0
+    r7_slots=int(sub["r7_slots"].dropna().iloc[0]) if sub["r7_slots"].notna().any() else 0
+    n_r7=sum(p["strategy"]=="R7" for p in positions); n_r05=sum(p["strategy"]=="R05" for p in positions)
+    slots_free=MAX_POSITIONS-len(positions)
+    r7_free=max(0,r7_slots-n_r7); r05_free=max(0,R05_MAX_SLOTS-n_r05)
+    r7_all=sub[(sub["r7_hard"]==True)].drop(index=list(held),errors="ignore").sort_values("r7_score",ascending=False)
+    r05_all=sub[(sub["r05_hard"]==True)].drop(index=list(held),errors="ignore").sort_values("r05_score",ascending=False)
+    r7_top=r7_all.head(r7_free) if r7_exp>0 else r7_all.iloc[0:0]
+    r05_top=r05_all.head(r05_free)
+    combined=[("R7",c,r) for c,r in r7_top.iterrows()]+[("R05",c,r) for c,r in r05_top.iterrows()]
+    combined.sort(key=lambda z:-(z[2]["r7_score"] if z[0]=="R7" else z[2]["r05_score"]))
+    orders=[]; created_mv=0.0; reserved=0.0; used=set(); mult=dd_multiplier(dd)
+    sells=[]
+    for p in positions:
+        if p["exit_reason"]:
+            sells.append({"side":"SELL","strategy":p["strategy"],"code":p["code"],"name":p.get("name",""),"shares":int(p["shares"]),"signal_date":trade_date,"scheduled_date":next_weekday(trade_date),"execution":"T+1_OPEN_ASAP","reason":p["exit_reason"]})
+    if dd<=-FORCE_DD:
+        cur_mv=mv; target=nav*FORCE_TARGET
+        candidates=sorted([p for p in positions if not p["exit_reason"] and p["hold_days"]>=MIN_HOLD_DAYS],key=lambda p:p["return"])
+        for p in candidates:
+            if cur_mv<=target: break
+            sells.append({"side":"SELL","strategy":p["strategy"],"code":p["code"],"name":p.get("name",""),"shares":int(p["shares"]),"signal_date":trade_date,"scheduled_date":next_weekday(trade_date),"execution":"T+1_OPEN_ASAP","reason":"FORCE_DD"})
+            cur_mv-=p["market_value"]
+    if dd<=-FORCE_DD: slots_free=0
+    for strat,c,r in combined:
+        if slots_free<=0: break
+        if c in used: continue
+        limit=floor_tick(float(r["close"])*(0.98 if strat=="R7" else 0.995))
+        base=(R7_BASE if strat=="R7" else R05_BASE)*nav*mult
+        if strat=="R7": base*=r7_exp
+        target=min(base,nav*SINGLE_CAP,nav*TOTAL_CAP-mv-created_mv,max(0.0,cash-reserved-1000.0)/(1+BUY_FEE))
+        if target<=0 or limit<=0: continue
+        shares=int(target/limit) if limit*1000>target else int(target/limit/1000)*1000
+        vol20=r.get("vol20",np.nan)
+        if np.isfinite(vol20) and vol20>0:
+            cap=int(vol20*0.02/1000)*1000
+            if cap<1000: cap=int(vol20*0.02)
+            shares=min(shares,cap) if cap>0 else 0
+        if shares<=0: continue
+        gross=shares*limit; post_total=(mv+created_mv+gross)/nav; post_code=gross/nav
+        if post_total>TOTAL_CAP+1e-12 or post_code>SINGLE_CAP+1e-12: continue
+        orders.append({"side":"BUY","strategy":strat,"code":c,"name":str(r.get("name","")),"shares":int(shares),"signal_date":trade_date,"scheduled_date":next_weekday(trade_date),"limit_price":limit,"estimated_gross":gross,"nav_pct":post_code,"reason":"ENTRY","invalid_if":"T+1 low never touches fixed limit; cancel, no chase"})
+        created_mv+=gross; reserved+=gross*(1+BUY_FEE); used.add(c); slots_free-=1
+    candidates=[]
+    selected={(o["strategy"],o["code"]) for o in orders}
+    for strat,df,score in (("R7",r7_all,"r7_score"),("R05",r05_all,"r05_score")):
+        for rank,(c,r) in enumerate(df.iterrows(),1):
+            if (strat,c) in selected: status="FORMAL_BUY"
+            elif strat=="R7" and r7_exp<=0: status="HARD_CANDIDATE_REGIME_BLOCKED"
+            else: status="PREP_HARD_CANDIDATE"
+            candidates.append({"strategy":strat,"code":c,"name":str(r.get("name","")),"rank":rank,"score":float(r[score]),"close":float(r["close"]),"status":status,"r7_exposure":float(r.get("r7_exposure",np.nan)) if np.isfinite(r.get("r7_exposure",np.nan)) else np.nan,"risk_on":bool(r.get("risk_on",False))})
+    return orders,sells,candidates,{"r7_exposure":r7_exp,"r7_slots":r7_slots,"r7_hard_count":len(r7_all),"r05_hard_count":len(r05_all),"dd_multiplier":mult}
+
+def legacy_snapshot(state,feat,trade_date):
+    t=int(trade_date.replace("-","")); sub=feat[feat.date==t].set_index("code")
+    out=[]
+    for p in state.get("legacy_positions",[]):
+        c=str(p["code"])
+        if c not in sub.index:
+            out.append({**p,"close":np.nan,"pnl_pct":np.nan,"status":"PRICE_UNAVAILABLE"}); continue
+        r=sub.loc[c]
+        if isinstance(r,pd.DataFrame): r=r.iloc[-1]
+        close=float(r["close"]); cost=p.get("cost")
+        pnl=(close/float(cost)-1) if cost not in (None,0) else np.nan
+        out.append({**p,"close":close,"pnl_pct":pnl,"status":"LEGACY_REVIEW"})
+    return out
+
+def write_outputs(repo,trade_date,version_gate,data_gate,live,orders,sells,candidates,market_meta,legacy):
+    out=repo/"forward_runtime"/trade_date
+    out.mkdir(parents=True,exist_ok=True)
+    all_orders=sells+orders
+    pd.DataFrame(candidates).to_csv(out/"forward_candidates.csv",index=False)
+    pd.DataFrame(all_orders).to_csv(out/"forward_orders.csv",index=False)
+    pd.DataFrame(live["positions"]).to_csv(out/"forward_positions.csv",index=False)
+    pd.DataFrame(legacy).to_csv(out/"legacy_positions.csv",index=False)
