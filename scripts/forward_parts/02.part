@@ -1,0 +1,97 @@
+    new=pd.read_csv(repo/"forward_runtime/official_corporate_actions_2026.csv",dtype={"code":str})
+    new["code"]=new["code"].astype(str)
+    new=new[new["date"].astype(int)<=int(cutoff.replace("-",""))]
+    cols=["date","code","market","event_type","official_prev_close","reference_price","cash_dividend_per_share","stock_shares_per_1000","continuity_bridge","source"]
+    for df in (old,new):
+        for c in cols:
+            if c not in df: df[c]=np.nan
+    return pd.concat([old[cols],new[cols]],ignore_index=True).sort_values(["date","code","source"]).drop_duplicates(["date","code"],keep="last")
+
+def causal_adjust(px,events):
+    x=px.copy().sort_values(["code","date"]).reset_index(drop=True)
+    e=events[["date","code","reference_price","event_type","cash_dividend_per_share","stock_shares_per_1000","source"]].copy()
+    x=x.merge(e,on=["date","code"],how="left")
+    g=x.groupby("code",group_keys=False)
+    x["prev_close"]=g["close"].shift(1)
+    x["raw_ret"]=x["close"]/x["prev_close"]-1.0
+    ev=x["reference_price"].notna() & (x["reference_price"]>0)
+    x["causal_ret"]=x["raw_ret"]
+    x.loc[ev,"causal_ret"]=x.loc[ev,"close"]/x.loc[ev,"reference_price"]-1.0
+    x["causal_ret"]=x["causal_ret"].replace([np.inf,-np.inf],np.nan).fillna(0.0)
+    x["causal_growth"]=(1+x["causal_ret"]).groupby(x["code"]).cumprod()
+    x["first_close"]=x.groupby("code")["close"].transform("first")
+    x["aclose"]=x["first_close"]*x["causal_growth"]
+    return x
+
+def unexplained_jump_audit(x,events):
+    global_dates=sorted(x.loc[x["date"]>=20260101,"date"].unique())
+    prev_global={global_dates[k]:global_dates[k-1] for k in range(1,len(global_dates))}
+    z=x[x["date"]>=20260101][["date","code","prev_close","close","raw_ret"]].copy()
+    z["prior_observed_date"]=x[x["date"]>=20260101].groupby("code")["date"].shift(1)
+    z["expected_prev"]=z["date"].map(prev_global)
+    suspects=z[(z["prior_observed_date"]==z["expected_prev"]) & (z["raw_ret"].abs()>0.12)]
+    evkeys=set(zip(events["date"].astype(int),events["code"].astype(str)))
+    bad=suspects[~suspects.apply(lambda r:(int(r["date"]),str(r["code"])) in evkeys,axis=1)]
+    return bad[["date","code","prev_close","close","raw_ret"]].head(100)
+
+def build_features(px,inst):
+    x=px.copy()
+    x["amt"]=x["close"]*x["volume"]
+    x["is_valid_universe"]=x["code"].astype(str).str.fullmatch(r"[1-9]\d{3}") & ~x["name"].astype(str).str.contains("KY",case=False,na=False)
+    g=x.groupby("code",group_keys=False)
+    x["ret1"]=g["aclose"].transform(lambda s:s.pct_change(1))
+    for w in (20,60,120):
+        x[f"ma{w}"]=g["aclose"].transform(lambda s:s.rolling(w,min_periods=w).mean())
+    x["amt5"]=g["amt"].transform(lambda s:s.rolling(5,min_periods=5).mean())
+    x["amt20"]=g["amt"].transform(lambda s:s.rolling(20,min_periods=20).mean())
+    x["vol20"]=g["volume"].transform(lambda s:s.rolling(20,min_periods=20).mean())
+    x["amount_ratio"]=x["amt5"]/x["amt20"]; x["amtacc"]=x["amount_ratio"]-1
+    x["high60"]=g["aclose"].transform(lambda s:s.rolling(60,min_periods=60).max())
+    x["nearhigh"]=x["aclose"]/x["high60"]
+    x["prior_high60"]=g["aclose"].transform(lambda s:s.shift(1).rolling(60,min_periods=60).max())
+    x["prior_high10"]=g["aclose"].transform(lambda s:s.shift(1).rolling(10,min_periods=10).max())
+    x["ma20gap"]=x["aclose"]/x["ma20"]-1
+    x["signed_amt"]=np.sign(x["ret1"].fillna(0))*x["amt"]
+    x["sumamt20"]=g["amt"].transform(lambda s:s.rolling(20,min_periods=20).sum())
+    x["flow20"]=g["signed_amt"].transform(lambda s:s.rolling(20,min_periods=20).sum())/x["sumamt20"]
+    rng=(x["high"]-x["low"]).replace(0,np.nan)
+    x["clv"]=((2*x["close"]-x["high"]-x["low"])/rng).fillna(0).clip(-1,1)
+    x["clv_amt"]=x["clv"]*x["amt"]
+    x["sumamt10"]=g["amt"].transform(lambda s:s.rolling(10,min_periods=10).sum())
+    x["sumamt5"]=g["amt"].transform(lambda s:s.rolling(5,min_periods=5).sum())
+    x["clvflow20"]=g["clv_amt"].transform(lambda s:s.rolling(20,min_periods=20).sum())/x["sumamt20"]
+    x["clvflow10"]=g["clv_amt"].transform(lambda s:s.rolling(10,min_periods=10).sum())/x["sumamt10"]
+    x["clvflow5"]=g["clv_amt"].transform(lambda s:s.rolling(5,min_periods=5).sum())/x["sumamt5"]
+    x["r10"]=g["aclose"].transform(lambda s:s.pct_change(10))
+    x["r20"]=g["aclose"].transform(lambda s:s.pct_change(20))
+    x["r60"]=g["aclose"].transform(lambda s:s.pct_change(60))
+
+    ii=inst[["date","code","foreign_net","trust_net"]].copy()
+    ii["code"]=ii["code"].astype(str)
+    x=x.merge(ii,on=["date","code"],how="left")
+    x["foreign_net"]=x["foreign_net"].fillna(0); x["trust_net"]=x["trust_net"].fillna(0)
+    x=x.sort_values(["code","date"]); g=x.groupby("code",group_keys=False)
+    x["Foreign3D"]=g["foreign_net"].transform(lambda s:s.rolling(3,min_periods=3).sum())
+    x["Foreign10D"]=g["foreign_net"].transform(lambda s:s.rolling(10,min_periods=10).sum())
+    x["Trust5D"]=g["trust_net"].transform(lambda s:s.rolling(5,min_periods=5).sum())
+
+    elig=x["amt20"]>=30_000_000
+    above_ma60=(x["aclose"]>x["ma60"]) & elig
+    above10=(x["r10"]>0) & elig
+    breadth=above_ma60.groupby(x["date"]).sum()/elig.groupby(x["date"]).sum()
+    adv10=above10.groupby(x["date"]).sum()/elig.groupby(x["date"]).sum()
+    bdf=pd.DataFrame({"breadth":breadth,"advance10":adv10}).reset_index()
+    bdf["breadth_mean20"]=bdf["breadth"].rolling(20,min_periods=10).mean()
+    bm=x[x.code=="0050"][["date","aclose"]].rename(columns={"aclose":"mkt"}).drop_duplicates("date").sort_values("date")
+    bm["mkt_ma60"]=bm["mkt"].rolling(60,min_periods=60).mean()
+    bm["mkt_ma120"]=bm["mkt"].rolling(120,min_periods=120).mean()
+    bm["mr20"]=bm["mkt"].pct_change(20); bm["mr60"]=bm["mkt"].pct_change(60)
+    bm=bm.merge(bdf,on="date",how="left")
+
+    def classify(r):
+        m,ma60,ma120,mr20,mr60,bd,adv,bmean=r["mkt"],r["mkt_ma60"],r["mkt_ma120"],r["mr20"],r["mr60"],r["breadth"],r["advance10"],r["breadth_mean20"]
+        if pd.isna(ma120) or pd.isna(bd): return pd.Series(["Unknown",np.nan,np.nan])
+        if mr20<=-0.08 or (m<ma120 and mr60<0 and bd<0.40): return pd.Series(["Bear",0.0,0])
+        if m<ma120*1.02 and mr20>0 and bd>0.42 and bd>bmean: return pd.Series(["Repair",0.60,3])
+        if m>ma60 and m>ma120 and mr20>0 and mr60>0 and bd>=0.60 and adv>=0.52: return pd.Series(["Strong Bull",1.00,5])
+        if m>ma120 and mr60>0 and bd>=0.45: return pd.Series(["Normal Bull",0.80,4])
