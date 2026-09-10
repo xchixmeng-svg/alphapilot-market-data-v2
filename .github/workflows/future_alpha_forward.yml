@@ -1,0 +1,53 @@
+name: Future Alpha Forward Only
+
+on:
+  push:
+    branches: [future-alpha-forward-20260910]
+    paths:
+      - 'FUTURE_ALPHA_CONTRACT.md'
+      - 'scripts/future_alpha_forward.py'
+      - '.github/workflows/future_alpha_forward.yml'
+      - 'future_alpha_trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  forward:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Future Alpha research branch
+        uses: actions/checkout@v4
+      - name: Checkout latest official data snapshot from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main_snapshot
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy
+      - name: Run forward-only engine
+        env:
+          FUTURE_ALPHA_DATA_ROOT: main_snapshot/data
+        run: python scripts/future_alpha_forward.py
+      - name: Contract guard
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('future_alpha/status.json').read_text())
+          assert s['model']=='FutureAlpha-v0.1'
+          if s.get('prediction_created'):
+              assert s['formal_r10_modified'] is False
+              assert s['historical_parameter_fit'] is False
+              assert s['t_plus_1'] is True
+          print('FUTURE_ALPHA_CONTRACT_PASS',s)
+          PY
+      - name: Upload immutable forward evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: future-alpha-forward-${{ github.run_id }}
+          path: future_alpha/
+          if-no-files-found: error
