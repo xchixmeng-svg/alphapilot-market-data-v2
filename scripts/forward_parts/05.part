@@ -16,6 +16,57 @@
     (out/"T1_OPERATION_TABLE.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
     return out
 
+
+def align_2026_events_to_trade_sessions(events,px):
+    """Apply an official event scheduled on a market-wide closure to the next
+    actual session.  The stored official event date is preserved separately;
+    only the runtime application date changes.  Never shift when the market
+    had a session on the official date (that would hide a stock-specific gap)."""
+    e=events.copy()
+    e["date"]=pd.to_numeric(e["date"],errors="raise").astype(int)
+    e["code"]=e["code"].astype(str).str.zfill(4)
+    e["official_event_date"]=e["date"]
+    market_dates=sorted(int(d) for d in px.loc[px["date"]>=20260101,"date"].unique())
+    market_set=set(market_dates)
+    row_keys=set(zip(px["date"].astype(int),px["code"].astype(str)))
+    shifted=[]
+    for idx,r in e[e["date"]>=20260101].iterrows():
+        d=int(r["date"]); c=str(r["code"])
+        if (d,c) in row_keys or d in market_set:
+            continue
+        pos=int(np.searchsorted(market_dates,d,side="left"))
+        if pos>=len(market_dates):
+            continue
+        nd=int(market_dates[pos])
+        gap=(datetime.strptime(str(nd),"%Y%m%d")-datetime.strptime(str(d),"%Y%m%d")).days
+        if nd<=d or gap>7 or (nd,c) not in row_keys:
+            continue
+        e.at[idx,"date"]=nd
+        e.at[idx,"source"]=f"{r.get('source','')}|NEXT_SESSION_FROM_{d}"
+        shifted.append({"code":c,"official_event_date":d,"applied_trade_date":nd,"calendar_gap_days":gap})
+    e=e.sort_values(["date","code","source"]).drop_duplicates(["date","code"],keep="last")
+    return e,shifted
+
+
+def exclude_new_listing_first5_from_jump_gate(bad,x):
+    """The exchange permits genuine unbounded moves during a new listing's
+    first five trading sessions.  Exempt only codes with no pre-2026 history
+    and only their first five observed 2026 sessions; keep their real returns."""
+    if bad.empty:
+        return bad,bad.copy()
+    pre=set(x.loc[x["date"]<20260101,"code"].astype(str))
+    y=(x.loc[x["date"]>=20260101,["date","code"]]
+         .drop_duplicates(["date","code"])
+         .sort_values(["code","date"]))
+    y["session_no_2026"]=y.groupby("code").cumcount()+1
+    allowed=set(zip(
+        y.loc[(~y["code"].astype(str).isin(pre))&(y["session_no_2026"]<=5),"date"].astype(int),
+        y.loc[(~y["code"].astype(str).isin(pre))&(y["session_no_2026"]<=5),"code"].astype(str),
+    ))
+    mask=bad.apply(lambda r:(int(r["date"]),str(r["code"])) in allowed,axis=1)
+    return bad.loc[~mask].copy(),bad.loc[mask].copy()
+
+
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--trade-date"); ap.add_argument("--repo",default="."); a=ap.parse_args()
     repo=Path(a.repo).resolve()
@@ -28,9 +79,11 @@ def main():
     if m.get("status")!="PASS" or any(v!=trade for v in m.get("source_dates",{}).values()):
         raise RuntimeError(f"DATA_GATE_FAIL manifest {trade}: {m}")
     px,inst,px2026=combine_market(repo,trade)
-    events=load_events(repo,trade)
+    raw_events=load_events(repo,trade)
+    events,shifted_events=align_2026_events_to_trade_sessions(raw_events,px)
     causal=causal_adjust(px,events)
-    bad=unexplained_jump_audit(causal,events)
+    bad0=unexplained_jump_audit(causal,events)
+    bad,first5_exempt=exclude_new_listing_first5_from_jump_gate(bad0,causal)
     if len(bad):
         raise RuntimeError("DATA_GATE_FAIL unexplained >12% adjacent-session raw jumps:\n"+bad.to_string(index=False))
     feat=build_features(causal,inst)
@@ -45,9 +98,14 @@ def main():
     cov=m.get("coverage",{})
     if cov.get("twse",{}).get("coverage",0)<0.65 or cov.get("tpex",{}).get("coverage",0)<0.65:
         raise RuntimeError("DATA_GATE_FAIL current institutional coverage")
+    first5_records=[]
+    for _,r in first5_exempt.iterrows():
+        first5_records.append({"date":int(r["date"]),"code":str(r["code"]),"raw_ret":float(r["raw_ret"])})
     data_gate={"status":"PASS","trade_date":trade,"manifest_status":"PASS","current_coverage":cov,
                "price_rows_t":int(today.shape[0]),"institutional_dates":int(inst.date.nunique()),
-               "corporate_action_rows_2025_2026":int(len(events)),"unexplained_jump_count":0}
+               "corporate_action_rows_2025_2026":int(len(raw_events)),"runtime_shifted_event_count":int(len(shifted_events)),
+               "runtime_shifted_events":shifted_events,"first5_no_limit_exemption_count":int(len(first5_records)),
+               "first5_no_limit_exemptions":first5_records,"unexplained_jump_count":0}
     state=load_state(repo)
     live=compute_live_state(state,feat,events,trade)
     buys,sells,candidates,meta=formal_orders(feat,live,trade)
