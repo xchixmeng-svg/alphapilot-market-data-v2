@@ -56,7 +56,7 @@ jobs:
         run: |
           echo '2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py' | sha256sum --check -
           echo '8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv' | sha256sum --check -
-          test "$(git rev-parse r10-no-trail-formal-fix-20260907)" = '3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9'
+          test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = '3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9'
           git show 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9:scripts/r10_max_formal.py | sha256sum | grep '^2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0'
 
       - name: Resolve T date
