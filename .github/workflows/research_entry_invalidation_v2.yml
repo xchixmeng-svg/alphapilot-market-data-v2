@@ -1,0 +1,104 @@
+name: R10 MAX minute entry invalidation research v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research-entry-invalidation-20260911
+    paths:
+      - scripts/research_entry_invalidation_v2.py
+      - .github/workflows/research_entry_invalidation_v2.yml
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3 tabulate==0.9.0
+
+      - name: Verify frozen parent inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+
+      - name: Verify locked R10 engine fingerprint
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+
+      - name: Reproduce locked formal run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do
+            ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"
+          done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py | tee execution.log
+
+      - name: Assert frozen baseline unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150, s
+          assert s['wins']==71 and s['losses']==79, s
+          assert abs(s['max_drawdown']-(-0.19515438907459803))<1e-12, s
+          print('LOCKED_BASELINE_PASS')
+          PY
+
+      - name: Run corrected minute-data invalidation diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_entry_invalidation_v2.py | tee research_execution_v2.log
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "## R10 MAX minute entry invalidation research v2"
+            echo
+            echo "- Frozen source commit: 3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+            echo "- Locked R10 engine unchanged."
+            if [ -f research_out_v2/minute_data_gate.json ]; then
+              echo '```json'
+              cat research_out_v2/minute_data_gate.json
+              echo '```'
+            fi
+            if [ -f research_out_v2/candidate_gates.csv ]; then
+              echo "### Candidate gates"
+              python - <<'PY'
+          import pandas as pd
+          d=pd.read_csv('research_out_v2/candidate_gates.csv')
+          print(d.head(12).to_markdown(index=False))
+          PY
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r10-entry-invalidation-research-v2
+          path: |
+            research_execution_v2.log
+            research_out_v2/minute_data_gate.json
+            research_out_v2/excluded_open_positions.csv
+            research_out_v2/minute_features.csv
+            research_out_v2/entry_gate_grid.csv
+            research_out_v2/threshold_summary.csv
+            research_out_v2/candidate_gates.csv
+          if-no-files-found: warn
