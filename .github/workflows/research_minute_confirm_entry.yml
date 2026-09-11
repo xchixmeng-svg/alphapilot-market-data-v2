@@ -1,0 +1,58 @@
+name: Minute-confirmed T+1 entry family research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-minute-confirm-entry-20260912]
+    paths:
+      - 'scripts/research_minute_confirm_entry.py'
+      - '.github/workflows/research_minute_confirm_entry.yml'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FUGLE_API_KEY: ${{ secrets.FUGLE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.3
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked engine fingerprints
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Reproduce frozen formal baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run && python ../scripts/r10_max_formal.py | tee execution.log
+      - name: Assert baseline
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json')); s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass']
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79
+          assert abs(s['max_drawdown']-(-0.19515438907459803))<1e-12
+          print('LOCKED_BASELINE_PASS')
+          PY
+      - name: Run minute-confirmed entry discovery
+        run: python scripts/research_minute_confirm_entry.py | tee minute_confirm_execution.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: minute-confirm-entry-research
+          path: |
+            minute_confirm_execution.log
+            research_out_minute_confirm/
+          if-no-files-found: warn
