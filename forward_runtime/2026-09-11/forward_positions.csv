@@ -1,0 +1,2 @@
+code,name,strategy,shares,entry_date,entry_raw_price,close,aclose,entry_index,return,hold_days,runner_state,exit_reason,market_value,corp_income
+2884,玉山金,R05,5000,2026-08-26,38.8,46.3,50.52144050878755,42.228504269764116,0.19638242894056823,13,,,231500.0,0.0

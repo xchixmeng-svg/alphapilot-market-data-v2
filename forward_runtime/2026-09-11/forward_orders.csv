@@ -1,0 +1,5 @@
+side,strategy,code,name,shares,signal_date,scheduled_date,limit_price,estimated_gross,nav_pct,reason,invalid_if
+BUY,R7,8227,巨有科技,251,2026-09-11,2026-09-14,234.0,58734.0,0.04391871760574899,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"
+BUY,R7,3441,聯一光,362,2026-09-11,2026-09-14,162.5,58825.0,0.043986763427625974,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"
+BUY,R7,2305,全友,1000,2026-09-11,2026-09-14,40.2,40200.0,0.030059802631373807,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"
+BUY,R05,2801,彰銀,9000,2026-09-11,2026-09-14,27.75,249750.0,0.1867521320195425,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"

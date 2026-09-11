@@ -1,60 +1,26 @@
 {
   "status": "PASS",
-  "generated_at_utc": "2026-09-10T22:53:59.852401+00:00",
-  "last_checked_date": "20260910",
+  "generated_at_utc": "2026-09-11T11:04:52.618633+00:00",
+  "last_checked_date": "20260911",
   "increment_range": [
-    "20260101",
-    "20260910"
+    "20260911",
+    "20260911"
   ],
-  "rows": 1578,
-  "new_rows": 1578,
+  "rows": 1579,
+  "new_rows": 1,
   "families": {
     "TWSE_exright": {
-      "count": 899,
-      "stat": "OK",
-      "tables": 1,
-      "fields": [
-        [
-          "資料日期",
-          "股票代號",
-          "股票名稱",
-          "除權息前收盤價",
-          "除權息參考價",
-          "權值+息值",
-          "權/息",
-          "漲停價格",
-          "跌停價格",
-          "開盤競價基準",
-          "減除股利參考價",
-          "詳細資料",
-          "最近一次申報資料 季別/日期",
-          "最近一次申報每股 (單位)淨值",
-          "最近一次申報每股 (單位)盈餘"
-        ]
-      ]
+      "count": 0,
+      "stat": "很抱歉，沒有符合條件的資料!",
+      "tables": 0
     },
     "TWSE_reduction": {
-      "count": 5,
-      "stat": "OK",
-      "tables": 1,
-      "fields": [
-        [
-          "恢復買賣日期",
-          "股票代號",
-          "名稱",
-          "停止買賣前收盤價格",
-          "恢復買賣參考價",
-          "漲停價格",
-          "跌停價格",
-          "開盤競價基準",
-          "除權參考價",
-          "減資原因",
-          "詳細資料"
-        ]
-      ]
+      "count": 0,
+      "stat": "很抱歉，沒有符合條件的資料!",
+      "tables": 0
     },
     "TWSE_par_value": {
-      "count": 2,
+      "count": 0,
       "stat": "OK",
       "tables": 1,
       "fields": [
@@ -72,7 +38,7 @@
       ]
     },
     "TPEX_exright": {
-      "count": 661,
+      "count": 1,
       "stat": "ok",
       "tables": 1,
       "fields": [
@@ -102,7 +68,7 @@
       ]
     },
     "TPEX_reduction": {
-      "count": 6,
+      "count": 0,
       "stat": "ok",
       "tables": 1,
       "fields": [
@@ -122,7 +88,7 @@
       ]
     },
     "TPEX_par_value": {
-      "count": 5,
+      "count": 0,
       "stat": "ok",
       "tables": 1,
       "fields": [
