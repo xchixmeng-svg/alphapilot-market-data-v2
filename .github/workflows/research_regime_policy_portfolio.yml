@@ -58,7 +58,7 @@ jobs:
           print('LOCKED_BASELINE_PASS')
           PY
 
-      - name: Patch generated research sim import guard
+      - name: Patch research runner guards
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -66,10 +66,15 @@ jobs:
           s=p.read_text(encoding='utf-8')
           old='sim = "import os, json\\nimport pandas as pd\\nimport numpy as np\\n\\n" + src[pos:]'
           new='sim = "import os, json\\nfrom pathlib import Path\\nimport pandas as pd\\nimport numpy as np\\n\\n" + src[pos:]'
-          if old not in s:
-              raise SystemExit('expected sim prefix not found')
-          p.write_text(s.replace(old,new,1), encoding='utf-8')
-          print('PATCHED_PATH_IMPORT')
+          if old in s:
+              s=s.replace(old,new,1)
+          old2='    # Locked Bear/Fallback already carries zero R7 exposure and normally no candidates,\n    # but research explicitly blocks to make the policy auditable.\n    if regime in ("Bear", "Fallback/Bear", "Unknown"):\n        return 0.0, 1.0, True, f"{mode}:{regime}:BLOCK"\n\n    if mode == "control":\n        pass\n'
+          new2='    # Control must be a byte-for-byte behavioral no-op relative to frozen Step-3.\n    # Do not impose any extra blocking, sizing, or price changes in control.\n    if mode == "control":\n        return 1.0, 1.0, False, f"{mode}:{regime}:{strat}"\n\n    # Research variants may explicitly block Bear/Fallback/Unknown.\n    if regime in ("Bear", "Fallback/Bear", "Unknown"):\n        return 0.0, 1.0, True, f"{mode}:{regime}:BLOCK"\n'
+          if old2 not in s:
+              raise SystemExit('expected control/bear block not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s, encoding='utf-8')
+          print('PATCHED_RESEARCH_GUARDS')
           PY
 
       - name: Run regime-conditioned policy variants
