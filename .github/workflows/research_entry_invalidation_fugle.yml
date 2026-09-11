@@ -60,6 +60,19 @@ jobs:
           print('LOCKED_BASELINE_PASS')
           PY
 
+      - name: Fix research-only merge field collision
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/research_entry_invalidation_fugle.py')
+          s=p.read_text(encoding='utf-8')
+          old='"original_exit_reason": row.reason,'
+          new='"original_exit_reason": row.get("reason_y", row.get("reason", row.get("reason_x", ""))),' 
+          assert old in s, 'expected merge-collision line not found'
+          p.write_text(s.replace(old,new), encoding='utf-8')
+          print('RESEARCH_HOTFIX_APPLIED')
+          PY
+
       - name: Run Fugle minute-data invalidation diagnostic
         shell: bash
         run: |
