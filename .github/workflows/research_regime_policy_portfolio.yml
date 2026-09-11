@@ -58,6 +58,20 @@ jobs:
           print('LOCKED_BASELINE_PASS')
           PY
 
+      - name: Patch generated research sim import guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/research_regime_policy_portfolio.py')
+          s=p.read_text(encoding='utf-8')
+          old='sim = "import os, json\\nimport pandas as pd\\nimport numpy as np\\n\\n" + src[pos:]'
+          new='sim = "import os, json\\nfrom pathlib import Path\\nimport pandas as pd\\nimport numpy as np\\n\\n" + src[pos:]'
+          if old not in s:
+              raise SystemExit('expected sim prefix not found')
+          p.write_text(s.replace(old,new,1), encoding='utf-8')
+          print('PATCHED_PATH_IMPORT')
+          PY
+
       - name: Run regime-conditioned policy variants
         shell: bash
         run: |
