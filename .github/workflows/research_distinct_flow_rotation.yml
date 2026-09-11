@@ -43,8 +43,30 @@ jobs:
           assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79
           print('LOCKED_BASELINE_PASS')
           PY
+      - name: Patch research data-universe guards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/research_distinct_flow_rotation.py')
+          s=p.read_text(encoding='utf-8')
+          old="""valid=px.code.str.fullmatch(r'[1-9]\\d{3}') & ~px.name.astype(str).str.contains('KY',case=False,na=False) & (px.amt20>=30_000_000)\npx=px[valid].copy()\n# market regime: 0050 only, causal and simple\nm=px[px.code=='0050'][['date','aclose']].drop_duplicates('date').sort_values('date')\nm['ma60']=m.aclose.rolling(60,min_periods=60).mean();m['r20']=m.aclose.pct_change(20);m['r60']=m.aclose.pct_change(60)\nm['risk_on']=(m.aclose>m.ma60)&(m.r20>0)&(m.r60>0)\nreg=dict(zip(m.date,m.risk_on.fillna(False)))\n# cross-sectional ranks by date, all based on T-close information\n"""
+          new="""# market regime must be built before filtering the stock universe because 0050 is not a 1-9-leading four-digit stock code.\nm=px[px.code=='0050'][['date','aclose']].drop_duplicates('date').sort_values('date')\nm['ma60']=m.aclose.rolling(60,min_periods=60).mean();m['r20']=m.aclose.pct_change(20);m['r60']=m.aclose.pct_change(60)\nm['risk_on']=(m.aclose>m.ma60)&(m.r20>0)&(m.r60>0)\nreg=dict(zip(m.date,m.risk_on.fillna(False)))\nvalid=px.code.str.fullmatch(r'[1-9]\\d{3}') & ~px.name.astype(str).str.contains('KY',case=False,na=False) & (px.amt20>=30_000_000)\npx=px[valid].copy()\n# cross-sectional ranks by date, all based on T-close information\n"""
+          if old not in s:
+              raise SystemExit('expected market-regime/universe block not found')
+          s=s.replace(old,new,1)
+          old2="t=pd.DataFrame(trades); nh=pd.DataFrame(nav_hist,columns=['date','nav'])"
+          new2="t=pd.DataFrame(trades,columns=['family','code','entry_date','exit_date','entry_price','exit_price','shares','return_net']); nh=pd.DataFrame(nav_hist,columns=['date','nav'])"
+          if old2 not in s:
+              raise SystemExit('expected trade dataframe block not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+          print('PATCHED_MARKET_REGIME_AND_EMPTY_TRADE_GUARDS')
+          PY
       - name: Run distinct strategy families
-        run: python scripts/research_distinct_flow_rotation.py | tee distinct_flow_execution.log
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_distinct_flow_rotation.py | tee distinct_flow_execution.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
