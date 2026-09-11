@@ -1,0 +1,85 @@
+name: Market-state playbook quality research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-market-playbook-quality-20260912]
+    paths:
+      - 'scripts/research_market_playbook_quality.py'
+      - '.github/workflows/research_market_playbook_quality.yml'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+
+      - name: Verify locked R10 data-builder fingerprints
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+
+      - name: Build frozen causal daily layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py | tee execution.log
+
+      - name: Assert frozen baseline is unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
+          print('LOCKED_BASELINE_PASS')
+          PY
+
+      - name: Run new architecture research
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_market_playbook_quality.py | tee market_playbook_execution.log
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f research_out_market_playbook/portfolio_summary.csv ]; then
+            echo '## Market -> playbook -> screen -> quality research' >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import pandas as pd, json
+          print(pd.read_csv('research_out_market_playbook/portfolio_summary.csv').to_markdown(index=False))
+          print('\n### Chosen market policy')
+          print('```json')
+          print(open('research_out_market_playbook/chosen_market_policy.json').read())
+          print('```')
+          PY
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: market-playbook-quality-research
+          path: |
+            market_playbook_execution.log
+            research_out_market_playbook/
+          if-no-files-found: warn
