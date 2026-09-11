@@ -93,6 +93,7 @@ jobs:
       - name: Commit incremental ledger and auditable T+1 decision
         run: |
           TD='${{ steps.td.outputs.trade_date }}'
-          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'; git config user.email '4189823+github-actions[bot]@users.noreply.github.com'
           git add data/reference/official_corporate_actions_2026.csv data/reference/official_corporate_actions_2026.csv.meta.json "forward_runtime/$TD"
           if ! git diff --cached --quiet; then git commit -m "forward: ${TD} locked T+1 decision and corp-action increment" && git push origin HEAD:r10-forward-live-20260910; fi
+# trigger 2026-09-11
