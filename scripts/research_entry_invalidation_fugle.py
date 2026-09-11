@@ -32,6 +32,8 @@ START = 20230523
 END = 20251231
 WAITS = [0, 5, 10, 15, 20, 30]
 THRESHOLDS = [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.095]
+REQUEST_SPACING_SEC = 1.25  # stay safely below Fugle basic-tier 60 requests/minute
+RATE_LIMIT_BACKOFF_SEC = 65.0
 
 orders = pd.read_csv(ORDERS, dtype={"code": str})
 trades = pd.read_csv(TRADES, dtype={"code": str})
@@ -77,6 +79,7 @@ summary = {
     "open_positions_excluded": int(len(open_pos)),
     "minute_source": "Fugle historical candles timeframe=1",
     "api_key_present": bool(API_KEY),
+    "request_spacing_sec": REQUEST_SPACING_SEC,
 }
 
 if not API_KEY:
@@ -116,7 +119,7 @@ def fetch_day(code: str, ymd: int):
             if r.status_code == 404:
                 return None, {"code": code, "date": ymd, "http": 404, "msg": "resource not found"}
             if r.status_code == 429:
-                time.sleep(2.0 * (attempt + 1))
+                time.sleep(RATE_LIMIT_BACKOFF_SEC + 5.0 * attempt)
                 continue
         except Exception as e:
             last = {"http": None, "text": repr(e)}
@@ -134,6 +137,7 @@ for _, row in buys.sort_values(["scheduled_date", "code"]).iterrows():
         errors.append(err)
         if err.get("http") in (401, 402, 403):
             break
+        time.sleep(REQUEST_SPACING_SEC)
         continue
     kb["ts"] = pd.to_datetime(kb["date"], errors="coerce", utc=True).dt.tz_convert("Asia/Taipei")
     kb["minute"] = kb["ts"].dt.strftime("%H:%M:%S")
@@ -143,6 +147,7 @@ for _, row in buys.sort_values(["scheduled_date", "code"]).iterrows():
     early = kb[(kb.minute >= "09:00:00") & (kb.minute <= "09:30:00")]
     if early.empty:
         errors.append({"code": code, "date": ymd, "msg": "no 09:00-09:30 bars"})
+        time.sleep(REQUEST_SPACING_SEC)
         continue
     kbar_cache[(code, ymd)] = kb
     out = {
@@ -169,7 +174,7 @@ for _, row in buys.sort_values(["scheduled_date", "code"]).iterrows():
         out[f"min_to_{m:02d}"] = float(seen.low.min()) if len(seen) else np.nan
         out[f"max_to_{m:02d}"] = float(seen.high.max()) if len(seen) else np.nan
     features.append(out)
-    time.sleep(0.12)
+    time.sleep(REQUEST_SPACING_SEC)
 
 feat = pd.DataFrame(features)
 feat.to_csv(OUT / "minute_features.csv", index=False)
