@@ -9,6 +9,7 @@ on:
       - scripts/research_entry_invalidation.py
       - .github/workflows/research_entry_invalidation.yml
 
+# Research branch only. Frozen R10 source remains unchanged.
 jobs:
   research:
     runs-on: ubuntu-latest
