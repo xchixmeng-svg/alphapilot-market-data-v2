@@ -89,3 +89,4 @@ jobs:
             research_out_peer_persistence/
             research_out_peer_context_selector/
           if-no-files-found: warn
+# trigger: context-selector-v1
