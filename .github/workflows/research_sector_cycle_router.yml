@@ -1,0 +1,80 @@
+name: Sector-cycle policy router research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-sector-cycle-router-20260912]
+    paths:
+      - 'scripts/research_sector_cycle_router.py'
+      - '.github/workflows/research_sector_cycle_router.yml'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked formal fingerprints
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Build frozen causal daily layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py | tee execution.log
+      - name: Assert locked formal baseline unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
+          print('LOCKED_BASELINE_PASS')
+          PY
+      - name: Rebuild continuous context candidate layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_continuous_context_router.py | tee continuous_context_execution.log
+      - name: Rebuild causal cycle layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_context_cycle_layer.py | tee context_cycle_execution.log
+      - name: Run sector-cycle shared-capital router
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_sector_cycle_router.py | tee sector_cycle_router_execution.log
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f research_out_sector_cycle_router/portfolio_summary.csv ]; then
+            cat research_out_sector_cycle_router/portfolio_summary.csv
+            cat research_out_sector_cycle_router/decision.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sector-cycle-router-research
+          path: |
+            continuous_context_execution.log
+            context_cycle_execution.log
+            sector_cycle_router_execution.log
+            research_out_sector_cycle_router/
+          if-no-files-found: warn
