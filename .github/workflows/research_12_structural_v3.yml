@@ -97,20 +97,19 @@ jobs:
           }'''
           s,n=re.subn(r"SETUPS=\{.*?\n\}\nif args\.hypothesis",new+"\nif args.hypothesis",s,flags=re.S)
           assert n==1,n
-          old="""            old_shares = int(p['shares'])
-            factor = float(getattr(rr,'share_factor',1.0))
-            if np.isfinite(factor) and factor>0 and abs(factor-1)>1e-12: p['shares']=int(round(p['shares']*factor))"""
-          newca="""            old_shares = int(p['shares'])
-            factor = float(getattr(rr,'share_factor',1.0)) if np.isfinite(getattr(rr,'share_factor',np.nan)) else 1.0
-            exact_new = old_shares * factor
-            new_shares = max(0, int(np.floor(exact_new + 1e-10)))
-            cash_div = old_shares * float(getattr(rr,'cash_dividend_per_share',0.0) or 0.0)
-            ref = float(getattr(rr,'reference_price',rr.close)) if np.isfinite(getattr(rr,'reference_price',np.nan)) else float(rr.close)
-            cash_in_lieu = max(0.0, exact_new-new_shares) * ref
-            cash_credit = cash_div + cash_in_lieu
-            cash += cash_credit
-            p['shares'] = new_shares
-            if cash < -0.01: raise RuntimeError('negative cash after corporate action')"""
+          old="""                sf=float(getattr(rr,'share_factor',1.0))
+                if np.isfinite(sf) and sf>0 and abs(sf-1)>1e-12: p['shares']=int(round(p['shares']*sf))"""
+          newca="""                old_shares = int(p['shares'])
+                factor = float(getattr(rr,'share_factor',1.0)) if np.isfinite(getattr(rr,'share_factor',np.nan)) else 1.0
+                exact_new = old_shares * factor
+                new_shares = max(0, int(np.floor(exact_new + 1e-10)))
+                cash_div = old_shares * float(getattr(rr,'cash_dividend_per_share',0.0) or 0.0)
+                ref = float(getattr(rr,'reference_price',rr.close)) if np.isfinite(getattr(rr,'reference_price',np.nan)) else float(rr.close)
+                cash_in_lieu = max(0.0, exact_new-new_shares) * ref
+                cash_credit = cash_div + cash_in_lieu
+                cash += cash_credit
+                p['shares'] = new_shares
+                if cash < -0.01: raise RuntimeError('negative cash after corporate action')"""
           assert old in s, 'research corporate-action block changed unexpectedly'
           s=s.replace(old,newca,1)
           Path('scripts/research_12_structural_v3_runtime.py').write_text(s)
