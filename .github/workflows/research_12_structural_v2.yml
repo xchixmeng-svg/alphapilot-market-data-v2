@@ -1,0 +1,106 @@
+name: 12 structural stock setup research v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-12-structural-v2-20260913]
+    paths:
+      - '.github/workflows/research_12_structural_v2.yml'
+
+jobs:
+  research:
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        hypothesis:
+          - multi_horizon_flow_consensus
+          - flow_shock_price_confirmation
+          - breakout_retest_absorption
+          - leader_pullback_sponsorship
+          - underowned_momentum_turn
+          - low_vol_leader_accumulation
+          - medium_term_leader_reclaim
+          - persistent_flow_without_chase
+          - compression_flow_release
+          - institutional_turnaround
+          - liquidity_expansion_leader
+          - flow_momentum_confluence
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked formal fingerprints
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Build frozen causal daily layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py > execution.log
+      - name: Assert Formal R10-MAX unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
+          PY
+      - name: Generate structural-v2 hypothesis engine
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          p=Path('scripts/research_12_stock_setups.py')
+          s=p.read_text()
+          new=r'''SETUPS={
+          'multi_horizon_flow_consensus':dict(hold=10, cond=lambda d:(d.inst3>0)&(d.inst10>0)&(d.inst20>0)&(d.aclose>d.ma20)&(d.aclose>d.ma60), score=lambda d:.30*d.flow3_to_amount_pr+.30*d.flow10_to_amount_pr+.20*d.flow20_to_amount_pr+.20*d.r20_pr),
+          'flow_shock_price_confirmation':dict(hold=7, cond=lambda d:(d.flow_accel_value_pr>.80)&(d.r3>0)&(d.amount_ratio>1.1)&(d.aclose>d.ma20), score=lambda d:.40*d.flow_accel_value_pr+.25*d.r3_pr+.20*d.amount_ratio_pr+.15*d.r20_pr),
+          'breakout_retest_absorption':dict(hold=8, cond=lambda d:(d.r20_pr>.65)&(d.draw20<-.015)&(d.draw20>-.08)&(d.aclose>d.ma20)&(d.flow5_to_amount>0)&(d.vol20_pr<.80), score=lambda d:.30*d.r20_pr+.30*d.flow5_to_amount_pr+.20*(1-d.vol20_pr)+.20*d.amount20_pr),
+          'leader_pullback_sponsorship':dict(hold=9, cond=lambda d:(d.r60_pr>.80)&(d.draw20<-.03)&(d.draw20>-.12)&(d.inst10>0)&(d.aclose>d.ma60), score=lambda d:.35*d.r60_pr+.30*d.flow10_to_amount_pr+.20*(1-d.vol20_pr)+.15*d.amount20_pr),
+          'underowned_momentum_turn':dict(hold=8, cond=lambda d:(d.inst_prev5<=0)&(d.inst5>0)&(d.r60_pr>.55)&(d.r5>0)&(d.aclose>d.ma20), score=lambda d:.40*d.flow_accel_value_pr+.25*d.r60_pr+.20*d.r5_pr+.15*d.amount_ratio_pr),
+          'low_vol_leader_accumulation':dict(hold=12, cond=lambda d:(d.r60_pr>.70)&(d.vol20_pr<.45)&(d.flow20_to_amount>0)&(d.dist_ma20<.08)&(d.aclose>d.ma20), score=lambda d:.30*d.r60_pr+.30*d.flow20_to_amount_pr+.25*(1-d.vol20_pr)+.15*d.amount20_pr),
+          'medium_term_leader_reclaim':dict(hold=7, cond=lambda d:(d.r120_pr>.70)&(d.draw20<-.06)&(d.draw20>-.18)&(d.aclose>d.ma20)&(d.prev_close<=d.prev_ma20)&(d.flow_accel_value>0), score=lambda d:.30*d.r120_pr+.30*d.flow_accel_value_pr+.25*d.r3_pr+.15*d.amount_ratio_pr),
+          'persistent_flow_without_chase':dict(hold=12, cond=lambda d:(d.inst10>0)&(d.inst20>0)&(d.flow10_to_amount_pr>.60)&(d.dist_ma20>-0.02)&(d.dist_ma20<.07)&(d.r20<.15), score=lambda d:.35*d.flow20_to_amount_pr+.30*d.flow10_to_amount_pr+.20*d.r60_pr+.15*(1-d.vol20_pr)),
+          'compression_flow_release':dict(hold=8, cond=lambda d:(d.vol_compress<.65)&(d.flow5_to_amount>0)&(d.r3>0)&(d.amount_ratio>1.05)&(d.aclose>d.ma20), score=lambda d:.30*(1-d.vol_compress_pr)+.30*d.flow5_to_amount_pr+.25*d.r3_pr+.15*d.amount_ratio_pr),
+          'institutional_turnaround':dict(hold=9, cond=lambda d:(d.inst_prev5<0)&(d.inst5>0)&(d.inst10>0)&(d.r10>-0.08)&(d.aclose>d.ma60), score=lambda d:.40*d.flow_accel_value_pr+.25*d.flow10_to_amount_pr+.20*d.r5_pr+.15*d.amount20_pr),
+          'liquidity_expansion_leader':dict(hold=6, cond=lambda d:(d.amount5_ratio>1.25)&(d.r20_pr>.65)&(d.r5>0)&(d.flow5_to_amount>=0)&(d.aclose>d.ma20), score=lambda d:.35*d.amount5_ratio_pr+.30*d.r20_pr+.20*d.r5_pr+.15*d.flow5_to_amount_pr),
+          'flow_momentum_confluence':dict(hold=9, cond=lambda d:(d.flow5_to_amount_pr>.65)&(d.flow20_to_amount_pr>.55)&(d.r20_pr>.60)&(d.r60_pr>.55)&(d.aclose>d.ma20), score=lambda d:.30*d.flow5_to_amount_pr+.25*d.flow20_to_amount_pr+.25*d.r20_pr+.20*d.r60_pr),
+          }'''
+          out,n=re.subn(r"SETUPS=\{.*?\n\}\nif args\.hypothesis",new+"\nif args.hypothesis",s,flags=re.S)
+          assert n==1,n
+          Path('scripts/research_12_structural_v2_runtime.py').write_text(out)
+          PY
+      - name: Run hypothesis
+        run: python scripts/research_12_structural_v2_runtime.py --hypothesis "${{ matrix.hypothesis }}" | tee research_${{ matrix.hypothesis }}.log
+      - name: Publish result
+        if: always()
+        run: |
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv || true
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv || true
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/signal_counts.json && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/signal_counts.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: structural-v2-${{ matrix.hypothesis }}
+          path: |
+            research_${{ matrix.hypothesis }}.log
+            formal_run/contract_audit.json
+            formal_run/r10max_formal_summary.json
+            research_out_12_stock_setups/${{ matrix.hypothesis }}/
+          if-no-files-found: warn
