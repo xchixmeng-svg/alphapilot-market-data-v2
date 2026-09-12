@@ -69,9 +69,19 @@ for d in calendar:
 orders=pd.concat(selected,ignore_index=True) if selected else pd.DataFrame()
 orders.to_csv(OUT/'selected_orders.csv',index=False)
 
-# The inherited shared-capital simulator reads its global 'orders'. Replace it in that exact
-# research namespace; accounting/ticks/fees/tax/cash invariants are unchanged.
-ns['orders'] = orders
+# IMPORTANT: runpy.run_path returns a mapping, but the inherited function resolves globals
+# from its own __globals__ dictionary. Updating only ns['orders'] can leave simulate() bound
+# to the original V1 order table. Patch the function-global explicitly and assert that the
+# routed order mix is visible before any portfolio result is accepted.
+simulate.__globals__['orders'] = orders
+bound_orders = simulate.__globals__['orders']
+if len(bound_orders) != len(orders):
+    raise AssertionError(('router_order_binding_failed', len(orders), len(bound_orders)))
+if not orders.empty and not bound_orders['archetype'].equals(orders['archetype']):
+    raise AssertionError('router_archetype_binding_failed')
+if (choices.archetype != 'base_peer').any() and (orders.archetype != 'base_peer').sum() == 0:
+    raise AssertionError('router_selected_nonbase_months_but_no_nonbase_orders')
+
 rows=[]
 for a,b,l in [(START,DEV_END,'dev'),(HOLDOUT_START,END,'holdout_2025'),(START,END,'full')]:
     s,td,nd=simulate(a,b,l); rows.append(s); td.to_csv(OUT/f'trades_{l}.csv',index=False); nd.to_csv(OUT/f'nav_{l}.csv',index=False)
@@ -86,6 +96,6 @@ stable=bool(dev['return']>0 and dev.pf>1.10 and h['return']>0 and h.pf>=1.25 and
 decision={'architecture':'monthly_frozen_causal_peer_archetype_router_v2','semantic_bull_bear_gate':False,
           'holdout_not_used_for_fit':True,'quality_is_fundamental':False,'minute_stage_allowed':stable,
           'primary_target_met':bool(h.cagr>=.50 and h.win_rate>=.70 and h.trades>=25),'formal_r10_modified':False,
-          'repair':'nearest completed order contexts replace sparse nearest-calendar-day matching'}
+          'repair':'nearest completed order contexts plus explicit simulate global-order binding'}
 json.dump(decision,open(OUT/'decision.json','w'),indent=2)
 print(choices.to_string(index=False)); print(summary.to_string(index=False)); print(json.dumps(decision,indent=2))
