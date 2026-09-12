@@ -1,0 +1,134 @@
+name: 12 structural stock setup research v3 fixed
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-12-structural-v3-20260913]
+    paths:
+      - '.github/workflows/research_12_structural_v3_fixed.yml'
+
+jobs:
+  research:
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        hypothesis:
+          - broad_flow_trend
+          - narrow_leader_concentration
+          - liquidity_expansion_breakout
+          - liquidity_contraction_accumulation
+          - flow_breadth_reversal
+          - weak_market_relative_winner
+          - high_dispersion_pullback_reentry
+          - low_dispersion_sponsor_repricing
+          - institutional_turn_weak_flow
+          - institutional_persistence_strong_flow
+          - volume_expansion_leader
+          - compression_release_context
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked formal fingerprints
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Build frozen causal daily layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py > execution.log
+      - name: Assert Formal R10-MAX unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
+          PY
+      - name: Generate fixed audited hypothesis engine
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          p=Path('scripts/research_12_stock_setups.py')
+          s=p.read_text()
+          ctx=r'''# causal continuous context normalization: current T context vs only prior completed days
+          ctx_cols=['breadth20','breadth60','med_r20','med_r60','dispersion20','flow_breadth','flow_dispersion','liquidity_expansion']
+          daily=ctx[['date']+ctx_cols].drop_duplicates('date').sort_values('date').copy()
+          for c in ctx_cols:
+              mu=daily[c].shift(1).rolling(120,min_periods=40).mean()
+              sd=daily[c].shift(1).rolling(120,min_periods=40).std().replace(0,np.nan)
+              daily[c+'_ctxz']=((daily[c]-mu)/sd).clip(-4,4)
+              daily[c+'_d5']=daily[c]-daily[c].shift(5)
+          stocks=stocks.drop(columns=ctx_cols,errors='ignore').merge(daily,on='date',how='left')
+
+          def quality(d):'''
+          s,n=re.subn(r'def quality\(d\):',ctx,s,count=1)
+          assert n==1,n
+          new=r'''SETUPS={
+          'broad_flow_trend':dict(hold=12, cond=lambda d:(d.breadth20_ctxz>0)&(d.flow_breadth_ctxz>0)&(d.ma20>d.ma60)&(d.inst10>0)&(d.inst20>0), score=lambda d:.35*d.flow20_to_amount_pr+.25*d.r60_pr+.20*d.flow10_to_amount_pr+.20*d.amount20_pr),
+          'narrow_leader_concentration':dict(hold=8, cond=lambda d:(d.breadth20_ctxz<0)&(d.dispersion20_ctxz>0)&(d.r60_pr>.85)&(d.inst5>0)&(d.aclose>d.ma20), score=lambda d:.40*d.r60_pr+.30*d.flow5_to_amount_pr+.15*d.r20_pr+.15*d.amount20_pr),
+          'liquidity_expansion_breakout':dict(hold=7, cond=lambda d:(d.liquidity_expansion_ctxz>0)&(d.aclose>d.prior_high20)&(d.flow5_to_amount>0)&(d.amount_ratio>1.1), score=lambda d:.35*d.amount_ratio_pr+.30*d.r20_pr+.20*d.flow5_to_amount_pr+.15*d.r60_pr),
+          'liquidity_contraction_accumulation':dict(hold=12, cond=lambda d:(d.liquidity_expansion_ctxz<0)&(d.vol20_pr<.55)&(d.flow20_to_amount>0)&(d.aclose>d.ma20)&(d.dist_ma20<.08), score=lambda d:.35*d.flow20_to_amount_pr+.25*(1-d.vol20_pr)+.25*d.r60_pr+.15*d.amount20_pr),
+          'flow_breadth_reversal':dict(hold=8, cond=lambda d:(d.flow_breadth_d5>0)&(d.inst_prev5<=0)&(d.inst5>0)&(d.aclose>d.ma20), score=lambda d:.40*d.flow_accel_value_pr+.25*d.r5_pr+.20*d.amount_ratio_pr+.15*d.r60_pr),
+          'weak_market_relative_winner':dict(hold=10, cond=lambda d:(d.med_r20_ctxz<0)&(d.r60_pr>.90)&(d.flow10_to_amount>0)&(d.aclose>d.ma20), score=lambda d:.45*d.r60_pr+.25*d.flow10_to_amount_pr+.15*(1-d.vol20_pr)+.15*d.amount20_pr),
+          'high_dispersion_pullback_reentry':dict(hold=8, cond=lambda d:(d.dispersion20_ctxz>.5)&(d.r60_pr>.75)&(d.draw20<-.03)&(d.draw20>-.12)&(d.flow5_to_amount>0)&(d.aclose>d.ma60), score=lambda d:.35*d.r60_pr+.30*d.flow5_to_amount_pr+.20*(1-d.vol20_pr)+.15*d.amount20_pr),
+          'low_dispersion_sponsor_repricing':dict(hold=10, cond=lambda d:(d.dispersion20_ctxz<-.25)&(d.inst10>0)&(d.flow10_to_amount_pr>.65)&(d.r20>0)&(d.aclose>d.ma20), score=lambda d:.35*d.flow10_to_amount_pr+.30*d.r20_pr+.20*d.r60_pr+.15*d.amount_ratio_pr),
+          'institutional_turn_weak_flow':dict(hold=9, cond=lambda d:(d.flow_breadth_ctxz<0)&(d.inst_prev5<0)&(d.inst5>0)&(d.flow_accel_value>0)&(d.aclose>d.ma60), score=lambda d:.45*d.flow_accel_value_pr+.25*d.r5_pr+.15*d.amount_ratio_pr+.15*d.r60_pr),
+          'institutional_persistence_strong_flow':dict(hold=12, cond=lambda d:(d.flow_breadth_ctxz>0)&(d.inst10>0)&(d.inst20>0)&(d.flow20_to_amount_pr>.60)&(d.dist_ma20<.10), score=lambda d:.40*d.flow20_to_amount_pr+.25*d.r60_pr+.20*d.flow10_to_amount_pr+.15*(1-d.vol20_pr)),
+          'volume_expansion_leader':dict(hold=6, cond=lambda d:(d.amount5_ratio>1.25)&(d.r60_pr>.70)&(d.r5>0)&(d.flow5_to_amount>=0)&(d.aclose>d.ma20), score=lambda d:.35*d.amount5_ratio_pr+.30*d.r60_pr+.20*d.r5_pr+.15*d.flow5_to_amount_pr),
+          'compression_release_context':dict(hold=8, cond=lambda d:(d.vol_compress<.65)&(d.flow_breadth_d5>0)&(d.flow5_to_amount>0)&(d.r3>0)&(d.amount_ratio>1.05)&(d.aclose>d.ma20), score=lambda d:.30*(1-d.vol_compress_pr)+.30*d.flow5_to_amount_pr+.25*d.r3_pr+.15*d.amount_ratio_pr),
+          }'''
+          s,n=re.subn(r"SETUPS=\{.*?\n\}\nif args\.hypothesis",new+"\nif args.hypothesis",s,flags=re.S)
+          assert n==1,n
+          pattern=r"(?ms)^            if rr is not None and bool\(getattr\(rr,'is_official_event',False\)\):\n                sf=float\(getattr\(rr,'share_factor',1\.0\)\)\n                if np\.isfinite\(sf\) and sf>0 and abs\(sf-1\)>1e-12: p\['shares'\]=int\(round\(p\['shares'\]\*sf\)\)"
+          replacement="""            if rr is not None and bool(getattr(rr,'is_official_event',False)):
+                old_shares = int(p['shares'])
+                factor = float(getattr(rr,'share_factor',1.0)) if np.isfinite(getattr(rr,'share_factor',np.nan)) else 1.0
+                exact_new = old_shares * factor
+                new_shares = max(0, int(np.floor(exact_new + 1e-10)))
+                cash_div_raw = getattr(rr,'cash_dividend_per_share',0.0)
+                cash_div_ps = float(cash_div_raw) if np.isfinite(cash_div_raw) else 0.0
+                ref_raw = getattr(rr,'reference_price',np.nan)
+                ref = float(ref_raw) if np.isfinite(ref_raw) else float(rr.close)
+                cash += old_shares * cash_div_ps + max(0.0, exact_new-new_shares) * ref
+                p['shares'] = new_shares
+                if cash < -0.01: raise RuntimeError('negative cash after corporate action')"""
+          s,n=re.subn(pattern,replacement,s,count=1)
+          assert n==1, f'corporate-action patch count={n}'
+          Path('scripts/research_12_structural_v3_runtime.py').write_text(s)
+          PY
+      - name: Run hypothesis
+        run: python scripts/research_12_structural_v3_runtime.py --hypothesis "${{ matrix.hypothesis }}" | tee research_${{ matrix.hypothesis }}.log
+      - name: Publish result
+        if: always()
+        run: |
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv || true
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv || true
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/signal_counts.json && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/signal_counts.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: structural-v3-fixed-${{ matrix.hypothesis }}
+          path: |
+            research_${{ matrix.hypothesis }}.log
+            formal_run/contract_audit.json
+            formal_run/r10max_formal_summary.json
+            research_out_12_stock_setups/${{ matrix.hypothesis }}/
+          if-no-files-found: warn
