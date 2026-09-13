@@ -29,8 +29,43 @@ def yearly_stats(tr):
     return ys
 
 
+def build_price_index(px_all):
+    # v12.simulate() rebuilds this full-market dictionary on every config.
+    # v16 evaluates hundreds of configs, so build it once and reuse it.
+    # This is a pure runtime optimization: fill dates/prices/costs remain byte-for-byte equivalent in formula.
+    return {c:d.sort_values('date').reset_index(drop=True) for c,d in px_all.groupby('code')}
+
+
+def simulate_fast(name,sig,hold,bycode):
+    # Semantics intentionally mirror research_open_tournament_technical_v12.simulate().
+    if sig.empty:
+        return pd.DataFrame()
+    out=[]; last_exit={}
+    for s in sig.sort_values(['signal_date','score'],ascending=[True,False]).itertuples(index=False):
+        d=bycode.get(s.code)
+        if d is None:
+            continue
+        arr=d.date.to_numpy(); k=int(np.searchsorted(arr,int(s.signal_date),side='right'))
+        if k>=len(d) or k+hold>=len(d):
+            continue
+        e=d.iloc[k]; z=d.iloc[k+hold]
+        if int(e.date)<=last_exit.get(s.code,0):
+            continue
+        if not np.isfinite(e.open) or e.open<=0 or not np.isfinite(z.open) or z.open<=0:
+            continue
+        ep=float(e.open)*(1+v12.BUY_SLIP); xp=float(z.open)*(1-v12.SELL_SLIP)
+        ret=(xp*(1-v12.FEE-v12.TAX))/(ep*(1+v12.FEE))-1
+        path=d.iloc[k:k+hold+1]
+        mae=float(path.low.min()/ep-1) if path.low.notna().any() else np.nan
+        mfe=float(path.high.max()/ep-1) if path.high.notna().any() else np.nan
+        out.append({'config':name,'code':s.code,'signal_date':int(s.signal_date),'entry_date':int(e.date),'exit_date':int(z.date),'entry_price':ep,'exit_price':xp,'return_net':ret,'mae':mae,'mfe':mfe,'score':float(s.score)})
+        last_exit[s.code]=int(z.date)
+    return pd.DataFrame(out)
+
+
 def main():
     px_all,daily=v12.base.build_daily()
+    bycode=build_price_index(px_all)
     d=daily[(daily.date>=20210101)&(daily.date<=20241231)].copy(); d['signal_date']=d.date.astype(int)
     rows=[]
     for fam,(mask,score) in v14.families(d).items():
@@ -40,7 +75,7 @@ def main():
             for slots in SLOTS:
                 cfg=f'{fam}__h{hold}__s{slots}'
                 sig=raw.sort_values(['signal_date','score','amount20'],ascending=[True,False,False]).groupby('signal_date',as_index=False).head(slots)
-                tr=v12.simulate(cfg,sig,hold,px_all)
+                tr=simulate_fast(cfg,sig,hold,bycode)
                 rr=tr.return_net.astype(float) if len(tr) else pd.Series(dtype=float)
                 mean=float(rr.mean()) if len(rr) else 0.0
                 med=float(rr.median()) if len(rr) else 0.0
@@ -68,7 +103,8 @@ def main():
     surv=out[out.pass_prescreen].copy(); surv.to_csv(OUT/'survivors.csv',index=False)
     audit={'version':'v16-friction-aware-prescreen','period':'2021-2024','2025_used':False,'config_count':int(len(out)),
            'survivor_count':int(len(surv)),'r10_cagr_reference':R10_CAGR,
-           'execution_in_event_screen':'T+1; +0.5% buy slippage; -0.5% sell slippage; buy/sell fees and sell tax already included by v12 simulator',
+           'execution_in_event_screen':'T+1; +0.5% buy slippage; -0.5% sell slippage; buy/sell fees and sell tax already included by v12 simulator formulas',
+           'runtime_optimization':'full-market by-code price index built once and reused; event semantics unchanged from v12.simulate',
            'purpose':'Reject high-turnover candidates whose edge disappears after realistic friction before expensive common-cash audit.',
            'warning':'Still an event/capacity upper screen, not a portfolio proof. Survivors require full common-cash audit.'}
     (OUT/'audit.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2),encoding='utf-8')
