@@ -93,7 +93,7 @@ jobs:
           cd formal_run
           python ../scripts/r10_max_formal.py > execution.log
           test -s ohlcv_causal_2020_2025.csv.gz
-          test -s institutional_causal_2020_2025.csv.gz
+          test -s institutional_2020_2025.parquet
           cd ..
       - name: Run structural hypothesis
         shell: bash
