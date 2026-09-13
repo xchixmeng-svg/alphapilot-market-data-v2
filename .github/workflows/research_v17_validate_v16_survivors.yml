@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/research_v17_validate_v16_survivors.yml'
       - 'scripts/validate_v16_survivors_portfolio_v17.py'
+      - 'scripts/audit_v17_pf_consistency.py'
 
 permissions:
   contents: read
@@ -53,12 +54,14 @@ jobs:
         run: python scripts/research_v16_friction_prescreen.py | tee v16_for_v17.log
       - name: Validate all V16 survivors with common cash
         run: python scripts/validate_v16_survivors_portfolio_v17.py | tee v17.log
+      - name: PF-consistent post-audit
+        run: python scripts/audit_v17_pf_consistency.py | tee v17_pf_audit.log
       - name: Publish V17 summary
         if: always()
         run: |
           test -f v17_v16_survivors_portfolio_out/v17_summary.csv && cat v17_v16_survivors_portfolio_out/v17_summary.csv || true
-          test -f v17_v16_survivors_portfolio_out/strict_survivors.csv && cat v17_v16_survivors_portfolio_out/strict_survivors.csv || true
-          test -f v17_v16_survivors_portfolio_out/v17_audit.json && cat v17_v16_survivors_portfolio_out/v17_audit.json || true
+          test -f v17_v16_survivors_portfolio_out/v17_pf_consistent_summary.csv && cat v17_v16_survivors_portfolio_out/v17_pf_consistent_summary.csv || true
+          test -f v17_v16_survivors_portfolio_out/v17_pf_consistent_audit.json && cat v17_v16_survivors_portfolio_out/v17_pf_consistent_audit.json || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -66,6 +69,7 @@ jobs:
           path: |
             v16_for_v17.log
             v17.log
+            v17_pf_audit.log
             v16_friction_prescreen_out/survivors.csv
             v16_friction_prescreen_out/audit.json
             v17_v16_survivors_portfolio_out/
