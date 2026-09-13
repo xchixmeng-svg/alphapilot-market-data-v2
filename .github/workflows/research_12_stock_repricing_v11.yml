@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/research_12_stock_repricing_v11.yml'
 
+# Repair-validation batch: prior v10 economics are invalid because suspended positions were zero-marked
+# and overdue exits were not retried. Hypotheses are rerun unchanged to isolate the engine repair.
 jobs:
   research:
     strategy:
