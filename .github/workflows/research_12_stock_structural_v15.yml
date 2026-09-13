@@ -1,0 +1,77 @@
+name: Research 12 stock structural v15
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-stock-structural-v15-20260913]
+    paths:
+      - '.github/workflows/research_12_stock_structural_v15.yml'
+      - 'scripts/research_stock_structural_v15.py'
+
+permissions:
+  contents: read
+
+jobs:
+  hypothesis:
+    strategy:
+      fail-fast: false
+      matrix:
+        hypothesis:
+          - coil_flow_release
+          - coil_liquidity_release
+          - rs_stability
+          - rs_flow_stability
+          - leader_pullback_resume
+          - flow_price_divergence
+          - flow_persistence_breakout
+          - multi_horizon_consensus
+          - liquidity_expansion_followthrough
+          - broad_context_leader
+          - concentrated_context_leader
+          - quality_compounder_technical
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify immutable formal baseline files
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Build causal daily layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py > execution.log
+      - name: Assert formal baseline unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
+          PY
+      - name: Run structural hypothesis
+        run: python scripts/research_stock_structural_v15.py --hypothesis "${{ matrix.hypothesis }}" | tee "v15_${{ matrix.hypothesis }}.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v15-${{ matrix.hypothesis }}
+          path: |
+            v15_${{ matrix.hypothesis }}.log
+            v15_structural_out/${{ matrix.hypothesis }}/
+          if-no-files-found: warn
+          retention-days: 30
