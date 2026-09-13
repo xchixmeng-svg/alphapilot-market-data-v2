@@ -114,3 +114,5 @@ jobs:
             fundamental_v9_out/survivors/
           if-no-files-found: error
           retention-days: 30
+
+# clean full attempt 2026-09-13T12:54+08:00
