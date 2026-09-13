@@ -9,6 +9,7 @@ on:
 
 # Structural stock-level repricing batch built on the repaired v11 shared-capital engine.
 # 2025 remains untouched evidence; no minute optimization is enabled here.
+# trigger: 2026-09-13-v12
 jobs:
   research:
     strategy:
