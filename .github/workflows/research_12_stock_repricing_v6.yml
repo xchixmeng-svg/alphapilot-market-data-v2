@@ -1,0 +1,146 @@
+name: 12 stock repricing research v6
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-12-stock-repricing-v6-20260913]
+    paths:
+      - '.github/workflows/research_12_stock_repricing_v6.yml'
+
+jobs:
+  research:
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        hypothesis:
+          - quiet_base_sponsor_inflection
+          - sixty_day_breakout_sponsor
+          - leader_pullback_volume_reclaim
+          - lowvol_sponsored_trend
+          - negative_return_positive_flow_divergence
+          - weak_breadth_idiosyncratic_leader
+          - broad_breadth_emerging_leader
+          - contraction_then_liquidity_release
+          - high_dispersion_leader_continuation
+          - flow_breadth_expansion_leader
+          - dual_institution_near_breakout
+          - slow_accumulation_momentum_turn
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0
+      - name: Verify frozen history inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked formal fingerprints
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Build frozen causal daily layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf formal_run && mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py > execution.log
+      - name: Assert Formal R10-MAX unchanged
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('formal_run/contract_audit.json'))
+          s=json.load(open('formal_run/r10max_formal_summary.json'))['strategy']
+          assert a['all_pass'], a
+          assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
+          assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
+          PY
+      - name: Generate v6 causal repricing engine
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          p=Path('scripts/research_12_stock_setups.py')
+          s=p.read_text()
+          ctx="""# causal continuous context: T-close observation standardized only on T-1 and earlier
+          ctx_cols=['breadth20','breadth60','med_r20','med_r60','dispersion20','flow_breadth','flow_dispersion','liquidity_expansion']
+          daily=ctx[['date']+ctx_cols].drop_duplicates('date').sort_values('date').copy()
+          for c in ctx_cols:
+              mu=daily[c].shift(1).rolling(120,min_periods=40).mean()
+              sd=daily[c].shift(1).rolling(120,min_periods=40).std().replace(0,np.nan)
+              daily[c+'_ctxz']=((daily[c]-mu)/sd).clip(-4,4)
+              daily[c+'_d5']=daily[c]-daily[c].shift(5)
+          stocks=stocks.drop(columns=ctx_cols,errors='ignore').merge(daily,on='date',how='left')
+
+          def quality(d):"""
+          s,n=re.subn(r'def quality\(d\):',ctx,s,count=1)
+          assert n==1,n
+          new="""SETUPS={
+          'quiet_base_sponsor_inflection':dict(hold=12, cond=lambda d:(d.vol20_pr<.55)&(d.amount_ratio<1.20)&(d.inst_prev5<=0)&(d.inst5>0)&(d.aclose>d.ma20)&(d.dist_ma20<.05), score=lambda d:.35*d.flow_accel_value_pr+.20*d.flow5_to_amount_pr+.20*(1-d.vol20_pr)+.15*d.r20_pr+.10*d.amount20_pr),
+          'sixty_day_breakout_sponsor':dict(hold=10, cond=lambda d:(d.aclose>d.prior_high60)&(d.flow5_to_amount>0)&(d.flow20_to_amount>0)&(d.amount_ratio>1.05), score=lambda d:.30*d.r60_pr+.25*d.flow5_to_amount_pr+.20*d.flow20_to_amount_pr+.15*d.amount_ratio_pr+.10*d.r20_pr),
+          'leader_pullback_volume_reclaim':dict(hold=8, cond=lambda d:(d.r60_pr>.80)&(d.draw20<-.03)&(d.draw20>-.12)&(d.prev_close<=d.prev_ma20)&(d.aclose>d.ma20)&(d.amount_ratio>1.05)&(d.flow5_to_amount>=0), score=lambda d:.30*d.r60_pr+.25*d.amount_ratio_pr+.20*d.flow5_to_amount_pr+.15*d.r3_pr+.10*(1-d.vol20_pr)),
+          'lowvol_sponsored_trend':dict(hold=15, cond=lambda d:(d.ma20>d.ma60)&(d.vol20_pr<.45)&(d.inst10>0)&(d.inst20>0)&(d.r60>0)&(d.dist_ma20<.08), score=lambda d:.30*d.flow20_to_amount_pr+.25*(1-d.vol20_pr)+.20*d.r60_pr+.15*d.flow10_to_amount_pr+.10*d.amount20_pr),
+          'negative_return_positive_flow_divergence':dict(hold=9, cond=lambda d:(d.r10<0)&(d.r20<0)&(d.flow5_to_amount>0)&(d.flow_accel_value>0)&(d.aclose>d.ma60)&(d.draw20>-.15), score=lambda d:.35*d.flow_accel_value_pr+.25*d.flow5_to_amount_pr+.20*(1-d.r10_pr)+.10*d.r3_pr+.10*d.amount20_pr),
+          'weak_breadth_idiosyncratic_leader':dict(hold=8, cond=lambda d:(d.breadth20_ctxz<0)&(d.r60_pr>.90)&(d.r20_pr>.75)&(d.aclose>d.prior_high20)&(d.flow5_to_amount>=0), score=lambda d:.35*d.r60_pr+.25*d.r20_pr+.15*d.flow5_to_amount_pr+.15*d.amount_ratio_pr+.10*((-d.breadth20_ctxz).clip(0,3)/3)),
+          'broad_breadth_emerging_leader':dict(hold=10, cond=lambda d:(d.breadth20_ctxz>0)&(d.breadth60_ctxz>0)&(d.r20_pr>.65)&(d.r60_pr>.60)&(d.aclose>d.ma20)&(d.flow5_to_amount>0), score=lambda d:.30*d.r20_pr+.25*d.r60_pr+.20*d.flow5_to_amount_pr+.15*d.amount_ratio_pr+.10*(d.breadth20_ctxz.clip(0,3)/3)),
+          'contraction_then_liquidity_release':dict(hold=8, cond=lambda d:(d.vol_compress<.70)&(d.amount5_ratio<1.0)&(d.amount_ratio>1.35)&(d.r3>0)&(d.aclose>d.ma20)&(d.flow5_to_amount>=0), score=lambda d:.25*(1-d.vol_compress_pr)+.25*d.amount_ratio_pr+.20*d.r3_pr+.20*d.flow5_to_amount_pr+.10*d.r60_pr),
+          'high_dispersion_leader_continuation':dict(hold=7, cond=lambda d:(d.dispersion20_ctxz>0.5)&(d.r60_pr>.88)&(d.r20_pr>.75)&(d.r5>0)&(d.aclose>d.ma20)&(d.flow5_to_amount>0), score=lambda d:.30*d.r60_pr+.25*d.r20_pr+.20*d.flow5_to_amount_pr+.15*d.r5_pr+.10*(d.dispersion20_ctxz.clip(0,3)/3)),
+          'flow_breadth_expansion_leader':dict(hold=9, cond=lambda d:(d.flow_breadth_d5>0)&(d.r60_pr>.75)&(d.aclose>d.ma20)&(d.flow5_to_amount>0)&(d.flow_accel_value>0), score=lambda d:.30*d.flow_accel_value_pr+.20*d.flow5_to_amount_pr+.20*d.r60_pr+.15*d.r20_pr+.15*(d.flow_breadth_d5.rank(pct=True))),
+          'dual_institution_near_breakout':dict(hold=10, cond=lambda d:(d.foreign_trust_agree>0)&(d.aclose<d.prior_high20)&(d.aclose>=.97*d.prior_high20)&(d.r20>0)&(d.amount_ratio<=1.5), score=lambda d:.30*d.flow5_to_amount_pr+.25*d.flow20_to_amount_pr+.20*d.r20_pr+.15*d.r60_pr+.10*(1-d.vol20_pr)),
+          'slow_accumulation_momentum_turn':dict(hold=12, cond=lambda d:(d.flow20_to_amount>0)&(d.inst10>0)&(d.amount5_ratio<1.15)&(d.r20>-0.02)&(d.r20<.12)&(d.r3>0)&(d.aclose>d.ma20), score=lambda d:.30*d.flow20_to_amount_pr+.20*d.flow10_to_amount_pr+.20*d.r3_pr+.15*(1-d.vol20_pr)+.15*d.r60_pr),
+          }"""
+          s,n=re.subn(r"SETUPS=\{.*?\n\}\nif args\.hypothesis",new+"\nif args.hypothesis",s,flags=re.S)
+          assert n==1,n
+          ca_pat=re.compile(r"(?m)^(\s*)if rr is not None and bool\(getattr\(rr,'is_official_event',False\)\):\n\1    sf=float\(getattr\(rr,'share_factor',1\.0\)\)\n\1    if np\.isfinite\(sf\) and sf>0 and abs\(sf-1\)>1e-12: p\['shares'\]=int\(round\(p\['shares'\]\*sf\)\)")
+          def ca_repl(m):
+              i=m.group(1)
+              return "\n".join([
+                  i+"if rr is not None and bool(getattr(rr,'is_official_event',False)):",
+                  i+"    old_shares = int(p['shares'])",
+                  i+"    factor_raw = getattr(rr,'share_factor',1.0)",
+                  i+"    factor = float(factor_raw) if np.isfinite(factor_raw) and float(factor_raw)>0 else 1.0",
+                  i+"    exact_new = old_shares * factor",
+                  i+"    new_shares = max(0, int(np.floor(exact_new + 1e-10)))",
+                  i+"    cash_div_raw = getattr(rr,'cash_dividend_per_share',0.0)",
+                  i+"    cash_div_ps = float(cash_div_raw) if np.isfinite(cash_div_raw) else 0.0",
+                  i+"    ref_raw = getattr(rr,'reference_price',np.nan)",
+                  i+"    ref = float(ref_raw) if np.isfinite(ref_raw) and float(ref_raw)>0 else float(rr.close)",
+                  i+"    cash += old_shares * cash_div_ps + max(0.0, exact_new-new_shares) * ref",
+                  i+"    p['shares'] = new_shares",
+                  i+"    if cash < -0.01: raise RuntimeError('negative cash after corporate action')",
+              ])
+          s,n=ca_pat.subn(ca_repl,s,count=1)
+          assert n==1, f'corporate action patch count={n}'
+          compile(s,'research_12_stock_repricing_v6_runtime.py','exec')
+          Path('scripts/research_12_stock_repricing_v6_runtime.py').write_text(s)
+          PY
+      - name: Run hypothesis
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research_12_stock_repricing_v6_runtime.py --hypothesis "${{ matrix.hypothesis }}" | tee research_${{ matrix.hypothesis }}.log
+          test -s research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv
+          test -s research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv
+          test -s research_out_12_stock_setups/${{ matrix.hypothesis }}/decision.json
+      - name: Publish result
+        if: always()
+        run: |
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/portfolio_summary.csv || true
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/yearly_summary.csv || true
+          test -f research_out_12_stock_setups/${{ matrix.hypothesis }}/signal_counts.json && cat research_out_12_stock_setups/${{ matrix.hypothesis }}/signal_counts.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stock-repricing-v6-${{ matrix.hypothesis }}
+          path: |
+            research_${{ matrix.hypothesis }}.log
+            formal_run/contract_audit.json
+            formal_run/r10max_formal_summary.json
+            research_out_12_stock_setups/${{ matrix.hypothesis }}/
+          if-no-files-found: warn
