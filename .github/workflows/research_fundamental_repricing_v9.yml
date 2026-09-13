@@ -8,6 +8,7 @@ on:
       - '.github/workflows/research_fundamental_repricing_v9.yml'
       - 'scripts/build_full_market_fundamental_sharded.py'
       - 'scripts/research_fundamental_repricing_v9.py'
+      - 'scripts/research_open_tournament_v11.py'
 
 permissions:
   contents: read
@@ -79,10 +80,10 @@ jobs:
           path: shard_out/${{ matrix.shard }}
           retention-days: 3
 
-  gated_screen:
+  open_tournament:
     needs: fundamental_shard
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -104,11 +105,11 @@ jobs:
       - name: Verify frozen history inputs
         working-directory: data/history/2020-2025
         run: sha256sum --check SHA256SUMS
-      - name: Verify locked formal fingerprints
+      - name: Verify causal-layer fingerprints
         run: |
           echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
           echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
-      - name: Build frozen causal daily layer
+      - name: Build causal daily research layer
         shell: bash
         run: |
           set -euo pipefail
@@ -117,7 +118,7 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
           cd formal_run
           python ../scripts/r10_max_formal.py > execution.log
-      - name: Assert Formal R10-MAX unchanged
+      - name: Assert causal baseline unchanged
         run: |
           python - <<'PY'
           import json
@@ -126,34 +127,30 @@ jobs:
           assert a['all_pass'], a
           assert abs(s['end_nav']-2403427.0678222505)<1e-7, s
           assert s['completed_trades']==150 and s['wins']==71 and s['losses']==79, s
-          print('R10 formal baseline unchanged')
+          print('causal baseline unchanged')
           PY
-      - name: Run Stage-1 fundamental repricing gate
-        run: python scripts/research_fundamental_repricing_v9.py | tee fundamental_v9_screen.log
-      - name: Publish compact screen
+      - name: Run unconstrained open tournament
+        run: python scripts/research_open_tournament_v11.py | tee open_tournament_v11.log
+      - name: Publish champion and blind holdout
         if: always()
         run: |
-          test -f fundamental_v9_out/screen_summary.csv && cat fundamental_v9_out/screen_summary.csv || true
-          test -f fundamental_v9_out/research_audit.json && cat fundamental_v9_out/research_audit.json || true
+          test -f open_tournament_v11_out/preregistered_shortlist.csv && cat open_tournament_v11_out/preregistered_shortlist.csv || true
+          test -f open_tournament_v11_out/blind_2025_results.csv && cat open_tournament_v11_out/blind_2025_results.csv || true
+          test -f open_tournament_v11_out/tournament_audit.json && cat open_tournament_v11_out/tournament_audit.json || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: fundamental-v9-screen
+          name: open-tournament-v11-results
           path: |
-            fundamental_v9_screen.log
-            fundamental_v9_out/screen_summary.csv
-            fundamental_v9_out/research_audit.json
+            open_tournament_v11.log
+            open_tournament_v11_out/all_dev_configs.csv
+            open_tournament_v11_out/preregistered_shortlist.csv
+            open_tournament_v11_out/blind_2025_results.csv
+            open_tournament_v11_out/champion_trades.csv
+            open_tournament_v11_out/tournament_audit.json
+            open_tournament_v11_out/survivors_present.flag
             data/history/full-market-fundamental-2024-2026/manifest.json
             formal_run/contract_audit.json
             formal_run/r10max_formal_summary.json
           if-no-files-found: warn
-          retention-days: 14
-      - uses: actions/upload-artifact@v4
-        if: ${{ hashFiles('fundamental_v9_out/survivors_present.flag') != '' }}
-        with:
-          name: fundamental-v9-survivors-only
-          path: |
-            fundamental_v9_out/survivors_present.flag
-            fundamental_v9_out/survivors/
-          if-no-files-found: error
           retention-days: 30
