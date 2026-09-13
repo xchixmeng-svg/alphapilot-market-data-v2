@@ -28,10 +28,22 @@ jobs:
           python-version: '3.12'
       - name: Install fetch runtime
         run: python -m pip install requests
-      - name: Fetch reusable fundamental shard
+      - name: Fetch reusable fundamental shard with source retry
+        shell: bash
         env:
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
-        run: python scripts/build_full_market_fundamental_sharded.py shard --index ${{ matrix.shard }} --total 20
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            rm -rf "shard_out/${{ matrix.shard }}"
+            if python scripts/build_full_market_fundamental_sharded.py shard --index ${{ matrix.shard }} --total 20; then
+              exit 0
+            fi
+            echo "Shard ${{ matrix.shard }} attempt ${attempt}/5 failed; retrying after transient-source backoff"
+            sleep $((attempt * 10))
+          done
+          echo "Shard ${{ matrix.shard }} failed after 5 attempts"
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: fundamental-v9-shard-${{ matrix.shard }}
@@ -115,4 +127,4 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-# clean full attempt 2026-09-13T12:54+08:00
+# source retry hardened 2026-09-13
