@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, json, math
+import argparse, json
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -70,8 +70,10 @@ def setup_map(d: pd.DataFrame):
     out={k:(m,s) for k,(m,s) in base.items()}
     res20=d.r20-d.mkt_r20
     res60=d.r60-d.mkt_r60
-    out['residual_momentum']=((res20.rank(pct=True)>=.70)&(res60.rank(pct=True)>=.60)&(d.aclose>d.ma20),
-                              .45*d.r20_pr+.25*d.r60_pr+.15*d.flow5_pr+.15*d.amount20_pr)
+    res20_pr=res20.groupby(d.date).rank(pct=True)
+    res60_pr=res60.groupby(d.date).rank(pct=True)
+    out['residual_momentum']=((res20_pr>=.70)&(res60_pr>=.60)&(d.aclose>d.ma20),
+                              .45*res20_pr+.25*res60_pr+.15*d.flow5_pr+.15*d.amount20_pr)
     out['base_spring']=((d.vol20_pr<=.35)&(d.dist_ma20.abs()<=.06)&(d.flow20>0)&(d.flow_accel_pr>=.55),
                         .30*(1-d.vol20_pr)+.25*d.flow20_pr+.25*d.flow_accel_pr+.20*d.amount20_pr)
     return out
@@ -98,7 +100,6 @@ def make_signals(d: pd.DataFrame, policy: str):
     sm=setup_map(d)
     w=context_weight(d,key)
     if policy=='adaptive_multifactor_ensemble':
-        # Continuous context changes the emphasis, never switches trading on/off.
         trend_w=.25+.35*w
         flow_w=.45-.20*w
         lowvol_w=.15+.10*(1-w)
@@ -109,13 +110,11 @@ def make_signals(d: pd.DataFrame, policy: str):
     else:
         ma,sa=sm[a]; mb,sb=sm[b]
         mask=ma.fillna(False)|mb.fillna(False)
-        # Membership bonus preserves archetype meaning while context changes which playbook dominates.
         score=w*sa.fillna(0)+(1-w)*sb.fillna(0)+.12*w*ma.astype(float)+.12*(1-w)*mb.astype(float)
     raw=d[mask.fillna(False)].copy()
     if raw.empty:
         return pd.DataFrame(),hold,slots
     raw['score']=score.loc[raw.index].replace([np.inf,-np.inf],np.nan).fillna(0.0)
-    # Separate quality layer: market/liquidity quality only; this is NOT claimed as business fundamentals.
     q=(raw.amount20_pr>=.35)&(raw.vol20_pr<=.95)&(raw.close>=10)&raw.amount20.notna()
     raw=raw[q].copy()
     sig=(raw.sort_values(['signal_date','score','amount20'],ascending=[True,False,False])
@@ -140,7 +139,6 @@ def main():
     out=ROOT/'v18_context_adaptive_out'/policy; out.mkdir(parents=True,exist_ok=True)
     px_all,daily=v12.base.build_daily()
     d=daily[(daily.date>=20230101)&(daily.date<=20251231)].copy(); d['signal_date']=d.date.astype(int)
-    # Cross-sectional market return context. All values are observable at T close.
     m=d.groupby('date').agg(mkt_r20=('r20','median'),mkt_r60=('r60','median')).reset_index()
     c=build_context(d)
     d=d.merge(m,on='date',how='left').merge(c,on='date',how='left',suffixes=('','_ctx'))
