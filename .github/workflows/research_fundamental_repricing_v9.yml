@@ -6,6 +6,8 @@ on:
     branches: [research-fundamental-repricing-v9-20260913]
     paths:
       - '.github/workflows/research_fundamental_repricing_v9.yml'
+      - 'scripts/build_full_market_fundamental_sharded.py'
+      - 'scripts/research_fundamental_repricing_v9.py'
 
 permissions:
   contents: read
