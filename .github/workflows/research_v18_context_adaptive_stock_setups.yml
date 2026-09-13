@@ -11,6 +11,7 @@ on:
 permissions:
   contents: read
 
+# Structural batch: 12 causal stock-level policies; 2025 remains blind evidence.
 jobs:
   guard:
     runs-on: ubuntu-latest
