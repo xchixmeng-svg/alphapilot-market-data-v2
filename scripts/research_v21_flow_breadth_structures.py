@@ -122,6 +122,10 @@ def main():
     out=ROOT/'v21_flow_breadth_out'/name; out.mkdir(parents=True,exist_ok=True)
     px_all,daily=v12.base.build_daily()
     d=daily[(daily.date>=20230101)&(daily.date<=20251231)].copy(); d['signal_date']=d.date.astype(int)
+    # v9/base ranks r20/r60/flow/liquidity but not the 5-day return used by several V21 structural variants.
+    # Compute it causally cross-sectionally at each T close; this is feature completion, not parameter tuning.
+    if 'r5_pr' not in d.columns:
+        d['r5_pr']=d.groupby('date')['r5'].rank(pct=True)
     m=d.groupby('date').agg(mkt_r20=('r20','median'),mkt_r60=('r60','median')).reset_index()
     c=v18.build_context(d)
     d=d.merge(m,on='date',how='left').merge(c,on='date',how='left',suffixes=('','_ctx'))
