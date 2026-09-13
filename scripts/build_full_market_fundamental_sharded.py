@@ -30,7 +30,7 @@ def code_ok(x):
     s=str(x or '').strip().replace('=','').replace('"','')
     return s if re.fullmatch(r'[1-9]\d{3}',s) else None
 
-def universe():
+def fetch_universe():
     out={}
     for suffix,market in [('L','TWSE'),('O','TPEX')]:
         url=f'https://mopsfin.twse.com.tw/opendata/t187ap03_{suffix}.csv'
@@ -40,8 +40,33 @@ def universe():
             c=code_ok(row.get('公司代號'))
             if not c: continue
             out[c]={'stock_id':c,'market':market,'name':row.get('公司簡稱') or row.get('公司名稱') or ''}
-    if len(out)<1000: raise RuntimeError(f'universe too small: {len(out)}')
-    return [out[k] for k in sorted(out)]
+    uni=[out[k] for k in sorted(out)]
+    if len(uni)<1000: raise RuntimeError(f'universe too small: {len(uni)}')
+    return uni
+
+def load_universe(path=None):
+    if path:
+        p=Path(path)
+        if not p.exists(): raise RuntimeError(f'universe file missing: {p}')
+        uni=json.loads(p.read_text(encoding='utf-8'))
+        if not isinstance(uni,list): raise RuntimeError('universe file must contain a list')
+        cleaned=[]; seen=set()
+        for row in uni:
+            if not isinstance(row,dict): continue
+            sid=code_ok(row.get('stock_id'))
+            if not sid or sid in seen: continue
+            seen.add(sid)
+            cleaned.append({'stock_id':sid,'market':str(row.get('market') or ''),'name':str(row.get('name') or '')})
+        if len(cleaned)<1000: raise RuntimeError(f'cached universe too small: {len(cleaned)}')
+        return sorted(cleaned,key=lambda x:x['stock_id'])
+    return fetch_universe()
+
+def mode_universe(out_path):
+    uni=fetch_universe()
+    p=Path(out_path); p.parent.mkdir(parents=True,exist_ok=True)
+    p.write_text(json.dumps(uni,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+    digest=hashlib.sha256(p.read_bytes()).hexdigest()
+    print('[DONE UNIVERSE]',len(uni),'sha256',digest,'path',p,flush=True)
 
 def finmind(dataset,stock,start,end):
     p={'dataset':dataset,'data_id':stock,'start_date':start,'end_date':end}
@@ -74,8 +99,8 @@ def sha256(path):
         for b in iter(lambda:f.read(1<<20),b''):h.update(b)
     return h.hexdigest()
 
-def mode_shard(idx,total):
-    uni=universe(); stocks=[x for i,x in enumerate(uni) if i%total==idx]
+def mode_shard(idx,total,universe_file=None):
+    uni=load_universe(universe_file); stocks=[x for i,x in enumerate(uni) if i%total==idx]
     out=ROOT/'shard_out'/f'{idx:02d}'; out.mkdir(parents=True,exist_ok=True)
     rows={k:[] for k,_,_,_ in DATASETS}; errors=[]; success={k:0 for k,_,_,_ in DATASETS}
     for n,meta in enumerate(stocks,1):
@@ -91,7 +116,7 @@ def mode_shard(idx,total):
                 errors.append({'stock_id':sid,'market':meta['market'],'dataset':ds,'error':str(e)})
         if n%10==0 or n==len(stocks): print(f'[SHARD {idx}] {n}/{len(stocks)} success={success} errors={len(errors)}',flush=True)
     for short in rows: write_jsonl_gz(out/f'{short}.jsonl.gz',rows[short])
-    manifest={'shard':idx,'total_shards':total,'stocks':len(stocks),'success_stock_counts':success,'row_counts':{k:len(v) for k,v in rows.items()},'errors':errors,'generated_at_utc':datetime.now(timezone.utc).isoformat()}
+    manifest={'shard':idx,'total_shards':total,'universe_stocks':len(uni),'stocks':len(stocks),'success_stock_counts':success,'row_counts':{k:len(v) for k,v in rows.items()},'errors':errors,'generated_at_utc':datetime.now(timezone.utc).isoformat()}
     (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
     print('[DONE SHARD]',idx,manifest['row_counts'],flush=True)
 
@@ -106,7 +131,7 @@ def write_csv_gz(path,rows):
         w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore'); w.writeheader(); w.writerows(rows)
     return len(rows)
 
-def mode_aggregate(shard_root,total):
+def mode_aggregate(shard_root,total,universe_file=None):
     base=Path(shard_root); out=ROOT/'data'/'history'/'full-market-fundamental-2024-2026'; out.mkdir(parents=True,exist_ok=True)
     manifests=[]; allrows={k:[] for k,_,_,_ in DATASETS}
     for idx in range(total):
@@ -127,7 +152,7 @@ def mode_aggregate(shard_root,total):
         blob='|'.join(str(r.get(k,'')) for k in ('type','origin_name','name')).lower()
         if 'eps' in blob or '每股盈餘' in blob or '每股盈余' in blob or '基本每股' in blob: eps.append(r)
     p_eps=out/'eps_actual_extract.csv.gz'; eps_rows=write_csv_gz(p_eps,eps); files.append({'file':p_eps.name,'rows':eps_rows,'bytes':p_eps.stat().st_size,'sha256':sha256(p_eps)})
-    uni=universe(); p_uni=out/'stock_universe.csv.gz'; write_csv_gz(p_uni,uni); files.append({'file':p_uni.name,'rows':len(uni),'bytes':p_uni.stat().st_size,'sha256':sha256(p_uni)})
+    uni=load_universe(universe_file); p_uni=out/'stock_universe.csv.gz'; write_csv_gz(p_uni,uni); files.append({'file':p_uni.name,'rows':len(uni),'bytes':p_uni.stat().st_size,'sha256':sha256(p_uni)})
     errors=[e for m in manifests for e in m.get('errors',[])]
     success_counts={k:sum(m.get('success_stock_counts',{}).get(k,0) for m in manifests) for k in allrows}
     manifest={'dataset':'AlphaPilot Full-Market Fundamental 2024-2026','generated_at_utc':datetime.now(timezone.utc).isoformat(),'universe_stocks':len(uni),'row_counts':row_counts|{'eps_actual_extract':eps_rows},'success_stock_counts':success_counts,'error_count':len(errors),'errors':errors[:5000],'sources':['MOPS company universe','FinMind TaiwanStockMonthRevenue','FinMind TaiwanStockFinancialStatements','FinMind TaiwanStockPER'],'coverage':{'month_revenue':'2024-01-01..2026-08-31 requested per stock','financial_statements':'2024-01-01..2026-08-31 requested per stock','valuation':'2026-01-01..2026-08-31 requested per stock'},'point_in_time_note':'Raw source dates preserved. Any backtest must apply report/publication availability and never expose future reports.','analyst_revision_note':'Contains actual public fundamentals, not paid historical analyst-consensus revisions. EPS Revision Proxy should be derived from monthly revenue acceleration + reported financial trends + historical valuation.','files':files}
@@ -140,8 +165,10 @@ def mode_aggregate(shard_root,total):
 
 if __name__=='__main__':
     ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest='mode',required=True)
-    s=sub.add_parser('shard'); s.add_argument('--index',type=int,required=True); s.add_argument('--total',type=int,required=True)
-    a=sub.add_parser('aggregate'); a.add_argument('--root',required=True); a.add_argument('--total',type=int,required=True)
+    u=sub.add_parser('universe'); u.add_argument('--out',required=True)
+    s=sub.add_parser('shard'); s.add_argument('--index',type=int,required=True); s.add_argument('--total',type=int,required=True); s.add_argument('--universe-file')
+    a=sub.add_parser('aggregate'); a.add_argument('--root',required=True); a.add_argument('--total',type=int,required=True); a.add_argument('--universe-file')
     x=ap.parse_args()
-    if x.mode=='shard': mode_shard(x.index,x.total)
-    else: mode_aggregate(x.root,x.total)
+    if x.mode=='universe': mode_universe(x.out)
+    elif x.mode=='shard': mode_shard(x.index,x.total,x.universe_file)
+    else: mode_aggregate(x.root,x.total,x.universe_file)
