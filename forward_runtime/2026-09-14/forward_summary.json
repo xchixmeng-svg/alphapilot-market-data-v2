@@ -1,0 +1,228 @@
+{
+  "trade_date": "2026-09-14",
+  "t_plus_1": "2026-09-15",
+  "VERSION_GATE": {
+    "status": "PASS",
+    "locked_commit": "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9",
+    "engine_sha256": "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0",
+    "corp_action_sha256": "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc"
+  },
+  "DATA_GATE": {
+    "status": "PASS",
+    "trade_date": "2026-09-14",
+    "manifest_status": "PASS",
+    "current_coverage": {
+      "twse": {
+        "price_codes": 1216,
+        "institutional_codes": 1202,
+        "overlap": 1202,
+        "coverage": 0.9884868421052632
+      },
+      "tpex": {
+        "price_codes": 999,
+        "institutional_codes": 893,
+        "overlap": 893,
+        "coverage": 0.8938938938938938
+      }
+    },
+    "price_rows_t": 2215,
+    "institutional_dates": 19,
+    "corporate_action_rows_2025_2026": 3262,
+    "runtime_shifted_event_count": 21,
+    "runtime_shifted_events": [
+      {
+        "code": "5604",
+        "official_event_date": 20260223,
+        "applied_trade_date": 20260302,
+        "calendar_gap_days": 7
+      },
+      {
+        "code": "6179",
+        "official_event_date": 20260223,
+        "applied_trade_date": 20260302,
+        "calendar_gap_days": 7
+      },
+      {
+        "code": "2421",
+        "official_event_date": 20260224,
+        "applied_trade_date": 20260302,
+        "calendar_gap_days": 6
+      },
+      {
+        "code": "6109",
+        "official_event_date": 20260225,
+        "applied_trade_date": 20260302,
+        "calendar_gap_days": 5
+      },
+      {
+        "code": "2008",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "2610",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "2891",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3034",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3055",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3217",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3303",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3467",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3489",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "3564",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "4711",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "4968",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "5519",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "6477",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "6762",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "7747",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      },
+      {
+        "code": "7811",
+        "official_event_date": 20260710,
+        "applied_trade_date": 20260713,
+        "calendar_gap_days": 3
+      }
+    ],
+    "first5_no_limit_exemption_count": 7,
+    "first5_no_limit_exemptions": [
+      {
+        "date": 20260511,
+        "code": "3485",
+        "raw_ret": 0.16481481481481475
+      },
+      {
+        "date": 20260409,
+        "code": "4169",
+        "raw_ret": 0.16206896551724137
+      },
+      {
+        "date": 20260527,
+        "code": "4582",
+        "raw_ret": 0.1915367483296213
+      },
+      {
+        "date": 20260526,
+        "code": "6983",
+        "raw_ret": 0.22597402597402594
+      },
+      {
+        "date": 20260717,
+        "code": "7814",
+        "raw_ret": 0.21674876847290636
+      },
+      {
+        "date": 20260914,
+        "code": "7825",
+        "raw_ret": -0.14046511627906977
+      },
+      {
+        "date": 20260601,
+        "code": "7827",
+        "raw_ret": 0.12043795620437958
+      }
+    ],
+    "unexplained_jump_count": 0
+  },
+  "portfolio": {
+    "cash": 1105834.13,
+    "market_value": 231750.0,
+    "nav": 1337584.13,
+    "hwm": 1337584.13,
+    "dd": 0.0,
+    "exposure": 0.17326012981329258
+  },
+  "holding_count": 1,
+  "market": {
+    "r7_exposure": 0.2,
+    "r7_slots": 3,
+    "r7_hard_count": 300,
+    "r05_hard_count": 1,
+    "dd_multiplier": 1.0,
+    "regime": "Weak",
+    "breadth": 0.4116161616161616,
+    "advance10": 0.29545454545454547,
+    "0050_close": 106.9,
+    "0050_ma60": 423.4944586983729,
+    "0050_ma120": 395.88167083854813,
+    "0050_r20": 0.004227336777830049,
+    "0050_r60": 0.0023346421192118605
+  },
+  "formal_buy_count": 4,
+  "formal_sell_count": 0,
+  "message_buy": null,
+  "message_sell": "明日無 R10-MAX 賣出指令"
+}
