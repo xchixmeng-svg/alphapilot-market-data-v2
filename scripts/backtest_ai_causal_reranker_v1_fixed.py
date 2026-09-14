@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run AI causal reranker v1 with code-date persistence counted across prior sessions only."""
+"""Run AI causal reranker v1 with fixed persistence counting and corrected input links."""
 from pathlib import Path
 import importlib.util
 import subprocess
@@ -28,6 +28,25 @@ def run_py_verbose(script: Path, cwd: Path, log_name: str) -> None:
         raise RuntimeError(f"runner failed: {script}")
 
 
+def link_inputs_fixed(dst: Path) -> None:
+    hist = ROOT / "data" / "history" / "2020-2025"
+    ref = ROOT / "data" / "reference"
+    dst.mkdir(parents=True, exist_ok=True)
+    for name in [
+        "institutional_2020_2025.parquet",
+        "ohlcv_2020.parquet", "ohlcv_2021.parquet", "ohlcv_2022.parquet",
+        "ohlcv_2023.parquet", "ohlcv_2024.parquet", "ohlcv_2025.parquet",
+    ]:
+        srcp = hist / name
+        out = dst / name
+        if not out.exists():
+            out.symlink_to(srcp.resolve())
+    ca = ref / "official_corporate_actions_2020_2025.csv"
+    out = dst / "official_corporate_actions_2020_2025.csv"
+    if not out.exists():
+        out.symlink_to(ca.resolve())
+
+
 def candidate_events_fixed(px: pd.DataFrame) -> pd.DataFrame:
     ev = _orig_candidate_events(px)
     dates = sorted(int(x) for x in px.date.unique().tolist())
@@ -47,5 +66,6 @@ def candidate_events_fixed(px: pd.DataFrame) -> pd.DataFrame:
     return ev
 
 mod.run_py = run_py_verbose
+mod.link_inputs = link_inputs_fixed
 mod.candidate_events = candidate_events_fixed
 mod.main()
