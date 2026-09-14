@@ -62,3 +62,4 @@ jobs:
             ai_causal_router_v12_results/AI_ADAPTIVE_ROUTER/r10max_formal_orders.csv
           if-no-files-found: error
           retention-days: 30
+# trigger: adaptive-routing-v12
