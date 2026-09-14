@@ -27,10 +27,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RUN_ROOT = ROOT / "lowbase_shadow_results"
 BASELINE_DIR = RUN_ROOT / "baseline"
 VARIANTS = [
-    {"name": "SHADOW_LB_P2_5", "min_count": 2, "window": 5},
-    {"name": "SHADOW_LB_P2_10", "min_count": 2, "window": 10},
-    {"name": "SHADOW_LB_P3_5", "min_count": 3, "window": 5},
-    {"name": "SHADOW_LB_P3_10", "min_count": 3, "window": 10},
+    {"name": "SHADOW_LB_P2_5", "min_count": 2, "window": 5, "consecutive": False},
+    {"name": "SHADOW_LB_P2_10", "min_count": 2, "window": 10, "consecutive": False},
+    {"name": "SHADOW_LB_P3_5", "min_count": 3, "window": 5, "consecutive": False},
+    {"name": "SHADOW_LB_P3_10", "min_count": 3, "window": 10, "consecutive": False},
 ]
 
 
