@@ -1,0 +1,81 @@
+name: R10 Low-base Persistence Research
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research-r10-lowbase-persistence-20260914
+    paths:
+      - scripts/backtest_r10_lowbase_persistence.py
+      - .github/workflows/research_r10_lowbase_persistence.yml
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0
+
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+
+      - name: Verify locked R10 engine fingerprint
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+
+      - name: Run low-base persistence research
+        run: python scripts/backtest_r10_lowbase_persistence.py | tee lowbase_persistence_execution.log
+
+      - name: Assert baseline and audits
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          p='lowbase_persistence_results/LOWBASE_PERSISTENCE_COMPARISON.csv'
+          df=pd.read_csv(p)
+          assert list(df['variant']) == ['BASELINE','LB_P3_5','LB_P3_10'], df
+          b=df.iloc[0]
+          assert abs(b.end_nav-2403427.0678222505) < 1e-7, b
+          assert int(b.completed_trades)==150 and int(b.wins)==71 and int(b.losses)==79, b
+          assert abs(b.max_drawdown-(-0.19515438907459803)) < 1e-12, b
+          assert bool(df.audit_all_pass.all()), df[['variant','audit_all_pass']]
+          print(df[['variant','cagr','max_drawdown','pnl_profit_factor','win_rate','completed_trades','lowbase_recommendation_observations','lowbase_blocked_observations']].to_string(index=False))
+          PY
+
+      - name: Publish summary
+        run: cat lowbase_persistence_results/LOWBASE_PERSISTENCE_REPORT.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload complete research results
+        uses: actions/upload-artifact@v4
+        with:
+          name: r10-lowbase-persistence-results
+          path: |
+            lowbase_persistence_execution.log
+            lowbase_persistence_results/LOWBASE_PERSISTENCE_COMPARISON.csv
+            lowbase_persistence_results/LOWBASE_PERSISTENCE_COMPARISON.json
+            lowbase_persistence_results/LOWBASE_PERSISTENCE_REPORT.md
+            lowbase_persistence_results/*/r10max_formal_summary.json
+            lowbase_persistence_results/*/contract_audit.json
+            lowbase_persistence_results/*/r10max_formal_trades.csv
+            lowbase_persistence_results/*/r10max_formal_orders.csv
+            lowbase_persistence_results/*/r10max_formal_nav.csv
+            lowbase_persistence_results/*/r10max_formal_annual.csv
+            lowbase_persistence_results/*/persistence_observations.csv
+            lowbase_persistence_results/*/execution.log
+          if-no-files-found: warn
+          retention-days: 30
