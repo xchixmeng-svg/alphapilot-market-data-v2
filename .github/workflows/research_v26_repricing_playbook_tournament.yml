@@ -1,5 +1,6 @@
 name: V26 12 repricing playbook hypotheses
 
+# trigger-v26-matrix
 on:
   workflow_dispatch:
   push:
