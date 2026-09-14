@@ -2,6 +2,8 @@
 """Run AI causal reranker v1 with code-date persistence counted across prior sessions only."""
 from pathlib import Path
 import importlib.util
+import subprocess
+import sys
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +12,20 @@ spec = importlib.util.spec_from_file_location("ai_v1", src)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 _orig_candidate_events = mod.candidate_events
+
+
+def run_py_verbose(script: Path, cwd: Path, log_name: str) -> None:
+    p = subprocess.run([sys.executable, str(script)], cwd=cwd, text=True, capture_output=True)
+    text = p.stdout + "\n--- STDERR ---\n" + p.stderr
+    (cwd / log_name).write_text(text, encoding="utf-8")
+    print(f"[{cwd.name}] returncode={p.returncode}")
+    if p.stdout:
+        print("\n".join(p.stdout.splitlines()[-25:]))
+    if p.stderr:
+        print("--- STDERR TAIL ---")
+        print("\n".join(p.stderr.splitlines()[-40:]))
+    if p.returncode:
+        raise RuntimeError(f"runner failed: {script}")
 
 
 def candidate_events_fixed(px: pd.DataFrame) -> pd.DataFrame:
@@ -30,5 +46,6 @@ def candidate_events_fixed(px: pd.DataFrame) -> pd.DataFrame:
     ev["persist10_prior"] = [p10_map[(int(d), str(c))] for d,c in zip(ev.date, ev.code)]
     return ev
 
+mod.run_py = run_py_verbose
 mod.candidate_events = candidate_events_fixed
 mod.main()
