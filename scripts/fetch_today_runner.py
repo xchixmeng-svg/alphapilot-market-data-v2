@@ -6,6 +6,9 @@ We keep normal TLS verification everywhere. Only when Requests raises SSLError f
 exactly www.tpex.org.tw do we retry that request with certificate verification
 disabled. The existing fetch_today.py payload-date consensus, cross-source date
 checks, normalization and non-empty data gates still run unchanged.
+
+This wrapper is intentionally small so the underlying market-data normalization
+and DATA_GATE semantics remain unchanged.
 """
 from __future__ import annotations
 
