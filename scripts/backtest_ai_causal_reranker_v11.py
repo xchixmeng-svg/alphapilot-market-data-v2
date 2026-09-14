@@ -38,6 +38,10 @@ RUN_ROOT=ROOT/'ai_causal_reranker_v11_results'
 BASELINE_DIR=RUN_ROOT/'baseline'
 VARIANT_DIR=RUN_ROOT/'AI_PATH_FRONTIER'
 HORIZONS=[20,40,60]
+# Keep every imported helper on the V11 run-local baseline.  V10's helper functions
+# resolve their own module globals, so updating only v2/mod leaves mark_baseline_frontier
+# pointing at ai_causal_reranker_v10_results/baseline on a clean CI runner.
+v10.RUN_ROOT=RUN_ROOT; v10.BASELINE_DIR=BASELINE_DIR; v10.VARIANT_DIR=VARIANT_DIR
 v2.RUN_ROOT=RUN_ROOT; v2.BASELINE_DIR=BASELINE_DIR; v2.VARIANTS={'AI_PATH_FRONTIER':VARIANT_DIR}
 v2.mod.RUN_ROOT=RUN_ROOT; v2.mod.BASELINE_DIR=BASELINE_DIR; v2.mod.VARIANT_DIR=VARIANT_DIR; v2.mod.HORIZONS=HORIZONS
 BUY_FEE=0.000855; SELL_FEE=0.000855; SELL_TAX=0.003; BUY_ADVERSE=0.005; SELL_ADVERSE=0.005; MIN_HOLD=3
