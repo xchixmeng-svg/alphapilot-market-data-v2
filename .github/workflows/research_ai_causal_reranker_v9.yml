@@ -1,0 +1,65 @@
+name: AlphaPilot AI Causal Reranker V9
+
+on:
+  push:
+    branches:
+      - research-ai-causal-reranker-v9-20260915
+    paths:
+      - scripts/backtest_ai_causal_reranker_v9.py
+      - .github/workflows/research_ai_causal_reranker_v9.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0 scikit-learn==1.5.2
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked R10 engine fingerprint
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+      - name: Run causal OOS AI reranker v9
+        run: python scripts/backtest_ai_causal_reranker_v9.py | tee ai_causal_v9_execution.log
+      - name: Show portfolio comparison
+        run: cat ai_causal_reranker_v9_results/AI_CAUSAL_V9_COMPARISON.csv
+      - name: Show execution-boundary gate
+        run: cat ai_causal_reranker_v9_results/AI_V9_META_GATE.csv
+      - name: Show success gate
+        run: cat ai_causal_reranker_v9_results/AI_V9_SUCCESS_GATE.json
+      - name: Upload research results
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-ai-causal-reranker-v9-results
+          path: |
+            ai_causal_v9_execution.log
+            ai_causal_reranker_v9_results/AI_CAUSAL_V9_COMPARISON.csv
+            ai_causal_reranker_v9_results/AI_CAUSAL_V9_COMPARISON.json
+            ai_causal_reranker_v9_results/AI_OOS_PREDICTIONS.csv
+            ai_causal_reranker_v9_results/AI_OOS_MODEL_DIAGNOSTICS.csv
+            ai_causal_reranker_v9_results/AI_EXECUTION_BOUNDARY_PAIRS.csv
+            ai_causal_reranker_v9_results/AI_EXECUTION_BOUNDARY_TRAINING.csv
+            ai_causal_reranker_v9_results/AI_BOUNDARY_PERMISSIONS.csv
+            ai_causal_reranker_v9_results/AI_V9_META_GATE.csv
+            ai_causal_reranker_v9_results/AI_V9_SUCCESS_GATE.json
+            ai_causal_reranker_v9_results/baseline/r10max_formal_summary.json
+            ai_causal_reranker_v9_results/baseline/contract_audit.json
+            ai_causal_reranker_v9_results/AI_EXEC_BOUNDARY/r10max_formal_summary.json
+            ai_causal_reranker_v9_results/AI_EXEC_BOUNDARY/contract_audit.json
+            ai_causal_reranker_v9_results/AI_EXEC_BOUNDARY/r10max_formal_trades.csv
+            ai_causal_reranker_v9_results/AI_EXEC_BOUNDARY/r10max_formal_orders.csv
+          if-no-files-found: error
+          retention-days: 30
