@@ -14,6 +14,7 @@ ROOT=Path(__file__).resolve().parent.parent
 INITIAL=1_300_000.0
 DEV_START=20230523; DEV_END=20241231
 VAL_START=20250101; VAL_END=20251231
+# trigger-v32-matrix
 
 # V32 is seeded from the robust V31 survivor leader_liquidity_quality and the older
 # residual-sponsor breakout Pareto member. Each hypothesis changes the causal setup,
