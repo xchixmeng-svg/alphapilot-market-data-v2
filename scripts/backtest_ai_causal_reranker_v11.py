@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# trigger: v11 workflow after workflow registration
 """AlphaPilot AI causal reranker V11: strategy-path counterfactual frontier labels.
 
 V10 proved the slot-frontier intervention reaches real orders, but the fixed 20-session
@@ -67,7 +68,6 @@ def shadow_return(px, date_to_i, dates, signal_date, code, strategy):
     entry_idx=fill*adj_factor
     peak=float(er.aclose); state=None; hold=0
     exit_idx=np.nan
-    # Start monitoring from entry session; exact strategy trigger then T+1 execution.
     for j in range(i+1,len(dates)-1):
         d=dates[j]
         rr=px[(px.date==d)&(px.code==code)]
@@ -95,14 +95,11 @@ def shadow_return(px, date_to_i, dates, signal_date, code, strategy):
             af=float(xr.aclose)/float(xr.close) if float(xr.close)>0 else np.nan
             if not np.isfinite(af): return np.nan
             exit_idx=raw_exit*af; break
-    if not np.isfinite(exit_idx):
-        # Censor unresolved shadows rather than invent a fixed-horizon outcome.
-        return np.nan
+    if not np.isfinite(exit_idx): return np.nan
     gross_ratio=exit_idx/entry_idx
     return gross_ratio*(1-SELL_FEE-SELL_TAX)/(1+BUY_FEE)-1.0
 
 def build_runner(locked_source:str)->str:
-    # Reuse V10's proven execution-path mutation; only permissions differ.
     return v10.build_runner(locked_source).replace('V10 strategy-slot frontier AI tie-break','V11 strategy-path-labeled frontier AI tie-break')
 
 def main():
@@ -142,7 +139,6 @@ def main():
             cur['meta_p_hit']=np.nan; cur['meta_pred_path_uplift']=np.nan; cur['base_pareto']=(cur.ret_margin>0)&(cur.fail_margin>0); cur['meta_allow']=False
         scored.append(cur); gates.append({'test_year':yr,'prior_path_frontier_n':int(len(prior)),'eligible':bool(eligible),'allowed_pairs':int(cur.meta_allow.sum())})
     scored=pd.concat(scored,ignore_index=True)
-    # V10 runner expects this filename/schema.
     scored.to_csv(RUN_ROOT/'AI_SLOT_PERMISSIONS.csv',index=False)
     pairs.to_csv(RUN_ROOT/'AI_PATH_FRONTIER_PAIRS.csv',index=False); train.to_csv(RUN_ROOT/'AI_PATH_FRONTIER_TRAINING.csv',index=False)
     pred.to_csv(RUN_ROOT/'AI_OOS_PREDICTIONS.csv',index=False); diag.to_csv(RUN_ROOT/'AI_OOS_MODEL_DIAGNOSTICS.csv',index=False)
