@@ -13,6 +13,7 @@ ROOT=Path(__file__).resolve().parent.parent
 INITIAL=1_300_000.0
 DEV_START=20230523; DEV_END=20241231
 BLIND_START=20250101; BLIND_END=20251231
+# trigger-v28-matrix
 HYPOTHESES={
  'flow_accum_then_breakout':(20,3),
  'breakout_then_absorption_resume':(25,3),
@@ -42,48 +43,35 @@ def make_signals(d,name):
  lag3_dist=lag(d,'dist_ma20',3); lag5_dist=lag(d,'dist_ma20',5)
  lag5_flow=pct(lag(d,'flow5_pr',5),d.date); lag5_acc=pct(lag(d,'flow_accel_pr',5),d.date)
  lag5_r5=pct(lag(d,'r5_pr',5),d.date); lag5_r20=pct(lag(d,'r20_pr',5),d.date)
- lag10_acc=pct(lag(d,'flow_accel_pr',10),d.date); lag10_vol=pct(lag(d,'vol20_pr',10),d.date)
+ lag10_acc=pct(lag(d,'flow_accel_pr',10),d.date)
  quality=(d.amount20_pr>=.35)&(d.vol20_pr<=.97)&(d.close>=10)&d.amount20.notna()
  sponsor=(d.flow_accel_pr>=.60)&(d.flow20_pr>=.50)
  breakout=(r20p>=.62)&(r5p>=.54)&(d.dist_ma20.between(0,.14))&(d.aclose>=d.ma60*.98)
  not_ext=d.dist_ma20.between(-.08,.15)
  if name=='flow_accum_then_breakout':
-  mask=(lag10_acc>=.52)&(lag5_acc>=.58)&(lag5_flow>=.54)&breakout&(d.flow_accel_pr>=.54)
-  score=.18*lag10_acc+.18*lag5_acc+.12*lag5_flow+.18*d.flow_accel_pr+.22*r20p+.12*d.amount20_pr
+  mask=(lag10_acc>=.52)&(lag5_acc>=.58)&(lag5_flow>=.54)&breakout&(d.flow_accel_pr>=.54); score=.18*lag10_acc+.18*lag5_acc+.12*lag5_flow+.18*d.flow_accel_pr+.22*r20p+.12*d.amount20_pr
  elif name=='breakout_then_absorption_resume':
-  mask=sponsor&(lag5_dist.between(.02,.13))&(lag3_dist.between(-.015,.07))&(d.dist_ma20.between(.01,.11))&(r20p>=.60)&(d.vol20_pr<=.70)
-  score=.20*d.flow_accel_pr+.14*d.flow20_pr+.24*r20p+.14*(1-d.vol20_pr)+.10*d.amount20_pr+.10*p['calm']+.08*p['flow_breadth']
+  mask=sponsor&(lag5_dist.between(.02,.13))&(lag3_dist.between(-.015,.07))&(d.dist_ma20.between(.01,.11))&(r20p>=.60)&(d.vol20_pr<=.70); score=.20*d.flow_accel_pr+.14*d.flow20_pr+.24*r20p+.14*(1-d.vol20_pr)+.10*d.amount20_pr+.10*p['calm']+.08*p['flow_breadth']
  elif name=='retest_reclaim_with_sponsor':
-  mask=sponsor&(lag5_dist.between(.00,.12))&(lag3_dist.between(-.06,.015))&(d.dist_ma20.between(.005,.08))&(r5p>=.52)&(r20p>=.58)
-  score=.21*d.flow_accel_pr+.14*d.flow20_pr+.22*r20p+.15*r5p+.10*d.amount20_pr+.10*p['flow_breadth']+.08*(1-d.vol20_pr)
+  mask=sponsor&(lag5_dist.between(.00,.12))&(lag3_dist.between(-.06,.015))&(d.dist_ma20.between(.005,.08))&(r5p>=.52)&(r20p>=.58); score=.21*d.flow_accel_pr+.14*d.flow20_pr+.22*r20p+.15*r5p+.10*d.amount20_pr+.10*p['flow_breadth']+.08*(1-d.vol20_pr)
  elif name=='fresh_sponsor_after_consolidation':
-  mask=(lag10_acc<=.62)&(d.flow_accel_pr>=.68)&(d.flow5_pr>=.56)&(lag5_dist.abs()<=.05)&(d.dist_ma20.between(.005,.10))&(r20p>=.54)
-  score=.28*d.flow_accel_pr+.15*d.flow5_pr+.20*r20p+.11*r5p+.12*d.amount20_pr+.08*p['breadth_up']+.06*(1-d.vol20_pr)
+  mask=(lag10_acc<=.62)&(d.flow_accel_pr>=.68)&(d.flow5_pr>=.56)&(lag5_dist.abs()<=.05)&(d.dist_ma20.between(.005,.10))&(r20p>=.54); score=.28*d.flow_accel_pr+.15*d.flow5_pr+.20*r20p+.11*r5p+.12*d.amount20_pr+.08*p['breadth_up']+.06*(1-d.vol20_pr)
  elif name=='persistent_sponsor_not_crowded':
-  crowded=(d.flow5_pr>=.90)&(d.r20_pr>=.90)
-  mask=sponsor&(lag5_acc>=.50)&(lag5_flow>=.50)&(~crowded)&(r20p>=.58)&not_ext
-  score=.20*d.flow_accel_pr+.14*d.flow20_pr+.12*lag5_acc+.10*lag5_flow+.22*r20p+.12*d.amount20_pr+.10*(1-d.vol20_pr)
+  crowded=(d.flow5_pr>=.90)&(d.r20_pr>=.90); mask=sponsor&(lag5_acc>=.50)&(lag5_flow>=.50)&(~crowded)&(r20p>=.58)&not_ext; score=.20*d.flow_accel_pr+.14*d.flow20_pr+.12*lag5_acc+.10*lag5_flow+.22*r20p+.12*d.amount20_pr+.10*(1-d.vol20_pr)
  elif name=='residual_leader_low_vol':
-  mask=sponsor&(r20p>=.64)&(r60p>=.50)&(d.vol20_pr<=.55)&not_ext
-  score=.19*d.flow_accel_pr+.13*d.flow20_pr+.28*r20p+.12*r60p+.14*(1-d.vol20_pr)+.08*d.amount20_pr+.06*p['calm']
+  mask=sponsor&(r20p>=.64)&(r60p>=.50)&(d.vol20_pr<=.55)&not_ext; score=.19*d.flow_accel_pr+.13*d.flow20_pr+.28*r20p+.12*r60p+.14*(1-d.vol20_pr)+.08*d.amount20_pr+.06*p['calm']
  elif name=='residual_leader_liquid':
-  mask=sponsor&(r20p>=.64)&(r5p>=.52)&(d.amount20_pr>=.72)&not_ext
-  score=.19*d.flow_accel_pr+.13*d.flow20_pr+.28*r20p+.13*r5p+.17*d.amount20_pr+.10*(1-d.vol20_pr)
+  mask=sponsor&(r20p>=.64)&(r5p>=.52)&(d.amount20_pr>=.72)&not_ext; score=.19*d.flow_accel_pr+.13*d.flow20_pr+.28*r20p+.13*r5p+.17*d.amount20_pr+.10*(1-d.vol20_pr)
  elif name=='residual_leader_flow_consensus':
-  mask=sponsor&(d.flow5_pr>=.54)&(lag5_flow>=.48)&(r20p>=.62)&(r60p>=.50)&not_ext
-  score=.18*d.flow_accel_pr+.13*d.flow20_pr+.11*d.flow5_pr+.09*lag5_flow+.25*r20p+.12*r60p+.12*d.amount20_pr
+  mask=sponsor&(d.flow5_pr>=.54)&(lag5_flow>=.48)&(r20p>=.62)&(r60p>=.50)&not_ext; score=.18*d.flow_accel_pr+.13*d.flow20_pr+.11*d.flow5_pr+.09*lag5_flow+.25*r20p+.12*r60p+.12*d.amount20_pr
  elif name=='short_to_medium_rs_acceleration':
-  mask=sponsor&(lag5_r5<=.62)&(r5p>=.64)&(r20p>=.60)&not_ext
-  score=.19*d.flow_accel_pr+.13*d.flow20_pr+.22*r5p+.24*r20p+.10*(1-lag5_r5)+.12*d.amount20_pr
+  mask=sponsor&(lag5_r5<=.62)&(r5p>=.64)&(r20p>=.60)&not_ext; score=.19*d.flow_accel_pr+.13*d.flow20_pr+.22*r5p+.24*r20p+.10*(1-lag5_r5)+.12*d.amount20_pr
  elif name=='medium_to_long_rs_confirmation':
-  mask=sponsor&(lag5_r20>=.50)&(r20p>=.62)&(r60p>=.60)&(d.dist_ma20.between(-.04,.12))
-  score=.18*d.flow_accel_pr+.13*d.flow20_pr+.14*lag5_r20+.25*r20p+.18*r60p+.12*d.amount20_pr
+  mask=sponsor&(lag5_r20>=.50)&(r20p>=.62)&(r60p>=.60)&(d.dist_ma20.between(-.04,.12)); score=.18*d.flow_accel_pr+.13*d.flow20_pr+.14*lag5_r20+.25*r20p+.18*r60p+.12*d.amount20_pr
  elif name=='soft_breadth_rank_only':
-  mask=sponsor&breakout
-  score=.20*d.flow_accel_pr+.14*d.flow20_pr+.28*r20p+.12*r5p+.10*d.amount20_pr+.16*p['flow_breadth']
+  mask=sponsor&breakout; score=.20*d.flow_accel_pr+.14*d.flow20_pr+.28*r20p+.12*r5p+.10*d.amount20_pr+.16*p['flow_breadth']
  else:
-  mask=sponsor&breakout
-  score=.20*d.flow_accel_pr+.14*d.flow20_pr+.28*r20p+.12*r5p+.10*d.amount20_pr+.16*p['dispersion']
+  mask=sponsor&breakout; score=.20*d.flow_accel_pr+.14*d.flow20_pr+.28*r20p+.12*r5p+.10*d.amount20_pr+.16*p['dispersion']
  raw=d[(mask&quality).fillna(False)].copy()
  if raw.empty:return pd.DataFrame(),hold,slots
  raw['score']=pd.Series(score,index=d.index).loc[raw.index].replace([np.inf,-np.inf],np.nan).fillna(0.0)
