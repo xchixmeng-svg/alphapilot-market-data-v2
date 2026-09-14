@@ -57,65 +57,58 @@ def make_signals(d,name):
     leader=(r20p>=.58)&(r60p>=.46)
     not_ext=d.dist_ma20.between(-.08,.13)
     not_crowded=~((d.flow5_pr>=.93)&(d.r20_pr>=.93))
-    context=.28*p['flow_breadth']+.24*p['breadth_up']+.20*p['dispersion']+.16*p['calm']+.12*p['trend']
+    # Causal market-trend prior. mkt_r20_z uses rolling history shifted by one
+    # session for its standardization, while the current T-close return itself is
+    # available at decision time. This was accidentally referenced as p['trend']
+    # even though v27/v28 priors do not define that key.
+    trend=pd.Series(v18.sigmoid(d.mkt_r20_z).to_numpy(),index=d.index)
+    context=.28*p['flow_breadth']+.24*p['breadth_up']+.20*p['dispersion']+.16*p['calm']+.12*trend
 
     if name=='transition_flow_reacceleration':
-        # institutional sponsorship cooled, then re-accelerated before price became extended
         path=(l10_acc>=.50)&(l5_acc<=.58)&(d.flow_accel_pr>=.66)
         mask=path&(d.flow20_pr>=.52)&(r20p>=.56)&quality&not_ext&not_crowded
         score=.24*d.flow_accel_pr+.12*d.flow20_pr+.10*(1-l5_acc)+.22*r20p+.10*r60p+.10*d.amount20_pr+.12*context
     elif name=='transition_price_reacceleration':
-        # relative strength pauses then re-accelerates while sponsor stays present
         path=(l5_r20.between(.38,.66))&(r20p>=.68)&(r5p>=.56)
         mask=path&sponsor&quality&not_ext&not_crowded
         score=.13*d.flow_accel_pr+.09*d.flow20_pr+.28*r20p+.14*r5p+.09*(1-l5_r20)+.10*d.amount20_pr+.17*context
     elif name=='transition_breakout_absorption':
-        # prior breakout, current low-volatility absorption without sponsor loss
         path=l5_dist.between(.035,.14)&d.dist_ma20.between(-.025,.045)&(d.vol20_pr<=.62)
         mask=path&sponsor&(r20p>=.56)&(r5p>=.44)&liquid&not_crowded
         score=.12*d.flow_accel_pr+.09*d.flow20_pr+.23*r20p+.10*r5p+.13*(1-d.vol20_pr)+.12*d.amount20_pr+.21*context
     elif name=='transition_quiet_base_release':
-        # compressed base five/ten days ago, now first price/flow release
         path=(l10_dist.abs()<=.045)&(l5_dist.abs()<=.055)&(d.dist_ma20.between(.015,.10))
         mask=path&(d.flow_accel_pr>=.60)&(r5p>=.58)&(r20p>=.54)&quality&not_crowded
         score=.17*d.flow_accel_pr+.08*d.flow20_pr+.19*r5p+.20*r20p+.10*d.amount20_pr+.09*(1-d.vol20_pr)+.17*context
     elif name=='transition_sponsor_after_price':
-        # price leadership existed first; institutional sponsorship arrives later
         path=(l5_r20>=.58)&(l5_acc<=.58)&(d.flow_accel_pr>=.66)
         mask=path&leader&quality&not_ext&not_crowded
         score=.20*d.flow_accel_pr+.08*d.flow20_pr+.09*l5_r20+.24*r20p+.10*r60p+.10*d.amount20_pr+.19*context
     elif name=='transition_price_after_sponsor':
-        # sponsor was already strong; price confirms only now
         path=(l5_acc>=.62)&(l5_flow5>=.54)&(l5_r20<=.62)&(r20p>=.66)&(r5p>=.54)
         mask=path&(d.flow_accel_pr>=.52)&quality&not_ext&not_crowded
         score=.11*l5_acc+.08*l5_flow5+.10*d.flow_accel_pr+.28*r20p+.13*r5p+.09*d.amount20_pr+.11*context
     elif name=='transition_uncrowded_leadership':
-        # persistent leadership without crowded short-horizon flow/price extremes
         uncrowded=(d.flow5_pr<=.84)&(d.r20_pr<=.88)&(d.dist_ma20<=.085)
         mask=sponsor&leader&quality&uncrowded&(l5_r20>=.50)
         score=.11*d.flow_accel_pr+.08*d.flow20_pr+.27*r20p+.12*r60p+.10*d.amount20_pr+.11*(1-d.flow5_pr)+.07*(1-d.vol20_pr)+.14*context
     elif name=='transition_liquidity_expansion':
-        # sponsorship + relative leadership accompanied by a new liquidity expansion
         path=(l5_amt<=.62)&(d.amount20_pr>=.78)
         mask=path&sponsor&(r20p>=.60)&(r5p>=.50)&(d.vol20_pr<=.78)&not_ext&not_crowded
         score=.13*d.flow_accel_pr+.08*d.flow20_pr+.24*r20p+.10*r5p+.20*d.amount20_pr+.08*(1-d.vol20_pr)+.17*context
     elif name=='transition_lowvol_sponsor':
-        # sponsorship persists through volatility compression rather than momentum chase
         path=(l5_vol>=.40)&(d.vol20_pr<=.48)
         mask=path&sponsor&(r20p>=.55)&(r60p>=.48)&(d.amount20_pr>=.58)&d.dist_ma20.between(-.05,.075)&not_crowded
         score=.13*d.flow_accel_pr+.09*d.flow20_pr+.23*r20p+.12*r60p+.13*(1-d.vol20_pr)+.11*d.amount20_pr+.19*context
     elif name=='transition_multihorizon_confirmation':
-        # independent short/intermediate/long residual confirmation with sponsor support
         path=(r5p>=.54)&(r20p>=.62)&(r60p>=.54)&(l5_r20>=.48)
         mask=path&sponsor&quality&not_ext&not_crowded
         score=.11*d.flow_accel_pr+.07*d.flow20_pr+.13*r5p+.26*r20p+.15*r60p+.09*d.amount20_pr+.19*context
     elif name=='transition_two_slot_conviction':
-        # concentration is structural: only strongest transition paths compete for two slots
         path=((l5_acc>=.60)&(r20p>=.64))|((l5_r20>=.60)&(d.flow_accel_pr>=.64))
         mask=path&sponsor&(r60p>=.50)&(d.amount20_pr>=.66)&(d.vol20_pr<=.68)&not_ext&not_crowded
         score=.16*d.flow_accel_pr+.09*d.flow20_pr+.28*r20p+.13*r60p+.12*d.amount20_pr+.08*(1-d.vol20_pr)+.14*context
-    else: # transition_failed_breakout_recovery
-        # a failed/soft breakout is allowed only when sponsorship survives and price recovers causally
+    else:
         failed=l10_dist.between(.03,.14)&l5_dist.between(-.065,.015)
         recovered=d.dist_ma20.between(-.005,.075)&(r5p>=.58)
         mask=failed&recovered&sponsor&(r20p>=.54)&quality&not_crowded
