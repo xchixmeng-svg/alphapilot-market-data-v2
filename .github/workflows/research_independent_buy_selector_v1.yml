@@ -25,9 +25,9 @@ jobs:
       - name: Verify immutable market inputs
         working-directory: data/history/2020-2025
         run: sha256sum --check SHA256SUMS
-      - name: Assert R10 independence
+      - name: Assert legacy-engine independence
         run: |
-          ! grep -Ei 'r10|r7_hard|r05_hard|r7_score|r05_score' scripts/backtest_independent_buy_selector_v1.py
+          ! grep -Ei 'r10_max|r7_hard|r05_hard|r7_score|r05_score|backtest_ai|backtest_full_market' scripts/backtest_independent_buy_selector_v1.py
       - name: Run independent buy selector
         shell: bash
         run: |
