@@ -64,3 +64,4 @@ jobs:
             full_market_ai_v2_results/FULL_MARKET_AI_V2/r10max_formal_orders.csv
           if-no-files-found: error
           retention-days: 30
+# trigger: sparse-relative-alpha-v2
