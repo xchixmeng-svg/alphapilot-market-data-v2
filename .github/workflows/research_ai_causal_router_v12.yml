@@ -15,7 +15,7 @@ permissions:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,4 +62,3 @@ jobs:
             ai_causal_router_v12_results/AI_ADAPTIVE_ROUTER/r10max_formal_orders.csv
           if-no-files-found: error
           retention-days: 30
-# trigger: adaptive-routing-v12
