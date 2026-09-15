@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/INDEPENDENT_AI_BUY_SELECTOR_V4_PREREGISTRATION.md'
       - 'scripts/backtest_independent_ai_buy_selector_v4.py'
+      - 'scripts/build_2026_ytd_package.py'
       - '.github/workflows/research_independent_ai_buy_selector_v4.yml'
   workflow_dispatch:
 
@@ -104,4 +105,5 @@ jobs:
             research/INDEPENDENT_AI_BUY_SELECTOR_V4_PREREGISTRATION.md
             independent_ai_buy_selector_v4_results/
             data/history/2026-YTD/manifest.json
+            data/history/2026-YTD/institutional_failures.json
           retention-days: 30
