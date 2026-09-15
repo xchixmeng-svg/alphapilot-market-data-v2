@@ -62,3 +62,4 @@ jobs:
             portfolio_decision_ai_v1_results/PORTFOLIO_DECISION_AI_V1/r10max_formal_orders.csv
           if-no-files-found: error
           retention-days: 30
+# trigger
