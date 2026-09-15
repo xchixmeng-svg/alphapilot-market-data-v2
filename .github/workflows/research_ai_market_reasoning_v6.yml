@@ -17,7 +17,7 @@ permissions:
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -61,17 +61,16 @@ jobs:
           s=p.read_text()
           a=s.index('def build_macro():')
           b=s.index('\n\n# ---------- B)', a)
-          replacement='''def build_macro():\n    frames=[]; failures=[]\n    for short,sid in FRED_SERIES.items():\n        try:\n            url=f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"\n            r=get(url, timeout=12, tries=2)\n            df=pd.read_csv(io.BytesIO(r.content)).iloc[:,:2].copy()\n            df.columns=["date",short]\n            df["date"]=pd.to_datetime(df["date"],errors="coerce")\n            df[short]=pd.to_numeric(df[short],errors="coerce")\n            df=df[(df["date"].dt.year>=START_YEAR)&(df["date"].dt.date<=END_DATE)]\n            frames.append(df); print("[MACRO]",short,sid,len(df),flush=True)\n        except Exception as e:\n            failures.append({"series":sid,"name":short,"error":str(e)})\n            print("[MACRO FAIL-SOFT]",short,sid,e,flush=True)\n    if frames:\n        out=frames[0]\n        for f in frames[1:]: out=out.merge(f,on="date",how="outer")\n        out=out.sort_values("date"); cols=[c for c in out.columns if c!="date"]; out[cols]=out[cols].ffill()\n    else:\n        out=pd.DataFrame({"date":pd.date_range(date(START_YEAR,1,1),END_DATE,freq="D")})\n    out["date"]=out["date"].dt.strftime("%Y-%m-%d")\n    p=OUT/"macro_daily.csv.gz"; write_gz(p,out.to_dict("records"))\n    return p,failures,len(out)\n'''
+          replacement='''def build_macro():\n    frames=[]; failures=[]\n    for short,sid in FRED_SERIES.items():\n        try:\n            url=f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"\n            r=get(url, timeout=8, tries=1)\n            df=pd.read_csv(io.BytesIO(r.content)).iloc[:,:2].copy()\n            df.columns=["date",short]\n            df["date"]=pd.to_datetime(df["date"],errors="coerce")\n            df[short]=pd.to_numeric(df[short],errors="coerce")\n            df=df[(df["date"].dt.year>=START_YEAR)&(df["date"].dt.date<=END_DATE)]\n            frames.append(df); print("[MACRO]",short,sid,len(df),flush=True)\n        except Exception as e:\n            failures.append({"series":sid,"name":short,"error":str(e)})\n            print("[MACRO FAIL-SOFT]",short,sid,e,flush=True)\n    if frames:\n        out=frames[0]\n        for f in frames[1:]: out=out.merge(f,on="date",how="outer")\n        out=out.sort_values("date"); cols=[c for c in out.columns if c!="date"]; out[cols]=out[cols].ffill()\n    else:\n        out=pd.DataFrame({"date":pd.date_range(date(START_YEAR,1,1),END_DATE,freq="D")})\n    out["date"]=out["date"].dt.strftime("%Y-%m-%d")\n    p=OUT/"macro_daily.csv.gz"; write_gz(p,out.to_dict("records"))\n    return p,failures,len(out)\n'''
           s=s[:a]+replacement+s[b:]
           s=s.replace('{"response": "json", "date": ds, "type": "IND"}', '{"response": "json", "date": ds, "type": "ALL"}')
           old='''    if len({r["date"] for r in rows}) < 1800:\n        raise RuntimeError(f"industry index coverage too low: dates={len({r['date'] for r in rows})}")'''
           new='''    if len({r["date"] for r in rows}) < 1800:\n        failures.append({"coverage_warning": f"industry index coverage too low: dates={len({r['date'] for r in rows})}"})\n        print("[IND FAIL-SOFT]", failures[-1], flush=True)'''
           s=s.replace(old,new)
-          # MOPS legacy monthly-revenue archive is served more reliably from the overflow host on Actions.
           s=s.replace('https://mops.twse.com.tw/nas/t21/', 'https://mopsov.twse.com.tw/nas/t21/')
-          # Avoid burst throttling from TWSE/MOPS historical endpoints.
-          s=s.replace('ThreadPoolExecutor(max_workers=10)', 'ThreadPoolExecutor(max_workers=3)')
-          s=s.replace('ThreadPoolExecutor(max_workers=8)', 'ThreadPoolExecutor(max_workers=3)')
+          # Industry tape is thousands of independent daily reads; bounded concurrency 8 keeps it well under runner timeout.
+          s=s.replace('ThreadPoolExecutor(max_workers=10)', 'ThreadPoolExecutor(max_workers=8)')
+          # MOPS revenue/valuation endpoints are more throttle-sensitive.
           p.write_text(s)
           PY
           python -m py_compile scripts/build_v6_context_layers.py
