@@ -35,21 +35,25 @@ jobs:
           audit=json.loads((root/'history_audit.json').read_text())
           assert audit['status']=='PASS'
           rows=0; dates=set(); contains_0050=False
+          def ymd(s):
+              if pd.api.types.is_datetime64_any_dtype(s):
+                  return s.dt.strftime('%Y%m%d').astype(int)
+              return s.astype(str).str.replace('-','',regex=False).str.replace('/','',regex=False).astype(int)
           for y in range(2020,2026):
               p=root/f'ohlcv_{y}.parquet'
               assert p.exists(), p
               d=pd.read_parquet(p, columns=['date','code'])
               rows += len(d)
-              ds=pd.to_datetime(d['date']).dt.strftime('%Y%m%d').astype(int) if pd.api.types.is_datetime64_any_dtype(d['date']) else d['date'].astype(str).str.replace('-','',regex=False).astype(int)
+              ds=ymd(d['date'])
               dates.update(ds.unique().tolist())
               contains_0050 = contains_0050 or d['code'].astype(str).str.zfill(4).eq('0050').any()
           inst=pd.read_parquet(root/'institutional_2020_2025.parquet', columns=['date','code'])
-          ids=pd.to_datetime(inst['date']).dt.strftime('%Y%m%d').astype(int) if pd.api.types.is_datetime64_any_dtype(inst['date']) else pd.to_datetime(inst['date']).dt.strftime('%Y%m%d').astype(int)
+          ids=ymd(inst['date'])
           assert rows==audit['ohlcv_rows'], (rows,audit['ohlcv_rows'])
           assert len(dates)==audit['ohlcv_dates'], (len(dates),audit['ohlcv_dates'])
           assert min(dates)==audit['ohlcv_min'] and max(dates)==audit['ohlcv_max']
           assert len(inst)==audit['institutional_rows'], (len(inst),audit['institutional_rows'])
-          assert ids.nunique()==audit['institutional_dates']
+          assert ids.nunique()==audit['institutional_dates'], (ids.nunique(),audit['institutional_dates'])
           assert contains_0050==audit['contains_0050']
           print('2020-2025 immutable audit OK', rows, len(dates), len(inst))
           PY
