@@ -33,7 +33,10 @@ jobs:
           echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
           test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
       - name: Run contextual neighbor v13
-        run: python -u scripts/backtest_ai_context_neighbor_v13.py | tee ai_context_v13_execution.log
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/backtest_ai_context_neighbor_v13.py | tee ai_context_v13_execution.log
       - name: Show portfolio comparison
         run: cat ai_context_neighbor_v13_results/AI_V13_COMPARISON.csv
       - name: Show decision audit
