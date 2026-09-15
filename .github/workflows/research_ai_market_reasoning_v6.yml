@@ -53,7 +53,7 @@ jobs:
           ! grep -Ei 'r10_max|r10|r7_hard|r05_hard|r7_score|r05_score|backtest_full_market' scripts/backtest_ai_market_reasoning_v6.py
       - name: Rebuild current 2026 YTD market data
         run: python -u scripts/build_2026_ytd_package.py
-      - name: Apply bounded fail-soft macro transport patch
+      - name: Apply bounded transport patches
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -61,8 +61,15 @@ jobs:
           s=p.read_text()
           a=s.index('def build_macro():')
           b=s.index('\n\n# ---------- B)', a)
-          replacement='''def build_macro():\n    frames=[]; failures=[]\n    for short,sid in FRED_SERIES.items():\n        try:\n            url=f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"\n            r=get(url, timeout=12, tries=2)\n            df=pd.read_csv(io.BytesIO(r.content)).iloc[:,:2].copy()\n            df.columns=["date",short]\n            df["date"]=pd.to_datetime(df["date"],errors="coerce")\n            df[short]=pd.to_numeric(df[short],errors="coerce")\n            df=df[(df["date"].dt.year>=START_YEAR)&(df["date"].dt.date<=END_DATE)]\n            frames.append(df); print("[MACRO]",short,sid,len(df),flush=True)\n        except Exception as e:\n            failures.append({"series":sid,"name":short,"error":str(e)})\n            print("[MACRO FAIL-SOFT]",short,sid,e,flush=True)\n    if frames:\n        out=frames[0]\n        for f in frames[1:]: out=out.merge(f,on="date",how="outer")\n        out=out.sort_values("date"); cols=[c for c in out.columns if c!="date"]; out[cols]=out[cols].ffill()\n    else:\n        # Preserve causality and allow the rest of V6 to run during a FRED transport outage.\n        # Date-only macro context creates zero macro features; it never fabricates observations.\n        out=pd.DataFrame({"date":pd.date_range(date(START_YEAR,1,1),END_DATE,freq="D")})\n    out["date"]=out["date"].dt.strftime("%Y-%m-%d")\n    p=OUT/"macro_daily.csv.gz"; write_gz(p,out.to_dict("records"))\n    return p,failures,len(out)\n'''
-          p.write_text(s[:a]+replacement+s[b:])
+          replacement='''def build_macro():\n    frames=[]; failures=[]\n    for short,sid in FRED_SERIES.items():\n        try:\n            url=f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"\n            r=get(url, timeout=12, tries=2)\n            df=pd.read_csv(io.BytesIO(r.content)).iloc[:,:2].copy()\n            df.columns=["date",short]\n            df["date"]=pd.to_datetime(df["date"],errors="coerce")\n            df[short]=pd.to_numeric(df[short],errors="coerce")\n            df=df[(df["date"].dt.year>=START_YEAR)&(df["date"].dt.date<=END_DATE)]\n            frames.append(df); print("[MACRO]",short,sid,len(df),flush=True)\n        except Exception as e:\n            failures.append({"series":sid,"name":short,"error":str(e)})\n            print("[MACRO FAIL-SOFT]",short,sid,e,flush=True)\n    if frames:\n        out=frames[0]\n        for f in frames[1:]: out=out.merge(f,on="date",how="outer")\n        out=out.sort_values("date"); cols=[c for c in out.columns if c!="date"]; out[cols]=out[cols].ffill()\n    else:\n        out=pd.DataFrame({"date":pd.date_range(date(START_YEAR,1,1),END_DATE,freq="D")})\n    out["date"]=out["date"].dt.strftime("%Y-%m-%d")\n    p=OUT/"macro_daily.csv.gz"; write_gz(p,out.to_dict("records"))\n    return p,failures,len(out)\n'''
+          s=s[:a]+replacement+s[b:]
+          # TWSE historical MI_INDEX serves the industry tables under ALL; IND returned almost no history.
+          s=s.replace('{"response": "json", "date": ds, "type": "IND"}', '{"response": "json", "date": ds, "type": "ALL"}')
+          # External historical tape gaps are evidence-quality flags, not a reason to kill all other causal layers.
+          old='''    if len({r["date"] for r in rows}) < 1800:\n        raise RuntimeError(f"industry index coverage too low: dates={len({r['date'] for r in rows})}")'''
+          new='''    if len({r["date"] for r in rows}) < 1800:\n        failures.append({"coverage_warning": f"industry index coverage too low: dates={len({r['date'] for r in rows})}"})\n        print("[IND FAIL-SOFT]", failures[-1], flush=True)'''
+          s=s.replace(old,new)
+          p.write_text(s)
           PY
           python -m py_compile scripts/build_v6_context_layers.py
       - name: Build V6 causal context layers
