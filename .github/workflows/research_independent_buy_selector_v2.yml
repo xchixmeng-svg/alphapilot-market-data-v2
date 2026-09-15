@@ -1,0 +1,50 @@
+name: AlphaPilot Independent Buy Selector V2
+
+on:
+  push:
+    branches: [research-independent-buy-selector-v2-20260915]
+    paths:
+      - scripts/backtest_independent_buy_selector_v2.py
+      - research/INDEPENDENT_BUY_SELECTOR_V2_PREREGISTRATION.md
+      - .github/workflows/research_independent_buy_selector_v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 scipy==1.18.1 scikit-learn==1.5.2
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Assert legacy-engine independence
+        run: |
+          ! grep -Ei 'r10_max|r7_hard|r05_hard|r7_score|r05_score|backtest_full_market' scripts/backtest_independent_buy_selector_v2.py
+      - name: Run independent buy selector V2
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/backtest_independent_buy_selector_v2.py | tee independent_buy_selector_v2_execution.log
+      - name: Show OOS evidence
+        run: |
+          cat independent_buy_selector_v2_results/INDEPENDENT_BUY_SELECTOR_V2_YEARLY.csv
+          cat independent_buy_selector_v2_results/INDEPENDENT_BUY_SELECTOR_V2_OVERALL.json
+          cat independent_buy_selector_v2_results/INDEPENDENT_BUY_SELECTOR_V2_GATE.json
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-independent-buy-selector-v2-results
+          path: |
+            independent_buy_selector_v2_execution.log
+            research/INDEPENDENT_BUY_SELECTOR_V2_PREREGISTRATION.md
+            independent_buy_selector_v2_results/
+          if-no-files-found: error
+          retention-days: 30
