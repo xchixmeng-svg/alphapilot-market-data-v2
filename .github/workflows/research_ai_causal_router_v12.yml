@@ -6,6 +6,7 @@ on:
       - research-ai-causal-router-v12-20260915
     paths:
       - scripts/backtest_ai_causal_router_v12.py
+      - scripts/backtest_ai_causal_router_v12_fast.py
       - .github/workflows/research_ai_causal_router_v12.yml
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ permissions:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,8 +33,8 @@ jobs:
         run: |
           echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
           test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
-      - name: Run adaptive causal router v12
-        run: python scripts/backtest_ai_causal_router_v12.py | tee ai_causal_v12_execution.log
+      - name: Run indexed adaptive causal router v12
+        run: python -u scripts/backtest_ai_causal_router_v12_fast.py | tee ai_causal_v12_execution.log
       - name: Show portfolio comparison
         run: cat ai_causal_router_v12_results/AI_CAUSAL_V12_COMPARISON.csv
       - name: Show route audit
