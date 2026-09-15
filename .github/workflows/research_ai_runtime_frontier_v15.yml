@@ -1,0 +1,51 @@
+name: AlphaPilot AI Runtime Frontier V15
+
+on:
+  push:
+    branches: [research-ai-runtime-frontier-v15-20260915]
+    paths:
+      - scripts/backtest_ai_runtime_frontier_v15.py
+      - .github/workflows/research_ai_runtime_frontier_v15.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0 scikit-learn==1.5.2
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked R10 engine fingerprint
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+      - name: Run V15 exact runtime-frontier policy
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/backtest_ai_runtime_frontier_v15.py | tee ai_runtime_v15_execution.log
+      - name: Show portfolio comparison
+        run: cat ai_runtime_frontier_v15_results/AI_V15_COMPARISON.csv
+      - name: Show decision audit
+        run: cat ai_runtime_frontier_v15_results/AI_V15_DECISION_AUDIT.csv || true
+      - name: Show success gate
+        run: cat ai_runtime_frontier_v15_results/AI_V15_SUCCESS_GATE.json
+      - name: Upload research results
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-ai-runtime-frontier-v15-results
+          path: |
+            ai_runtime_v15_execution.log
+            ai_runtime_frontier_v15_results/
+          if-no-files-found: error
+          retention-days: 30
