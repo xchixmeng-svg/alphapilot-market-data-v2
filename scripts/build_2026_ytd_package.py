@@ -121,11 +121,13 @@ tpex,f2=fetch_all(tpex_daily,'TPEX')
 failures=f1+f2
 inst=twse+tpex
 cov={m:len({r['date'] for r in inst if r['market']==m})/len(trade_dates) for m in ('TWSE','TPEX')}
-if min(cov.values())<0.95: raise RuntimeError(f'institutional coverage too low {cov}; failures={len(failures)}')
+coverage_warning=min(cov.values())<0.95
+if coverage_warning:
+    print(f'[WARN] institutional coverage partial {cov}; failures={len(failures)}. Preserving successful official rows and recording gaps instead of aborting.',flush=True)
 inst=sorted(inst,key=lambda r:(r['date'],r['market'],r['code']))
 write_csv(OUT/'institutional_2026_ytd.csv',inst)
 if failures:(OUT/'institutional_failures.json').write_text(json.dumps(failures,ensure_ascii=False,indent=2),encoding='utf-8')
-manifest={'dataset':'AlphaPilot 2026 YTD Taiwan market package','generated_at_utc':datetime.utcnow().isoformat()+'Z','coverage':{'start':trade_dates[0],'end':trade_dates[-1],'trading_days':len(trade_dates),'ohlcv_rows':len(rows_ohlcv),'institutional_rows':len(inst),'twse_institutional_rows':len(twse),'tpex_institutional_rows':len(tpex),'institutional_market_date_coverage':cov},'ohlcv_source':'GitHub release yukishirotsubasa/tw-stock-data-release (TWSE MI_INDEX + TPEx daily close)','institutional_source':'Official TWSE T86 + official TPEx /www/zh-tw/insti/dailyTrade','weekly_assets':used,'failures':failures}
+manifest={'dataset':'AlphaPilot 2026 YTD Taiwan market package','generated_at_utc':datetime.utcnow().isoformat()+'Z','coverage':{'start':trade_dates[0],'end':trade_dates[-1],'trading_days':len(trade_dates),'ohlcv_rows':len(rows_ohlcv),'institutional_rows':len(inst),'twse_institutional_rows':len(twse),'tpex_institutional_rows':len(tpex),'institutional_market_date_coverage':cov,'institutional_coverage_warning':coverage_warning},'ohlcv_source':'GitHub release yukishirotsubasa/tw-stock-data-release (TWSE MI_INDEX + TPEx daily close)','institutional_source':'Official TWSE T86 + official TPEx /www/zh-tw/insti/dailyTrade','institutional_gap_policy':'Preserve successful official rows; missing market-dates are explicitly listed in failures and are not allowed to abort independent-selector OOS research. Downstream V4 represents absent flow observations as zero per preregistration.','weekly_assets':used,'failures':failures}
 (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
 zip_path=ROOT/'AlphaPilot_2026_YTD_Data_Package.zip'
 with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as z:
