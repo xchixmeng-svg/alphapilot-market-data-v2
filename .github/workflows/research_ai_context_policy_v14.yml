@@ -1,0 +1,51 @@
+name: AlphaPilot AI Context Policy V14
+
+on:
+  push:
+    branches: [research-ai-context-policy-v14-20260915]
+    paths:
+      - scripts/backtest_ai_context_policy_v14.py
+      - .github/workflows/research_ai_context_policy_v14.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0 scikit-learn==1.5.2
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked R10 engine fingerprint
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+      - name: Run V14 policy gate
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/backtest_ai_context_policy_v14.py | tee ai_context_v14_execution.log
+      - name: Show portfolio comparison
+        run: cat ai_context_policy_v14_results/AI_V14_COMPARISON.csv
+      - name: Show decision audit
+        run: cat ai_context_policy_v14_results/AI_V14_DECISION_AUDIT.csv || true
+      - name: Show success gate
+        run: cat ai_context_policy_v14_results/AI_V14_SUCCESS_GATE.json
+      - name: Upload research results
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-ai-context-policy-v14-results
+          path: |
+            ai_context_v14_execution.log
+            ai_context_policy_v14_results/
+          if-no-files-found: error
+          retention-days: 30
