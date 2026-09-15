@@ -1,0 +1,41 @@
+name: Research V6 Context Build
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-forecast-v6-20260915]
+    paths:
+      - 'research/AI_MARKET_REASONING_FORECAST_V6_PREREGISTRATION.md'
+      - 'scripts/build_v6_context_layers.py'
+      - '.github/workflows/research_v6_context.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime
+        run: python -m pip install pandas==2.2.3 requests==2.32.5 lxml==5.3.0
+      - name: Build V6 point-in-time context layers
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/build_v6_context_layers.py | tee v6_context_build.log
+      - name: Show audit
+        run: cat data/history/v6-context/manifest.json
+      - name: Upload V6 causal context evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-context-layer
+          path: |
+            v6_context_build.log
+            research/AI_MARKET_REASONING_FORECAST_V6_PREREGISTRATION.md
+            data/history/v6-context/
+          retention-days: 30
