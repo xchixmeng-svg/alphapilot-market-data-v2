@@ -1,0 +1,68 @@
+name: AlphaPilot Full-Market AI V1
+
+on:
+  push:
+    branches: [research-full-market-ai-v1-20260915]
+    paths:
+      - scripts/backtest_full_market_ai_v1.py
+      - research/FULL_MARKET_AI_V1_PREREGISTRATION.md
+      - .github/workflows/research_full_market_ai_v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 tabulate==0.9.0 scikit-learn==1.5.2
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Verify locked R10 engine fingerprint
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          test "$(git rev-parse refs/remotes/origin/r10-no-trail-formal-fix-20260907)" = "3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9"
+      - name: Run Full-Market AI V1
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/backtest_full_market_ai_v1.py | tee full_market_ai_v1_execution.log
+      - name: Show full-market coverage
+        run: cat full_market_ai_v1_results/FULL_MARKET_AI_COVERAGE.json
+      - name: Show OOS model diagnostics
+        run: cat full_market_ai_v1_results/FULL_MARKET_AI_MODEL_DIAGNOSTICS.csv
+      - name: Show portfolio comparison
+        run: cat full_market_ai_v1_results/FULL_MARKET_AI_V1_COMPARISON.csv
+      - name: Show success gate
+        run: cat full_market_ai_v1_results/FULL_MARKET_AI_V1_SUCCESS_GATE.json
+      - name: Upload concise research evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-full-market-ai-v1-results
+          path: |
+            full_market_ai_v1_execution.log
+            research/FULL_MARKET_AI_V1_PREREGISTRATION.md
+            full_market_ai_v1_results/FULL_MARKET_AI_COVERAGE.json
+            full_market_ai_v1_results/FULL_MARKET_AI_MODEL_DIAGNOSTICS.csv
+            full_market_ai_v1_results/FULL_MARKET_AI_DAILY_AUDIT.csv
+            full_market_ai_v1_results/FULL_MARKET_AI_OOS_TOP50.csv
+            full_market_ai_v1_results/FULL_MARKET_AI_V1_COMPARISON.csv
+            full_market_ai_v1_results/FULL_MARKET_AI_V1_SUCCESS_GATE.json
+            full_market_ai_v1_results/baseline/r10max_formal_summary.json
+            full_market_ai_v1_results/baseline/contract_audit.json
+            full_market_ai_v1_results/FULL_MARKET_AI_V1/r10max_formal_summary.json
+            full_market_ai_v1_results/FULL_MARKET_AI_V1/contract_audit.json
+            full_market_ai_v1_results/FULL_MARKET_AI_V1/r10max_formal_trades.csv
+            full_market_ai_v1_results/FULL_MARKET_AI_V1/r10max_formal_orders.csv
+          if-no-files-found: error
+          retention-days: 30
