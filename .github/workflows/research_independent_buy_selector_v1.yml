@@ -1,0 +1,53 @@
+name: AlphaPilot Independent Buy Selector V1
+
+on:
+  push:
+    branches: [research-independent-buy-selector-v1-20260915]
+    paths:
+      - scripts/backtest_independent_buy_selector_v1.py
+      - research/INDEPENDENT_BUY_SELECTOR_V1_PREREGISTRATION.md
+      - .github/workflows/research_independent_buy_selector_v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 scipy==1.18.1 scikit-learn==1.5.2
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+      - name: Assert R10 independence
+        run: |
+          ! grep -Ei 'r10|r7_hard|r05_hard|r7_score|r05_score' scripts/backtest_independent_buy_selector_v1.py
+      - name: Run independent buy selector
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u scripts/backtest_independent_buy_selector_v1.py | tee independent_buy_selector_v1_execution.log
+      - name: Show OOS evidence
+        run: |
+          cat independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_YEARLY_DIAGNOSTICS.csv
+          cat independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_OVERALL.json
+          cat independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_RESEARCH_GATE.json
+      - name: Upload research evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-independent-buy-selector-v1-results
+          path: |
+            independent_buy_selector_v1_execution.log
+            research/INDEPENDENT_BUY_SELECTOR_V1_PREREGISTRATION.md
+            independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_TOP10_OOS.csv
+            independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_YEARLY_DIAGNOSTICS.csv
+            independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_OVERALL.json
+            independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_RESEARCH_GATE.json
+          if-no-files-found: error
+          retention-days: 30
