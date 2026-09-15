@@ -5,6 +5,7 @@ on:
     branches: [research-independent-buy-selector-v1-20260915]
     paths:
       - scripts/backtest_independent_buy_selector_v1.py
+      - scripts/run_independent_buy_selector_v1_fulltrain.py
       - research/INDEPENDENT_BUY_SELECTOR_V1_PREREGISTRATION.md
       - .github/workflows/research_independent_buy_selector_v1.yml
   workflow_dispatch:
@@ -28,11 +29,12 @@ jobs:
       - name: Assert legacy-engine independence
         run: |
           ! grep -Ei 'r10_max|r7_hard|r05_hard|r7_score|r05_score|backtest_ai|backtest_full_market' scripts/backtest_independent_buy_selector_v1.py
+          ! grep -Ei 'r10_max|r7_hard|r05_hard|r7_score|r05_score|backtest_ai|backtest_full_market' scripts/run_independent_buy_selector_v1_fulltrain.py
       - name: Run independent buy selector
         shell: bash
         run: |
           set -o pipefail
-          python -u scripts/backtest_independent_buy_selector_v1.py | tee independent_buy_selector_v1_execution.log
+          python -u scripts/run_independent_buy_selector_v1_fulltrain.py | tee independent_buy_selector_v1_execution.log
       - name: Show OOS evidence
         run: |
           cat independent_buy_selector_v1_results/INDEPENDENT_BUY_SELECTOR_YEARLY_DIAGNOSTICS.csv
