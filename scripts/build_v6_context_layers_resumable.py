@@ -10,7 +10,7 @@ import re
 import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -20,11 +20,13 @@ import build_v6_context_layers as base
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".cache" / "v6-context-stage"
 IND_CACHE = CACHE / "industry"
+IND_FAIL_CACHE = CACHE / "industry_failures"
+IND_EMPTY_CACHE = CACHE / "industry_empty"
 MACRO_CACHE = CACHE / "macro"
 REV_CACHE = CACHE / "revenue"
 VAL_CACHE = CACHE / "valuation"
 SNAP_CACHE = CACHE / "company_snapshot"
-for p in (IND_CACHE, MACRO_CACHE, REV_CACHE, VAL_CACHE, SNAP_CACHE):
+for p in (IND_CACHE, IND_FAIL_CACHE, IND_EMPTY_CACHE, MACRO_CACHE, REV_CACHE, VAL_CACHE, SNAP_CACHE):
     p.mkdir(parents=True, exist_ok=True)
 
 # Keep each run bounded. Successful units are checkpointed and restored by Actions cache.
@@ -134,36 +136,112 @@ def _industry_cache_path(d: date) -> Path:
     return IND_CACHE / f"{d.isoformat()}.json.gz"
 
 
+def _industry_fail_path(d: date) -> Path:
+    return IND_FAIL_CACHE / f"{d.isoformat()}.json"
+
+
+def _industry_empty_path(d: date) -> Path:
+    return IND_EMPTY_CACHE / f"{d.isoformat()}.json"
+
+
+def _failure_attempts(d: date) -> int:
+    p = _industry_fail_path(d)
+    if not p.exists():
+        return 0
+    try:
+        obj = json.loads(p.read_text(encoding="utf-8"))
+        return max(0, int(obj.get("attempts", 0)))
+    except Exception:
+        return 0
+
+
+def _mark_industry_failure(d: date, err: Exception | str):
+    p = _industry_fail_path(d)
+    attempts = _failure_attempts(d) + 1
+    obj = {
+        "date": d.isoformat(),
+        "attempts": attempts,
+        "last_error": str(err)[:1000],
+        "last_attempt_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(p)
+
+
+def _mark_industry_empty(d: date):
+    p = _industry_empty_path(d)
+    p.write_text(
+        json.dumps(
+            {
+                "date": d.isoformat(),
+                "status": "official_endpoint_returned_no_industry_rows",
+                "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    _industry_fail_path(d).unlink(missing_ok=True)
+
+
 def _fetch_industry_checkpointed(d: date):
     p = _industry_cache_path(d)
     cached = _safe_cached_rows(p)
     if cached is not None:
         return cached, "cache"
-    got = _original_parse_industry(d)
-    if got:
-        _write_json_gz(p, got)
-        return got, "network"
-    return [], "empty"
+    if _industry_empty_path(d).exists():
+        return [], "known_empty"
+    try:
+        got = _original_parse_industry(d)
+        if got:
+            _write_json_gz(p, got)
+            _industry_fail_path(d).unlink(missing_ok=True)
+            return got, "network"
+        _mark_industry_empty(d)
+        return [], "new_empty"
+    except Exception as e:
+        _mark_industry_failure(d, e)
+        raise
 
 
 def build_industry_indices_resumable():
     dates = list(base.weekdays(date(base.START_YEAR, 1, 1), base.END_DATE))
     rows = []
     cached_dates = set()
+    known_empty_dates = set()
     for d in dates:
         cached = _safe_cached_rows(_industry_cache_path(d))
         if cached is not None:
             rows.extend(cached)
             cached_dates.add(d.isoformat())
+        elif _industry_empty_path(d).exists():
+            known_empty_dates.add(d.isoformat())
 
-    missing = [d for d in dates if d.isoformat() not in cached_dates]
-    batch = missing[:MAX_IND_REQUESTS]
+    # Never discard successful dates. Also never waste requests on dates that the official
+    # endpoint already confirmed as empty (weekends are excluded before this point; holidays
+    # can still be weekdays). For unresolved dates, try never-attempted dates first, then retry
+    # prior failures in ascending attempt count. This prevents one bad historical block from
+    # starving all later dates forever.
+    missing = [
+        d for d in dates
+        if d.isoformat() not in cached_dates and d.isoformat() not in known_empty_dates
+    ]
+    never_attempted = [d for d in missing if _failure_attempts(d) == 0]
+    retry_dates = [d for d in missing if _failure_attempts(d) > 0]
+    never_attempted.sort()
+    retry_dates.sort(key=lambda d: (_failure_attempts(d), d))
+    ordered_missing = never_attempted + retry_dates
+    batch = ordered_missing[:MAX_IND_REQUESTS]
     failures = []
     empty = 0
     fresh_dates = 0
     print(
         "[IND RESUME] cached_dates", len(cached_dates),
-        "missing_weekdays", len(missing),
+        "known_empty", len(known_empty_dates),
+        "unresolved", len(missing),
+        "never_attempted", len(never_attempted),
+        "retry_dates", len(retry_dates),
         "this_run_requests", len(batch),
         "workers", IND_WORKERS,
         flush=True,
@@ -182,7 +260,7 @@ def build_industry_indices_resumable():
                 else:
                     empty += 1
             except Exception as e:
-                failures.append({"date": d.isoformat(), "error": str(e)})
+                failures.append({"date": d.isoformat(), "attempts": _failure_attempts(d), "error": str(e)})
             if i % 50 == 0 or i == len(fut):
                 coverage = len({r["date"] for r in rows})
                 print(
@@ -191,23 +269,30 @@ def build_industry_indices_resumable():
                     "fresh_saved", fresh_dates,
                     "coverage_dates", coverage,
                     "rows", len(rows),
-                    "empty", empty,
+                    "new_or_known_empty", empty,
                     "hard_fail", len(failures),
                     flush=True,
                 )
 
     rows = sorted({(r["date"], r["index_name"]): r for r in rows}.values(), key=lambda r: (r["date"], r["index_name"]))
     coverage_dates = len({r["date"] for r in rows})
+    completed_empty = sum(1 for d in dates if _industry_empty_path(d).exists())
+    unresolved_after = sum(
+        1 for d in dates
+        if _safe_cached_rows(_industry_cache_path(d)) is None and not _industry_empty_path(d).exists()
+    )
     print(
         "[IND CHECKPOINT] coverage_dates", coverage_dates,
         "fresh_saved", fresh_dates,
-        "remaining_weekdays", max(0, len(missing) - len(batch)),
+        "known_empty_total", completed_empty,
+        "unresolved_total", unresolved_after,
         flush=True,
     )
     if coverage_dates < 1800:
         raise RuntimeError(
             f"industry index coverage too low: dates={coverage_dates}; "
-            f"checkpointed_successes_are_preserved; retry only missing dates next run"
+            f"checkpointed_successes_are_preserved; unresolved={unresolved_after}; "
+            "next run prioritizes never-attempted units before rotating prior failures"
         )
     dest = base.OUT / "twse_industry_index_daily.csv.gz"
     base.write_gz(dest, rows)
