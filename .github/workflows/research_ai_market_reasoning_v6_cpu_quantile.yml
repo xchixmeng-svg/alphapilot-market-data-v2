@@ -13,6 +13,7 @@ on:
       - 'scripts/build_v6_context_layers_resumable.py'
       - 'scripts/build_v6_stage0_strict.py'
       - 'scripts/build_v6_stage0_macro_layer.py'
+      - 'scripts/build_v6_stage0_industry_layer.py'
       - 'scripts/audit_v6_stage0_layer_contract.py'
       - 'scripts/probe_v6_stage0_sources.py'
       - '.github/workflows/research_ai_market_reasoning_v6_cpu_quantile.yml'
@@ -40,6 +41,7 @@ jobs:
           python -m py_compile scripts/build_v6_context_layers_resumable.py
           python -m py_compile scripts/build_v6_stage0_strict.py
           python -m py_compile scripts/build_v6_stage0_macro_layer.py
+          python -m py_compile scripts/build_v6_stage0_industry_layer.py
           python -m py_compile scripts/audit_v6_stage0_layer_contract.py
           python -m py_compile scripts/probe_v6_stage0_sources.py
       - name: Assert legacy-engine independence
@@ -92,6 +94,24 @@ jobs:
           assert all(x['equivalence_status']=='PROVISIONAL' for x in m['fallback_sources'])
           print('0D MACRO PROVISIONAL GATE PASS — NOT FROZEN / NOT OOS ELIGIBLE')
           PY
+      - name: Build provisional 0B Industry Layer
+        run: python -u scripts/build_v6_stage0_industry_layer.py
+      - name: Assert Industry layer universe and quality gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data/history/v6-layered/manifests/0B_INDUSTRY.json')
+          m=json.loads(p.read_text())
+          assert m['layer_id']=='0B_INDUSTRY'
+          assert m['status']=='PROVISIONAL'
+          assert m['pit_rules']['formal_oos_eligible'] is False
+          assert m['universe_audit']['frozen_universe_size']==37
+          assert len(m['datasets'])==37
+          assert m['coverage_audit']['layer_eligible_date_coverage']==1.0
+          assert m['quality_gate_status'] in ('PASS','PROVISIONAL')
+          print('0B INDUSTRY QUALITY GATE PASS/PROVISIONAL — NOT YET SOURCE-FROZEN')
+          PY
       - name: Record candidate architecture hashes
         run: |
           mkdir -p pre_oos_audit
@@ -103,6 +123,7 @@ jobs:
             scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py \
             scripts/build_v6_stage0_strict.py \
             scripts/build_v6_stage0_macro_layer.py \
+            scripts/build_v6_stage0_industry_layer.py \
             scripts/audit_v6_stage0_layer_contract.py \
             scripts/probe_v6_stage0_sources.py \
             > pre_oos_audit/CANDIDATE_SHA256SUMS
@@ -115,6 +136,14 @@ jobs:
           path: |
             data/history/v6-layered/0D_MACRO/
             data/history/v6-layered/manifests/0D_MACRO.json
+          retention-days: 30
+      - name: Upload provisional 0B Industry Layer evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0B-industry-provisional
+          path: |
+            data/history/v6-layered/0B_INDUSTRY/
+            data/history/v6-layered/manifests/0B_INDUSTRY.json
           retention-days: 30
       - name: Upload pre-OOS architecture and Stage0 evidence
         uses: actions/upload-artifact@v4
