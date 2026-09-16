@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -13,7 +15,7 @@ OUT.mkdir(exist_ok=True)
 
 S = requests.Session()
 S.headers.update({
-    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.0",
+    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.1",
     "Accept": "application/json,text/csv,text/html,*/*",
 })
 
@@ -35,6 +37,57 @@ def probe(name, url, params=None, timeout=20, json_check=None):
             payload = r.json()
             row["json_summary"] = json_check(payload)
         row["ok"] = True
+    except Exception as e:
+        row.update({
+            "elapsed_seconds": round(time.time() - t0, 3),
+            "error": f"{type(e).__name__}: {e}",
+        })
+    print("[STAGE0 PROBE]", json.dumps(row, ensure_ascii=False), flush=True)
+    return row
+
+
+def probe_tip_transport():
+    name = "TIP_HISTORY_TRANSPORT_DISCOVERY"
+    page = "https://taiwanindex.com.tw/indexes/t00/history"
+    t0 = time.time()
+    row = {"name": name, "url": page, "ok": False}
+    try:
+        r = S.get(page, timeout=20)
+        r.raise_for_status()
+        html = r.text
+        scripts = [urljoin(page, s) for s in re.findall(r'<script[^>]+src=[\"\']([^\"\']+)', html, flags=re.I)]
+        same_host = [u for u in scripts if urlparse(u).netloc == urlparse(page).netloc]
+        patterns = [
+            re.compile(r'https?://[^\"\'\s<>]+', re.I),
+            re.compile(r'/[A-Za-z0-9_./?=&%-]*(?:download|history|index)[A-Za-z0-9_./?=&%-]*', re.I),
+        ]
+        matches = set()
+        corpus = [html]
+        scanned = []
+        for u in same_host[:18]:
+            try:
+                jr = S.get(u, timeout=10)
+                if jr.ok and len(jr.text) <= 5_000_000:
+                    corpus.append(jr.text)
+                    scanned.append({"url": u, "bytes": len(jr.content)})
+            except Exception as e:
+                scanned.append({"url": u, "error": f"{type(e).__name__}: {e}"})
+        for text in corpus:
+            for pat in patterns:
+                for m in pat.findall(text):
+                    low = m.lower()
+                    if any(k in low for k in ("download", "history", "index", "api")):
+                        matches.add(m[:500])
+        row.update({
+            "ok": True,
+            "status_code": r.status_code,
+            "elapsed_seconds": round(time.time() - t0, 3),
+            "bytes": len(r.content),
+            "script_count": len(scripts),
+            "same_host_script_count": len(same_host),
+            "scanned_scripts": scanned,
+            "candidate_transports": sorted(matches)[:120],
+        })
     except Exception as e:
         row.update({
             "elapsed_seconds": round(time.time() - t0, 3),
@@ -67,14 +120,20 @@ def main():
         json_check=lambda j: {"rows": len(j) if isinstance(j, list) else None},
     ))
     rows.append(probe(
-        "FRED_DFF",
+        "FRED_DFF_PRIMARY",
         "https://fred.stlouisfed.org/graph/fredgraph.csv",
         params={"id": "DFF"},
     ))
     rows.append(probe(
-        "TIP_HISTORY_PAGE",
-        "https://taiwanindex.com.tw/indexes/t00/history",
+        "DBNOMICS_FRED_DFF_FALLBACK",
+        "https://api.db.nomics.world/v22/series/FRED/DFF",
+        params={"observations": "1"},
+        json_check=lambda j: {
+            "dataset": ((j.get("dataset") or {}).get("code") if isinstance(j, dict) else None),
+            "series_docs": len((((j.get("series") or {}).get("docs")) or [])) if isinstance(j, dict) else None,
+        },
     ))
+    rows.append(probe_tip_transport())
 
     out = {
         "purpose": "PRE-OOS Stage 0 transport/source diagnosis only; not model evidence",
