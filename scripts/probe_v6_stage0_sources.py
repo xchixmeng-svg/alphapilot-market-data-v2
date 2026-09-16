@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -16,7 +14,7 @@ OUT.mkdir(exist_ok=True)
 
 S = requests.Session()
 S.headers.update({
-    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.6",
+    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.7",
     "Accept": "application/json,text/csv,text/html,*/*",
 })
 
@@ -35,8 +33,7 @@ def probe(name, url, params=None, timeout=20, json_check=None):
         })
         r.raise_for_status()
         if json_check is not None:
-            payload = r.json()
-            row["json_summary"] = json_check(payload)
+            row["json_summary"] = json_check(r.json())
         row["ok"] = True
     except Exception as e:
         row.update({
@@ -45,6 +42,20 @@ def probe(name, url, params=None, timeout=20, json_check=None):
         })
     print("[STAGE0 PROBE]", json.dumps(row, ensure_ascii=False), flush=True)
     return row
+
+
+def twse_ind_summary(j):
+    if not isinstance(j, dict):
+        return {"type": type(j).__name__}
+    tables = j.get("tables") or []
+    rows = sum(len(t.get("data") or []) for t in tables if isinstance(t, dict))
+    fields = [t.get("fields") for t in tables if isinstance(t, dict) and t.get("fields")]
+    return {
+        "stat": j.get("stat"),
+        "tables": len(tables),
+        "table_rows": rows,
+        "nonempty_field_tables": len(fields),
+    }
 
 
 def dbnomics_summary(j):
@@ -64,187 +75,47 @@ def dbnomics_summary(j):
 
 
 def tip_records_summary(j):
-    """Summarize the public JSON contract without assuming its point schema."""
     if not isinstance(j, dict):
         return {"type": type(j).__name__}
-    root = j.get("data") if isinstance(j.get("data"), dict) else j
-    datasets = root.get("datasets") if isinstance(root, dict) else None
+    root = j.get("data") if isinstance(j.get("data"), dict) else {}
+    datasets = root.get("datasets") if isinstance(root, dict) else []
     datasets = datasets if isinstance(datasets, list) else []
-    ds_summary = []
-    for ds in datasets[:10]:
+    summaries = []
+    for ds in datasets[:8]:
         if not isinstance(ds, dict):
-            ds_summary.append({"type": type(ds).__name__})
             continue
         points = ds.get("data")
-        n = len(points) if isinstance(points, list) else None
-        first = points[0] if isinstance(points, list) and points else None
-        last = points[-1] if isinstance(points, list) and points else None
-        ds_summary.append({
+        summaries.append({
             "value_type": ds.get("value_type"),
-            "label": ds.get("label") or ds.get("name"),
-            "points": n,
-            "first_point": first,
-            "last_point": last,
-            "keys": sorted(ds.keys()),
+            "points": len(points) if isinstance(points, list) else None,
+            "first": points[0] if isinstance(points, list) and points else None,
+            "last": points[-1] if isinstance(points, list) and points else None,
         })
     return {
         "top_keys": sorted(j.keys()),
-        "data_keys": sorted(root.keys()) if isinstance(root, dict) else [],
-        "empty": root.get("empty") if isinstance(root, dict) else None,
-        "main_type": root.get("main_type") if isinstance(root, dict) else None,
+        "empty": j.get("empty"),
+        "last_date": j.get("last_date"),
+        "main_type": j.get("main_type"),
+        "labels": len(root.get("labels") or []) if isinstance(root, dict) and isinstance(root.get("labels"), list) else None,
         "dataset_count": len(datasets),
-        "datasets": ds_summary,
+        "datasets": summaries,
     }
-
-
-def _decode_nuxt_text(text: str) -> str:
-    return (
-        text.replace("\\u002F", "/")
-        .replace("\\u003A", ":")
-        .replace("\\u0026", "&")
-        .replace("\\u003F", "?")
-        .replace("\\/", "/")
-    )
-
-
-def probe_tip_transport():
-    name = "TIP_HISTORY_TRANSPORT_DISCOVERY"
-    page = "https://taiwanindex.com.tw/indexes/t00/history"
-    t0 = time.time()
-    row = {"name": name, "url": page, "ok": False}
-    try:
-        r = S.get(page, timeout=20)
-        r.raise_for_status()
-        html = r.text
-        scripts = [urljoin(page, s) for s in re.findall(r'<script[^>]+src=[\"\']([^\"\']+)', html, flags=re.I)]
-        same_host = [u for u in scripts if urlparse(u).netloc == urlparse(page).netloc]
-        corpus = [("page", html)]
-        scanned = []
-        for u in same_host[:18]:
-            try:
-                jr = S.get(u, timeout=10)
-                if jr.ok and len(jr.text) <= 5_000_000:
-                    corpus.append((u, jr.text))
-                    scanned.append({"url": u, "bytes": len(jr.content)})
-            except Exception as e:
-                scanned.append({"url": u, "error": f"{type(e).__name__}: {e}"})
-
-        decoded_corpus = [(src, _decode_nuxt_text(text)) for src, text in corpus]
-        contexts = []
-        host_candidates = set()
-        matches = set()
-        for src, text in decoded_corpus:
-            for needle in ("fileDownloadHost", "/api/download/history", "/history?start="):
-                pos = 0
-                while True:
-                    i = text.find(needle, pos)
-                    if i < 0:
-                        break
-                    ctx = text[max(0, i - 700):min(len(text), i + 1200)]
-                    contexts.append({"source": src, "needle": needle, "context": ctx})
-                    for u in re.findall(r'https?://[^\"\'\\\s<>]+', ctx, flags=re.I):
-                        host_candidates.add(u.rstrip("/"))
-                    pos = i + len(needle)
-                    if len(contexts) >= 30:
-                        break
-                if len(contexts) >= 30:
-                    break
-            for pat in (
-                re.compile(r'https?://[^\"\'\s<>]+', re.I),
-                re.compile(r'/[A-Za-z0-9_./?=&%-]*(?:download|history|index)[A-Za-z0-9_./?=&%-]*', re.I),
-            ):
-                for m in pat.findall(text):
-                    low = m.lower()
-                    if any(k in low for k in ("download", "history", "index", "api")):
-                        matches.add(m[:500])
-
-        for _, text in decoded_corpus:
-            for pat in (
-                r'fileDownloadHost[\"\']?\s*[:=]\s*[\"\'](https?://[^\"\']+)',
-                r'[\"\']fileDownloadHost[\"\']\s*:\s*[\"\'](https?://[^\"\']+)',
-            ):
-                for m in re.findall(pat, text, flags=re.I):
-                    host_candidates.add(m.rstrip("/"))
-
-        direct_tests = []
-        plausible = []
-        for u in sorted(host_candidates):
-            p = urlparse(u)
-            if p.scheme in ("http", "https") and p.netloc:
-                origin = f"{p.scheme}://{p.netloc}"
-                if origin not in plausible and "taiwanindex" in p.netloc:
-                    plausible.append(origin)
-        if "https://backend.taiwanindex.com.tw" in html.replace("\\u002F", "/"):
-            if "https://backend.taiwanindex.com.tw" not in plausible:
-                plausible.insert(0, "https://backend.taiwanindex.com.tw")
-        if "https://taiwanindex.com.tw" not in plausible:
-            plausible.append("https://taiwanindex.com.tw")
-
-        for host in plausible[:8]:
-            try:
-                dr = S.get(
-                    host + "/api/download/history",
-                    params={"lang": "zh-tw", "code": "t00", "start": "2026-09-01", "end": "2026-09-05"},
-                    timeout=20,
-                    allow_redirects=True,
-                )
-                ctype = dr.headers.get("content-type", "")
-                disposition = dr.headers.get("content-disposition", "")
-                looks_download = dr.ok and (
-                    "csv" in ctype.lower()
-                    or "excel" in ctype.lower()
-                    or "spreadsheet" in ctype.lower()
-                    or "octet-stream" in ctype.lower()
-                    or bool(disposition)
-                )
-                direct_tests.append({
-                    "host": host,
-                    "status_code": dr.status_code,
-                    "content_type": ctype,
-                    "bytes": len(dr.content),
-                    "final_url": dr.url,
-                    "content_disposition": disposition,
-                    "looks_download": looks_download,
-                    "text_prefix": dr.text[:500] if ("text" in ctype.lower() or "json" in ctype.lower()) else "",
-                })
-            except Exception as e:
-                direct_tests.append({"host": host, "error": f"{type(e).__name__}: {e}"})
-
-        row.update({
-            "ok": True,
-            "status_code": r.status_code,
-            "elapsed_seconds": round(time.time() - t0, 3),
-            "bytes": len(r.content),
-            "script_count": len(scripts),
-            "same_host_script_count": len(same_host),
-            "scanned_scripts": scanned,
-            "candidate_transports": sorted(matches)[:120],
-            "candidate_contexts": contexts,
-            "file_download_host_candidates": plausible,
-            "download_contract_tests": direct_tests,
-            "backend_download_ok": any(x.get("looks_download") for x in direct_tests),
-        })
-    except Exception as e:
-        row.update({
-            "elapsed_seconds": round(time.time() - t0, 3),
-            "error": f"{type(e).__name__}: {e}",
-        })
-    print("[STAGE0 PROBE]", json.dumps(row, ensure_ascii=False), flush=True)
-    return row
 
 
 def main():
     rows = []
-    rows.append(probe(
-        "TWSE_MI_INDEX_IND_20260915",
-        "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
-        params={"response": "json", "date": "20260915", "type": "IND"},
-        json_check=lambda j: {
-            "stat": j.get("stat"),
-            "tables": len(j.get("tables") or []),
-            "table_rows": sum(len(t.get("data") or []) for t in (j.get("tables") or [])),
-        },
-    ))
+    twse_url = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
+
+    # Sparse historical samples first: prove whether the free official daily endpoint
+    # still serves old industry-index dates before designing any checkpoint strategy.
+    for d in ("20161230", "20171229", "20181228", "20191231", "20201231", "20260915"):
+        rows.append(probe(
+            f"TWSE_MI_INDEX_IND_{d}", twse_url,
+            params={"response": "json", "date": d, "type": "IND"},
+            json_check=twse_ind_summary,
+        ))
+        time.sleep(0.35)
+
     rows.append(probe(
         "TWSE_OPENAPI_MI_INDEX_LATEST",
         "https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX",
@@ -275,10 +146,15 @@ def main():
             json_check=dbnomics_summary,
         ))
 
-    rows.append(probe_tip_transport())
+    # TIP CSV is verified as a recent-history source. This small request proves the
+    # public contract without repeatedly re-discovering the Nuxt runtime host.
+    rows.append(probe(
+        "TIP_DOWNLOAD_T00_RECENT",
+        "https://backend.taiwanindex.com.tw/api/download/history",
+        params={"lang": "zh-tw", "code": "t00", "start": "2026-09-01", "end": "2026-09-05"},
+    ))
 
-    # The TIP history page itself calls this records endpoint. Test whether the API
-    # exposes pre-5Y observations that the download endpoint refuses/truncates.
+    # TIP records API also enforces the recent-history window: retain explicit evidence.
     for code, start, end in (
         ("t00", "2016-01-01", "2016-12-31"),
         ("t02", "2016-01-01", "2016-12-31"),
@@ -292,15 +168,15 @@ def main():
             json_check=tip_records_summary,
         ))
 
+    historical_twse = [x for x in rows if x["name"].startswith("TWSE_MI_INDEX_IND_20") and not x["name"].endswith("20260915")]
     out = {
         "purpose": "PRE-OOS Stage 0 transport/source diagnosis only; not model evidence or fallback equivalence evidence",
         "all_ok": all(x["ok"] for x in rows),
+        "historical_twse_sparse_samples_all_ok": bool(historical_twse) and all(x["ok"] and (x.get("json_summary") or {}).get("table_rows", 0) > 0 for x in historical_twse),
         "fred_primary_probe_enabled": os.getenv("V6_PROBE_FRED_PRIMARY", "0") == "1",
         "results": rows,
     }
-    (OUT / "V6_STAGE0_SOURCE_PROBE.json").write_text(
-        json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    (OUT / "V6_STAGE0_SOURCE_PROBE.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(out, ensure_ascii=False, indent=2), flush=True)
 
 
