@@ -1,0 +1,51 @@
+{
+  "status": "PRE_OOS_DRAFT_NOT_LOCKED",
+  "version": "V6-CPU-QUANTILE",
+  "branch": "research-ai-market-reasoning-v6-cpu-quantile-20260916",
+  "architecture_variants_allowed": 1,
+  "architecture": "HistGradientBoostingRegressor quantile regression; horizon-conditioned 1..120",
+  "quantiles": [0.10, 0.25, 0.50, 0.75, 0.90],
+  "audit_horizons_sessions": [5, 10, 20, 40, 60, 120],
+  "sealed_confirmation_year": 2025,
+  "live_forward_start_year": 2026,
+  "inference_unit": "decision-date / episode level; stock-day observations are dependent",
+  "dependence_method": {
+    "method": "stationary_block_bootstrap_by_decision_date",
+    "mean_block_sessions": 20,
+    "bootstrap_replicates": 2000,
+    "rng_seed": 926616,
+    "note": "Frozen before formal Stage-A OOS; applied to formal effect/significance claims, not internal tree splits."
+  },
+  "multiplicity": {
+    "exploratory": {"method": "Benjamini-Hochberg", "fdr_q": 0.05},
+    "confirmatory": {"method": "Bonferroni", "family_alpha": 0.05}
+  },
+  "researcher_degrees_of_freedom": {
+    "model_families_compared_for_selection": 1,
+    "deep_models_compared": 0,
+    "distribution_families_compared": 1,
+    "quantile_grids_compared": 1,
+    "hyperparameter_sweeps_allowed_on_formal_oos": 0,
+    "fixed_top_n_variants": 0,
+    "manual_factor_weight_variants": 0
+  },
+  "formal_families": [
+    {
+      "family_id": "QDIST_COVERAGE_STAGE_A",
+      "purpose": "confirmatory distribution-quality audit",
+      "family_size_m": 6,
+      "members": [
+        "coverage_h005", "coverage_h010", "coverage_h020", "coverage_h040", "coverage_h060", "coverage_h120"
+      ],
+      "null": "Frozen q10-q90 interval coverage and quantile calibration are not more useful than the preregistered unconditional/naive reference at the stated horizon.",
+      "alternative": "The frozen conditional quantile forecasts provide reproducible distribution information beyond the preregistered reference.",
+      "effect_metrics": ["pinball_loss_delta_vs_naive", "q10_q90_coverage_error", "median_absolute_error_delta_vs_naive"],
+      "selection_rule": "All six horizons are reported. No horizon may be dropped because its result is weak."
+    }
+  ],
+  "stage3_event_probability_families": {
+    "status": "MUST_BE_FINALIZED_AND_LOCKED_BEFORE_EVENT_PROBABILITY_OOS",
+    "rule": "Target thresholds are diagnostic queries of the frozen path distribution, not separately trained models. Every formal event/horizon query still counts in multiplicity accounting."
+  },
+  "notes": "This registry remains draft until Stage-0 data/PIT audit and SOURCE FREEZE are complete. Formal OOS must fail closed while status is not LOCKED."
+}
