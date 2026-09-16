@@ -1,0 +1,89 @@
+{
+  "status": "PRE_OOS_DRAFT_NOT_LOCKED",
+  "version": "V6-CPU-QUANTILE-STAGE0-LAYER-CONTRACT-v1",
+  "branch": "research-ai-market-reasoning-v6-cpu-quantile-20260916",
+  "principles": {
+    "layers_are_data_engineering_only": true,
+    "single_model_after_final_assembly": true,
+    "separate_layer_models_allowed": false,
+    "manual_layer_weights_allowed": false,
+    "silent_zero_fill_allowed": false,
+    "future_join_allowed": false,
+    "checkpoint_reuse_requires_unchanged_manifest_hash": true
+  },
+  "layers": [
+    {"layer_id": "0A_MARKET", "required": true, "manifest_path": "data/history/v6-layered/manifests/0A_MARKET.json"},
+    {"layer_id": "0B_INDUSTRY", "required": true, "manifest_path": "data/history/v6-layered/manifests/0B_INDUSTRY.json"},
+    {"layer_id": "0C_COMPANY", "required": true, "manifest_path": "data/history/v6-layered/manifests/0C_COMPANY.json"},
+    {"layer_id": "0D_MACRO", "required": true, "manifest_path": "data/history/v6-layered/manifests/0D_MACRO.json"},
+    {"layer_id": "0E_EVENT_TIME", "required": true, "manifest_path": "data/history/v6-layered/manifests/0E_EVENT_TIME.json"},
+    {"layer_id": "0F_FINAL_ASSEMBLY", "required": true, "manifest_path": "data/history/v6-layered/manifests/0F_FINAL_ASSEMBLY.json"}
+  ],
+  "layer_manifest_required_fields": [
+    "layer_id",
+    "status",
+    "schema_version",
+    "generation_commit",
+    "generated_at_utc",
+    "source_lineage",
+    "datasets",
+    "date_start",
+    "date_end",
+    "row_count",
+    "file_sha256",
+    "missingness",
+    "pit_rules"
+  ],
+  "dataset_time_semantics_allowed": [
+    "decision_date_daily",
+    "periodic_release_asof",
+    "event_timestamp_asof",
+    "static_live_only"
+  ],
+  "fallback_equivalence_gate": {
+    "must_pass_before_layer_freeze": true,
+    "allowed_status": ["PROVISIONAL", "PASS", "FAIL"],
+    "minimum_overlap_observations": 60,
+    "minimum_distinct_calendar_years": 3,
+    "absolute_value_tolerance": 0.000001,
+    "allowed_value_mismatch_rate": 0.0,
+    "required_checks": [
+      "series_semantics_identity",
+      "units_identity",
+      "frequency_identity",
+      "source_lineage_identity",
+      "date_alignment",
+      "numeric_value_match",
+      "publication_or_availability_lag"
+    ],
+    "rule_if_primary_unreachable_on_actions": "Fallback remains PROVISIONAL. Perform equivalence audit in an independent reachable environment and commit immutable evidence before SOURCE FREEZE."
+  },
+  "stage0f_cross_layer_gate": {
+    "all_required_layers_must_be_frozen_pass": true,
+    "daily_required_layer_eligible_date_coverage": 1.0,
+    "periodic_join_rule": "available_at <= decision_time",
+    "event_join_rule": "published_at <= decision_time",
+    "future_join_violations_allowed": 0,
+    "silent_zero_fill_violations_allowed": 0,
+    "duplicate_decision_key_violations_allowed": 0,
+    "must_report": [
+      "eligible_decision_dates",
+      "per_layer_date_start_end",
+      "per_layer_eligible_date_coverage",
+      "unmatched_dates_by_layer",
+      "missingness_by_layer_dataset",
+      "availability_lag_or_stale_age_distribution",
+      "timezone_and_session_normalization",
+      "future_join_violations",
+      "silent_zero_fill_violations",
+      "duplicate_decision_key_violations",
+      "input_manifest_sha256"
+    ]
+  },
+  "layer_ablation_audit": {
+    "diagnostic_only": true,
+    "may_increase_user_facing_probability": false,
+    "may_remove_or_reweight_layer_under_same_lock_after_oos": false,
+    "schema_change_requires_successor_preregistration": true
+  }
+}

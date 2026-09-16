@@ -7,10 +7,12 @@ on:
       - 'research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md'
       - 'research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md'
       - 'research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json'
+      - 'research/V6_STAGE0_LAYER_CONTRACT.json'
       - 'scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py'
       - 'scripts/build_v6_context_layers.py'
       - 'scripts/build_v6_context_layers_resumable.py'
       - 'scripts/build_v6_stage0_strict.py'
+      - 'scripts/audit_v6_stage0_layer_contract.py'
       - 'scripts/probe_v6_stage0_sources.py'
       - '.github/workflows/research_ai_market_reasoning_v6_cpu_quantile.yml'
   workflow_dispatch:
@@ -36,11 +38,12 @@ jobs:
           python -m py_compile scripts/build_v6_context_layers.py
           python -m py_compile scripts/build_v6_context_layers_resumable.py
           python -m py_compile scripts/build_v6_stage0_strict.py
+          python -m py_compile scripts/audit_v6_stage0_layer_contract.py
           python -m py_compile scripts/probe_v6_stage0_sources.py
       - name: Assert legacy-engine independence
         run: |
           ! grep -Ei 'r10_max|r10_score|r7_hard|r05_hard|r7_score|r05_score|backtest_full_market' scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py
-      - name: Validate pre-OOS model specification
+      - name: Validate pre-OOS model specification and layered Stage0 contract
         run: |
           python - <<'PY'
           import ast, json
@@ -48,22 +51,28 @@ jobs:
           branch='research-ai-market-reasoning-v6-cpu-quantile-20260916'
           pre=Path('research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md').read_text()
           reg=json.loads(Path('research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json').read_text())
+          contract=json.loads(Path('research/V6_STAGE0_LAYER_CONTRACT.json').read_text())
           src=Path('scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py').read_text()
           strict=Path('scripts/build_v6_stage0_strict.py').read_text()
           ast.parse(src); ast.parse(strict)
-          assert reg['branch']==branch
+          assert reg['branch']==branch and contract['branch']==branch
           assert reg['architecture_variants_allowed']==1
           assert reg['researcher_degrees_of_freedom']['model_families_compared_for_selection']==1
           assert reg['researcher_degrees_of_freedom']['hyperparameter_sweeps_allowed_on_formal_oos']==0
+          assert reg['researcher_degrees_of_freedom']['manual_layer_weight_variants']==0
           assert reg['quantiles']==[0.10,0.25,0.50,0.75,0.90]
           assert reg['audit_horizons_sessions']==[5,10,20,40,60,120]
           assert 'HistGradientBoostingRegressor' in pre
           assert 'NONE_UNTIL_STAGE3_CALIBRATION' in src
           assert 'V6_OPEN_2025' in src and '2025 SEALED' in src
           assert 'unverified empty TWSE industry response' in strict
+          assert contract['principles']['manual_layer_weights_allowed'] is False
+          assert contract['fallback_equivalence_gate']['must_pass_before_layer_freeze'] is True
+          assert contract['stage0f_cross_layer_gate']['daily_required_layer_eligible_date_coverage']==1.0
           assert not Path('research/V6_CPU_QUANTILE_LOCK.json').exists(), 'unexpected lock before source freeze'
           print('PRE-OOS CPU-QUANTILE ARCHITECTURE/STAGE0 SAFETY AUDIT PASS')
           PY
+          python scripts/audit_v6_stage0_layer_contract.py --contract-only
       - name: Probe Stage0 official data transports
         run: python -u scripts/probe_v6_stage0_sources.py
       - name: Record candidate architecture hashes
@@ -73,8 +82,10 @@ jobs:
             research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md \
             research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md \
             research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json \
+            research/V6_STAGE0_LAYER_CONTRACT.json \
             scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py \
             scripts/build_v6_stage0_strict.py \
+            scripts/audit_v6_stage0_layer_contract.py \
             scripts/probe_v6_stage0_sources.py \
             > pre_oos_audit/CANDIDATE_SHA256SUMS
           git rev-parse HEAD > pre_oos_audit/EXECUTION_COMMIT.txt

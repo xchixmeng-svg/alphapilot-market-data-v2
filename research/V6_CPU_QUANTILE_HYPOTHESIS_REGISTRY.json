@@ -8,6 +8,15 @@
   "audit_horizons_sessions": [5, 10, 20, 40, 60, 120],
   "sealed_confirmation_year": 2025,
   "live_forward_start_year": 2026,
+  "stage0_layer_contract": {
+    "path": "research/V6_STAGE0_LAYER_CONTRACT.json",
+    "required_layers": ["0A_MARKET", "0B_INDUSTRY", "0C_COMPANY", "0D_MACRO", "0E_EVENT_TIME", "0F_FINAL_ASSEMBLY"],
+    "single_model_after_assembly": true,
+    "layer_weighting_or_voting_allowed": false,
+    "fallback_requires_equivalence_pass_before_freeze": true,
+    "cross_layer_alignment_required_before_oos": true,
+    "ablation_may_change_locked_schema_after_oos": false
+  },
   "inference_unit": "decision-date / episode level; stock-day observations are dependent",
   "dependence_method": {
     "method": "stationary_block_bootstrap_by_decision_date",
@@ -27,7 +36,9 @@
     "quantile_grids_compared": 1,
     "hyperparameter_sweeps_allowed_on_formal_oos": 0,
     "fixed_top_n_variants": 0,
-    "manual_factor_weight_variants": 0
+    "manual_factor_weight_variants": 0,
+    "manual_layer_weight_variants": 0,
+    "post_oos_layer_schema_changes_allowed_under_same_lock": 0
   },
   "formal_families": [
     {
@@ -47,5 +58,5 @@
     "status": "MUST_BE_FINALIZED_AND_LOCKED_BEFORE_EVENT_PROBABILITY_OOS",
     "rule": "Target thresholds are diagnostic queries of the frozen path distribution, not separately trained models. Every formal event/horizon query still counts in multiplicity accounting."
   },
-  "notes": "This registry remains draft until Stage-0 data/PIT audit and SOURCE FREEZE are complete. Formal OOS must fail closed while status is not LOCKED."
+  "notes": "This registry remains draft until every required Stage-0 layer and the Stage-0F cross-layer PIT assembly audit pass and SOURCE FREEZE is complete. Formal OOS must fail closed while status is not LOCKED."
 }

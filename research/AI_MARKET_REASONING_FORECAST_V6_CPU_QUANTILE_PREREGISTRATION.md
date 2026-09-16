@@ -52,8 +52,45 @@ To avoid 600 separate models while representing all horizons:
 
 The 120-session purge is mandatory so no forward label overlaps the OOS decision block.
 
-## 6. Stage 0 — data/PIT gate remains mandatory
-No formal model claim is allowed until the causal context layer passes its audit. Historical OOS may only use information available by that historical date. Current semantic labels or news without reconstructible historical timestamps remain live/shadow only.
+## 6. Stage 0 — layered data/PIT gate
+No formal model claim is allowed until every required Stage-0 layer passes its own audit, is frozen with a machine-readable manifest, and the final cross-layer assembly passes Stage 0F. The controlling contract is `research/V6_STAGE0_LAYER_CONTRACT.json`.
+
+Required layers are:
+- Stage 0A Market
+- Stage 0B Industry
+- Stage 0C Company/Fundamental
+- Stage 0D Macro
+- Stage 0E Event/Time
+- Stage 0F Final PIT Assembly
+
+The layers are an engineering/data lineage decomposition only. They must NOT become separate predictive models, hand-written layer scores, or weighted voting systems. All frozen layers are assembled once into the single preregistered V6 CPU-Quantile model.
+
+Every frozen layer manifest must record at least: source lineage, dataset-level time semantics, start/end dates, row counts, missingness, release/as-of rules, file SHA256 hashes, and the exact generation commit. Successful frozen layer artifacts are reusable only while their manifest/hash remains unchanged.
+
+### 6.1 Fallback-source equivalence gate
+A fallback or mirror transport is not accepted merely because it downloads successfully. Before a fallback-backed series may be marked `FROZEN_PASS`, it must pass the preregistered equivalence audit in `V6_STAGE0_LAYER_CONTRACT.json`:
+- semantic identity of the economic series, units, frequency, and source lineage;
+- date alignment over a preregistered overlap sample;
+- numeric agreement within the frozen absolute tolerance;
+- publication/availability lag audit so a mirror cannot introduce future information;
+- immutable evidence and hashes.
+
+If the primary host is inaccessible from GitHub Actions, the fallback remains `PROVISIONAL` until the equivalence audit is performed in an independent reachable environment and its evidence is committed before SOURCE FREEZE. Transport failure is an engineering issue; it does not waive the data-quality gate.
+
+For the current FED/H15 candidate mirror, successful connectivity alone is NOT a Macro-layer PASS.
+
+### 6.2 Stage 0F cross-layer alignment gate
+Independent layer PASS results are insufficient. Stage 0F must audit the assembled decision-date/ticker panel for:
+- cross-layer date range and eligible-decision-date coverage;
+- unmatched dates and explicit missingness by layer/dataset;
+- duplicate keys and timezone/session-date normalization;
+- as-of joins for periodic fundamentals/revenue/macro/events with `available_at <= decision_time`;
+- stale-age/availability-lag distributions for non-daily data;
+- zero future-join violations;
+- zero silent zero-fill violations;
+- source/manifest hashes used in the exact assembly.
+
+Daily required layers must meet the frozen eligible-date coverage gate; periodic/event layers are judged by causal as-of availability rather than pretending they are daily observations.
 
 Successful staged data units must be checkpointed and reused; failures/unknowns cannot be silently converted into zero or valid no-data observations.
 
@@ -85,15 +122,17 @@ Raw quantiles are not user-facing event probabilities. Any event probability der
 Until Stage 3 is implemented and passed, the live decision is explicitly `NONE_UNTIL_STAGE3_CALIBRATION`.
 
 ## 10. Multiplicity / researcher degrees of freedom
-Internal tree splits and latent nonlinear interactions are not treated as separate hypotheses. Researcher choices are counted: architecture variants, model-family changes, target/event definitions, horizon/report choices, subgroup analyses, calibrator variants, thresholds, feature-schema revisions, and successor versions.
+Internal tree splits and latent nonlinear interactions are not treated as separate hypotheses. Researcher choices are counted: architecture variants, model-family changes, target/event definitions, horizon/report choices, subgroup analyses, calibrator variants, thresholds, feature-schema revisions, data-layer schema revisions, and successor versions.
 
 All formal claims must use the frozen hypothesis registry. Failed/abandoned research versions remain in the audit history.
 
-## 11. Explanation discipline
+## 11. Explanation and layer-ablation discipline
 No narrative explanation may increase forecast probability. Historical-neighbor or perturbation explanations, if added later, are diagnostic only and inherit the model's validation limitations. They are not independent confirmation evidence.
 
+Layer Ablation Audit is also diagnostic only. After the scientific lock or after viewing OOS, a result such as “removing Macro improves performance” may be reported as an observation but may NOT be used to remove/reweight that layer and rerun under the same V6 lock. Any such research-driven schema change requires a separately preregistered successor version.
+
 ## 12. Preregistration lock
-Formal OOS is prohibited until a SOURCE FREEZE commit and subsequent machine-readable LOCK manifest hash all research code, this preregistration, validation protocol, hypothesis registry, runtime specification, and data manifests. The verifier must fail closed on mismatch.
+Formal OOS is prohibited until a SOURCE FREEZE commit and subsequent machine-readable LOCK manifest hash all research code, this preregistration, validation protocol, hypothesis registry, Stage-0 layer contract, layer manifests, runtime specification, and data manifests. The verifier must fail closed on mismatch.
 
 No bad OOS result may be silently repaired under the same scientific lock. Engineering-only fixes can retain a lock only when an equivalence audit proves unchanged research semantics/predictions; otherwise create a successor version.
 
