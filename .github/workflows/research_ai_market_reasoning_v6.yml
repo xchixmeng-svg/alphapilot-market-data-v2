@@ -63,8 +63,10 @@ jobs:
           b=s.index('\n\n# ---------- B)', a)
           replacement='''def build_macro():\n    frames=[]; failures=[]\n    for short,sid in FRED_SERIES.items():\n        try:\n            url=f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"\n            r=get(url, timeout=8, tries=1)\n            df=pd.read_csv(io.BytesIO(r.content)).iloc[:,:2].copy()\n            df.columns=["date",short]\n            df["date"]=pd.to_datetime(df["date"],errors="coerce")\n            df[short]=pd.to_numeric(df[short],errors="coerce")\n            df=df[(df["date"].dt.year>=START_YEAR)&(df["date"].dt.date<=END_DATE)]\n            frames.append(df); print("[MACRO]",short,sid,len(df),flush=True)\n        except Exception as e:\n            failures.append({"series":sid,"name":short,"error":str(e)})\n            print("[MACRO FAIL-SOFT]",short,sid,e,flush=True)\n    if frames:\n        out=frames[0]\n        for f in frames[1:]: out=out.merge(f,on="date",how="outer")\n        out=out.sort_values("date"); cols=[c for c in out.columns if c!="date"]; out[cols]=out[cols].ffill()\n    else:\n        out=pd.DataFrame({"date":pd.date_range(date(START_YEAR,1,1),END_DATE,freq="D")})\n    out["date"]=out["date"].dt.strftime("%Y-%m-%d")\n    p=OUT/"macro_daily.csv.gz"; write_gz(p,out.to_dict("records"))\n    return p,failures,len(out)\n'''
           s=s[:a]+replacement+s[b:]
-          # Keep the preregistered TWSE industry query (type=IND). Run #5's ALL substitution cut coverage to 124 dates.
-          s=s.replace('ThreadPoolExecutor(max_workers=10)', 'ThreadPoolExecutor(max_workers=8)')
+          # TWSE throttles/rate-limits bulk MI_INDEX requests. Run #6 at 8 workers produced only 46 dates.
+          # Keep the preregistered official type=IND endpoint but use conservative concurrency and retry transient failures.
+          s=s.replace('ThreadPoolExecutor(max_workers=10)', 'ThreadPoolExecutor(max_workers=2)')
+          s=s.replace('timeout=60,\n    ).json()', 'timeout=20, tries=3,\n    ).json()')
           old='''def code4(x):\n    s = str(x or "").strip().replace("=", "").replace('"', "")\n    return s if re.fullmatch(r"[1-9]\\d{3}", s) else None'''
           new='''def code4(x):\n    s = str(x or "").strip().replace("=", "").replace('"', "")\n    if re.fullmatch(r"[1-9]\\d{3}\\.0", s):\n        s = s[:-2]\n    return s if re.fullmatch(r"[1-9]\\d{3}", s) else None'''
           if old not in s:
