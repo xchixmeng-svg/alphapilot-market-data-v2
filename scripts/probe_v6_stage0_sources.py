@@ -16,7 +16,7 @@ OUT.mkdir(exist_ok=True)
 
 S = requests.Session()
 S.headers.update({
-    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.5",
+    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.6",
     "Accept": "application/json,text/csv,text/html,*/*",
 })
 
@@ -60,6 +60,40 @@ def dbnomics_summary(j):
         "observations": min(len(periods), len(values)),
         "first_period": periods[0] if periods else None,
         "last_period": periods[-1] if periods else None,
+    }
+
+
+def tip_records_summary(j):
+    """Summarize the public JSON contract without assuming its point schema."""
+    if not isinstance(j, dict):
+        return {"type": type(j).__name__}
+    root = j.get("data") if isinstance(j.get("data"), dict) else j
+    datasets = root.get("datasets") if isinstance(root, dict) else None
+    datasets = datasets if isinstance(datasets, list) else []
+    ds_summary = []
+    for ds in datasets[:10]:
+        if not isinstance(ds, dict):
+            ds_summary.append({"type": type(ds).__name__})
+            continue
+        points = ds.get("data")
+        n = len(points) if isinstance(points, list) else None
+        first = points[0] if isinstance(points, list) and points else None
+        last = points[-1] if isinstance(points, list) and points else None
+        ds_summary.append({
+            "value_type": ds.get("value_type"),
+            "label": ds.get("label") or ds.get("name"),
+            "points": n,
+            "first_point": first,
+            "last_point": last,
+            "keys": sorted(ds.keys()),
+        })
+    return {
+        "top_keys": sorted(j.keys()),
+        "data_keys": sorted(root.keys()) if isinstance(root, dict) else [],
+        "empty": root.get("empty") if isinstance(root, dict) else None,
+        "main_type": root.get("main_type") if isinstance(root, dict) else None,
+        "dataset_count": len(datasets),
+        "datasets": ds_summary,
     }
 
 
@@ -222,8 +256,6 @@ def main():
         json_check=lambda j: {"rows": len(j) if isinstance(j, list) else None},
     ))
 
-    # FRED primary has repeatedly timed out from Actions. Keep it as an explicit manual
-    # diagnostic only; transport reachability is separate from fallback data equivalence.
     if os.getenv("V6_PROBE_FRED_PRIMARY", "0") == "1":
         rows.append(probe(
             "FRED_DFF_PRIMARY",
@@ -242,7 +274,23 @@ def main():
             params={"observations": "1"},
             json_check=dbnomics_summary,
         ))
+
     rows.append(probe_tip_transport())
+
+    # The TIP history page itself calls this records endpoint. Test whether the API
+    # exposes pre-5Y observations that the download endpoint refuses/truncates.
+    for code, start, end in (
+        ("t00", "2016-01-01", "2016-12-31"),
+        ("t02", "2016-01-01", "2016-12-31"),
+        ("t07", "2016-01-01", "2016-12-31"),
+        ("t07", "2026-01-01", "2026-09-15"),
+    ):
+        rows.append(probe(
+            f"TIP_RECORDS_{code.upper()}_{start[:4]}",
+            f"https://backend.taiwanindex.com.tw/api/indexes/{code}/records",
+            params={"start": start, "end": end},
+            json_check=tip_records_summary,
+        ))
 
     out = {
         "purpose": "PRE-OOS Stage 0 transport/source diagnosis only; not model evidence or fallback equivalence evidence",
