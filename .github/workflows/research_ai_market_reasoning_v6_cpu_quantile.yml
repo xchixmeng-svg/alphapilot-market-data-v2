@@ -12,6 +12,7 @@ on:
       - 'scripts/build_v6_context_layers.py'
       - 'scripts/build_v6_context_layers_resumable.py'
       - 'scripts/build_v6_stage0_strict.py'
+      - 'scripts/build_v6_stage0_macro_layer.py'
       - 'scripts/audit_v6_stage0_layer_contract.py'
       - 'scripts/probe_v6_stage0_sources.py'
       - '.github/workflows/research_ai_market_reasoning_v6_cpu_quantile.yml'
@@ -38,6 +39,7 @@ jobs:
           python -m py_compile scripts/build_v6_context_layers.py
           python -m py_compile scripts/build_v6_context_layers_resumable.py
           python -m py_compile scripts/build_v6_stage0_strict.py
+          python -m py_compile scripts/build_v6_stage0_macro_layer.py
           python -m py_compile scripts/audit_v6_stage0_layer_contract.py
           python -m py_compile scripts/probe_v6_stage0_sources.py
       - name: Assert legacy-engine independence
@@ -75,6 +77,21 @@ jobs:
           python scripts/audit_v6_stage0_layer_contract.py --contract-only
       - name: Probe Stage0 official data transports
         run: python -u scripts/probe_v6_stage0_sources.py
+      - name: Build provisional 0D Macro Layer
+        run: python -u scripts/build_v6_stage0_macro_layer.py
+      - name: Assert Macro layer cannot freeze before fallback equivalence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('data/history/v6-layered/manifests/0D_MACRO.json')
+          m=json.loads(p.read_text())
+          assert m['layer_id']=='0D_MACRO'
+          assert m['status']=='PROVISIONAL'
+          assert m['pit_rules']['formal_oos_eligible'] is False
+          assert all(x['equivalence_status']=='PROVISIONAL' for x in m['fallback_sources'])
+          print('0D MACRO PROVISIONAL GATE PASS — NOT FROZEN / NOT OOS ELIGIBLE')
+          PY
       - name: Record candidate architecture hashes
         run: |
           mkdir -p pre_oos_audit
@@ -85,11 +102,20 @@ jobs:
             research/V6_STAGE0_LAYER_CONTRACT.json \
             scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py \
             scripts/build_v6_stage0_strict.py \
+            scripts/build_v6_stage0_macro_layer.py \
             scripts/audit_v6_stage0_layer_contract.py \
             scripts/probe_v6_stage0_sources.py \
             > pre_oos_audit/CANDIDATE_SHA256SUMS
           git rev-parse HEAD > pre_oos_audit/EXECUTION_COMMIT.txt
           printf '%s\n' 'STATUS=PRE_OOS_NOT_LOCKED' > pre_oos_audit/STATUS.txt
+      - name: Upload provisional 0D Macro Layer evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0D-macro-provisional
+          path: |
+            data/history/v6-layered/0D_MACRO/
+            data/history/v6-layered/manifests/0D_MACRO.json
+          retention-days: 30
       - name: Upload pre-OOS architecture and Stage0 evidence
         uses: actions/upload-artifact@v4
         with:
