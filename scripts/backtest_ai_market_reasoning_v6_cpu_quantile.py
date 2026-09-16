@@ -47,7 +47,7 @@ def build_dataset() -> tuple[pd.DataFrame, list[str]]:
     ds, f_sector, _ = v6.add_sector_context(ds)
     ds, f_fund = v6.add_fundamental_context(ds)
 
-    # These are frozen observable transforms/context, not buy rules or hand-set weights.
+    # Frozen observable transforms/context, not buy rules or hand-set weights.
     feats = f_tape + f_struct + f_macro + f_sector + f_fund
     ds["core_feature_ok"] = ds[f_tape].notna().mean(axis=1) >= 0.80
     ds["universe_ok"] = ds["valid_equity"] & (ds["hist_count"] >= MAX_HORIZON) & ds["core_feature_ok"]
@@ -60,7 +60,6 @@ def model_frame(df: pd.DataFrame, feats: list[str], horizon: np.ndarray | float)
     h = np.asarray(horizon, dtype=np.float32)
     if h.ndim == 0:
         h = np.full(len(df), float(h), dtype=np.float32)
-    # Horizon is conditioning information, not a market feature.
     h1 = (h / MAX_HORIZON).reshape(-1, 1)
     h2 = np.sqrt(h / MAX_HORIZON).reshape(-1, 1)
     return np.concatenate([x, h1, h2], axis=1)
@@ -85,23 +84,21 @@ def make_long_training(train: pd.DataFrame, feats: list[str], seed: int):
         chunks_y.append(y.iloc[idx].to_numpy(dtype=np.float32))
     if not chunks_x:
         raise RuntimeError("no usable quantile path training rows")
-    X = np.concatenate(chunks_x, axis=0)
-    y = np.concatenate(chunks_y, axis=0)
-    return X, y
+    return np.concatenate(chunks_x, axis=0), np.concatenate(chunks_y, axis=0)
 
 
 def fit_quantile_models(train: pd.DataFrame, feats: list[str], seed: int):
     X, y = make_long_training(train, feats, seed)
     models = {}
     for i, q in enumerate(QUANTILES):
-        m = HistGradientBoostingRegressor(
+        model = HistGradientBoostingRegressor(
             loss="quantile",
             quantile=q,
             random_state=seed + i,
             **MODEL_PARAMS,
         )
-        m.fit(X, y)
-        models[q] = m
+        model.fit(X, y)
+        models[q] = model
         print(f"[V6 CPU-Q FIT] q={q:.2f} rows={len(y):,}", flush=True)
     return models, len(y)
 
@@ -135,34 +132,41 @@ def audit_year(models, test: pd.DataFrame, feats: list[str], year: int) -> list[
     return rows
 
 
-def live_path(models, live: pd.DataFrame, feats: list[str]) -> dict:
-    # Until Stage 3 calibration is completed, this output is diagnostic and cannot produce BUY.
-    sample = live[["date", "code", "name", "close"]].copy().head(200)
-    paths = []
-    for h in range(1, MAX_HORIZON + 1):
-        q = predict_quantiles(models, sample, feats, h)
-        for idx, r in sample.iterrows():
-            paths.append({
-                "date": int(r["date"]), "code": str(r["code"]), "name": str(r.get("name", "")),
-                "horizon": h, "q10": float(q.loc[idx, "q10"]), "q25": float(q.loc[idx, "q25"]),
-                "q50": float(q.loc[idx, "q50"]), "q75": float(q.loc[idx, "q75"]), "q90": float(q.loc[idx, "q90"]),
-            })
+def assert_2025_unlock() -> None:
+    if os.getenv("V6_OPEN_2025") != "1":
+        return
+    lock = ROOT / "research" / "V6_CPU_QUANTILE_LOCK.json"
+    gate = OUT / "V6_CPU_QUANTILE_STAGE_A_GATE.json"
+    if not lock.exists() or not gate.exists():
+        raise RuntimeError("2025 SEALED: lock manifest and Stage-A gate are both required")
+    lock_obj = json.loads(lock.read_text(encoding="utf-8"))
+    gate_obj = json.loads(gate.read_text(encoding="utf-8"))
+    if lock_obj.get("status") != "LOCKED" or gate_obj.get("stage_a_passed") is not True:
+        raise RuntimeError("2025 SEALED: Stage-A gate has not authorized opening 2025")
+
+
+def live_diagnostic(latest: int, cutoff: int, nfit: int, features: int, universe_count: int) -> dict:
+    # No fixed Top-N sample and no uncalibrated ranking is emitted.
     return {
-        "as_of": int(live["date"].max()),
+        "as_of": latest,
         "decision": "NONE_UNTIL_STAGE3_CALIBRATION",
-        "model_family": "HistGradientBoostingRegressor quantile; horizon-conditioned",
+        "model_family": "HistGradientBoostingRegressor quantile; horizon-conditioned 1..120",
         "quantiles": QUANTILES,
         "max_horizon": MAX_HORIZON,
-        "paths": paths,
+        "train_label_cutoff": cutoff,
+        "fit_long_rows": nfit,
+        "feature_count": features,
+        "universe_count": universe_count,
+        "note": "Full 1..120 live paths are withheld from action/selection until past-only probability calibration is implemented and passed."
     }
 
 
 def main():
+    assert_2025_unlock()
     ds, feats = build_dataset()
     dates = np.array(sorted(ds["date"].unique()), dtype=np.int64)
     d2i = {int(d): i for i, d in enumerate(dates)}
 
-    # Stage A only. 2025 is sealed unless explicitly opened after preregistered Stage-A gates pass.
     test_years = [2021, 2022, 2023, 2024]
     if os.getenv("V6_OPEN_2025") == "1":
         test_years.append(2025)
@@ -177,24 +181,20 @@ def main():
         train = ds[(ds["date"] < cutoff) & ds["universe_ok"]].copy()
         models, nfit = fit_quantile_models(train, feats, RNG_SEED + year)
         yr = audit_year(models, test, feats, year)
-        for r in yr:
-            r.update({"train_cutoff": cutoff, "fit_long_rows": nfit, "feature_count": len(feats)})
+        for row in yr:
+            row.update({"train_cutoff": cutoff, "fit_long_rows": nfit, "feature_count": len(feats)})
         audits.extend(yr)
         print("[V6 CPU-Q OOS AUDIT]", year, json.dumps(yr, ensure_ascii=False), flush=True)
 
     pd.DataFrame(audits).to_csv(OUT / "V6_CPU_QUANTILE_STAGE_A_AUDIT.csv", index=False)
 
-    # Fit current diagnostic model using only labels fully knowable 120 sessions before latest.
     latest = int(ds["date"].max())
     cutoff = int(dates[d2i[latest] - PURGE])
     hist = ds[(ds["date"] <= cutoff) & ds["universe_ok"]].copy()
-    models, nfit = fit_quantile_models(hist, feats, RNG_SEED + 999)
+    _, nfit = fit_quantile_models(hist, feats, RNG_SEED + 999)
     live = ds[(ds["date"] == latest) & ds["universe_ok"]].copy()
-    live_json = live_path(models, live, feats)
-    live_json["train_label_cutoff"] = cutoff
-    live_json["fit_long_rows"] = nfit
-    live_json["feature_count"] = len(feats)
-    (OUT / "V6_CPU_QUANTILE_LIVE_DIAGNOSTIC.json").write_text(json.dumps(live_json, ensure_ascii=False), encoding="utf-8")
+    live_json = live_diagnostic(latest, cutoff, nfit, len(feats), len(live))
+    (OUT / "V6_CPU_QUANTILE_LIVE_DIAGNOSTIC.json").write_text(json.dumps(live_json, ensure_ascii=False, indent=2), encoding="utf-8")
 
     spec_out = {
         "architecture": "CPU HistGradientBoostingRegressor quantile regression, horizon-conditioned 1..120",
