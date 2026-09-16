@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/AI_MARKET_REASONING_FORECAST_V6_PREREGISTRATION.md'
       - 'scripts/build_v6_context_layers.py'
+      - 'scripts/build_v6_context_layers_resumable.py'
       - 'scripts/backtest_ai_market_reasoning_v6.py'
       - 'scripts/build_2026_ytd_package.py'
       - '.github/workflows/research_ai_market_reasoning_v6.yml'
@@ -28,6 +29,7 @@ jobs:
       - name: Syntax check V6 before network work
         run: |
           python -m py_compile scripts/build_v6_context_layers.py
+          python -m py_compile scripts/build_v6_context_layers_resumable.py
           python -m py_compile scripts/backtest_ai_market_reasoning_v6.py
       - name: Verify immutable 2020-2025 inputs
         run: |
@@ -53,33 +55,27 @@ jobs:
           ! grep -Ei 'r10_max|r10|r7_hard|r05_hard|r7_score|r05_score|backtest_full_market' scripts/backtest_ai_market_reasoning_v6.py
       - name: Rebuild current 2026 YTD market data
         run: python -u scripts/build_2026_ytd_package.py
-      - name: Apply bounded transport and parser patches
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('scripts/build_v6_context_layers.py')
-          s=p.read_text()
-          a=s.index('def build_macro():')
-          b=s.index('\n\n# ---------- B)', a)
-          replacement='''def build_macro():\n    frames=[]; failures=[]\n    for short,sid in FRED_SERIES.items():\n        try:\n            url=f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"\n            r=get(url, timeout=8, tries=1)\n            df=pd.read_csv(io.BytesIO(r.content)).iloc[:,:2].copy()\n            df.columns=["date",short]\n            df["date"]=pd.to_datetime(df["date"],errors="coerce")\n            df[short]=pd.to_numeric(df[short],errors="coerce")\n            df=df[(df["date"].dt.year>=START_YEAR)&(df["date"].dt.date<=END_DATE)]\n            frames.append(df); print("[MACRO]",short,sid,len(df),flush=True)\n        except Exception as e:\n            failures.append({"series":sid,"name":short,"error":str(e)})\n            print("[MACRO FAIL-SOFT]",short,sid,e,flush=True)\n    if frames:\n        out=frames[0]\n        for f in frames[1:]: out=out.merge(f,on="date",how="outer")\n        out=out.sort_values("date"); cols=[c for c in out.columns if c!="date"]; out[cols]=out[cols].ffill()\n    else:\n        out=pd.DataFrame({"date":pd.date_range(date(START_YEAR,1,1),END_DATE,freq="D")})\n    out["date"]=out["date"].dt.strftime("%Y-%m-%d")\n    p=OUT/"macro_daily.csv.gz"; write_gz(p,out.to_dict("records"))\n    return p,failures,len(out)\n'''
-          s=s[:a]+replacement+s[b:]
-          # TWSE throttles/rate-limits bulk MI_INDEX requests. Run #6 at 8 workers produced only 46 dates.
-          # Keep the preregistered official type=IND endpoint but use conservative concurrency and retry transient failures.
-          s=s.replace('ThreadPoolExecutor(max_workers=10)', 'ThreadPoolExecutor(max_workers=2)')
-          s=s.replace('timeout=60,\n    ).json()', 'timeout=20, tries=3,\n    ).json()')
-          old='''def code4(x):\n    s = str(x or "").strip().replace("=", "").replace('"', "")\n    return s if re.fullmatch(r"[1-9]\\d{3}", s) else None'''
-          new='''def code4(x):\n    s = str(x or "").strip().replace("=", "").replace('"', "")\n    if re.fullmatch(r"[1-9]\\d{3}\\.0", s):\n        s = s[:-2]\n    return s if re.fullmatch(r"[1-9]\\d{3}", s) else None'''
-          if old not in s:
-              raise RuntimeError('code4 patch target not found')
-          s=s.replace(old,new)
-          p.write_text(s)
-          PY
-          python -m py_compile scripts/build_v6_context_layers.py
+      - name: Restore V6 resumable staging
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/v6-context-stage
+          key: v6-context-stage-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v6-context-stage-${{ github.ref_name }}-
       - name: Build V6 causal context layers
         shell: bash
+        env:
+          V6_IND_WORKERS: '2'
+          V6_MAX_IND_REQUESTS: '700'
         run: |
           set -o pipefail
-          python -u scripts/build_v6_context_layers.py | tee v6_context_build.log
+          python -u scripts/build_v6_context_layers_resumable.py | tee v6_context_build.log
+      - name: Save V6 resumable staging
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/v6-context-stage
+          key: v6-context-stage-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Show V6 context audit
         run: cat data/history/v6-context/manifest.json
       - name: Run V6 walk-forward path forecast research
