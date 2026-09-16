@@ -1,0 +1,42 @@
+{
+  "status": "DRAFT_NOT_LOCKED",
+  "version": "V6",
+  "notes": "Formal OOS is prohibited until this registry is completed and copied to research/V6_HYPOTHESIS_REGISTRY.json with status LOCKED before the SOURCE FREEZE/LOCK sequence.",
+  "inference_unit": "decision-date / episode level; stock-day rows are not independent",
+  "dependence_method": {
+    "method": "TO_BE_LOCKED_BEFORE_STAGE_A",
+    "parameters": {}
+  },
+  "multiplicity": {
+    "exploratory": {
+      "method": "Benjamini-Hochberg",
+      "fdr_q": 0.05
+    },
+    "confirmatory": {
+      "method": "Bonferroni",
+      "family_alpha": 0.05
+    }
+  },
+  "families": [
+    {
+      "family_id": "REPLACE_WITH_LOCKED_FAMILY_ID",
+      "purpose": "exploratory_or_confirmatory",
+      "industry_or_peer_scope": [],
+      "setup_states": [],
+      "feature_families": [],
+      "targets": [],
+      "horizons_sessions": [],
+      "model_variants": [],
+      "hypotheses": [
+        {
+          "hypothesis_id": "REPLACE_WITH_STABLE_ID",
+          "null": "REPLACE",
+          "alternative": "REPLACE",
+          "effect_metric": "REPLACE",
+          "test_procedure": "REPLACE",
+          "sample_definition": "REPLACE"
+        }
+      ]
+    }
+  ]
+}
