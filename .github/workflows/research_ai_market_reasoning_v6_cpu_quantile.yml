@@ -94,9 +94,25 @@ jobs:
           assert all(x['equivalence_status']=='PROVISIONAL' for x in m['fallback_sources'])
           print('0D MACRO PROVISIONAL GATE PASS — NOT FROZEN / NOT OOS ELIGIBLE')
           PY
+      - name: Restore resumable 0B Industry checkpoints
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/v6-stage0-industry
+          key: v6-stage0-industry-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v6-stage0-industry-${{ github.ref_name }}-
       - name: Build provisional 0B Industry Layer
+        env:
+          V6_OLD_IND_MAX_DATES: '120'
+          V6_OLD_IND_DELAY: '0.55'
         run: python -u scripts/build_v6_stage0_industry_layer.py
-      - name: Assert Industry layer universe and quality gate
+      - name: Save resumable 0B Industry checkpoints
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/v6-stage0-industry
+          key: v6-stage0-industry-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Assert Industry layer build state and safety gate
         run: |
           python - <<'PY'
           import json
@@ -104,13 +120,23 @@ jobs:
           p=Path('data/history/v6-layered/manifests/0B_INDUSTRY.json')
           m=json.loads(p.read_text())
           assert m['layer_id']=='0B_INDUSTRY'
-          assert m['status']=='PROVISIONAL'
+          assert m['status'] in ('BUILDING','PROVISIONAL')
           assert m['pit_rules']['formal_oos_eligible'] is False
           assert m['universe_audit']['frozen_universe_size']==37
           assert len(m['datasets'])==37
-          assert m['coverage_audit']['layer_eligible_date_coverage']==1.0
-          assert m['quality_gate_status'] in ('PASS','PROVISIONAL')
-          print('0B INDUSTRY QUALITY GATE PASS/PROVISIONAL — NOT YET SOURCE-FROZEN')
+          old=m['old_history_checkpoint_audit']
+          if m['status']=='BUILDING':
+              assert m['quality_gate_status']=='BUILDING'
+              assert old['complete'] is False
+              assert old['unresolved_units'] > 0
+              assert m['coverage_audit']['layer_eligible_date_coverage'] is None
+              print('0B INDUSTRY BUILDING — CHECKPOINTS PRESERVED / NOT OOS ELIGIBLE')
+          else:
+              assert old['complete'] is True
+              assert m['coverage_audit']['layer_eligible_date_coverage']==1.0
+              assert m['quality_gate_status'] in ('PASS','PROVISIONAL')
+              assert m['cross_source_equivalence']['status'] in ('PASS','PROVISIONAL')
+              print('0B INDUSTRY COMPLETE QUALITY GATE PASS/PROVISIONAL — NOT YET SOURCE-FROZEN')
           PY
       - name: Record candidate architecture hashes
         run: |
