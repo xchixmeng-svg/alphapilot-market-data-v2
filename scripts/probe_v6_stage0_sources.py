@@ -15,7 +15,7 @@ OUT.mkdir(exist_ok=True)
 
 S = requests.Session()
 S.headers.update({
-    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.1",
+    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.2",
     "Accept": "application/json,text/csv,text/html,*/*",
 })
 
@@ -62,22 +62,58 @@ def probe_tip_transport():
             re.compile(r'/[A-Za-z0-9_./?=&%-]*(?:download|history|index)[A-Za-z0-9_./?=&%-]*', re.I),
         ]
         matches = set()
-        corpus = [html]
+        corpus = [("page", html)]
         scanned = []
         for u in same_host[:18]:
             try:
                 jr = S.get(u, timeout=10)
                 if jr.ok and len(jr.text) <= 5_000_000:
-                    corpus.append(jr.text)
+                    corpus.append((u, jr.text))
                     scanned.append({"url": u, "bytes": len(jr.content)})
             except Exception as e:
                 scanned.append({"url": u, "error": f"{type(e).__name__}: {e}"})
-        for text in corpus:
+        contexts = []
+        needles = ("/api/download/history", "/history?start=")
+        for src, text in corpus:
+            for needle in needles:
+                pos = 0
+                while True:
+                    i = text.find(needle, pos)
+                    if i < 0:
+                        break
+                    contexts.append({
+                        "source": src,
+                        "needle": needle,
+                        "context": text[max(0, i-350):min(len(text), i+650)],
+                    })
+                    pos = i + len(needle)
+                    if len(contexts) >= 20:
+                        break
+                if len(contexts) >= 20:
+                    break
+            if len(contexts) >= 20:
+                break
+        for _, text in corpus:
             for pat in patterns:
                 for m in pat.findall(text):
                     low = m.lower()
                     if any(k in low for k in ("download", "history", "index", "api")):
                         matches.add(m[:500])
+
+        # Directly probe the discovered download endpoint without inventing required params.
+        direct = {}
+        try:
+            dr = S.get("https://taiwanindex.com.tw/api/download/history", params={"lang": "zh-tw"}, timeout=20)
+            direct = {
+                "status_code": dr.status_code,
+                "content_type": dr.headers.get("content-type", ""),
+                "bytes": len(dr.content),
+                "final_url": dr.url,
+                "text_prefix": dr.text[:1200] if "text" in dr.headers.get("content-type", "") or "json" in dr.headers.get("content-type", "") else "",
+            }
+        except Exception as e:
+            direct = {"error": f"{type(e).__name__}: {e}"}
+
         row.update({
             "ok": True,
             "status_code": r.status_code,
@@ -87,6 +123,8 @@ def probe_tip_transport():
             "same_host_script_count": len(same_host),
             "scanned_scripts": scanned,
             "candidate_transports": sorted(matches)[:120],
+            "candidate_contexts": contexts,
+            "download_endpoint_no_contract_probe": direct,
         })
     except Exception as e:
         row.update({
@@ -124,9 +162,10 @@ def main():
         "https://fred.stlouisfed.org/graph/fredgraph.csv",
         params={"id": "DFF"},
     ))
+    # DBnomics series identifiers are provider/dataset/series; for FRED the dataset and series are both DFF.
     rows.append(probe(
         "DBNOMICS_FRED_DFF_FALLBACK",
-        "https://api.db.nomics.world/v22/series/FRED/DFF",
+        "https://api.db.nomics.world/v22/series/FRED/DFF/DFF",
         params={"observations": "1"},
         json_check=lambda j: {
             "dataset": ((j.get("dataset") or {}).get("code") if isinstance(j, dict) else None),
