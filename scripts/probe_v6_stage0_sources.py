@@ -15,7 +15,7 @@ OUT.mkdir(exist_ok=True)
 
 S = requests.Session()
 S.headers.update({
-    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.3",
+    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Probe/1.4",
     "Accept": "application/json,text/csv,text/html,*/*",
 })
 
@@ -62,6 +62,17 @@ def dbnomics_summary(j):
     }
 
 
+def _decode_nuxt_text(text: str) -> str:
+    # Nuxt SSR serializes runtime config URLs as https:\u002F\u002F...
+    return (
+        text.replace("\\u002F", "/")
+        .replace("\\u003A", ":")
+        .replace("\\u0026", "&")
+        .replace("\\u003F", "?")
+        .replace("\\/", "/")
+    )
+
+
 def probe_tip_transport():
     name = "TIP_HISTORY_TRANSPORT_DISCOVERY"
     page = "https://taiwanindex.com.tw/indexes/t00/history"
@@ -84,10 +95,11 @@ def probe_tip_transport():
             except Exception as e:
                 scanned.append({"url": u, "error": f"{type(e).__name__}: {e}"})
 
+        decoded_corpus = [(src, _decode_nuxt_text(text)) for src, text in corpus]
         contexts = []
         host_candidates = set()
         matches = set()
-        for src, text in corpus:
+        for src, text in decoded_corpus:
             for needle in ("fileDownloadHost", "/api/download/history", "/history?start="):
                 pos = 0
                 while True:
@@ -112,8 +124,7 @@ def probe_tip_transport():
                     if any(k in low for k in ("download", "history", "index", "api")):
                         matches.add(m[:500])
 
-        # Nuxt publicRuntimeConfig is usually serialized in SSR HTML.
-        for _, text in corpus:
+        for _, text in decoded_corpus:
             for pat in (
                 r'fileDownloadHost[\"\']?\s*[:=]\s*[\"\'](https?://[^\"\']+)',
                 r'[\"\']fileDownloadHost[\"\']\s*:\s*[\"\'](https?://[^\"\']+)',
@@ -122,15 +133,18 @@ def probe_tip_transport():
                     host_candidates.add(m.rstrip("/"))
 
         direct_tests = []
-        # Only test plausible HTTP(S) origins, not unrelated external links.
         plausible = []
         for u in sorted(host_candidates):
             p = urlparse(u)
             if p.scheme in ("http", "https") and p.netloc:
                 origin = f"{p.scheme}://{p.netloc}"
-                if origin not in plausible and ("taiwanindex" in p.netloc or "twse" in p.netloc):
+                if origin not in plausible and "taiwanindex" in p.netloc:
                     plausible.append(origin)
-        # If config parsing failed, keep same-host as a diagnostic control.
+        # The official SSR config currently exposes this backend; keep it only as a
+        # diagnostic fallback when generic extraction fails, never as hidden model data.
+        if "https://backend.taiwanindex.com.tw" in html.replace("\\u002F", "/"):
+            if "https://backend.taiwanindex.com.tw" not in plausible:
+                plausible.insert(0, "https://backend.taiwanindex.com.tw")
         if "https://taiwanindex.com.tw" not in plausible:
             plausible.append("https://taiwanindex.com.tw")
 
@@ -148,19 +162,22 @@ def probe_tip_transport():
                     allow_redirects=True,
                 )
                 ctype = dr.headers.get("content-type", "")
+                disposition = dr.headers.get("content-disposition", "")
+                looks_download = dr.ok and (
+                    "csv" in ctype.lower()
+                    or "excel" in ctype.lower()
+                    or "spreadsheet" in ctype.lower()
+                    or "octet-stream" in ctype.lower()
+                    or bool(disposition)
+                )
                 direct_tests.append({
                     "host": host,
                     "status_code": dr.status_code,
                     "content_type": ctype,
                     "bytes": len(dr.content),
                     "final_url": dr.url,
-                    "content_disposition": dr.headers.get("content-disposition", ""),
-                    "looks_download": dr.ok and (
-                        "csv" in ctype.lower()
-                        or "excel" in ctype.lower()
-                        or "octet-stream" in ctype.lower()
-                        or bool(dr.headers.get("content-disposition"))
-                    ),
+                    "content_disposition": disposition,
+                    "looks_download": looks_download,
                     "text_prefix": dr.text[:500] if ("text" in ctype.lower() or "json" in ctype.lower()) else "",
                 })
             except Exception as e:
@@ -178,6 +195,7 @@ def probe_tip_transport():
             "candidate_contexts": contexts,
             "file_download_host_candidates": plausible,
             "download_contract_tests": direct_tests,
+            "backend_download_ok": any(x.get("looks_download") for x in direct_tests),
         })
     except Exception as e:
         row.update({
@@ -215,7 +233,6 @@ def main():
         "https://fred.stlouisfed.org/graph/fredgraph.csv",
         params={"id": "DFF"},
     ))
-    # Use DBnomics' Federal Reserve Board provider (FED), not a guessed FRED provider.
     for name, series in (
         ("DBNOMICS_FEDFUNDS_FALLBACK", "RIFSPFF_N.B"),
         ("DBNOMICS_US2Y_FALLBACK", "RIFLGFCY02_N.B"),
