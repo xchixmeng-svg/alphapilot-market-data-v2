@@ -1,0 +1,73 @@
+name: Research AI Market Reasoning V6 CPU Quantile Pre-OOS
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-cpu-quantile-20260916]
+    paths:
+      - 'research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md'
+      - 'research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md'
+      - 'research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json'
+      - 'scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_cpu_quantile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pre_oos_architecture_audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 scipy==1.18.1 scikit-learn==1.5.2 pyarrow==18.1.0 requests==2.32.5 lxml==5.3.0
+      - name: Syntax check frozen candidate code
+        run: |
+          python -m py_compile scripts/backtest_ai_market_reasoning_v6.py
+          python -m py_compile scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py
+      - name: Assert legacy-engine independence
+        run: |
+          ! grep -Ei 'r10_max|r10_score|r7_hard|r05_hard|r7_score|r05_score|backtest_full_market' scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py
+      - name: Validate pre-OOS model specification
+        run: |
+          python - <<'PY'
+          import ast, json
+          from pathlib import Path
+          branch='research-ai-market-reasoning-v6-cpu-quantile-20260916'
+          pre=Path('research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md').read_text()
+          reg=json.loads(Path('research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json').read_text())
+          src=Path('scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py').read_text()
+          ast.parse(src)
+          assert reg['branch']==branch
+          assert reg['architecture_variants_allowed']==1
+          assert reg['researcher_degrees_of_freedom']['model_families_compared_for_selection']==1
+          assert reg['researcher_degrees_of_freedom']['hyperparameter_sweeps_allowed_on_formal_oos']==0
+          assert reg['quantiles']==[0.10,0.25,0.50,0.75,0.90]
+          assert reg['audit_horizons_sessions']==[5,10,20,40,60,120]
+          assert 'HistGradientBoostingRegressor' in pre
+          assert 'NONE_UNTIL_STAGE3_CALIBRATION' in src
+          assert 'V6_OPEN_2025' in src and '2025 SEALED' in src
+          assert not Path('research/V6_CPU_QUANTILE_LOCK.json').exists(), 'unexpected lock before source freeze'
+          print('PRE-OOS CPU-QUANTILE ARCHITECTURE AUDIT PASS')
+          PY
+      - name: Record candidate architecture hashes
+        run: |
+          mkdir -p pre_oos_audit
+          sha256sum \
+            research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md \
+            research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md \
+            research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json \
+            scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py \
+            > pre_oos_audit/CANDIDATE_SHA256SUMS
+          git rev-parse HEAD > pre_oos_audit/EXECUTION_COMMIT.txt
+          printf '%s\n' 'STATUS=PRE_OOS_NOT_LOCKED' > pre_oos_audit/STATUS.txt
+      - name: Upload pre-OOS architecture evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-cpu-quantile-pre-oos-audit
+          path: pre_oos_audit/
+          retention-days: 30
