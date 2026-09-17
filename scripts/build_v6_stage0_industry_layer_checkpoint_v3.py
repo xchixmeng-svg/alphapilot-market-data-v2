@@ -172,9 +172,82 @@ def advance_old_history_v3(code_map: dict[str, str]):
     return df, audit
 
 
+def diagnose_electronics_coverage() -> None:
+    targets = actual_old_trading_days()
+    success_dates = 0
+    present = []
+    missing = []
+    for d in targets:
+        obj = base.load_old_checkpoint(d)
+        if not obj or obj.get("status") != "SUCCESS":
+            continue
+        success_dates += 1
+        names = {str(r.get("index_name")) for r in (obj.get("rows") or [])}
+        if "電子類指數" in names:
+            present.append(d)
+        else:
+            missing.append(d)
+
+    by_year = {}
+    for d in missing:
+        by_year[str(d.year)] = by_year.get(str(d.year), 0) + 1
+    evidence = {
+        "success_checkpoint_dates": success_dates,
+        "electronics_present_dates": len(present),
+        "electronics_missing_dates": len(missing),
+        "missing_by_year": by_year,
+        "first_present": present[0].date().isoformat() if present else None,
+        "last_present": present[-1].date().isoformat() if present else None,
+        "first_missing": missing[0].date().isoformat() if missing else None,
+        "last_missing": missing[-1].date().isoformat() if missing else None,
+        "missing_sample": [d.date().isoformat() for d in missing[:30]],
+    }
+    print("[0B ELECTRONICS CACHE DIAG] " + json.dumps(evidence, ensure_ascii=False), flush=True)
+
+    if not missing:
+        return
+    picks = []
+    for idx in (0, len(missing) // 2, len(missing) - 1):
+        d = missing[idx]
+        if d not in picks:
+            picks.append(d)
+    for d in picks:
+        try:
+            r = base.get(base.TWSE_MI_INDEX, params={
+                "response": "json", "date": d.strftime("%Y%m%d"), "type": "IND",
+            }, timeout=30, tries=2)
+            ctype = (r.headers.get("content-type") or "").lower()
+            if "json" not in ctype:
+                print(f"[0B ELECTRONICS RAW DIAG] date={d.date()} non_json={ctype}", flush=True)
+                continue
+            j = r.json()
+            raw_names = []
+            for table in j.get("tables") or []:
+                if not isinstance(table, dict):
+                    continue
+                fields = [str(x).strip() for x in (table.get("fields") or [])]
+                data = table.get("data") or []
+                name_i = next((i for i, x in enumerate(fields) if x in ("指數", "指數名稱") or "指數" in x), None)
+                if name_i is None:
+                    continue
+                for vals in data:
+                    if isinstance(vals, list) and name_i < len(vals):
+                        raw = str(vals[name_i]).strip()
+                        if "電子" in raw or "電機" in raw or "半導體" in raw:
+                            raw_names.append(raw)
+            print(
+                f"[0B ELECTRONICS RAW DIAG] date={d.date()} stat={j.get('stat')} "
+                f"matching_raw_names={sorted(set(raw_names))}",
+                flush=True,
+            )
+        except Exception as e:
+            print(f"[0B ELECTRONICS RAW DIAG] date={d.date()} error={type(e).__name__}: {e}", flush=True)
+
+
 base.load_or_fetch_tip_series = fixed_load_or_fetch_tip_series
 base.old_weekdays = actual_old_trading_days
 base.advance_old_history = advance_old_history_v3
 
 if __name__ == "__main__":
+    diagnose_electronics_coverage()
     base.main()
