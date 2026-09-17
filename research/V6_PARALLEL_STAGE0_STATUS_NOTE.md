@@ -1,0 +1,1 @@
+Runtime progress must be visible through separate workflow jobs/artifacts for 0B, 0C, 0D, and 0E. This branch is the integration/control branch only; formal R10 is untouched. The next implementation step is to bind existing builders/audits into parallel jobs and emit `v6_stage0_progress_<lane>.json` for every lane.
