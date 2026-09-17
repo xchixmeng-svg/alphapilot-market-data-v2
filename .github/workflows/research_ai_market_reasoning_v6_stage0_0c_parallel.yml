@@ -5,6 +5,7 @@ on:
     branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
     paths:
       - 'scripts/build_v6_stage0_company_layer_parallel.py'
+      - 'scripts/build_v6_stage0_company_layer_parallel_v2.py'
       - '.github/workflows/research_ai_market_reasoning_v6_stage0_0c_parallel.yml'
   workflow_dispatch:
 
@@ -31,6 +32,7 @@ jobs:
           python -m py_compile scripts/build_v6_context_layers.py
           python -m py_compile scripts/build_v6_context_layers_resumable.py
           python -m py_compile scripts/build_v6_stage0_company_layer_parallel.py
+          python -m py_compile scripts/build_v6_stage0_company_layer_parallel_v2.py
       - name: Restore 0C dedicated cache
         uses: actions/cache/restore@v4
         with:
@@ -41,7 +43,7 @@ jobs:
           restore-keys: |
             v6-stage0-0c-${{ github.ref_name }}-
       - name: Build 0C company/fundamental lane
-        run: python -u scripts/build_v6_stage0_company_layer_parallel.py
+        run: python -u scripts/build_v6_stage0_company_layer_parallel_v2.py
       - name: Save 0C dedicated cache
         if: always()
         uses: actions/cache/save@v4
