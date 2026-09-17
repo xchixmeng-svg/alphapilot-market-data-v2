@@ -1,0 +1,24 @@
+{
+  "schema_version": "V6_STAGE0_PROGRESS_V1",
+  "required": [
+    "lane",
+    "status",
+    "current_completed",
+    "target_total",
+    "completion_pct",
+    "newly_completed_this_run",
+    "remaining",
+    "current_blocker",
+    "last_successful_unit",
+    "artifact_name",
+    "updated_at_utc"
+  ],
+  "lanes": ["0A_MARKET", "0B_INDUSTRY", "0C_COMPANY", "0D_MACRO", "0E_EVENT_TIME", "0F_FINAL_ASSEMBLY"],
+  "status_values": ["NOT_STARTED", "BUILDING", "PROVISIONAL", "PASS", "FROZEN_PASS", "BLOCKED", "FAILED"],
+  "rules": {
+    "rerun_without_new_effective_work_counts_as_progress": false,
+    "empty_commit_counts_as_progress": false,
+    "artifact_required_each_run": true,
+    "blocker_required_when_not_pass": true
+  }
+}
