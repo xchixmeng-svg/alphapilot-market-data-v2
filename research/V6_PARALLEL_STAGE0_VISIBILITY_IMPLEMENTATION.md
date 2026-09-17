@@ -1,0 +1,1 @@
+Implementation target: bind each active Stage0 lane to a separate GitHub Actions job and emit `v6_stage0_progress_<lane>.json` plus human-readable summary artifact. A final dashboard job will aggregate available lane progress artifacts without modifying model/data logic.
