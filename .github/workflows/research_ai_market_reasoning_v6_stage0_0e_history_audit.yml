@@ -1,0 +1,42 @@
+name: V6 Stage0 0E Historical Event PIT Audit
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/audit_v6_stage0_event_history_source.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0e_history_audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v6-stage0-0e-history-audit
+  cancel-in-progress: false
+
+jobs:
+  event_history_audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 requests==2.32.5
+      - name: Static compile
+        run: python -m py_compile scripts/audit_v6_stage0_event_history_source.py
+      - name: Audit official historical event PIT source
+        run: python -u scripts/audit_v6_stage0_event_history_source.py
+      - name: Upload 0E source audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0E-history-audit
+          path: |
+            data/history/v6-layered/0E_EVENT_TIME/
+            data/history/v6-layered/progress/0E_EVENT_TIME.json
+          if-no-files-found: error
+          retention-days: 7
