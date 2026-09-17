@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import io
 import json
 import re
 from datetime import datetime, timezone
@@ -54,44 +55,70 @@ def fetch_history(code: str, roc_year: int) -> str:
     return text
 
 
-def extract_timestamp_evidence(html: str) -> dict:
-    # MOPS historical result pages expose detail-query keys in onclick/href:
-    # co_id, spoke_date=YYYYMMDD, spoke_time=HHMMSS, seq_no.
-    dates = re.findall(r"spoke_date(?:=|%3D)(\d{8})", html, flags=re.I)
-    times = re.findall(r"spoke_time(?:=|%3D)(\d{6})", html, flags=re.I)
-    seqs = re.findall(r"seq_no(?:=|%3D)(\d+)", html, flags=re.I)
-    codes = re.findall(r"co_id(?:=|%3D)([0-9A-Za-z-]+)", html, flags=re.I)
+def _flat(c) -> str:
+    if isinstance(c, tuple):
+        return "|".join(str(v).strip() for v in c if str(v).strip() not in ("", "nan"))
+    return str(c).strip()
 
-    # Also verify the human-readable schema markers are present. We do not use
-    # 事實發生日 as availability time; only 發言日期 + 發言時間 can gate PIT joins.
+
+def _roc_date_to_ad(s: str):
+    s = str(s).strip().replace("-", "/")
+    m = re.search(r"(\d{2,3})/(\d{1,2})/(\d{1,2})", s)
+    if not m:
+        return None
+    y, mo, d = map(int, m.groups())
+    return datetime(y + 1911, mo, d)
+
+
+def extract_timestamp_evidence(html: str) -> dict:
     markers = {
         "has_speech_date_marker": "發言日期" in html,
         "has_speech_time_marker": "發言時間" in html,
         "has_fact_date_marker": "事實發生日" in html,
     }
-
-    paired = min(len(dates), len(times))
     valid = []
-    for d, t in zip(dates[:paired], times[:paired]):
-        try:
-            dt = datetime.strptime(d + t, "%Y%m%d%H%M%S").replace(
-                tzinfo=timezone.utc
-            )
-            valid.append(dt.isoformat())
-        except Exception:
-            pass
+    table_rows = 0
+    tables_with_timestamp_schema = 0
+    parse_errors = []
+    try:
+        tables = pd.read_html(io.StringIO(html))
+    except Exception as e:
+        tables = []
+        parse_errors.append(f"read_html={type(e).__name__}:{e}")
+
+    for df in tables:
+        if df is None or df.empty:
+            continue
+        df = df.copy()
+        df.columns = [_flat(x) for x in df.columns]
+        cols = list(df.columns)
+        date_col = next((x for x in cols if "發言日期" in x), None)
+        time_col = next((x for x in cols if "發言時間" in x), None)
+        if date_col is None or time_col is None:
+            continue
+        tables_with_timestamp_schema += 1
+        table_rows += len(df)
+        for _, row in df.iterrows():
+            dd = _roc_date_to_ad(row.get(date_col))
+            tt = str(row.get(time_col, "")).strip()
+            mt = re.search(r"(\d{1,2}):(\d{2}):(\d{2})", tt)
+            if dd is None or mt is None:
+                continue
+            h, mi, sec = map(int, mt.groups())
+            try:
+                valid.append(dd.replace(hour=h, minute=mi, second=sec).isoformat())
+            except Exception:
+                pass
 
     return {
         **markers,
-        "spoke_date_param_count": len(dates),
-        "spoke_time_param_count": len(times),
-        "seq_no_param_count": len(seqs),
-        "co_id_param_count": len(codes),
+        "tables_with_timestamp_schema": tables_with_timestamp_schema,
+        "timestamp_table_rows": table_rows,
         "valid_timestamp_pairs": len(valid),
-        "first_valid_timestamp_lexical_utc_placeholder": valid[0] if valid else None,
-        "note": "MOPS times are Taiwan local time; timezone normalization occurs in the historical-event builder, not this source audit.",
+        "first_valid_taipei_local": valid[0] if valid else None,
+        "parse_errors": parse_errors,
+        "note": "MOPS 發言日期 + 發言時間 are Taiwan local disclosure timestamps; 事實發生日 is not used as availability.",
     }
-
 
 def main() -> None:
     generated = datetime.now(timezone.utc).isoformat()
@@ -103,6 +130,7 @@ def main() -> None:
             passed = (
                 ev["has_speech_date_marker"]
                 and ev["has_speech_time_marker"]
+                and ev["tables_with_timestamp_schema"] > 0
                 and ev["valid_timestamp_pairs"] > 0
             )
             results.append({
