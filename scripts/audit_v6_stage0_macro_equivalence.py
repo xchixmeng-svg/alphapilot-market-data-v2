@@ -25,8 +25,11 @@ DBNOMICS = {
 FRED = {"fed_funds": "DFF", "us2y": "DGS2", "us10y": "DGS10"}
 START = pd.Timestamp("2016-01-01")
 END = pd.Timestamp("2026-09-15")
-S = requests.Session()\nS.headers.update({\n    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Macro-Audit/1.1",\n    "Accept": "text/csv,application/json,text/plain,*/*",\n})\n
-
+S = requests.Session()
+S.headers.update({
+    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Macro-Audit/1.1",
+    "Accept": "text/csv,application/json,text/plain,*/*",
+})
 def dbnomics(code: str) -> pd.DataFrame:
     r = S.get(f"{DBNOMICS_BASE}/{code}", params={"observations": "1"}, timeout=30)
     r.raise_for_status()
