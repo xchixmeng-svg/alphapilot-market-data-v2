@@ -1,0 +1,1 @@
+Display fields for every lane: status, completed/target, percent where meaningful, new effective work this run, remaining, current blocker, artifact, last update. Silent background-only execution is prohibited for active lanes.
