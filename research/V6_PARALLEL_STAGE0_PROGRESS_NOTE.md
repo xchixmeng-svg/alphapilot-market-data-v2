@@ -1,0 +1,1 @@
+Active Stage0 work is now required to be both parallel and visible. A lane that is running without a progress artifact/job summary is considered an engineering defect and must be fixed before scaling concurrency further.
