@@ -1,0 +1,62 @@
+name: V6 Stage0 0C Company Parallel
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/build_v6_stage0_company_layer_parallel.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0c_parallel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v6-stage0-0c-company
+  cancel-in-progress: false
+
+jobs:
+  company_0c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.5 lxml==5.3.0
+      - name: Static compile
+        run: |
+          python -m py_compile scripts/build_v6_context_layers.py
+          python -m py_compile scripts/build_v6_context_layers_resumable.py
+          python -m py_compile scripts/build_v6_stage0_company_layer_parallel.py
+      - name: Restore 0C dedicated cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache/v6-context-stage/revenue
+            .cache/v6-context-stage/company_snapshot
+          key: v6-stage0-0c-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v6-stage0-0c-${{ github.ref_name }}-
+      - name: Build 0C company/fundamental lane
+        run: python -u scripts/build_v6_stage0_company_layer_parallel.py
+      - name: Save 0C dedicated cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/v6-context-stage/revenue
+            .cache/v6-context-stage/company_snapshot
+          key: v6-stage0-0c-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload 0C evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0C-company
+          path: |
+            data/history/v6-layered/0C_COMPANY/
+            data/history/v6-layered/manifests/0C_COMPANY.json
+            data/history/v6-layered/progress/0C_COMPANY.json
+          retention-days: 7
