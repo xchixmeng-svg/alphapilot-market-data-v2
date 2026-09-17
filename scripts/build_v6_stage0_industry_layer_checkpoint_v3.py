@@ -48,6 +48,21 @@ def actual_old_trading_days() -> list[pd.Timestamp]:
     return out
 
 
+def _validated_old_checkpoint(d: pd.Timestamp) -> dict | None:
+    obj = base.load_old_checkpoint(d)
+    if obj is None:
+        return None
+    if obj.get("status") == "SUCCESS":
+        names = {str(r.get("index_name")) for r in (obj.get("rows") or [])}
+        # TWSE renamed the broad electronics index from 電子類指數 to
+        # 電子工業類指數 starting 2019-04-29. Old cached parses before the
+        # alias fix are structurally incomplete and must be selectively
+        # refetched; all unaffected dates remain immutable cache hits.
+        if pd.Timestamp("2019-04-29") <= d <= base.OLD_END and "電子類指數" not in names:
+            return None
+    return obj
+
+
 def fixed_load_or_fetch_tip_series(code: str, name: str):
     p = base.tip_series_cache_path(code)
     meta = p.with_suffix(".json")
