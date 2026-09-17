@@ -1,0 +1,28 @@
+name: V6 Stage0 0B Source Transition Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-ai-market-reasoning-v6-cpu-quantile-20260916]
+    paths:
+      - scripts/audit_v6_stage0_0b_source_transition.py
+      - .github/workflows/research_ai_market_reasoning_v6_stage0_0b_source_transition_audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Run targeted source-transition audit
+        run: python scripts/audit_v6_stage0_0b_source_transition.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v6-stage0-0b-source-transition-audit
+          path: artifacts/v6-stage0-0b-source-transition-audit/
+          if-no-files-found: error
