@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned runtime
-        run: python -m pip install pandas==2.2.3 requests==2.32.5
+        run: python -m pip install pandas==2.2.3 requests==2.32.5 lxml==5.3.0
       - name: Static compile
         run: python -m py_compile scripts/audit_v6_stage0_event_history_source.py
       - name: Audit official historical event PIT source
