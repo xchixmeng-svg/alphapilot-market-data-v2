@@ -1,0 +1,65 @@
+name: V6 Stage0 0C Valuation PIT
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/build_v6_stage0_company_valuation_pit.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0c_valuation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v6-stage0-0c-valuation
+  cancel-in-progress: false
+
+jobs:
+  company_valuation_0c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      V6_0C_VAL_MAX_UNITS: '480'
+      V6_0C_VAL_WORKERS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.5
+      - name: Static compile
+        run: |
+          python -m py_compile scripts/build_v6_context_layers.py
+          python -m py_compile scripts/build_v6_stage0_company_valuation_pit.py
+      - name: Restore 0C revenue and valuation checkpoints
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache/v6-context-stage/revenue
+            .cache/v6-context-stage/valuation
+          key: v6-stage0-0c-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v6-stage0-0c-${{ github.ref_name }}-
+      - name: Build resumable daily valuation PIT
+        run: python -u scripts/build_v6_stage0_company_valuation_pit.py
+      - name: Save 0C revenue and valuation checkpoints
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/v6-context-stage/revenue
+            .cache/v6-context-stage/valuation
+          key: v6-stage0-0c-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload 0C valuation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0C-valuation
+          path: |
+            data/history/v6-layered/0C_COMPANY/
+            data/history/v6-layered/manifests/0C_COMPANY.json
+            data/history/v6-layered/progress/0C_COMPANY.json
+          if-no-files-found: error
+          retention-days: 7
