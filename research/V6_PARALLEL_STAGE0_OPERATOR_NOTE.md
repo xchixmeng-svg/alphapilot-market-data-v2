@@ -1,0 +1,1 @@
+Operator note: user explicitly requires progress for all parallel lanes to remain visible. Do not run a lane silently without per-run progress output. Progress visibility is a hard UX requirement in addition to PIT/data-quality gates.
