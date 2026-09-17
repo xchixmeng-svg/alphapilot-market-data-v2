@@ -92,8 +92,14 @@ def fixed_load_or_fetch_tip_series(code: str, name: str):
 
 def advance_old_history_v3(code_map: dict[str, str]):
     targets = actual_old_trading_days()
-    completed = {d.date().isoformat(): base.load_old_checkpoint(d) for d in targets}
+    raw_completed = {d.date().isoformat(): base.load_old_checkpoint(d) for d in targets}
+    completed = {d.date().isoformat(): _validated_old_checkpoint(d) for d in targets}
     unresolved = [d for d in targets if completed[d.date().isoformat()] is None]
+    alias_repair_at_start = sum(
+        1 for d in targets
+        if raw_completed[d.date().isoformat()] is not None
+        and completed[d.date().isoformat()] is None
+    )
     retry = _load_retry()
     now = datetime.now(timezone.utc)
 
@@ -122,7 +128,13 @@ def advance_old_history_v3(code_map: dict[str, str]):
     errors = []
     throttle_stop = False
     attempted = 0
-    print(f"[0B V3 RESUME] calendar=0A_MARKET targets={len(targets)} completed={len(targets)-len(unresolved)} unresolved={len(unresolved)} cooling={cooling} eligible={len(eligible)} batch={len(batch)}", flush=True)
+    print(
+        f"[0B V3 RESUME] calendar=0A_MARKET targets={len(targets)} "
+        f"validated={len(targets)-len(unresolved)} unresolved={len(unresolved)} "
+        f"alias_repair_at_start={alias_repair_at_start} cooling={cooling} "
+        f"eligible={len(eligible)} batch={len(batch)}",
+        flush=True,
+    )
 
     for i, d in enumerate(batch, 1):
         attempted += 1
@@ -156,7 +168,7 @@ def advance_old_history_v3(code_map: dict[str, str]):
         _save_retry(retry)
         if i < len(batch): time.sleep(base.OLD_REQUEST_DELAY_SECONDS)
 
-    completed_now = {d.date().isoformat(): base.load_old_checkpoint(d) for d in targets}
+    completed_now = {d.date().isoformat(): _validated_old_checkpoint(d) for d in targets}
     unresolved_after = [d for d in targets if completed_now[d.date().isoformat()] is None]
     rows = []
     success_dates = no_data_dates = 0
@@ -174,6 +186,9 @@ def advance_old_history_v3(code_map: dict[str, str]):
         "target_calendar_source": "0A_MARKET/market_daily.parquet immutable-OHLCV-derived actual trading dates",
         "target_calendar_audit": {"date_start": targets[0].date().isoformat(), "date_end": targets[-1].date().isoformat(), "target_trading_dates": len(targets), "weekdays_not_assumed": True},
         "target_weekdays": len(targets),
+        "raw_checkpoint_units": sum(1 for d in targets if base.load_old_checkpoint(d) is not None),
+        "alias_repair_required_units_at_start": alias_repair_at_start,
+        "alias_repair_remaining_units": len(unresolved_after),
         "completed_units": len(targets)-len(unresolved_after), "success_trading_dates": success_dates,
         "verified_no_data_dates": no_data_dates, "unresolved_units": len(unresolved_after),
         "unresolved_sample": [d.date().isoformat() for d in unresolved_after[:30]],
