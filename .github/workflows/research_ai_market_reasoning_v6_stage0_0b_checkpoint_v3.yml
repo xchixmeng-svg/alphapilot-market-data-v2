@@ -35,7 +35,7 @@ jobs:
           key: v6-stage0-industry-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             v6-stage0-industry-${{ github.ref_name }}-
-      - name: Run 0B checkpoint V3
+      - name: Run 0B checkpoint V3 anti-waste builder
         env:
           V6_OLD_IND_MAX_DATES: '120'
           V6_OLD_IND_DELAY: '0.80'
