@@ -1,0 +1,71 @@
+name: V6 Stage0 0B Checkpoint V3
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-cpu-quantile-20260916]
+    paths:
+      - 'scripts/build_v6_stage0_industry_layer_checkpoint_v3.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0b_checkpoint_v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkpoint_v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.5 lxml==5.3.0
+      - name: Static compile
+        run: |
+          python -m py_compile scripts/build_v6_stage0_industry_layer.py
+          python -m py_compile scripts/build_v6_stage0_industry_layer_checkpoint_v3.py
+      - name: Build 0A calendar evidence from immutable repo data
+        run: python -u scripts/build_v6_stage0_market_layer.py
+      - name: Restore 0B persistent checkpoints and retry metadata
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/v6-stage0-industry
+          key: v6-stage0-industry-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v6-stage0-industry-${{ github.ref_name }}-
+      - name: Run 0B checkpoint V3
+        env:
+          V6_OLD_IND_MAX_DATES: '120'
+          V6_OLD_IND_DELAY: '0.80'
+        run: python -u scripts/build_v6_stage0_industry_layer_checkpoint_v3.py
+      - name: Save 0B persistent checkpoints and retry metadata
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/v6-stage0-industry
+          key: v6-stage0-industry-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Audit anti-waste invariants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('data/history/v6-layered/manifests/0B_INDUSTRY.json').read_text())
+          a=m['old_history_checkpoint_audit']
+          assert a['target_calendar_source'].startswith('0A_MARKET/')
+          assert a['target_calendar_audit']['weekdays_not_assumed'] is True
+          assert a['permanent_skip_statuses']==['SUCCESS','VERIFIED_NO_DATA']
+          assert 'retry_metadata_path' in a
+          tip=m['tip_recent_cache_audit']
+          hits=sum(bool(v.get('cache_hit')) for v in tip.values())
+          print(f"ANTI-WASTE AUDIT PASS targets={a['target_calendar_audit']['target_trading_dates']} completed={a['completed_units']} unresolved={a['unresolved_units']} attempted={a['this_run_requested']} throttle_stop={a['throttle_early_stop']} TIP_cache_hits={hits}/37")
+          PY
+      - name: Upload 0B V3 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0B-checkpoint-v3
+          path: |
+            data/history/v6-layered/0B_INDUSTRY/
+            data/history/v6-layered/manifests/0B_INDUSTRY.json
+          retention-days: 30
