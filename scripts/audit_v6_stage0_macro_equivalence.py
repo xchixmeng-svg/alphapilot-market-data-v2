@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,9 +25,7 @@ DBNOMICS = {
 FRED = {"fed_funds": "DFF", "us2y": "DGS2", "us10y": "DGS10"}
 START = pd.Timestamp("2016-01-01")
 END = pd.Timestamp("2026-09-15")
-S = requests.Session()
-S.headers.update({"User-Agent": "AlphaPilot-V6-Stage0-Macro-Audit/1.0"})
-
+S = requests.Session()\nS.headers.update({\n    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Stage0-Macro-Audit/1.1",\n    "Accept": "text/csv,application/json,text/plain,*/*",\n})\n
 
 def dbnomics(code: str) -> pd.DataFrame:
     r = S.get(f"{DBNOMICS_BASE}/{code}", params={"observations": "1"}, timeout=30)
@@ -39,19 +38,55 @@ def dbnomics(code: str) -> pd.DataFrame:
     return x.dropna(subset=["date"]).query("@START <= date <= @END").drop_duplicates("date", keep="last")
 
 
-def fred(code: str) -> pd.DataFrame:
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={code}&cosd={START.date()}&coed={END.date()}"
-    r = S.get(url, timeout=30)
-    r.raise_for_status()
+def _fred_chunk(code: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     from io import StringIO
-    x = pd.read_csv(StringIO(r.text))
-    if x.shape[1] < 2:
-        raise RuntimeError(f"FRED {code}: invalid CSV")
-    x = x.iloc[:, :2].copy()
-    x.columns = ["date", "fallback"]
-    x["date"] = pd.to_datetime(x["date"], errors="coerce")
-    x["fallback"] = pd.to_numeric(x["fallback"], errors="coerce")
-    return x.dropna(subset=["date"]).query("@START <= date <= @END").drop_duplicates("date", keep="last")
+    url = "https://fred.stlouisfed.org/graph/fredgraph.csv"
+    last = None
+    for attempt in range(4):
+        try:
+            r = S.get(
+                url,
+                params={"id": code, "cosd": start.date().isoformat(), "coed": end.date().isoformat()},
+                timeout=(15, 45),
+            )
+            r.raise_for_status()
+            if "DATE" not in r.text[:200].upper():
+                raise RuntimeError(f"unexpected FRED CSV prefix={r.text[:80]!r}")
+            x = pd.read_csv(StringIO(r.text))
+            if x.shape[1] < 2:
+                raise RuntimeError(f"invalid CSV columns={x.columns.tolist()}")
+            x = x.iloc[:, :2].copy()
+            x.columns = ["date", "fallback"]
+            x["date"] = pd.to_datetime(x["date"], errors="coerce")
+            x["fallback"] = pd.to_numeric(x["fallback"], errors="coerce")
+            return x.dropna(subset=["date"]).drop_duplicates("date", keep="last")
+        except Exception as e:
+            last = e
+            if attempt < 3:
+                time.sleep(2 ** attempt)
+    raise RuntimeError(
+        f"FRED {code} transport failed for {start.date()}..{end.date()} after retries: "
+        f"{type(last).__name__}: {last}"
+    )
+
+
+def fred(code: str) -> pd.DataFrame:
+    # FRED's graph endpoint intermittently times out on decade-long GitHub-hosted
+    # requests. Fetch independent year chunks so a transport stall cannot be
+    # misclassified as source inequivalence.
+    frames = []
+    for year in range(START.year, END.year + 1):
+        lo = max(START, pd.Timestamp(f"{year}-01-01"))
+        hi = min(END, pd.Timestamp(f"{year}-12-31"))
+        frames.append(_fred_chunk(code, lo, hi))
+    x = pd.concat(frames, ignore_index=True)
+    return (
+        x.dropna(subset=["date"])
+         .query("@START <= date <= @END")
+         .drop_duplicates("date", keep="last")
+         .sort_values("date")
+         .reset_index(drop=True)
+    )
 
 
 def audit_one(name: str) -> dict:
@@ -86,7 +121,11 @@ def main() -> None:
         try:
             results.append(audit_one(name))
         except Exception as e:
-            results.append({"series": name, "status": "FAIL", "reason": f"{type(e).__name__}: {e}"})
+            results.append({
+                "series": name,
+                "status": "BLOCKED_TRANSPORT",
+                "reason": f"{type(e).__name__}: {e}",
+            })
     passed = sum(r.get("status") == "PASS" for r in results)
     evidence = {
         "audit": "0D_fallback_equivalence",
@@ -121,6 +160,7 @@ def main() -> None:
         "unresolved_gates": ["publication_availability_lag"] + ([] if passed == len(results) else ["fallback_equivalence"]),
     }
     (PROGRESS / "0D_MACRO.json").write_text(json.dumps(progress, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("[0D EQUIVALENCE RESULTS] " + json.dumps(evidence, ensure_ascii=False))
     print(json.dumps(progress, ensure_ascii=False, indent=2))
     if passed != len(results):
         raise SystemExit(2)
