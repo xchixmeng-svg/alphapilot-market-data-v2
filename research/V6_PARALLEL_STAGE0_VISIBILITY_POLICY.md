@@ -1,0 +1,1 @@
+Visibility policy: every active Stage0 lane must publish a progress artifact on every run; if a lane has no new effective work, it must explicitly report zero new progress and current blocker rather than disappear from status reporting.
