@@ -1,0 +1,115 @@
+{
+  "lock_id": "V6.1-CORP-SAFE-REPAIR-LOCK-20260918",
+  "lock_status": "LOCKED",
+  "locked_at_utc": "2026-09-18T11:53:15Z",
+  "parent_v6_lock_id": "V6-CPU-QUANTILE-STAGE-A-LOCK-R2-20260918",
+  "source_freeze_commit": "342bfed1fa159ab525a72cfab00d94df0b7cc492",
+  "frozen_stage0f": {
+    "artifact_id": 10537510796,
+    "decision_ticker_panel_sha256": "afd4b86fafed8d3ab576bf5fcc39e6a8ed5fbd0a015909534fe7ac070628c358",
+    "row_count": 2566555,
+    "status": "FROZEN_PASS"
+  },
+  "repair_scope": {
+    "type": "REFERENCE_PRICE_RESET_SAFE_SEGMENTATION",
+    "reset_threshold_abs_raw_close_return": 0.2,
+    "forward_labels_may_cross_reset": false,
+    "stock_features_may_cross_reset": false,
+    "post_reset_warmup_sessions": 120,
+    "model_hyperparameters_changed_from_v6": false
+  },
+  "prelock_evidence": {
+    "run_id": 35341647868,
+    "artifact_id": 10545492106,
+    "conclusion": "SUCCESS",
+    "reset_events_total": 272,
+    "max_abs_safe_ret1": 0.19939881563186646,
+    "cross_reset_forward_label_violations": {
+      "5": 0,
+      "10": 0,
+      "20": 0,
+      "40": 0,
+      "60": 0,
+      "120": 0
+    },
+    "formal_support_2022_2024": true,
+    "year_2021_all_six_horizon_support": false
+  },
+  "validation": {
+    "formal_repair_validation_years": [
+      2022,
+      2023,
+      2024
+    ],
+    "year_2021_authorized": false,
+    "year_2021_reason": "insufficient prehistory for fixed 120-session warmup + 120-session purge + all six naive horizon support",
+    "audit_horizons_sessions": [
+      5,
+      10,
+      20,
+      40,
+      60,
+      120
+    ],
+    "stationary_block_bootstrap_mean_block_sessions": 20,
+    "bootstrap_replicates": 2000,
+    "familywise_method": "Bonferroni",
+    "family_alpha": 0.05,
+    "per_horizon_alpha": 0.008333333333333333,
+    "significant_pinball_improvement_horizons_min": 4,
+    "significant_degradation_horizons_max": 0,
+    "mae_improved_horizons_min": 4,
+    "coverage_not_materially_worse_horizons_min": 5,
+    "coverage_error_tolerance_absolute": 0.03,
+    "failure_action": "STOP_V6_1_NO_RETUNE",
+    "stage_b_2025_rule": "SEALED_UNLESS_V6_1_REPAIR_VALIDATION_GATE_PASSES"
+  },
+  "model": {
+    "family": "sklearn HistGradientBoostingRegressor quantile",
+    "quantiles": [
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      0.9
+    ],
+    "horizon_sessions": [
+      1,
+      120
+    ],
+    "purge_sessions": 120,
+    "max_long_train_rows": 480000,
+    "rng_seed_base": 926616,
+    "params": {
+      "learning_rate": 0.05,
+      "max_iter": 160,
+      "max_leaf_nodes": 31,
+      "min_samples_leaf": 120,
+      "l2_regularization": 4
+    }
+  },
+  "runtime_versions": {
+    "pandas": "2.2.3",
+    "numpy": "2.3.5",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.5.2",
+    "pyarrow": "18.1.0"
+  },
+  "locked_files": {
+    "research/V6_1_CORP_SAFE_PREREGISTRATION.md": "c2537fa43f3d5e7c7a78d68c0fae478eacf1699ef5dcad898e0982aeecdeee9e",
+    "scripts/backtest_ai_market_reasoning_v6_1_corp_safe.py": "28981ef9472285bf91d5a4a2ac853b97d507d135836a8cfb24bc22d89c4cc271",
+    "scripts/audit_v6_1_prelock.py": "3e159e56d32a6b076ce745277ecc331b99a642261eddde5ba0d99dc47325873c",
+    ".github/workflows/research_ai_market_reasoning_v6_1_prelock.yml": "b0c52d6eabfe122b838308c7a7e87339b56768691b8e165797a6918ff224551c",
+    "scripts/verify_v6_1_prereg_lock.py": "c8e3564e8482f025016cde8a7b8e977c184a6071733bc2b2c440ea0b9914464d",
+    ".github/workflows/research_ai_market_reasoning_v6_1_formal.yml": "fdcdf734c902d41c59e953318f12240ff06f799fde9ea88bec4acb2cb3dc05a1",
+    "scripts/audit_v6_1_actionability.py": "c5407d9636dac7ff82dc33972aa54e3390be6223253a62607624768ea4abfb4b",
+    ".github/workflows/research_ai_market_reasoning_v6_1_actionability.yml": "ea807978cfb37ab16bf72e8ecaf680a16fdab4870aa87f7f1472aac0617957f4"
+  },
+  "hash_evidence": {
+    "run_id": 35341828017,
+    "source_freeze_commit": "342bfed1fa159ab525a72cfab00d94df0b7cc492"
+  },
+  "2025_opened": false,
+  "2026_opened": false,
+  "r10_isolation": true
+}
