@@ -40,6 +40,7 @@ def future_path_targets(df:pd.DataFrame,h:int)->pd.DataFrame:
     out["mae"]=fmin/df["close"]-1.0
     out["end_return"]=fend/df["close"]-1.0
     out["opportunity"]=out["mfe"]+out["mae"]
+    out["time_normalized_opportunity"]=out["opportunity"]/np.sqrt(float(h))
     return out
 
 def make_training(train,feats,seed):
@@ -48,13 +49,13 @@ def make_training(train,feats,seed):
     xs=[]; ys=[]
     for h in HORIZONS:
         t=future_path_targets(train,h)
-        valid=train["universe_ok"].to_numpy() & np.isfinite(t["opportunity"].to_numpy(dtype=float))
+        valid=train["universe_ok"].to_numpy() & np.isfinite(t["time_normalized_opportunity"].to_numpy(dtype=float))
         idx=np.flatnonzero(valid)
         if len(idx)>per_h:
             idx=rng.choice(idx,size=per_h,replace=False)
         part=train.iloc[idx]
         xs.append(safe.model_frame(part,feats,np.full(len(part),h,dtype=np.float32)))
-        ys.append(t["opportunity"].iloc[idx].to_numpy(dtype=np.float32))
+        ys.append(t["time_normalized_opportunity"].iloc[idx].to_numpy(dtype=np.float32))
     return np.concatenate(xs),np.concatenate(ys)
 
 def fit_model(train,feats,seed):
@@ -121,7 +122,13 @@ def score_year(year:int):
              "median_mae":float(x["actual_mae"].median()) if len(x) else None,
              "mean_actual_opportunity":float(x["actual_opportunity"].mean()) if len(x) else None,
              "median_actual_opportunity":float(x["actual_opportunity"].median()) if len(x) else None,
-             "median_predicted_best_horizon":float(x["horizon"].median()) if len(x) else None}
+             "median_predicted_best_horizon":float(x["horizon"].median()) if len(x) else None,
+             "horizon_5_share":float((x["horizon"]==5).mean()) if len(x) else None,
+             "horizon_10_share":float((x["horizon"]==10).mean()) if len(x) else None,
+             "horizon_20_share":float((x["horizon"]==20).mean()) if len(x) else None,
+             "horizon_40_share":float((x["horizon"]==40).mean()) if len(x) else None,
+             "horizon_60_share":float((x["horizon"]==60).mean()) if len(x) else None,
+             "horizon_120_share":float((x["horizon"]==120).mean()) if len(x) else None}
         for t in THRESHOLDS:
             tag=int(round(t*100))
             row[f"hit_{tag}pct_rate"]=float((x["actual_mfe"]>=t).mean()) if len(x) else None
@@ -133,7 +140,7 @@ def score_year(year:int):
     best.to_csv(OUT/f"V6_2_{year}_ALL_BEST_HORIZON.csv",index=False,encoding="utf-8-sig")
     top.to_csv(OUT/f"V6_2_{year}_TOP5_DETAIL.csv",index=False,encoding="utf-8-sig")
     meta={"year":year,"status":"DEVELOPMENT_ONLY","train_cutoff":cutoff,"fit_rows":nfit,
-          "target":"future_mfe + future_mae (upside minus adverse excursion)",
+          "target":"(future_mfe + future_mae) / sqrt(horizon) for cross-horizon comparability",
           "horizons":list(HORIZONS),"reset_safe":True,"2025_opened":False}
     (OUT/f"V6_2_{year}_META.json").write_text(json.dumps(meta,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print("[V6.2 SUMMARY]",json.dumps(rows,ensure_ascii=False),flush=True)
