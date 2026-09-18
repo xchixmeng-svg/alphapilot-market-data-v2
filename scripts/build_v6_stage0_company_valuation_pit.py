@@ -28,6 +28,7 @@ for p in (REV_CACHE, VAL_CACHE, LAYER, MANIFEST_DIR, PROGRESS_DIR):
 
 MAX_UNITS = int(os.getenv("V6_0C_VAL_MAX_UNITS", "480"))
 WORKERS = int(os.getenv("V6_0C_VAL_WORKERS", "4"))
+REQUEST_DELAY = float(os.getenv("V6_0C_VAL_REQUEST_DELAY", "0.8"))
 TAIPEI = ZoneInfo("Asia/Taipei")
 
 
@@ -82,6 +83,8 @@ def cache_path(market: str, d: pd.Timestamp) -> Path:
 
 def _fetch_unit(market: str, d: pd.Timestamp):
     fn = base.tpex_val if market == "TPEX" else base.twse_val
+    if market == "TWSE" and REQUEST_DELAY > 0:
+        time.sleep(REQUEST_DELAY)
     last = None
     rows = None
     # Some official endpoints occasionally return HTTP 200 HTML/non-JSON under
