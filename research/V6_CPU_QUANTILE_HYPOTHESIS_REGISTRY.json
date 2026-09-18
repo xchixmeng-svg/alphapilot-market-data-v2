@@ -1,5 +1,5 @@
 {
-  "status": "SOURCE_FROZEN_PENDING_LOCK",
+  "status": "LOCKED",
   "version": "V6-CPU-QUANTILE",
   "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
   "architecture_variants_allowed": 1,
@@ -93,7 +93,7 @@
     "status": "MUST_BE_FINALIZED_AND_LOCKED_BEFORE_EVENT_PROBABILITY_OOS",
     "rule": "Target thresholds are diagnostic queries of the frozen path distribution, not separately trained models. Every formal event/horizon query still counts in multiplicity accounting."
   },
-  "notes": "This registry remains draft until every required Stage-0 layer and the Stage-0F cross-layer PIT assembly audit pass and SOURCE FREEZE is complete. Formal OOS must fail closed while status is not LOCKED.",
+  "notes": "Stage-0 A-F and cross-layer PIT assembly are FROZEN_PASS. Hypothesis families and Stage-A success gate are locked before formal OOS; no post-OOS retuning is permitted under this lock.",
   "stage0_final_input": {
     "artifact_id": 10537510796,
     "workflow_run_id": 35321164823,
