@@ -5,6 +5,7 @@ on:
     branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
     paths:
       - 'research/V6_SOURCE_FREEZE.json'
+      - 'research/V6_PREREG_LOCK.json'
       - 'research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md'
       - 'research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md'
       - 'research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json'
@@ -62,6 +63,13 @@ jobs:
               q=root/f'manifests/{layer}.json'
               print('LAYER_MANIFEST_SHA256',layer,hashlib.sha256(q.read_bytes()).hexdigest())
           PY
+      - name: Verify machine preregistration lock when present
+        run: |
+          if [ -f research/V6_PREREG_LOCK.json ]; then
+            python scripts/verify_v6_prereg_lock.py
+          else
+            echo "V6_PREREG_LOCK.json not created yet; source-freeze evidence only"
+          fi
       - name: Print locked research-file SHA256
         run: |
           sha256sum             research/V6_SOURCE_FREEZE.json             research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md             research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md             research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json             research/V6_STAGE0_LAYER_CONTRACT.json             scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py             scripts/verify_v6_prereg_lock.py             .github/workflows/research_ai_market_reasoning_v6_formal_stage_a.yml             .github/workflows/research_ai_market_reasoning_v6_source_freeze.yml
