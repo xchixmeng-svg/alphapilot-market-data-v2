@@ -1,0 +1,21 @@
+name: V6.1 Lock Hash Evidence
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-1-corp-safe-20260918]
+    paths:
+      - '.github/workflows/research_ai_market_reasoning_v6_1_hash.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Print V6.1 lock hashes
+        run: |
+          set -euo pipefail
+          sha256sum             research/V6_1_CORP_SAFE_PREREGISTRATION.md             scripts/backtest_ai_market_reasoning_v6_1_corp_safe.py             scripts/audit_v6_1_prelock.py             .github/workflows/research_ai_market_reasoning_v6_1_prelock.yml             scripts/verify_v6_1_prereg_lock.py             .github/workflows/research_ai_market_reasoning_v6_1_formal.yml             scripts/audit_v6_1_actionability.py             .github/workflows/research_ai_market_reasoning_v6_1_actionability.yml
+          echo "SOURCE_FREEZE_COMMIT=$(git rev-parse HEAD)"
