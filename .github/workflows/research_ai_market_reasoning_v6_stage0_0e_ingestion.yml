@@ -1,0 +1,59 @@
+name: V6 Stage0 0E Historical Event Ingestion
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/build_v6_stage0_event_history_ingestion.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0e_ingestion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v6-stage0-0e-history-ingestion
+  cancel-in-progress: false
+
+jobs:
+  event_history_ingestion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      V6_0E_MAX_UNITS: '120'
+      V6_0E_WORKERS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 pyarrow==18.1.0 requests==2.32.5 lxml==5.3.0
+      - name: Static compile
+        run: python -m py_compile scripts/build_v6_stage0_event_history_ingestion.py
+      - name: Restore 0E event checkpoints
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/v6-event-history
+          key: v6-stage0-0e-history-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            v6-stage0-0e-history-${{ github.ref_name }}-
+      - name: Build historical event ingestion checkpoints
+        run: python -u scripts/build_v6_stage0_event_history_ingestion.py
+      - name: Save 0E event checkpoints
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/v6-event-history
+          key: v6-stage0-0e-history-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload 0E ingestion evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0E-event-history
+          path: |
+            data/history/v6-layered/0E_EVENT_TIME/
+            data/history/v6-layered/manifests/0E_EVENT_TIME.json
+            data/history/v6-layered/progress/0E_EVENT_TIME.json
+          if-no-files-found: error
+          retention-days: 7
