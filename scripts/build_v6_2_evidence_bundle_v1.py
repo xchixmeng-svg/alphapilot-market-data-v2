@@ -6,8 +6,8 @@ import pandas as pd
 
 ROOT=Path('v6_2_evidence_bundle_v1'); ROOT.mkdir(exist_ok=True)
 FROZEN=Path('inputs/0f/0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet')
-TWSE=Path('inputs/institutional/TWSE_INSTITUTIONAL_PIT.parquet')
-TPEX=Path('inputs/institutional/TPEX_INSTITUTIONAL_PIT.parquet')
+TWSE=Path('inputs/institutional/twse_institutional_pit_2020_2024.parquet')
+TPEX=Path('inputs/institutional/tpex_institutional_pit_2020_2024.parquet')
 ADMISSION=Path('inputs/admission/INSTITUTIONAL_SUPPLEMENTAL_ADMISSION.json')
 for p in [FROZEN,TWSE,TPEX,ADMISSION]:
     if not p.exists(): raise FileNotFoundError(p)
