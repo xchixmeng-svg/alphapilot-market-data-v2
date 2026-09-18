@@ -47,8 +47,11 @@ jobs:
           from pathlib import Path
           root=Path('/tmp/v6-0f')
           sf=json.loads(Path('research/V6_SOURCE_FREEZE.json').read_text())
-          p=root/'data/history/v6-layered/0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet'
-          m=root/'data/history/v6-layered/manifests/0F_FINAL_ASSEMBLY.json'
+          # actions/upload-artifact stores files relative to the least common
+          # ancestor (data/history/v6-layered), so the downloaded archive
+          # starts at 0F_FINAL_ASSEMBLY/, manifests/, progress/.
+          p=root/'0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet'
+          m=root/'manifests/0F_FINAL_ASSEMBLY.json'
           h=hashlib.sha256(p.read_bytes()).hexdigest()
           mm=json.loads(m.read_text())
           assert h==sf['stage0_final']['decision_ticker_panel_sha256']
@@ -56,7 +59,7 @@ jobs:
           assert mm['status']=='FROZEN_PASS'
           print('STAGE0F_CONTAINER_PASS',h)
           for layer in ['0A_MARKET','0B_INDUSTRY','0C_COMPANY','0D_MACRO','0E_EVENT_TIME','0F_FINAL_ASSEMBLY']:
-              q=root/f'data/history/v6-layered/manifests/{layer}.json'
+              q=root/f'manifests/{layer}.json'
               print('LAYER_MANIFEST_SHA256',layer,hashlib.sha256(q.read_bytes()).hexdigest())
           PY
       - name: Print locked research-file SHA256
