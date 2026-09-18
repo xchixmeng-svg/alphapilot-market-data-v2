@@ -108,21 +108,28 @@ def fetch_twse(d):
     return official_normalize(dict_rows(f,rows),"TWSE")
 
 def fetch_tpex(d):
-    ds=pd.Timestamp(str(d)).strftime("%Y/%m/%d")
-    urls=[
-      ("https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",{"date":ds,"type":"Daily","sect":"EW"}),
-      ("https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php",{"l":"zh-tw","d":str(int(str(d)[:4])-1911)+"/"+str(d)[4:6]+"/"+str(d)[6:8],"se":"EW","t":"D"}),
-    ]
-    errs=[]
-    for url,p in urls:
-        try:
-            obj=fetch_json(url,p)
-            f,rows=find_table(obj)
-            z=official_normalize(dict_rows(f,rows),"TPEX")
-            if len(z): return z,url
-        except Exception as e:
-            errs.append(f"{url}: {type(e).__name__}: {e}")
-    raise RuntimeError("TPEx historical fetch failed: "+" | ".join(errs))
+    roc=str(int(str(d)[:4])-1911)+"/"+str(d)[4:6]+"/"+str(d)[6:8]
+    url="https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php"
+    obj=fetch_json(url,{"l":"zh-tw","o":"json","d":roc,"se":"EW","t":"D","s":"0,asc"})
+    aa=obj.get("aaData") if isinstance(obj,dict) else None
+    if not isinstance(aa,list) or not aa:
+        raise RuntimeError(f"TPEx aaData empty for {d}; keys={list(obj.keys()) if isinstance(obj,dict) else type(obj).__name__}")
+    rows=[]
+    for raw in aa:
+        if not isinstance(raw,list) or len(raw)<23:
+            continue
+        rows.append({
+          "market":"TPEX",
+          "stock_id":str(raw[0]).strip(),
+          # Stable post-2018 TPEx layout: combined foreign net col10, trust net col13, total dealer net col22.
+          "foreign_net":num(raw[10]),
+          "trust_net":num(raw[13]),
+          "dealer_net":num(raw[22]),
+        })
+    z=pd.DataFrame(rows)
+    if z.empty:
+        raise RuntimeError(f"TPEx parsed zero rows for {d}")
+    return z,url
 
 def normalize_history(x):
     ren={}
