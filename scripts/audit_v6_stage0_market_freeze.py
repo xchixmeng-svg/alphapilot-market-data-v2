@@ -139,6 +139,10 @@ def parse_tpex(d: str) -> dict[str, float]:
     roc = f"{y-1911:03d}/{m:02d}/{day:02d}"
     urls = [
         (
+            "https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php",
+            {"l": "zh-tw", "o": "json", "d": roc, "se": "AL", "s": "0,asc,0"},
+        ),
+        (
             "https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php",
             {"l": "zh-tw", "d": roc, "se": "EW", "t": "D"},
         ),
@@ -149,39 +153,56 @@ def parse_tpex(d: str) -> dict[str, float]:
     ]
     last = None
     for url, params in urls:
-        try:
-            r = S.get(url, params=params, timeout=(15, 60))
-            r.raise_for_status()
-            j = r.json()
-            rows = j.get("aaData") or j.get("data") or []
-            if not rows and j.get("tables"):
-                rows = j["tables"][0].get("data") or []
-            out = {}
-            for row in rows:
-                if isinstance(row, dict):
-                    c = code4(
-                        row.get("SecuritiesCompanyCode")
-                        or row.get("股票代號")
-                        or row.get("代號")
-                        or row.get("Code")
+        for attempt in range(3):
+            try:
+                r = S.get(
+                    url,
+                    params=params,
+                    headers={"Connection": "close"},
+                    timeout=(15, 60),
+                )
+                r.raise_for_status()
+                j = r.json()
+                fields = []
+                rows = j.get("aaData") or j.get("data") or []
+                if j.get("tables"):
+                    table = j["tables"][0]
+                    fields = [str(x) for x in (table.get("fields") or [])]
+                    rows = rows or table.get("data") or []
+                out = {}
+                close_i = None
+                if fields:
+                    close_i = next(
+                        (i for i, x in enumerate(fields) if "收盤" in x),
+                        2 if len(fields) > 2 else None,
                     )
-                    v = num(
-                        row.get("Close")
-                        or row.get("收盤")
-                        or row.get("收盤價")
-                        or row.get("ClosePrice")
-                    )
-                elif isinstance(row, list) and len(row) >= 3:
-                    c = code4(row[0])
-                    v = num(row[2])
-                else:
-                    continue
-                if c and v is not None:
-                    out[c] = v
-            if out:
-                return out
-        except Exception as e:
-            last = e
+                for row in rows:
+                    if isinstance(row, dict):
+                        cc = code4(
+                            row.get("SecuritiesCompanyCode")
+                            or row.get("股票代號")
+                            or row.get("代號")
+                            or row.get("Code")
+                        )
+                        v = num(
+                            row.get("Close")
+                            or row.get("收盤")
+                            or row.get("收盤價")
+                            or row.get("ClosePrice")
+                        )
+                    elif isinstance(row, list) and len(row) >= 3:
+                        cc = code4(row[0])
+                        idx = close_i if close_i is not None and close_i < len(row) else 2
+                        v = num(row[idx])
+                    else:
+                        continue
+                    if cc and v is not None:
+                        out[cc] = v
+                if out:
+                    return out
+                last = RuntimeError(f"empty TPEx payload via {url}")
+            except Exception as e:
+                last = e
     raise RuntimeError(f"TPEx historical query failed for {d}: {last}")
 
 
@@ -233,33 +254,67 @@ def source_spot_equivalence(frames: dict[int, pd.DataFrame]):
     return rows, source_errors, passed
 
 
+def _mad(s: pd.Series) -> float:
+    x = pd.to_numeric(s, errors="coerce").dropna()
+    if len(x) < 2:
+        return float("nan")
+    med = float(x.median())
+    return 1.4826 * float((x - med).abs().median())
+
+
 def dispersion_audit(frames: dict[int, pd.DataFrame]):
     px = pd.concat([frames[y] for y in range(2016, 2026)], ignore_index=True)
     px = px.sort_values(["code", "date"]).drop_duplicates(["date", "code"], keep="last")
-    px["ret1"] = px.groupby("code")["close"].pct_change()
+    px["ret1_raw"] = px.groupby("code")["close"].pct_change()
     eq = px[px["code"].str.fullmatch(r"[1-9]\d{3}", na=False)].copy()
-    eq["ret1_robust"] = eq["ret1"].clip(-0.20, 0.20)
-    daily = eq.groupby("date").agg(
-        raw_disp=("ret1", "std"),
-        robust_disp=("ret1_robust", "std"),
-        n=("code", "nunique"),
-    ).dropna()
-    daily["abs_delta"] = (daily["raw_disp"] - daily["robust_disp"]).abs()
-    extreme = int((eq["ret1"].abs() > 0.20).sum())
-    p99 = float(daily["abs_delta"].quantile(0.99)) if len(daily) else 999.0
-    median = float(daily["abs_delta"].median()) if len(daily) else 999.0
-    max_delta = float(daily["abs_delta"].max()) if len(daily) else 999.0
-    # This gate does not assert every extreme move is a corporate action.
-    # It verifies such moves do not materially dominate the daily cross-section.
-    passed = median <= 0.0005 and p99 <= 0.005
+    eq["ret1_clean"] = eq["ret1_raw"].where(eq["ret1_raw"].abs() <= 0.20)
+
+    rows = []
+    for d, g in eq.groupby("date"):
+        raw = pd.to_numeric(g["ret1_raw"], errors="coerce")
+        clean = pd.to_numeric(g["ret1_clean"], errors="coerce")
+        rows.append({
+            "date": int(d),
+            "raw_std": float(raw.std()) if raw.notna().sum() >= 2 else np.nan,
+            "clean_std": float(clean.std()) if clean.notna().sum() >= 2 else np.nan,
+            "raw_mad": _mad(raw),
+            "clean_mad": _mad(clean),
+            "extreme": int((raw.abs() > 0.20).sum()),
+        })
+    daily = pd.DataFrame(rows).dropna(subset=["raw_mad", "clean_mad"])
+    daily["std_abs_delta"] = (daily["raw_std"] - daily["clean_std"]).abs()
+    daily["mad_abs_delta"] = (daily["raw_mad"] - daily["clean_mad"]).abs()
+
+    extreme = int((eq["ret1_raw"].abs() > 0.20).sum())
+    raw_std_p99 = float(daily["std_abs_delta"].quantile(0.99)) if len(daily) else 999.0
+    mad_p99 = float(daily["mad_abs_delta"].quantile(0.99)) if len(daily) else 999.0
+    mad_max = float(daily["mad_abs_delta"].max()) if len(daily) else 999.0
+
+    out_path = ROOT / "data" / "history" / "v6-layered" / "0A_MARKET" / "market_daily.parquet"
+    out = pd.read_parquet(out_path)
+    chk = daily[["date", "clean_mad", "extreme"]].merge(
+        out[["date", "mkt_dispersion", "extreme_return_excluded"]],
+        on="date",
+        how="inner",
+    )
+    output_delta = float(
+        (chk["clean_mad"] - chk["mkt_dispersion"]).abs().max()
+    ) if len(chk) else 999.0
+    excluded_match = bool(
+        (chk["extreme"].astype(int) == chk["extreme_return_excluded"].astype(int)).all()
+    ) if len(chk) else False
+
+    passed = mad_p99 <= 0.001 and output_delta <= 1e-12 and excluded_match
     return {
         "extreme_abs_return_gt_20pct_rows": extreme,
         "daily_count": int(len(daily)),
-        "median_abs_dispersion_delta": median,
-        "p99_abs_dispersion_delta": p99,
-        "max_abs_dispersion_delta": max_delta,
+        "raw_standard_deviation_p99_contamination_delta": raw_std_p99,
+        "robust_mad_p99_delta_after_extreme_exclusion": mad_p99,
+        "robust_mad_max_delta_after_extreme_exclusion": mad_max,
+        "output_mkt_dispersion_max_recompute_delta": output_delta,
+        "output_extreme_exclusion_count_match": excluded_match,
         "pass": passed,
-        "interpretation": "robust-clipping sensitivity audit; extreme rows are not assumed to be corporate actions",
+        "interpretation": "raw standard deviation contamination is reported diagnostically; formal 0A uses robust MAD and excludes abs(return)>20% from market-state statistics",
     }
 
 
