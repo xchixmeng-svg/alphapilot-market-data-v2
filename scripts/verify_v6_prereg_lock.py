@@ -66,8 +66,9 @@ def main() -> None:
     reg = json.loads(registry.read_text(encoding='utf-8'))
     if reg.get('status') != 'LOCKED':
         raise SystemExit(f"LOCK FAIL: hypothesis registry status={reg.get('status')!r}")
-    if not reg.get('families'):
-        raise SystemExit('LOCK FAIL: hypothesis registry has no families')
+    families = reg.get('formal_families') or reg.get('families') or []
+    if not families:
+        raise SystemExit('LOCK FAIL: hypothesis registry has no formal families')
 
     expected_runtime = m.get('runtime_versions') or {}
     runtime_bad = []
@@ -89,7 +90,7 @@ def main() -> None:
         'execution_commit': head,
         'manifest_sha256': sha256(mp),
         'locked_file_count': len(locked),
-        'hypothesis_family_count': len(reg.get('families') or []),
+        'hypothesis_family_count': len(families),
     }, ensure_ascii=False))
 
 
