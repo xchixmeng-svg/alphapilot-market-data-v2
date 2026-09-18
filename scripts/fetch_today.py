@@ -273,7 +273,7 @@ def foreign_value(row, actions):
         row,
         ["Foreign", "外資"],
         actions,
-        reject_prefixes=["外資自營商"],
+        reject_prefixes=["外資自營商", "ForeignDealers"],
     )
 
 
