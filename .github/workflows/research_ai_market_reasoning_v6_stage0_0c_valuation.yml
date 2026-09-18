@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: v6-stage0-0c-valuation
@@ -42,6 +43,17 @@ jobs:
           key: v6-stage0-0c-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             v6-stage0-0c-${{ github.ref_name }}-
+      - name: Hydrate completed monthly revenue artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/v6-0c-prior data/history/v6-layered/0C_COMPANY
+          if [ ! -f data/history/v6-layered/0C_COMPANY/monthly_revenue_point_in_time.parquet ]; then
+            gh run download 35222300271 -n alphapilot-v6-stage0-0C-company -D /tmp/v6-0c-prior
+            P="$(find /tmp/v6-0c-prior -name monthly_revenue_point_in_time.parquet -print -quit)"
+            test -n "$P"
+            cp "$P" data/history/v6-layered/0C_COMPANY/monthly_revenue_point_in_time.parquet
+          fi
       - name: Build resumable daily valuation PIT
         run: python -u scripts/build_v6_stage0_company_valuation_pit.py
       - name: Save 0C revenue and valuation checkpoints
