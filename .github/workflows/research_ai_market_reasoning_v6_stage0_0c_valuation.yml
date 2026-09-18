@@ -21,8 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      V6_0C_VAL_MAX_UNITS: '120'
+      V6_0C_VAL_MAX_UNITS: '40'
       V6_0C_VAL_WORKERS: '1'
+      V6_0C_VAL_REQUEST_DELAY: '0.8'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
