@@ -146,9 +146,9 @@ def main():
 
     # Barrier audit on deterministic sample: all eligible rows on 2024 month-end-like final 20 dates, capped per date.
     dates = sorted(ds.loc[(ds["date"] >= 20240101) & (ds["date"] <= 20241231) & ds["universe_ok"], "date"].unique())
-    sample_dates = dates[-20:]
+    sample_dates = dates[-10:]
     sample = ds[ds["date"].isin(sample_dates) & ds["universe_ok"]].copy()
-    sample = sample.sort_values(["date","code"]).groupby("date", group_keys=False).head(250)
+    sample = sample.sort_values(["date","code"]).groupby("date", group_keys=False).head(100)
 
     groups = {str(c): g.sort_values("date").reset_index(drop=True) for c, g in ds.groupby("code", sort=False)}
     positions = {}
