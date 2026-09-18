@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: v6-stage0-0e-history-ingestion
@@ -18,7 +19,7 @@ concurrency:
 jobs:
   event_history_ingestion:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     env:
       V6_0E_MAX_UNITS: '120'
       V6_0E_WORKERS: '2'
@@ -38,14 +39,60 @@ jobs:
           key: v6-stage0-0e-history-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             v6-stage0-0e-history-${{ github.ref_name }}-
-      - name: Build historical event ingestion checkpoints
-        run: python -u scripts/build_v6_stage0_event_history_ingestion.py
+      - name: Build historical event ingestion checkpoints continuously
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$SECONDS
+          round=0
+          while true; do
+            round=$((round + 1))
+            echo "[0E CONTINUOUS] round=$round elapsed=$((SECONDS-started))s"
+            python -u scripts/build_v6_stage0_event_history_ingestion.py
+            status="$(python - <<'PY'
+import json
+from pathlib import Path
+p=Path("data/history/v6-layered/progress/0E_EVENT_TIME.json")
+print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))
+PY
+)"
+            echo "[0E CONTINUOUS] status=$status"
+            if [ "$status" = "PASS" ]; then
+              echo "[0E CONTINUOUS] layer PASS; stopping loop"
+              break
+            fi
+            if [ $((SECONDS-started)) -ge 3000 ]; then
+              echo "[0E CONTINUOUS] time budget reached; persist checkpoints and chain next run"
+              break
+            fi
+            sleep 5
+          done
       - name: Save 0E event checkpoints
         if: always()
         uses: actions/cache/save@v4
         with:
           path: .cache/v6-event-history
           key: v6-stage0-0e-history-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Queue next 0E run if incomplete
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(python - <<'PY'
+import json
+from pathlib import Path
+p=Path("data/history/v6-layered/progress/0E_EVENT_TIME.json")
+print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))
+PY
+)"
+          if [ "$status" != "PASS" ]; then
+            echo "[0E AUTO-CHAIN] status=$status; dispatching continuation"
+            gh workflow run research_ai_market_reasoning_v6_stage0_0e_ingestion.yml --ref "$GITHUB_REF_NAME"
+          else
+            echo "[0E AUTO-CHAIN] PASS; no continuation needed"
+          fi
       - name: Upload 0E ingestion evidence
         if: always()
         uses: actions/upload-artifact@v4
