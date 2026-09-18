@@ -12,7 +12,85 @@ permissions:
   actions: read
 
 jobs:
+  preflight_support:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install preflight runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Download exact frozen Stage0F artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10537510796/zip > /tmp/v6-0f.zip
+          mkdir -p /tmp/v6-0f
+          unzip -q /tmp/v6-0f.zip -d /tmp/v6-0f
+          mkdir -p data/history/v6-layered
+          cp -a /tmp/v6-0f/. data/history/v6-layered/
+      - name: Verify scientific lock
+        run: python scripts/verify_v6_prereg_lock.py
+      - name: Preflight all formal years before opening any year
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import numpy as np
+          import pandas as pd
+
+          p=Path('data/history/v6-layered/0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet')
+          x=pd.read_parquet(p, columns=['code','date','close'])
+          x['code']=x['code'].astype(str).str.zfill(4)
+          x['date']=pd.to_numeric(x['date'], errors='raise').astype(np.int64)
+          x=x.sort_values(['code','date']).reset_index(drop=True)
+          x['hist_count']=x.groupby('code').cumcount()+1
+          x['universe_ok']=(x['hist_count']>=120)&(x['close']>0)
+          dates=np.array(sorted(x['date'].unique()), dtype=np.int64)
+          horizons=(5,10,20,40,60,120)
+          evidence={}
+          failures=[]
+          for year in (2021,2022,2023,2024):
+              test=x[(x['date']>=year*10000+101)&(x['date']<=year*10000+1231)&x['universe_ok']]
+              if test.empty:
+                  failures.append(f'{year}: empty test year')
+                  continue
+              first=int(test['date'].min())
+              pos=int(np.searchsorted(dates, first))
+              if pos<120:
+                  failures.append(f'{year}: insufficient purge history')
+                  continue
+              cutoff=int(dates[pos-120])
+              train=x[(x['date']<cutoff)&x['universe_ok']].copy()
+              counts={}
+              for h in horizons:
+                  y=train.groupby('code',group_keys=False)['close'].shift(-h)/train['close']-1.0
+                  n=int(np.isfinite(y.to_numpy(dtype=float)).sum())
+                  counts[str(h)]=n
+                  if n<1000:
+                      failures.append(f'{year}: naive reference support h={h} n={n}<1000')
+              evidence[str(year)]={'train_cutoff':cutoff,'support_by_horizon':counts}
+          Path('stage_a_preflight_support.json').write_text(json.dumps({'status':'PASS' if not failures else 'FAIL','evidence':evidence,'failures':failures},indent=2),encoding='utf-8')
+          print(json.dumps({'status':'PASS' if not failures else 'FAIL','evidence':evidence,'failures':failures}))
+          if failures:
+              raise SystemExit('FORMAL STAGE A PREFLIGHT BLOCKED: '+ '; '.join(failures))
+          PY
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-stage-a-preflight-support
+          path: stage_a_preflight_support.json
+          if-no-files-found: error
+          retention-days: 90
+
   stage_a_year:
+    needs: preflight_support
     strategy:
       fail-fast: false
       matrix:
