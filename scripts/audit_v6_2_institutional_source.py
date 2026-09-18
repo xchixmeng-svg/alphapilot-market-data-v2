@@ -12,7 +12,7 @@ OUT=ROOT/"v6_2_institutional_admission_audit"
 OUT.mkdir(exist_ok=True)
 
 DATES=[20210802,20221230,20230703,20240628,20241230]
-FIELDS=["foreign_buy","foreign_sell","foreign_net","trust_buy","trust_sell","trust_net","dealer_buy","dealer_sell","dealer_net"]
+FIELDS=["foreign_net","trust_net","dealer_net"]
 
 def norm(s):
     return re.sub(r"[\s_\-()/（）]+","",str(s or "")).lower()
@@ -170,16 +170,7 @@ def main():
     dup=int(z.duplicated(["date","market","stock_id"],keep=False).sum())
     schema["duplicate_decision_source_keys"]=dup
 
-    identities={}
-    for p in ("foreign","trust","dealer"):
-        a=z[f"{p}_buy"].astype("Float64")-z[f"{p}_sell"].astype("Float64")
-        b=z[f"{p}_net"].astype("Float64")
-        valid=a.notna()&b.notna()
-        identities[p+"_buy_minus_sell_eq_net"]={
-          "checked":int(valid.sum()),
-          "mismatch":int((a[valid]!=b[valid]).sum())
-        }
-    schema["arithmetic_identity"]=identities
+    identities={"status":"NOT_TESTABLE_NET_ONLY_ARCHIVE","reason":"Historical parquet stores only foreign_net/trust_net/dealer_net; buy/sell legs are absent."}
 
     comparisons=[]; fetch_status=[]
     for d in DATES:
@@ -218,7 +209,7 @@ def main():
     endpoint_ok=bool((fs["status"]=="PASS_FETCH").all()) if len(fs) else False
     pit_ok=False  # the source itself has no available_at; must be wrapped by next-session admission policy.
     duplicate_ok=(dup==0)
-    arithmetic_ok=all(v["mismatch"]==0 for v in identities.values())
+    arithmetic_ok=True  # not testable from net-only archive; official net-value comparison is the numerical gate
 
     # Current daily normalizer regression evidence: detect English Foreign Dealers collision risk in code.
     fetch_today=(ROOT/"scripts"/"fetch_today.py").read_text(encoding="utf-8")
@@ -233,7 +224,7 @@ def main():
       "official_total_field_mismatches":int(comp["field_value_mismatches"].sum()) if len(comp) else None,
       "official_fetch_all_pass":endpoint_ok,
       "duplicate_key_ok":duplicate_ok,
-      "arithmetic_identity_ok":arithmetic_ok,
+      "arithmetic_identity_ok":None,\n      "arithmetic_identity_note":"Not testable: archive is net-only; numerical admission relies on official net-value spot checks.",
       "source_has_native_available_at":False,
       "pit_admission_ok_as_is":pit_ok,
       "required_pit_wrapper":"For decision session T, only institutional source rows with trade_date < T are eligible. available_session = next trading session after trade_date.",
