@@ -105,7 +105,42 @@ def official_normalize(rows,market):
 def fetch_twse(d):
     obj=fetch_json("https://www.twse.com.tw/rwd/zh/fund/T86",{"date":str(d),"selectType":"ALLBUT0999","response":"json"})
     f,rows=find_table(obj)
-    return official_normalize(dict_rows(f,rows),"TWSE")
+    print("[V6.2 TWSE FIELDS]", json.dumps({"date":d,"fields":f},ensure_ascii=False),flush=True)
+    dr=dict_rows(f,rows)
+    out=[]
+    for r in dr:
+        code=code_of(r)
+        if not code: continue
+        nm={norm(k):v for k,v in r.items()}
+        def exact(*names):
+            for name in names:
+                k=norm(name)
+                if k in nm:
+                    return num(nm[k])
+            return None
+        foreign=exact(
+          "外陸資買賣超股數(不含外資自營商)",
+          "外資及陸資買賣超股數(不含外資自營商)",
+          "外資及陸資(不含外資自營商)買賣超股數"
+        )
+        trust=exact("投信買賣超股數")
+        dealer=exact("自營商買賣超股數")
+        # Fail-open only to a deterministic generic parser for historical naming variants,
+        # but diagnostics/per-field compare counts below make missing fields visible.
+        if foreign is None:
+            foreign=best(r,["外陸資","外資及陸資"],["買賣超","差額"],reject=["外資自營商"])
+        if trust is None:
+            trust=best(r,["投信"],["買賣超","差額"])
+        if dealer is None:
+            dealer=best(r,["自營商"],["買賣超","差額"],reject=["自行買賣","避險"])
+        out.append({
+          "market":"TWSE","stock_id":str(code),
+          "foreign_net":foreign,"trust_net":trust,"dealer_net":dealer
+        })
+    z=pd.DataFrame(out)
+    if z.empty:
+        raise RuntimeError(f"TWSE parsed zero rows for {d}")
+    return z
 
 def fetch_tpex(d):
     roc=str(int(str(d)[:4])-1911)+"/"+str(d)[4:6]+"/"+str(d)[6:8]
@@ -225,18 +260,20 @@ def main():
                     off,endpoint=fetch_tpex(d)
                 hist=z[(z["date"]==d)&(z["market"]==market)][["stock_id"]+FIELDS].copy()
                 m=hist.merge(off,on="stock_id",suffixes=("_hist","_official"))
-                field_mismatch={}; compared_total=0
-                for c in FIELDS:
-                    h=pd.to_numeric(m[f"{c}_hist"],errors="coerce")
-                    o=pd.to_numeric(m[f"{c}_official"],errors="coerce")
+                field_mismatch={}; field_compared={}; compared_total=0
+                for fld in FIELDS:
+                    h=pd.to_numeric(m[f"{fld}_hist"],errors="coerce")
+                    o=pd.to_numeric(m[f"{fld}_official"],errors="coerce")
                     valid=h.notna()&o.notna()
-                    field_mismatch[c]=int((h[valid]!=o[valid]).sum())
-                    compared_total+=int(valid.sum())
+                    field_mismatch[fld]=int((h[valid]!=o[valid]).sum())
+                    field_compared[fld]=int(valid.sum())
+                    compared_total+=field_compared[fld]
                 mism=sum(field_mismatch.values())
                 comparisons.append({
                   "date":d,"market":market,"hist_rows":int(len(hist)),"official_rows":int(len(off)),
                   "matched_codes":int(len(m)),"field_values_compared":compared_total,
                   "field_value_mismatches":mism,
+                  **{f"compared_{k}":v for k,v in field_compared.items()},
                   **{f"mismatch_{k}":v for k,v in field_mismatch.items()}
                 })
                 fetch_status.append({"date":d,"market":market,"status":"PASS_FETCH","endpoint":endpoint})
@@ -248,17 +285,33 @@ def main():
     comp.to_csv(OUT/"OFFICIAL_SPOT_CHECK.csv",index=False,encoding="utf-8-sig")
     fs.to_csv(OUT/"OFFICIAL_FETCH_STATUS.csv",index=False,encoding="utf-8-sig")
 
-    numerical_ok=bool(
-        len(comp)>=3
-        and (comp["matched_codes"]>0).all()
-        and (comp["field_values_compared"]>0).all()
-        and int(comp["field_value_mismatches"].sum())==0
-    ) if len(comp) else False
     endpoint_ok=bool((fs["status"]=="PASS_FETCH").all()) if len(fs) else False
-    pit_ok=False  # the source itself has no available_at; must be wrapped by next-session admission policy.
     duplicate_ok=(dup==0)
-    arithmetic_ok=True  # not testable from net-only archive; official net-value comparison is the numerical gate
+    arithmetic_ok=True  # net-only archive; buy/sell identity is not testable.
 
+    market_admission={}
+    for market in ("TWSE","TPEX"):
+        q=comp[comp["market"]==market].copy() if len(comp) else pd.DataFrame()
+        source_nonnull=schema["nonnull_by_market"].get(market,{})
+        all_three_source_present=all(int(source_nonnull.get(fld,0))>0 for fld in FIELDS)
+        all_dates_compared=bool(
+          len(q)==len(DATES)
+          and all((q.get(f"compared_{fld}",pd.Series(dtype=int))>0).all() for fld in FIELDS)
+        ) if len(q) else False
+        zero_mismatch=bool(int(q["field_value_mismatches"].sum())==0) if len(q) else False
+        fetched=bool((fs.loc[fs["market"]==market,"status"]=="PASS_FETCH").all()) if "market" in fs.columns and len(fs.loc[fs["market"]==market]) else False
+        raw_numbers_ok=bool(all_three_source_present and all_dates_compared and zero_mismatch and fetched and duplicate_ok)
+        market_admission[market]={
+          "source_nonnull_all_three_fields":all_three_source_present,
+          "official_all_dates_compared_all_three_fields":all_dates_compared,
+          "official_zero_mismatch":zero_mismatch,
+          "official_fetch_ok":fetched,
+          "raw_numbers_ok":raw_numbers_ok,
+          "pit_ready_as_is":False,
+          "status":"RAW_NUMBERS_VERIFIED_NEEDS_PIT_WRAPPER" if raw_numbers_ok else ("REBUILD_REQUIRED" if market=="TPEX" and not all_three_source_present else "NOT_ADMITTED")
+        }
+
+    pit_ok=False  # archive itself has no available_at; source admission requires next-session wrapper.
     # Current daily normalizer regression evidence: detect English Foreign Dealers collision risk in code.
     fetch_today=(ROOT/"scripts"/"fetch_today.py").read_text(encoding="utf-8")
     current_normalizer_risk=(
@@ -266,11 +319,12 @@ def main():
     )
 
     result={
-      "status":"PASS_FOR_RAW_NUMBERS_ONLY" if numerical_ok and endpoint_ok and duplicate_ok and arithmetic_ok else "NOT_ADMITTED",
+      "status":"PARTIAL_SOURCE_ADMISSION_AUDIT",
       "schema":schema,
       "official_spot_check_rows":int(len(comp)),
       "official_total_field_mismatches":int(comp["field_value_mismatches"].sum()) if len(comp) else None,
       "official_fetch_all_pass":endpoint_ok,
+      "market_admission":market_admission,
       "duplicate_key_ok":duplicate_ok,
       "arithmetic_identity_ok":None,
       "arithmetic_identity_note":"Not testable: archive is net-only; numerical admission relies on official net-value spot checks.",
@@ -279,7 +333,7 @@ def main():
       "required_pit_wrapper":"For decision session T, only institutional source rows with trade_date < T are eligible. available_session = next trading session after trade_date.",
       "corporate_action_rule":"Never roll raw share counts across V6.1 price_segment_id boundaries. Prefer net_share_ratio = net_shares / same-day traded_shares for rolling evidence.",
       "current_2026_normalizer_foreign_dealer_collision_risk":current_normalizer_risk,
-      "final_admission":"REJECT_AS_IS; admit only after official-number audit passes AND next-session PIT wrapper + segment-safe/scale-safe transforms are implemented and audited."
+      "final_admission":"DO_NOT_JOIN_AS_IS. TWSE may be admitted only if RAW_NUMBERS_VERIFIED_NEEDS_PIT_WRAPPER then next-session PIT wrapper + segment-safe/scale-safe transforms pass. TPEx historical null fields require official rebuild before any admission."
     }
     (OUT/"V6_2_INSTITUTIONAL_ADMISSION_AUDIT.json").write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     (OUT/"PARQUET_SCHEMA.json").write_text(json.dumps(schema,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
