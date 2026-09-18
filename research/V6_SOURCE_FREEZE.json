@@ -1,5 +1,5 @@
 {
-  "status": "SOURCE_FROZEN_PENDING_LOCK",
+  "status": "SOURCE_FROZEN",
   "version": "V6-CPU-QUANTILE-STAGE-A-SOURCE-FREEZE-20260918",
   "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
   "created_at_utc": "2026-09-18T09:10:00Z",
