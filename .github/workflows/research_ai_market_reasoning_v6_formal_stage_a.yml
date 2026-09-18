@@ -36,7 +36,8 @@ jobs:
           gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10537510796/zip > /tmp/v6-0f.zip
           mkdir -p /tmp/v6-0f
           unzip -q /tmp/v6-0f.zip -d /tmp/v6-0f
-          mkdir -p data/history/v6-layered\n          cp -a /tmp/v6-0f/. data/history/v6-layered/
+          mkdir -p data/history/v6-layered
+          cp -a /tmp/v6-0f/. data/history/v6-layered/
       - name: Verify scientific lock
         run: python scripts/verify_v6_prereg_lock.py
       - name: Verify exact Stage0F panel
