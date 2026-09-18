@@ -111,9 +111,29 @@ def fetch_tpex(d):
     roc=str(int(str(d)[:4])-1911)+"/"+str(d)[4:6]+"/"+str(d)[6:8]
     url="https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php"
     obj=fetch_json(url,{"l":"zh-tw","o":"json","d":roc,"se":"EW","t":"D","s":"0,asc"})
+
     aa=obj.get("aaData") if isinstance(obj,dict) else None
     if not isinstance(aa,list) or not aa:
-        raise RuntimeError(f"TPEx aaData empty for {d}; keys={list(obj.keys()) if isinstance(obj,dict) else type(obj).__name__}")
+        aa=None
+        tables=obj.get("tables") if isinstance(obj,dict) else None
+        if isinstance(tables,list):
+            for t in tables:
+                if not isinstance(t,dict):
+                    continue
+                data=t.get("data") or t.get("aaData")
+                if isinstance(data,list) and data and isinstance(data[0],list) and len(data[0])>=23:
+                    aa=data
+                    break
+    if not isinstance(aa,list) or not aa:
+        shapes=[]
+        if isinstance(obj,dict) and isinstance(obj.get("tables"),list):
+            for t in obj["tables"]:
+                if isinstance(t,dict):
+                    data=t.get("data") or t.get("aaData")
+                    shapes.append({"keys":list(t.keys()),"rows":len(data) if isinstance(data,list) else None,
+                                   "first_len":len(data[0]) if isinstance(data,list) and data and isinstance(data[0],list) else None})
+        raise RuntimeError(f"TPEx detail table not found for {d}; top_keys={list(obj.keys()) if isinstance(obj,dict) else type(obj).__name__}; shapes={shapes}")
+
     rows=[]
     for raw in aa:
         if not isinstance(raw,list) or len(raw)<23:
@@ -121,7 +141,6 @@ def fetch_tpex(d):
         rows.append({
           "market":"TPEX",
           "stock_id":str(raw[0]).strip(),
-          # Stable post-2018 TPEx layout: combined foreign net col10, trust net col13, total dealer net col22.
           "foreign_net":num(raw[10]),
           "trust_net":num(raw[13]),
           "dealer_net":num(raw[22]),
