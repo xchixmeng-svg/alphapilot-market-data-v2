@@ -1,0 +1,95 @@
+{
+  "status": "SOURCE_FROZEN_PENDING_LOCK",
+  "version": "V6-CPU-QUANTILE-STAGE-A-SOURCE-FREEZE-20260918",
+  "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
+  "created_at_utc": "2026-09-18T09:10:00Z",
+  "stage0_final": {
+    "workflow_run_id": 35321164823,
+    "artifact_id": 10537510796,
+    "artifact_upload_sha256": "353bb7c45a910411389cbfef9395c4279fefac0add4ddfc7faba8325b5ccd246",
+    "decision_ticker_panel_sha256": "afd4b86fafed8d3ab576bf5fcc39e6a8ed5fbd0a015909534fe7ac070628c358",
+    "rows": 2566555,
+    "eligible_decision_dates": 1459,
+    "base_feature_count": 78,
+    "status": "FROZEN_PASS",
+    "future_join_violations": 0,
+    "duplicate_decision_key_violations": 0,
+    "silent_zero_fill_violations": 0
+  },
+  "frozen_stage0_artifacts": {
+    "0A_MARKET": {
+      "artifact_id": 10536618848,
+      "run_id": 35320440826
+    },
+    "0B_INDUSTRY": {
+      "artifact_id": 10526620525
+    },
+    "0C_COMPANY": {
+      "artifact_id": 10536433874,
+      "run_id": 35320169521
+    },
+    "0D_MACRO": {
+      "artifact_id": 10524349749
+    },
+    "0E_EVENT_TIME": {
+      "artifact_id": 10535817783,
+      "run_id": 35316992914
+    },
+    "0F_FINAL_ASSEMBLY": {
+      "artifact_id": 10537510796,
+      "run_id": 35321164823
+    }
+  },
+  "authorized_oos": {
+    "stage_a_years": [
+      2021,
+      2022,
+      2023,
+      2024
+    ],
+    "stage_b_2025": false,
+    "live_2026": false,
+    "rule": "2025 remains sealed unless locked Stage A gate passes"
+  },
+  "model": {
+    "family": "sklearn HistGradientBoostingRegressor quantile",
+    "quantiles": [
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      0.9
+    ],
+    "horizon_sessions": [
+      1,
+      120
+    ],
+    "audit_horizons_sessions": [
+      5,
+      10,
+      20,
+      40,
+      60,
+      120
+    ],
+    "purge_sessions": 120,
+    "max_long_train_rows": 480000,
+    "rng_seed_base": 926616,
+    "params": {
+      "learning_rate": 0.05,
+      "max_iter": 160,
+      "max_leaf_nodes": 31,
+      "min_samples_leaf": 120,
+      "l2_regularization": 4
+    }
+  },
+  "runtime_versions": {
+    "pandas": "2.2.3",
+    "numpy": "2.3.5",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.5.2",
+    "pyarrow": "18.1.0"
+  },
+  "formal_rule": "No OOS run is authorized until a subsequent LOCK commit hashes every locked research file and verify_v6_prereg_lock.py passes.",
+  "r10_isolation": true
+}
