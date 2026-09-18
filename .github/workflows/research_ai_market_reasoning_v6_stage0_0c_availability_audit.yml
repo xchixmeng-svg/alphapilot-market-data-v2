@@ -1,0 +1,59 @@
+name: V6 Stage0 0C Availability Freeze Audit
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/audit_v6_stage0_company_availability.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0c_availability_audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v6-stage0-0c-availability-audit
+  cancel-in-progress: false
+
+jobs:
+  audit_0c_availability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      V6_0C_VAL_MAX_UNITS: '1'
+      V6_0C_VAL_WORKERS: '1'
+      V6_0C_VAL_REQUEST_DELAY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 pyarrow==18.1.0 requests==2.32.5 lxml==5.3.0 html5lib==1.1 beautifulsoup4==4.12.3
+      - name: Static compile
+        run: |
+          python -m py_compile scripts/build_v6_stage0_company_valuation_pit.py
+          python -m py_compile scripts/audit_v6_stage0_company_availability.py
+      - name: Restore completed 0C checkpoints
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/v6-context-stage
+          key: v6-stage0-0c-audit-${{ github.run_id }}
+          restore-keys: |
+            v6-stage0-0c-valuation-${{ github.ref_name }}-
+      - name: Rebuild 0C artifact from checkpoints without refetch
+        run: python -u scripts/build_v6_stage0_company_valuation_pit.py
+      - name: Audit and freeze conservative availability
+        run: python -u scripts/audit_v6_stage0_company_availability.py
+      - name: Upload 0C freeze evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0C-frozen-audit
+          path: |
+            data/history/v6-layered/0C_COMPANY/
+            data/history/v6-layered/manifests/0C_COMPANY.json
+            data/history/v6-layered/progress/0C_COMPANY.json
+            data/history/v6-layered/audits/0C_COMPANY_AVAILABILITY.json
+          if-no-files-found: error
+          retention-days: 14
