@@ -45,6 +45,7 @@ jobs:
         run: |
           python -u scripts/audit_v6_prelock_industry_boundary.py             --frozen-0b-manifest /tmp/v6-0b/manifests/0B_INDUSTRY.json             --frozen-feature-registry /tmp/v6-0f/0F_FINAL_ASSEMBLY/feature_registry.json
       - name: Upload immutable pre-lock evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: v6-prelock-industry-boundary-audit
