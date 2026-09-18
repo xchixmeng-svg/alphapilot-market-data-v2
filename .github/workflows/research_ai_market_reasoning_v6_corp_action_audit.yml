@@ -1,0 +1,47 @@
+name: V6 Corporate Action Contamination Audit
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/audit_v6_corporate_action_contamination.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_corp_action_audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Download frozen Stage0F
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10537510796/zip > /tmp/0f.zip
+          mkdir -p /tmp/0f && unzip -q /tmp/0f.zip -d /tmp/0f
+      - name: Download completed actionability artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10543704658/zip > /tmp/a2022.zip
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10544476565/zip > /tmp/a2023.zip
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10543839496/zip > /tmp/a2024.zip
+      - name: Run contamination audit
+        run: |
+          python -u scripts/audit_v6_corporate_action_contamination.py             --panel /tmp/0f/0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet             --a2022 /tmp/a2022.zip --a2023 /tmp/a2023.zip --a2024 /tmp/a2024.zip
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-corporate-action-contamination-audit
+          path: v6_corporate_action_contamination_audit/
+          if-no-files-found: error
+          retention-days: 90
