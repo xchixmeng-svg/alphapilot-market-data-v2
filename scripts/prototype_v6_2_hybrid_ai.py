@@ -167,7 +167,9 @@ def main():
     pd.DataFrame(counts).to_csv(OUT/"V6_2_BARRIER_LABEL_DISTRIBUTION.csv",index=False)
 
     # Latest-date full-market evidence bundles; deterministic first 200 also saved as JSONL sample.
-    # Development seal: never inspect 2025+ bundles during V6.2 prototype.\n    dev_mask = ds["universe_ok"] & (ds["date"] <= 20241231)\n    latest = int(ds.loc[dev_mask,"date"].max())
+    # Development seal: never inspect 2025+ bundles during V6.2 prototype.
+    dev_mask = ds["universe_ok"] & (ds["date"] <= 20241231)
+    latest = int(ds.loc[dev_mask,"date"].max())
     day = ds[(ds["date"]==latest)&ds["universe_ok"]].sort_values("code").copy()
     bundles = [build_bundle(r) for _,r in day.iterrows()]
 
