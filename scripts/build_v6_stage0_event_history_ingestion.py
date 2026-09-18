@@ -8,6 +8,8 @@ import json
 import os
 import re
 import time
+import threading
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,16 +29,27 @@ for p in (CACHE, LAYER, PROGRESS, MANIFEST):
     p.mkdir(parents=True, exist_ok=True)
 
 URL = "https://mopsov.twse.com.tw/mops/web/ajax_t05st01"
-MAX_UNITS = int(os.getenv("V6_0E_MAX_UNITS", "120"))
-WORKERS = int(os.getenv("V6_0E_WORKERS", "2"))
+CHUNK_UNITS = int(os.getenv("V6_0E_CHUNK_UNITS", "160"))
+WORKERS = int(os.getenv("V6_0E_WORKERS", "4"))
+MIN_WORKERS = int(os.getenv("V6_0E_MIN_WORKERS", "1"))
+RUN_BUDGET_SECONDS = int(os.getenv("V6_0E_RUN_BUDGET_SECONDS", "2700"))
+COOLDOWN_SECONDS = float(os.getenv("V6_0E_COOLDOWN_SECONDS", "12"))
 TAIPEI = ZoneInfo("Asia/Taipei")
 
-S = requests.Session()
-S.headers.update({
-    "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Event-History/1.0",
-    "Accept": "text/html,application/xhtml+xml,*/*",
-    "Referer": "https://mopsov.twse.com.tw/mops/web/t05st01",
-})
+_TLS = threading.local()
+
+
+def _session() -> requests.Session:
+    s = getattr(_TLS, "session", None)
+    if s is None:
+        s = requests.Session()
+        s.headers.update({
+            "User-Agent": "Mozilla/5.0 AlphaPilot-V6-Event-History/1.0",
+            "Accept": "text/html,application/xhtml+xml,*/*",
+            "Referer": "https://mopsov.twse.com.tw/mops/web/t05st01",
+        })
+        _TLS.session = s
+    return s
 
 
 def sha256(path: Path) -> str:
@@ -133,7 +146,7 @@ def fetch_company_year(year: int, code: str) -> dict:
     last = None
     for attempt in range(3):
         try:
-            r = S.post(
+            r = _session().post(
                 URL,
                 data={
                     "encodeURIComponent": "1",
@@ -221,40 +234,30 @@ def fetch_company_year(year: int, code: str) -> dict:
     raise RuntimeError(f"{year} {code}: {type(last).__name__}: {last}")
 
 
-def main():
-    generated = datetime.now(timezone.utc).isoformat()
-    targets = target_units()
-    done = {(y, c): read_checkpoint(y, c) for y, c in targets}
-    unresolved = [(y, c) for y, c in targets if done[(y, c)] is None]
-    batch = unresolved[:MAX_UNITS]
-    fresh = 0
-    failures = []
+def _is_throttle_failure(error: str) -> bool:
+    s = error.lower()
+    return any(k in s for k in (
+        "throttled request",
+        "查詢過於頻繁",
+        "service unavailable",
+        "429",
+        "connecttimeout",
+        "readtimeout",
+        "timed out",
+    ))
 
-    print(
-        f"[0E EVENT INGEST RESUME] target_units={len(targets)} "
-        f"completed={len(targets)-len(unresolved)} unresolved={len(unresolved)} "
-        f"batch={len(batch)} workers={WORKERS}",
-        flush=True,
-    )
 
-    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-        fut = {ex.submit(fetch_company_year, y, c): (y, c) for y, c in batch}
-        for i, f in enumerate(as_completed(fut), 1):
-            y, c = fut[f]
-            try:
-                obj = f.result()
-                save_checkpoint(y, c, obj)
-                fresh += 1
-            except Exception as e:
-                failures.append({"year": y, "code": c, "error": f"{type(e).__name__}: {e}"})
-            if i % 20 == 0 or i == len(batch):
-                print(f"[0E EVENT INGEST PROGRESS] {i}/{len(batch)} fresh={fresh} fail={len(failures)}", flush=True)
-
+def _aggregate_and_write(
+    targets: list[tuple[int, str]],
+    generated: str,
+    fresh: int,
+    failures: list[dict],
+) -> dict:
     all_events = []
     completed = 0
     no_event_units = 0
-    for y, c in targets:
-        obj = read_checkpoint(y, c)
+    for y, code in targets:
+        obj = read_checkpoint(y, code)
         if obj is None:
             continue
         completed += 1
@@ -265,16 +268,24 @@ def main():
     events = pd.DataFrame(all_events)
     out_path = LAYER / "historical_material_information.parquet"
     if not events.empty:
-        events["published_at_utc"] = pd.to_datetime(events["published_at_utc"], utc=True, errors="coerce")
-        events["available_at_utc"] = pd.to_datetime(events["available_at_utc"], utc=True, errors="coerce")
-        events = events.dropna(subset=["published_at_utc", "available_at_utc", "code"])
+        events["published_at_utc"] = pd.to_datetime(
+            events["published_at_utc"], utc=True, errors="coerce"
+        )
+        events["available_at_utc"] = pd.to_datetime(
+            events["available_at_utc"], utc=True, errors="coerce"
+        )
+        events = events.dropna(
+            subset=["published_at_utc", "available_at_utc", "code"]
+        )
         events = events.drop_duplicates(["code", "published_at_utc", "title"])
         events.to_parquet(out_path, index=False)
 
     complete = completed == len(targets)
     future_violations = 0
     if not events.empty:
-        future_violations = int((events["available_at_utc"] < events["published_at_utc"]).sum())
+        future_violations = int(
+            (events["available_at_utc"] < events["published_at_utc"]).sum()
+        )
 
     status = "PASS" if complete and future_violations == 0 else "BUILDING"
     progress = {
@@ -285,7 +296,10 @@ def main():
         "completion_pct": 100.0 if status == "PASS" else 66.67,
         "newly_completed_this_run": fresh,
         "remaining": 0 if status == "PASS" else 1,
-        "current_blocker": None if status == "PASS" else f"historical event ingestion incomplete: {completed}/{len(targets)}",
+        "current_blocker": (
+            None if status == "PASS"
+            else f"historical event ingestion incomplete: {completed}/{len(targets)}"
+        ),
         "last_successful_unit": f"historical event checkpoints {completed}/{len(targets)}",
         "artifact_name": "alphapilot-v6-stage0-0E-event-history",
         "updated_at_utc": generated,
@@ -296,7 +310,7 @@ def main():
         "no_event_units": no_event_units,
         "event_rows": int(len(events)),
         "future_join_violations": future_violations,
-        "failures_this_run": failures[:30],
+        "failures_this_run": failures[-30:],
         "formal_oos_opened": False,
     }
     (PROGRESS / "0E_EVENT_TIME.json").write_text(
@@ -306,27 +320,29 @@ def main():
     manifest = {
         "layer_id": "0E_EVENT_TIME",
         "status": status,
-        "schema_version": "v2-event-history",
+        "schema_version": "v3-event-history-longrun",
         "generation_commit": os.getenv("GITHUB_SHA", "UNKNOWN"),
         "generated_at_utc": generated,
-        "source_lineage": [
-            {
-                "dataset": "historical_material_information",
-                "source": "MOPS/TWSE official historical material-information system",
-                "checkpoint_unit": "company-year",
-            }
-        ],
-        "datasets": [
-            {
-                "name": "historical_material_information",
-                "rows": int(len(events)),
-                "time_semantics": "event_timestamp_asof",
-                "checkpoint_units": completed,
-                "target_units": len(targets),
-            }
-        ],
-        "date_start": events["published_at_utc"].min().isoformat() if not events.empty else None,
-        "date_end": events["published_at_utc"].max().isoformat() if not events.empty else None,
+        "source_lineage": [{
+            "dataset": "historical_material_information",
+            "source": "MOPS/TWSE official historical material-information system",
+            "checkpoint_unit": "company-year",
+        }],
+        "datasets": [{
+            "name": "historical_material_information",
+            "rows": int(len(events)),
+            "time_semantics": "event_timestamp_asof",
+            "checkpoint_units": completed,
+            "target_units": len(targets),
+        }],
+        "date_start": (
+            events["published_at_utc"].min().isoformat()
+            if not events.empty else None
+        ),
+        "date_end": (
+            events["published_at_utc"].max().isoformat()
+            if not events.empty else None
+        ),
         "row_count": int(len(events)),
         "file_sha256": {out_path.name: sha256(out_path)} if out_path.exists() else {},
         "missingness": {
@@ -345,10 +361,146 @@ def main():
     (MANIFEST / "0E_EVENT_TIME.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(json.dumps(progress, ensure_ascii=False, indent=2))
+    print("[0E FINAL AGGREGATE] " + json.dumps(progress, ensure_ascii=False), flush=True)
+    return progress
 
-    if batch and fresh == 0:
-        raise RuntimeError(f"0E event ingestion batch made zero progress: {failures[:5]}")
+
+def main():
+    started = time.monotonic()
+    targets = target_units()
+
+    # Startup scan only. Intermediate chunks write checkpoints but do not
+    # rescan every checkpoint or rebuild the full parquet.
+    unresolved = deque()
+    completed_at_start = 0
+    for y, code in targets:
+        if read_checkpoint(y, code) is None:
+            unresolved.append((y, code))
+        else:
+            completed_at_start += 1
+
+    fresh = 0
+    failures: list[dict] = []
+    current_workers = max(MIN_WORKERS, WORKERS)
+    clean_chunks = 0
+    chunk_no = 0
+
+    print(
+        f"[0E LONGRUN RESUME] target_units={len(targets)} "
+        f"completed={completed_at_start} unresolved={len(unresolved)} "
+        f"chunk_units={CHUNK_UNITS} workers={current_workers} "
+        f"budget_seconds={RUN_BUDGET_SECONDS}",
+        flush=True,
+    )
+
+    while unresolved:
+        elapsed = time.monotonic() - started
+        if elapsed >= RUN_BUDGET_SECONDS:
+            print(
+                f"[0E LONGRUN] time budget reached elapsed={elapsed:.1f}s "
+                f"fresh={fresh} unresolved_queue={len(unresolved)}",
+                flush=True,
+            )
+            break
+
+        chunk_no += 1
+        n = min(CHUNK_UNITS, len(unresolved))
+        batch = [unresolved.popleft() for _ in range(n)]
+        chunk_fresh = 0
+        chunk_failures = []
+        throttle_like = 0
+        chunk_started = time.monotonic()
+
+        print(
+            f"[0E CHUNK START] chunk={chunk_no} size={len(batch)} "
+            f"workers={current_workers} elapsed={elapsed:.1f}s "
+            f"queue_after_pop={len(unresolved)}",
+            flush=True,
+        )
+
+        with ThreadPoolExecutor(max_workers=current_workers) as ex:
+            fut = {
+                ex.submit(fetch_company_year, y, code): (y, code)
+                for y, code in batch
+            }
+            for i, future in enumerate(as_completed(fut), 1):
+                y, code = fut[future]
+                try:
+                    obj = future.result()
+                    save_checkpoint(y, code, obj)
+                    chunk_fresh += 1
+                    fresh += 1
+                except Exception as e:
+                    err = f"{type(e).__name__}: {e}"
+                    rec = {"year": y, "code": code, "error": err}
+                    chunk_failures.append(rec)
+                    failures.append(rec)
+                    unresolved.append((y, code))
+                    if _is_throttle_failure(err):
+                        throttle_like += 1
+
+                if i % 40 == 0 or i == len(batch):
+                    print(
+                        f"[0E CHUNK PROGRESS] chunk={chunk_no} {i}/{len(batch)} "
+                        f"fresh={chunk_fresh} fail={len(chunk_failures)} "
+                        f"throttle_like={throttle_like}",
+                        flush=True,
+                    )
+
+        chunk_seconds = time.monotonic() - chunk_started
+        failure_rate = len(chunk_failures) / max(1, len(batch))
+
+        if throttle_like > 0 or failure_rate >= 0.05:
+            old_workers = current_workers
+            current_workers = max(MIN_WORKERS, current_workers // 2)
+            clean_chunks = 0
+            cooldown = COOLDOWN_SECONDS * (2 if throttle_like >= 3 else 1)
+            print(
+                f"[0E ADAPTIVE THROTTLE] chunk={chunk_no} "
+                f"failure_rate={failure_rate:.3f} throttle_like={throttle_like} "
+                f"workers={old_workers}->{current_workers} cooldown={cooldown:.1f}s",
+                flush=True,
+            )
+            time.sleep(cooldown)
+        else:
+            clean_chunks += 1
+            if clean_chunks >= 2 and current_workers < WORKERS:
+                old_workers = current_workers
+                current_workers += 1
+                clean_chunks = 0
+                print(
+                    f"[0E ADAPTIVE RECOVERY] workers={old_workers}->{current_workers}",
+                    flush=True,
+                )
+
+        rate = chunk_fresh / max(chunk_seconds, 0.001) * 60.0
+        print(
+            f"[0E CHUNK DONE] chunk={chunk_no} fresh={chunk_fresh} "
+            f"fail={len(chunk_failures)} seconds={chunk_seconds:.1f} "
+            f"rate_units_per_min={rate:.1f} total_fresh={fresh} "
+            f"unresolved_queue={len(unresolved)}",
+            flush=True,
+        )
+
+        if chunk_fresh == 0:
+            raise RuntimeError(
+                f"0E chunk made zero progress; chunk={chunk_no} "
+                f"workers={current_workers} failures={chunk_failures[:5]}"
+            )
+
+    # Aggregate only once per workflow run.
+    progress = _aggregate_and_write(
+        targets=targets,
+        generated=datetime.now(timezone.utc).isoformat(),
+        fresh=fresh,
+        failures=failures,
+    )
+    print(
+        f"[0E LONGRUN SUMMARY] status={progress['status']} "
+        f"completed={progress['ingestion_completed_units']}/{len(targets)} "
+        f"fresh={fresh} runtime_seconds={time.monotonic()-started:.1f}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
