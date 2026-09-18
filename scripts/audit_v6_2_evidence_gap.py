@@ -26,7 +26,10 @@ families={
  'eps_revision': hits([r'eps.*rev',r'rev.*eps',r'earnings.*revision',r'consensus.*eps',r'forecast.*eps']),
  'news_disclosure_text': hits([r'news',r'disclosure',r'announcement',r'material.*event',r'headline',r'text']),
  'industry_pricing_supply_demand': hits([r'industry.*price',r'commodity.*price',r'supply',r'demand',r'freight',r'inventory']),
- 'historical_company_industry_pit': hits([r'industry',r'sector',r'classification']),
+ 'historical_company_industry_pit': hits([
+     r'company.*industry', r'industry.*asof', r'industry.*mapping',
+     r'sector.*asof', r'sector.*mapping', r'classification.*asof'
+ ]),
 }
 # Presence by column name is inventory only, never source admission.
 required=['eps_revision','news_disclosure_text','industry_pricing_supply_demand','historical_company_industry_pit']
@@ -43,7 +46,7 @@ report={
  'scope':'2020-2024 development only',
  'status':'PASS_INVENTORY' if families['institutional_flow'] else 'FAIL',
  'scientific_success':False,
- 'note':'Column-name presence is inventory only; every supplemental family still requires independent source-accuracy/PIT admission before use.',
+ 'note':'Column-name presence is inventory only; every supplemental family still requires independent source-accuracy/PIT admission before use. Global industry_ret1_* context does NOT count as historical company-industry PIT mapping.',
  'rows':rows,'columns':len(cols),
  'bundle_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
  'families':{k:{'columns':v,'present_by_name':bool(v)} for k,v in families.items()},
