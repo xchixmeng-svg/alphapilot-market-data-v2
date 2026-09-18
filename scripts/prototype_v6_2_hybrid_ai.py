@@ -167,7 +167,7 @@ def main():
     pd.DataFrame(counts).to_csv(OUT/"V6_2_BARRIER_LABEL_DISTRIBUTION.csv",index=False)
 
     # Latest-date full-market evidence bundles; deterministic first 200 also saved as JSONL sample.
-    latest = int(ds.loc[ds["universe_ok"],"date"].max())
+    # Development seal: never inspect 2025+ bundles during V6.2 prototype.\n    dev_mask = ds["universe_ok"] & (ds["date"] <= 20241231)\n    latest = int(ds.loc[dev_mask,"date"].max())
     day = ds[(ds["date"]==latest)&ds["universe_ok"]].sort_values("code").copy()
     bundles = [build_bundle(r) for _,r in day.iterrows()]
 
@@ -208,7 +208,7 @@ def main():
       "barrier_tasks":len(BARRIER_TASKS),
       "evidence_family_coverage":coverage,
       "bundle_size":size_meta,
-      "2025_opened_for_model_evaluation":False,
+      "development_data_cutoff":20241231,\n      "2025_opened_for_model_evaluation":False,
       "notes":[
         "No LLM was called in this workflow.",
         "This run tests deterministic retrieval, barrier-label semantics, missing-data honesty, and bundle scale only.",
