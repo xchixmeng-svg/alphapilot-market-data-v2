@@ -134,6 +134,15 @@ def fetch_tpex(d):
                                    "first_len":len(data[0]) if isinstance(data,list) and data and isinstance(data[0],list) else None})
         raise RuntimeError(f"TPEx detail table not found for {d}; top_keys={list(obj.keys()) if isinstance(obj,dict) else type(obj).__name__}; shapes={shapes}")
 
+    first=aa[0] if aa else []
+    print("[V6.2 TPEX RAW]", json.dumps({
+      "date":d,
+      "row_len":len(first) if isinstance(first,list) else None,
+      "idx0":first[0] if isinstance(first,list) and len(first)>0 else None,
+      "idx10":first[10] if isinstance(first,list) and len(first)>10 else None,
+      "idx13":first[13] if isinstance(first,list) and len(first)>13 else None,
+      "idx22":first[22] if isinstance(first,list) and len(first)>22 else None,
+    },ensure_ascii=False),flush=True)
     rows=[]
     for raw in aa:
         if not isinstance(raw,list) or len(raw)<23:
@@ -199,6 +208,10 @@ def main():
     }
     dup=int(z.duplicated(["date","market","stock_id"],keep=False).sum())
     schema["duplicate_decision_source_keys"]=dup
+    schema["nonnull_by_market"]={
+      str(m):{fld:int(g[fld].notna().sum()) for fld in FIELDS}
+      for m,g in z.groupby("market")
+    }
 
     identities={"status":"NOT_TESTABLE_NET_ONLY_ARCHIVE","reason":"Historical parquet stores only foreign_net/trust_net/dealer_net; buy/sell legs are absent."}
 
