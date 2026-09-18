@@ -1,16 +1,36 @@
 {
-  "status": "PRE_OOS_DRAFT_NOT_LOCKED",
+  "status": "SOURCE_FROZEN_PENDING_LOCK",
   "version": "V6-CPU-QUANTILE",
-  "branch": "research-ai-market-reasoning-v6-cpu-quantile-20260916",
+  "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
   "architecture_variants_allowed": 1,
   "architecture": "HistGradientBoostingRegressor quantile regression; horizon-conditioned 1..120",
-  "quantiles": [0.10, 0.25, 0.50, 0.75, 0.90],
-  "audit_horizons_sessions": [5, 10, 20, 40, 60, 120],
+  "quantiles": [
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    0.9
+  ],
+  "audit_horizons_sessions": [
+    5,
+    10,
+    20,
+    40,
+    60,
+    120
+  ],
   "sealed_confirmation_year": 2025,
   "live_forward_start_year": 2026,
   "stage0_layer_contract": {
     "path": "research/V6_STAGE0_LAYER_CONTRACT.json",
-    "required_layers": ["0A_MARKET", "0B_INDUSTRY", "0C_COMPANY", "0D_MACRO", "0E_EVENT_TIME", "0F_FINAL_ASSEMBLY"],
+    "required_layers": [
+      "0A_MARKET",
+      "0B_INDUSTRY",
+      "0C_COMPANY",
+      "0D_MACRO",
+      "0E_EVENT_TIME",
+      "0F_FINAL_ASSEMBLY"
+    ],
     "single_model_after_assembly": true,
     "layer_weighting_or_voting_allowed": false,
     "fallback_requires_equivalence_pass_before_freeze": true,
@@ -26,8 +46,14 @@
     "note": "Frozen before formal Stage-A OOS; applied to formal effect/significance claims, not internal tree splits."
   },
   "multiplicity": {
-    "exploratory": {"method": "Benjamini-Hochberg", "fdr_q": 0.05},
-    "confirmatory": {"method": "Bonferroni", "family_alpha": 0.05}
+    "exploratory": {
+      "method": "Benjamini-Hochberg",
+      "fdr_q": 0.05
+    },
+    "confirmatory": {
+      "method": "Bonferroni",
+      "family_alpha": 0.05
+    }
   },
   "researcher_degrees_of_freedom": {
     "model_families_compared_for_selection": 1,
@@ -46,11 +72,20 @@
       "purpose": "confirmatory distribution-quality audit",
       "family_size_m": 6,
       "members": [
-        "coverage_h005", "coverage_h010", "coverage_h020", "coverage_h040", "coverage_h060", "coverage_h120"
+        "coverage_h005",
+        "coverage_h010",
+        "coverage_h020",
+        "coverage_h040",
+        "coverage_h060",
+        "coverage_h120"
       ],
       "null": "Frozen q10-q90 interval coverage and quantile calibration are not more useful than the preregistered unconditional/naive reference at the stated horizon.",
       "alternative": "The frozen conditional quantile forecasts provide reproducible distribution information beyond the preregistered reference.",
-      "effect_metrics": ["pinball_loss_delta_vs_naive", "q10_q90_coverage_error", "median_absolute_error_delta_vs_naive"],
+      "effect_metrics": [
+        "pinball_loss_delta_vs_naive",
+        "q10_q90_coverage_error",
+        "median_absolute_error_delta_vs_naive"
+      ],
       "selection_rule": "All six horizons are reported. No horizon may be dropped because its result is weak."
     }
   ],
@@ -58,5 +93,36 @@
     "status": "MUST_BE_FINALIZED_AND_LOCKED_BEFORE_EVENT_PROBABILITY_OOS",
     "rule": "Target thresholds are diagnostic queries of the frozen path distribution, not separately trained models. Every formal event/horizon query still counts in multiplicity accounting."
   },
-  "notes": "This registry remains draft until every required Stage-0 layer and the Stage-0F cross-layer PIT assembly audit pass and SOURCE FREEZE is complete. Formal OOS must fail closed while status is not LOCKED."
+  "notes": "This registry remains draft until every required Stage-0 layer and the Stage-0F cross-layer PIT assembly audit pass and SOURCE FREEZE is complete. Formal OOS must fail closed while status is not LOCKED.",
+  "stage0_final_input": {
+    "artifact_id": 10537510796,
+    "workflow_run_id": 35321164823,
+    "decision_ticker_panel_sha256": "afd4b86fafed8d3ab576bf5fcc39e6a8ed5fbd0a015909534fe7ac070628c358",
+    "rows": 2566555,
+    "eligible_dates": 1459,
+    "base_feature_count": 78,
+    "formal_oos_only_reads_stage0f": true
+  },
+  "stage_a_success_gate": {
+    "audit_horizons_sessions": [
+      5,
+      10,
+      20,
+      40,
+      60,
+      120
+    ],
+    "stationary_block_bootstrap_mean_block_sessions": 20,
+    "bootstrap_replicates": 2000,
+    "familywise_method": "Bonferroni",
+    "family_alpha": 0.05,
+    "per_horizon_alpha": 0.008333333333333333,
+    "significant_pinball_improvement_horizons_min": 4,
+    "significant_degradation_horizons_max": 0,
+    "mae_improved_horizons_min": 4,
+    "coverage_not_materially_worse_horizons_min": 5,
+    "coverage_error_tolerance_absolute": 0.03,
+    "failure_action": "STOP_LOCKED_VERSION_NO_RETUNE",
+    "stage_b_2025_rule": "SEALED_UNLESS_STAGE_A_GATE_PASSES"
+  }
 }
