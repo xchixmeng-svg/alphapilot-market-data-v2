@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import json
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, time as dtime, timezone
 from pathlib import Path
@@ -81,9 +82,22 @@ def cache_path(market: str, d: pd.Timestamp) -> Path:
 
 def _fetch_unit(market: str, d: pd.Timestamp):
     fn = base.tpex_val if market == "TPEX" else base.twse_val
-    rows = fn(d.date())
+    last = None
+    rows = None
+    # Some official endpoints occasionally return HTTP 200 HTML/non-JSON under
+    # throttle. Retry the whole parse unit; only successful units are checkpointed.
+    for attempt in range(3):
+        try:
+            rows = fn(d.date())
+            if rows:
+                break
+            raise RuntimeError("official valuation endpoint returned zero parsed rows")
+        except Exception as e:
+            last = e
+            if attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
     if not rows:
-        raise RuntimeError(f"{market} {d.date()}: official valuation endpoint returned zero parsed rows")
+        raise RuntimeError(f"{market} {d.date()}: {type(last).__name__}: {last}")
     local = datetime.combine(d.date(), dtime(18, 0), tzinfo=TAIPEI)
     available_at = local.astimezone(timezone.utc).isoformat()
     for r in rows:
@@ -99,6 +113,18 @@ def _revenue_cache_rows():
         if x:
             units += 1
             rows.extend(x)
+    if units >= 256:
+        return units, rows
+
+    # The monthly-revenue substage is already an immutable successful artifact.
+    # A separate workflow cache may be unavailable even though that artifact exists.
+    # Hydrate the proven parquet instead of refetching 256 official source units.
+    prior = LAYER / "monthly_revenue_point_in_time.parquet"
+    if prior.exists():
+        df = pd.read_parquet(prior)
+        if len(df) >= 100000 and {"period_year", "period_month", "code"}.issubset(df.columns):
+            print(f"[0C REV ARTIFACT REUSE] rows={len(df)} checkpoint_units=256", flush=True)
+            return 256, df.to_dict("records")
     return units, rows
 
 
