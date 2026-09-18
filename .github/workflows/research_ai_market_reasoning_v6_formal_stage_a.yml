@@ -1,0 +1,101 @@
+name: V6 Formal Stage A OOS 2021-2024
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  stage_a_year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2021, 2022, 2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install locked runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 scipy==1.18.1 scikit-learn==1.5.2 pyarrow==18.1.0
+      - name: Download exact frozen Stage0F artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10537510796/zip > /tmp/v6-0f.zip
+          mkdir -p /tmp/v6-0f
+          unzip -q /tmp/v6-0f.zip -d /tmp/v6-0f
+          cp -a /tmp/v6-0f/data/. data/
+      - name: Verify scientific lock
+        run: python scripts/verify_v6_prereg_lock.py
+      - name: Verify exact Stage0F panel
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('data/history/v6-layered/0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet')
+          m=json.loads(Path('data/history/v6-layered/manifests/0F_FINAL_ASSEMBLY.json').read_text())
+          f=json.loads(Path('research/V6_SOURCE_FREEZE.json').read_text())
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          assert h==f['stage0_final']['decision_ticker_panel_sha256']
+          assert h==m['file_sha256']['decision_ticker_panel.parquet']
+          assert m['status']=='FROZEN_PASS'
+          assert m['pit_rules']['formal_oos_eligible'] is True
+          assert m['pit_rules']['2025_model_evaluation_opened'] is False
+          print('FORMAL OOS INPUT LOCK PASS',h)
+          PY
+      - name: Run locked Stage A year
+        run: python -u scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py --year ${{ matrix.year }}
+      - name: Upload year evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-stage-a-year-${{ matrix.year }}
+          path: |
+            ai_market_reasoning_v6_cpu_quantile_results/V6_STAGE_A_${{ matrix.year }}_AUDIT.csv
+            ai_market_reasoning_v6_cpu_quantile_results/V6_STAGE_A_${{ matrix.year }}_DATE_LOSS.csv
+            ai_market_reasoning_v6_cpu_quantile_results/V6_STAGE_A_${{ matrix.year }}_META.json
+          if-no-files-found: error
+          retention-days: 30
+
+  stage_a_gate:
+    needs: stage_a_year
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install locked runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 scipy==1.18.1 scikit-learn==1.5.2 pyarrow==18.1.0
+      - name: Verify scientific lock
+        run: python scripts/verify_v6_prereg_lock.py
+      - name: Download all Stage A year evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v6-stage-a-year-*
+          path: stage_a_years
+          merge-multiple: true
+      - name: Aggregate dependence-aware Stage A gate
+        run: python -u scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py --aggregate-dir stage_a_years
+      - name: Assert 2025 remains sealed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          g=json.loads(Path('ai_market_reasoning_v6_cpu_quantile_results/V6_CPU_QUANTILE_STAGE_A_GATE.json').read_text())
+          assert g['2025_opened'] is False
+          print('2025 SEALED; Stage A gate=',g['stage_a_passed'])
+          PY
+      - name: Upload formal Stage A gate
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-formal-stage-a-locked-results
+          path: ai_market_reasoning_v6_cpu_quantile_results/
+          if-no-files-found: error
+          retention-days: 90
