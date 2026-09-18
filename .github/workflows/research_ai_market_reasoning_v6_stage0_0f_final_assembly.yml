@@ -1,0 +1,82 @@
+name: V6 Stage0 0F Final PIT Assembly
+
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-parallel-stage0-20260917]
+    paths:
+      - 'scripts/build_v6_stage0_final_pit_assembly.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_stage0_0f_final_assembly.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v6-stage0-0f-final-assembly
+  cancel-in-progress: false
+
+jobs:
+  final_pit_assembly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARTIFACT_0A: '10536618848'
+      ARTIFACT_0B: '10526620525'
+      ARTIFACT_0C: '10536433874'
+      ARTIFACT_0D: '10524349749'
+      ARTIFACT_0E: '10535817783'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Static compile and contract-only audit
+        run: |
+          python -m py_compile scripts/build_v6_stage0_final_pit_assembly.py
+          python -m py_compile scripts/audit_v6_stage0_layer_contract.py
+          python -u scripts/audit_v6_stage0_layer_contract.py --contract-only
+      - name: Download exact frozen source artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/history/v6-layered /tmp/v6-stage0-artifacts
+          get_artifact() {
+            local lane="$1"
+            local id="$2"
+            local z="/tmp/v6-stage0-artifacts/${lane}.zip"
+            echo "[0F DOWNLOAD] lane=${lane} artifact_id=${id}"
+            gh api -H "Accept: application/vnd.github+json"               "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" > "${z}"
+            test -s "${z}"
+            unzip -oq "${z}" -d data/history/v6-layered
+          }
+          get_artifact 0A "$ARTIFACT_0A"
+          get_artifact 0B "$ARTIFACT_0B"
+          get_artifact 0C "$ARTIFACT_0C"
+          get_artifact 0D "$ARTIFACT_0D"
+          get_artifact 0E "$ARTIFACT_0E"
+          echo "[0F INPUT FILES]"
+          find data/history/v6-layered -maxdepth 3 -type f -printf '%p %s bytes\n' | sort
+      - name: Build causal decision-ticker panel
+        run: python -u scripts/build_v6_stage0_final_pit_assembly.py
+      - name: Run full Stage0 A-F manifest and PIT contract audit
+        run: python -u scripts/audit_v6_stage0_layer_contract.py
+      - name: Upload 0F frozen assembly
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alphapilot-v6-stage0-0F-final-assembly
+          path: |
+            data/history/v6-layered/0F_FINAL_ASSEMBLY/
+            data/history/v6-layered/manifests/0A_MARKET.json
+            data/history/v6-layered/manifests/0B_INDUSTRY.json
+            data/history/v6-layered/manifests/0C_COMPANY.json
+            data/history/v6-layered/manifests/0D_MACRO.json
+            data/history/v6-layered/manifests/0E_EVENT_TIME.json
+            data/history/v6-layered/manifests/0F_FINAL_ASSEMBLY.json
+            data/history/v6-layered/progress/0F_FINAL_ASSEMBLY.json
+          if-no-files-found: error
+          retention-days: 14
