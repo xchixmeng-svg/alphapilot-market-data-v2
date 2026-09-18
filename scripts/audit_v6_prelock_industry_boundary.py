@@ -14,6 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import build_v6_stage0_industry_layer as core  # noqa: E402
 
+# Cross-source naming alias observed on official TWSE MI_INDEX in 2021+.
+# This affects audit matching only; it does not alter the frozen 0B artifact.
+core.ALIASES["電子類指數"] = ["電子類指數", "電子工業類指數"]
+
 OUT = ROOT / "prelock_v6_industry_boundary_audit"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -125,9 +129,9 @@ def boundary_equivalence(code_map: dict[str, str]) -> dict:
     # month, because MI_INDEX remains queryable for that same month.
     jan = by_month.get("2021-01", {})
     enough_jan = (
-        jan.get("compared_observations", 0) >= 600
-        and jan.get("distinct_dates", 0) >= 18
-        and jan.get("distinct_indices", 0) >= 30
+        jan.get("compared_observations", 0) >= 660
+        and jan.get("distinct_dates", 0) >= 20
+        and jan.get("distinct_indices", 0) >= 33
     )
     passed = bool(enough_jan and mismatch_count == 0)
 
