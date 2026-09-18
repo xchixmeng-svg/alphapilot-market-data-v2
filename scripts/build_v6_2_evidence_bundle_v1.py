@@ -17,16 +17,31 @@ if adm.get('status')!='PASS' or adm.get('future_join_violations')!=0 or adm.get(
 
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def norm_code(s): return s.astype(str).str.strip().str.replace(r'\.0$','',regex=True)
-sp=pd.read_parquet(FROZEN)
+# Development scan is physically restricted to pre-2025 rows at parquet read time.
+# Frozen 0F itself remains byte-identical and is hash-verified by the workflow.
+sp=pd.read_parquet(FROZEN, filters=[('date','<=',20241231)])
 date_col='decision_date' if 'decision_date' in sp.columns else 'date'
 code_col='code' if 'code' in sp.columns else ('ticker' if 'ticker' in sp.columns else None)
 if code_col is None: raise RuntimeError('0F missing code/ticker')
-sp[date_col]=pd.to_datetime(sp[date_col]); sp[code_col]=norm_code(sp[code_col])
-if sp[date_col].dt.year.max()>2024: raise RuntimeError('sealed/live year exposure in 0F input')
+
+def parse_yyyymmdd(s,name):
+    n=pd.to_numeric(s,errors='coerce').astype('Int64')
+    if n.isna().any(): raise RuntimeError(f'{name} has non-YYYYMMDD/null values')
+    d=pd.to_datetime(n.astype(str),format='%Y%m%d',errors='raise')
+    return d
+
+sp[date_col]=parse_yyyymmdd(sp[date_col],date_col)
+sp[code_col]=norm_code(sp[code_col])
+if int(sp[date_col].dt.year.max())>2024: raise RuntimeError('sealed/live year exposure in 0F development scan')
+if int(sp[date_col].dt.year.min())<2020: raise RuntimeError('unexpected pre-2020 decision row')
 if sp.duplicated([date_col,code_col]).any(): raise RuntimeError('duplicate 0F decision key')
 parts=[]
 for market,p in [('TWSE',TWSE),('TPEX',TPEX)]:
-    x=pd.read_parquet(p).copy(); x['code']=norm_code(x['code']); x['available_session']=pd.to_datetime(x['available_session']); x['date']=pd.to_datetime(x['date']); x['market']=market
+    x=pd.read_parquet(p).copy()
+    x['code']=norm_code(x['code'])
+    x['available_session']=parse_yyyymmdd(x['available_session'],'available_session')
+    x['date']=parse_yyyymmdd(x['date'],'institutional_date')
+    x['market']=market
     if x.duplicated(['date','code']).any(): raise RuntimeError(f'duplicate source key {market}')
     if (x['available_session']<=x['date']).any(): raise RuntimeError(f'same-day visibility {market}')
     parts.append(x)
@@ -46,12 +61,17 @@ coverage=int(out['inst_available_session'].notna().sum()) if 'inst_available_ses
 manifest={
  'layer':'V6.2 Evidence Bundle v1','scope':'2020-2024 development only','status':'PASS',
  'spine_policy':'exact frozen 0F bytes; supplemental columns only','join_policy':'institutional source row admitted only on available_session (next trading session); no same-day use',
- 'rows':len(out),'spine_rows':len(sp),'institutional_matched_rows':coverage,'institutional_missing_rows':len(out)-coverage,
+ 'rows':len(out),'spine_rows':len(sp),
+ 'decision_date_min':sp[date_col].min().strftime('%Y-%m-%d'),
+ 'decision_date_max':sp[date_col].max().strftime('%Y-%m-%d'),
+ 'sealed_2025_rows_in_output':int((sp[date_col].dt.year>=2025).sum()),
+ 'institutional_matched_rows':coverage,'institutional_missing_rows':len(out)-coverage,
  'future_join_violations':int(future),'duplicate_output_key_violations':int(out.duplicated([date_col,code_col]).sum()),
  'inputs':{'frozen_0f_sha256':sha(FROZEN),'twse_sha256':sha(TWSE),'tpex_sha256':sha(TPEX),'admission_sha256':sha(ADMISSION)},
  'output_sha256':sha(out_path),
  'missingness':{c:int(out[c].isna().sum()) for c in out.columns if c.startswith('inst_')}
 }
 if manifest['duplicate_output_key_violations']!=0: raise RuntimeError('duplicate output key')
+if manifest['sealed_2025_rows_in_output']!=0: raise RuntimeError('sealed 2025 row leaked into Evidence Bundle v1')
 (ROOT/'EVIDENCE_BUNDLE_V1_AUDIT.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False))
 print(json.dumps(manifest,ensure_ascii=False))
