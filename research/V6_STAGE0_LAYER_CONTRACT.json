@@ -1,7 +1,7 @@
 {
-  "status": "PRE_OOS_DRAFT_NOT_LOCKED",
+  "status": "LOCKED",
   "version": "V6-CPU-QUANTILE-STAGE0-LAYER-CONTRACT-v1",
-  "branch": "research-ai-market-reasoning-v6-cpu-quantile-20260916",
+  "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
   "principles": {
     "layers_are_data_engineering_only": true,
     "single_model_after_final_assembly": true,
@@ -12,12 +12,36 @@
     "checkpoint_reuse_requires_unchanged_manifest_hash": true
   },
   "layers": [
-    {"layer_id": "0A_MARKET", "required": true, "manifest_path": "data/history/v6-layered/manifests/0A_MARKET.json"},
-    {"layer_id": "0B_INDUSTRY", "required": true, "manifest_path": "data/history/v6-layered/manifests/0B_INDUSTRY.json"},
-    {"layer_id": "0C_COMPANY", "required": true, "manifest_path": "data/history/v6-layered/manifests/0C_COMPANY.json"},
-    {"layer_id": "0D_MACRO", "required": true, "manifest_path": "data/history/v6-layered/manifests/0D_MACRO.json"},
-    {"layer_id": "0E_EVENT_TIME", "required": true, "manifest_path": "data/history/v6-layered/manifests/0E_EVENT_TIME.json"},
-    {"layer_id": "0F_FINAL_ASSEMBLY", "required": true, "manifest_path": "data/history/v6-layered/manifests/0F_FINAL_ASSEMBLY.json"}
+    {
+      "layer_id": "0A_MARKET",
+      "required": true,
+      "manifest_path": "data/history/v6-layered/manifests/0A_MARKET.json"
+    },
+    {
+      "layer_id": "0B_INDUSTRY",
+      "required": true,
+      "manifest_path": "data/history/v6-layered/manifests/0B_INDUSTRY.json"
+    },
+    {
+      "layer_id": "0C_COMPANY",
+      "required": true,
+      "manifest_path": "data/history/v6-layered/manifests/0C_COMPANY.json"
+    },
+    {
+      "layer_id": "0D_MACRO",
+      "required": true,
+      "manifest_path": "data/history/v6-layered/manifests/0D_MACRO.json"
+    },
+    {
+      "layer_id": "0E_EVENT_TIME",
+      "required": true,
+      "manifest_path": "data/history/v6-layered/manifests/0E_EVENT_TIME.json"
+    },
+    {
+      "layer_id": "0F_FINAL_ASSEMBLY",
+      "required": true,
+      "manifest_path": "data/history/v6-layered/manifests/0F_FINAL_ASSEMBLY.json"
+    }
   ],
   "layer_manifest_required_fields": [
     "layer_id",
@@ -42,11 +66,15 @@
   ],
   "fallback_equivalence_gate": {
     "must_pass_before_layer_freeze": true,
-    "allowed_status": ["PROVISIONAL", "PASS", "FAIL"],
+    "allowed_status": [
+      "PROVISIONAL",
+      "PASS",
+      "FAIL"
+    ],
     "minimum_overlap_observations": 60,
     "minimum_distinct_calendar_years": 3,
     "absolute_value_tolerance": 0.000001,
-    "allowed_value_mismatch_rate": 0.0,
+    "allowed_value_mismatch_rate": 0,
     "required_checks": [
       "series_semantics_identity",
       "units_identity",
@@ -60,7 +88,7 @@
   },
   "stage0f_cross_layer_gate": {
     "all_required_layers_must_be_frozen_pass": true,
-    "daily_required_layer_eligible_date_coverage": 1.0,
+    "daily_required_layer_eligible_date_coverage": 1,
     "periodic_join_rule": "available_at <= decision_time",
     "event_join_rule": "published_at <= decision_time",
     "future_join_violations_allowed": 0,
