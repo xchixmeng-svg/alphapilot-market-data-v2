@@ -153,6 +153,19 @@ def fetch_company_year(year: int, code: str) -> dict:
                 raise RuntimeError(f"short response chars={len(html)}")
             if "查詢過於頻繁" in html or "Service Unavailable" in html:
                 raise RuntimeError("MOPS throttled request")
+            # A valid historical query can legitimately return no disclosure table.
+            # Only classify as verified no-events after transport/content sanity checks
+            # and only when the disclosure timestamp schema markers are absent.
+            if "發言日期" not in html and "發言時間" not in html:
+                return {
+                    "status": "SUCCESS_NO_EVENTS",
+                    "year": year,
+                    "code": code,
+                    "events": [],
+                    "response_chars": len(html),
+                    "fetched_at_utc": datetime.now(timezone.utc).isoformat(),
+                    "no_event_evidence": "valid MOPS response without disclosure timestamp schema",
+                }
             tables = pd.read_html(io.StringIO(html))
             events = []
             for df in tables:
