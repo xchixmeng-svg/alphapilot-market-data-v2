@@ -22,7 +22,7 @@ MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
 
 START_YEAR = 2016
 END_DATE = 20260915
-SCHEMA_VERSION = "V6-0A-MARKET-v1"
+SCHEMA_VERSION = "V6-0A-MARKET-v2-ROBUST"
 
 
 def sha256(path: Path) -> str:
@@ -123,19 +123,41 @@ def load_2026(parts: list[pd.DataFrame], lineage: list[dict]) -> None:
                 print(f"[0A WARN] skip {p}: {e}", flush=True)
 
 
+def _robust_mad(s: pd.Series) -> float:
+    x = pd.to_numeric(s, errors="coerce").dropna()
+    if len(x) < 2:
+        return float("nan")
+    med = float(x.median())
+    return 1.4826 * float((x - med).abs().median())
+
+
+def _advance_share(s: pd.Series) -> float:
+    x = pd.to_numeric(s, errors="coerce").dropna()
+    return float((x > 0).mean()) if len(x) else float("nan")
+
+
 def build_market(px: pd.DataFrame) -> pd.DataFrame:
     px = px.sort_values(["code", "date"]).drop_duplicates(["date", "code"], keep="last").copy()
     g = px.groupby("code", group_keys=False)
-    px["ret1"] = px["close"] / g["close"].shift(1) - 1.0
+    px["ret1_raw"] = px["close"] / g["close"].shift(1) - 1.0
+
+    # Taiwan equities normally operate inside a daily price-limit regime.
+    # Returns beyond +/-20% are treated as non-standard observations for
+    # cross-sectional market-state statistics (e.g. corporate actions,
+    # reference-price resets, special no-limit listings), rather than as
+    # ordinary market breadth/dispersion information.
+    px["ret1"] = px["ret1_raw"].where(px["ret1_raw"].abs() <= 0.20)
     px["amount"] = (px["close"] * px["volume"]).where(px["volume"] >= 0)
 
     # Equity cross-section deliberately excludes ETF/fund-style leading-zero codes.
     eq = px[px["code"].str.fullmatch(r"[1-9]\d{3}", na=False)].copy()
     daily = eq.groupby("date").agg(
         mkt_ret1=("ret1", "median"),
-        mkt_advance=("ret1", lambda s: float((s > 0).mean())),
-        mkt_dispersion=("ret1", "std"),
+        mkt_advance=("ret1", _advance_share),
+        mkt_dispersion=("ret1", _robust_mad),
         equity_count=("code", "nunique"),
+        valid_return_count=("ret1", "count"),
+        extreme_return_excluded=("ret1_raw", lambda s: int((s.abs() > 0.20).sum())),
         advancers=("ret1", lambda s: int((s > 0).sum())),
         decliners=("ret1", lambda s: int((s < 0).sum())),
         unchanged=("ret1", lambda s: int((s == 0).sum())),
@@ -211,9 +233,11 @@ def main() -> int:
         },
         "construction": {
             "market_cross_section": "Taiwan four-digit equity codes beginning 1-9; excludes ETF/fund-style leading-zero codes",
-            "mkt_ret1": "cross-sectional median same-day close-to-close return",
-            "mkt_advance": "share of valid equities with positive same-day close-to-close return",
-            "mkt_dispersion": "cross-sectional standard deviation of same-day close-to-close return",
+            "mkt_ret1": "cross-sectional median clean same-day close-to-close return; abs(return)>20% excluded from market-state statistics",
+            "mkt_advance": "share of valid clean equity returns that are positive",
+            "mkt_dispersion": "1.4826 * median absolute deviation of clean same-day close-to-close returns",
+            "valid_return_count": "equities contributing a valid non-extreme return to breadth/dispersion",
+            "extreme_return_excluded": "count of abs(raw close-to-close return)>20% observations excluded from market-state statistics",
             "0050": "separate observed 0050 close/return/volume/amount series",
         },
         "freeze_blockers": [
