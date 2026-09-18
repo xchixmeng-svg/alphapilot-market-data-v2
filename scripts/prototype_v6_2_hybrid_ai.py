@@ -118,7 +118,7 @@ def build_bundle(r) -> dict:
         "numerical_outputs": {},
     }
 
-def barrier_label(g: pd.DataFrame, pos: int, up: float, down: float, horizon: int) -> tuple[str, int|None]:
+def barrier_label(g: pd.DataFrame, pos: int, up: float, down: float, horizon: int, max_outcome_date: int = 20241231) -> tuple[str, int|None]:
     entry = float(g.iloc[pos]["close"])
     seg = int(g.iloc[pos]["price_segment_id"])
     for step in range(1, horizon + 1):
@@ -146,7 +146,7 @@ def main():
 
     # Barrier audit on deterministic sample: all eligible rows on 2024 month-end-like final 20 dates, capped per date.
     dates = sorted(ds.loc[(ds["date"] >= 20240101) & (ds["date"] <= 20241231) & ds["universe_ok"], "date"].unique())
-    sample_dates = dates[-10:]
+    safe_dates = [int(d) for d in dates if int(d) <= 20240630]\n    sample_dates = safe_dates[-10:]
     sample = ds[ds["date"].isin(sample_dates) & ds["universe_ok"]].copy()
     sample = sample.sort_values(["date","code"]).groupby("date", group_keys=False).head(100)
 
