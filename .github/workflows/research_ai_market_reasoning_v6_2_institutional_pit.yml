@@ -1,0 +1,40 @@
+name: V6.2 Institutional PIT Build
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'twse | tpex-year | tpex-assemble'
+        required: true
+        default: 'twse'
+      year:
+        description: '2020..2024 for tpex-year'
+        required: false
+        default: '2020'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Build requested institutional PIT layer
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.mode }}" = "tpex-year" ]; then
+            python -u scripts/build_v6_2_institutional_pit.py --mode tpex-year --year "${{ inputs.year }}"
+          else
+            python -u scripts/build_v6_2_institutional_pit.py --mode "${{ inputs.mode }}"
+          fi
+      - name: Upload PIT build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-institutional-pit-${{ inputs.mode }}-${{ inputs.year }}
+          path: v6_2_institutional_pit/
+          if-no-files-found: error
+          retention-days: 90
