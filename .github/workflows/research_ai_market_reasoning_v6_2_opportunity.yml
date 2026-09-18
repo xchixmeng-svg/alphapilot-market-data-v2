@@ -1,7 +1,7 @@
-name: V6.2 Opportunity Ranking Development
+name: V6.2b Time-Normalized Opportunity Ranking
 on:
   push:
-    branches: [research-ai-market-reasoning-v6-2-opportunity-ranking-20260918]
+    branches: [research-ai-market-reasoning-v6-2b-time-normalized-20260918]
     paths:
       - 'scripts/research_v6_2_opportunity_ranking.py'
       - '.github/workflows/research_ai_market_reasoning_v6_2_opportunity.yml'
