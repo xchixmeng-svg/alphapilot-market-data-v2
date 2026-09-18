@@ -1,7 +1,7 @@
 # AlphaPilot V6 CPU-Quantile — Preregistration
 
-Status: PRE-OOS / NOT YET SOURCE-FROZEN.
-Branch: `research-ai-market-reasoning-v6-cpu-quantile-20260916`
+Status: SOURCE-FROZEN CANDIDATE / PENDING MACHINE LOCK.
+Branch: `research-ai-market-reasoning-v6-parallel-stage0-20260917`
 
 ## 1. Resource-constrained objective
 This version is the CPU-feasible baseline for the independent AI Market Reasoning + Path Forecast Engine. Deep/self-supervised representation learning is explicitly deferred to a future, separately preregistered successor version. It may not be introduced to rescue or reinterpret V6 CPU-Quantile after OOS is viewed.
@@ -138,3 +138,26 @@ No bad OOS result may be silently repaired under the same scientific lock. Engin
 
 ## 13. Success philosophy
 Precision and calibration dominate signal quantity. NONE is valid. The first objective is a resource-feasible, auditable baseline that survives preregistration and OOS. Deep representation learning is only reconsidered after this baseline demonstrates enough value to justify dedicated GPU/cloud research under a new preregistered version.
+
+
+## 14. Final pre-OOS source-freeze alignment
+The formal Stage-A execution consumes only the frozen Stage-0F artifact `decision_ticker_panel.parquet` and its frozen numeric feature registry. No historical source is re-read by the formal model runner.
+
+Fixed observable transforms, computed causally from Stage-0F only:
+- stock tape channels: ret1, gap1, range1, body1, amount_logchg;
+- lags: 0, 1, 2, 5, 10, 20, 60, 119 sessions;
+- fixed structure/seasonality: 20/60-session return, volatility, range width, close position, 1y/2y seasonal return windows, calendar sin/cos;
+- macro changes for the three frozen macro series at 5/20/60 sessions;
+- frozen industry-index global breadth/median/dispersion/top3/bottom3 context.
+No institutional series outside Stage-0F, no R10/R7/R6 signal, no current-industry company mapping, and no post-OOS feature addition is allowed.
+
+The preregistered naive reference is horizon-specific unconditional training-sample forward-return quantiles, fitted only from the same pre-test training block available to the model.
+
+Stage-A formal inference uses stationary block bootstrap by decision date with mean block length 20 and 2,000 replicates. Confirmatory family-wise alpha is Bonferroni 0.05/6.
+
+Stage-A pass gate, frozen before viewing OOS:
+- significant mean pinball-loss improvement over naive at >=4 of 6 audit horizons;
+- zero audit horizons with significant degradation;
+- median absolute error better than naive at >=4 of 6 horizons;
+- q10-q90 coverage not materially worse than naive at >=5 of 6 horizons, where materially worse means absolute 80% coverage error exceeds naive by more than 0.03.
+All six horizons remain reported regardless of outcome. If this gate fails, this locked V6 version stops; it is not retuned. 2025 remains sealed.
