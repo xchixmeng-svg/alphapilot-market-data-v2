@@ -1,6 +1,6 @@
 {
   "lock_status": "LOCKED",
-  "lock_id": "V6-CPU-QUANTILE-STAGE-A-LOCK-20260918",
+  "lock_id": "V6-CPU-QUANTILE-STAGE-A-LOCK-R2-20260918",
   "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
   "source_freeze_commit": "5580c987063acfc407817a96738619be9f35173c",
   "source_freeze_evidence": {
@@ -63,8 +63,8 @@
     "research/V6_STAGE0_LAYER_CONTRACT.json": "3eef5245fa58d1523299db7752d2fde55f309a0f290d56295f61b2175dc54d46",
     "scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py": "7e5096a31d4d08e0f47c1d7280e430af7975b5e797499027ec6b611a166a59a5",
     "scripts/verify_v6_prereg_lock.py": "e6d830c0f4831630ea4d80aacc1a4ee77ca70fc463e6088bf19a8a8ffaffb068",
-    ".github/workflows/research_ai_market_reasoning_v6_formal_stage_a.yml": "23080c5b5f2acadf9fde272d1badebc69da60a16658bd7609796914c3752bc19",
-    ".github/workflows/research_ai_market_reasoning_v6_source_freeze.yml": "7a4443f0c6a6b474e0839c1648f363246b0bde56ebeb31d1a0ec18299c312777"
+    ".github/workflows/research_ai_market_reasoning_v6_formal_stage_a.yml": "f31e82a5841b91a9e81bfedeca2a19720fa4565562d0524dcb26dee6d43515cf",
+    ".github/workflows/research_ai_market_reasoning_v6_source_freeze.yml": "12dd762608c0925dd5fc6ba9b49e447cacd6246a9893a407a7c895193db0474b"
   },
   "hypothesis_registry": "research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json",
   "runtime_versions": {
@@ -85,5 +85,18 @@
     "live_2026": false,
     "rule": "Stage A executes once under this lock. 2025 remains sealed unless the preregistered Stage A gate passes."
   },
-  "r10_isolation": true
+  "r10_isolation": true,
+  "lock_revision": 2,
+  "supersedes_lock_id": "V6-CPU-QUANTILE-STAGE-A-LOCK-20260918",
+  "pre_oos_revision": {
+    "reason": "Rev1 Stage A execution failed before scientific-lock verification/model execution because the frozen-artifact copy command contained a literal \\\\n. Corrected execution-only workflow; scientific files, model, data, hypotheses, gates, and Stage0 artifacts unchanged.",
+    "failed_stage_a_run_id": 35334795893,
+    "oos_model_execution_started": false,
+    "oos_results_generated": false,
+    "oos_results_viewed": false,
+    "corrected_execution_commit": "7070c1093648b67a2bcab0d42fe0d1f49a06993d",
+    "hash_evidence_run_id": 35335003697,
+    "hash_evidence_job_id": 105567697712,
+    "hash_evidence_note": "Frozen Stage0F container/panel verification and SHA256 print passed; run then failed exactly because rev1 lock still contained old workflow hashes."
+  }
 }
