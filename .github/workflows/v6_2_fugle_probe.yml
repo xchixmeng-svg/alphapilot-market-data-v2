@@ -1,0 +1,76 @@
+name: V6.2 Fugle Capability Probe
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - '.github/workflows/v6_2_fugle_probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FUGLE_API_KEY: ${{ secrets.FUGLE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe Fugle secret and API without exposing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, urllib.parse, urllib.request, urllib.error
+
+          key=os.environ.get("FUGLE_API_KEY","")
+          if not key:
+              print("FUGLE_SECRET_PRESENT=false")
+              raise SystemExit(2)
+          print("FUGLE_SECRET_PRESENT=true")
+
+          def get(path, params=None):
+              base="https://api.fugle.tw/marketdata/v1.0/stock/"
+              url=base+path
+              if params:
+                  url += "?" + urllib.parse.urlencode(params)
+              req=urllib.request.Request(url, headers={"X-API-KEY":key,"User-Agent":"AlphaPilot-V6.2-Fugle-Probe"})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      raw=r.read().decode("utf-8")
+                      return r.status, json.loads(raw)
+              except urllib.error.HTTPError as e:
+                  body=e.read().decode("utf-8","replace")[:500]
+                  print(f"HTTP_ERROR path={path} status={e.code} body_prefix={body!r}")
+                  raise
+
+          status,hist=get("historical/candles/0050",{
+              "from":"2024-12-30","to":"2024-12-30",
+              "fields":"open,high,low,close,volume"
+          })
+          data=hist.get("data") or []
+          print(json.dumps({
+              "historical_auth_pass": status==200 and bool(data),
+              "symbol": hist.get("symbol"),
+              "timeframe": hist.get("timeframe"),
+              "rows": len(data),
+              "first_date": data[0].get("date") if data else None
+          },ensure_ascii=False))
+
+          status,ticker=get("intraday/ticker/2330")
+          print(json.dumps({
+              "ticker_auth_pass": status==200,
+              "symbol": ticker.get("symbol"),
+              "exchange": ticker.get("exchange"),
+              "industry_present": ticker.get("industry") is not None,
+              "industry": ticker.get("industry"),
+              "security_type": ticker.get("securityType"),
+              "board_lot": ticker.get("boardLot")
+          },ensure_ascii=False))
+
+          if not data or ticker.get("symbol")!="2330":
+              raise SystemExit(3)
+          print("FUGLE_CAPABILITY_PROBE=PASS")
+          PY
