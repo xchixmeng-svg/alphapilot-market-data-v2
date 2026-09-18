@@ -4,6 +4,7 @@ on:
     branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
     paths:
       - 'scripts/build_v6_2_institutional_pit.py'
+      - 'scripts/audit_v6_2_institutional_admission.py'
       - 'scripts/fetch_today.py'
       - '.github/workflows/research_ai_market_reasoning_v6_2_institutional_pit.yml'
   workflow_dispatch:
@@ -82,5 +83,39 @@ jobs:
         with:
           name: v6-2-institutional-pit-tpex
           path: v6_2_institutional_pit/
+          if-no-files-found: error
+          retention-days: 90
+
+  supplemental_admission:
+    needs: [twse, tpex_assemble]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Download TWSE PIT layer
+        uses: actions/download-artifact@v4
+        with:
+          name: v6-2-institutional-pit-twse
+          path: v6_2_institutional_pit/
+      - name: Download TPEx PIT layer
+        uses: actions/download-artifact@v4
+        with:
+          name: v6-2-institutional-pit-tpex
+          path: v6_2_institutional_pit/
+      - name: Run fail-closed supplemental-source admission audit
+        run: python -u scripts/audit_v6_2_institutional_admission.py
+      - name: Upload institutional admission evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-institutional-supplemental-admission
+          path: |
+            v6_2_institutional_pit/INSTITUTIONAL_SUPPLEMENTAL_ADMISSION.json
+            v6_2_institutional_pit/TWSE_PIT_AUDIT.json
+            v6_2_institutional_pit/TPEX_PIT_AUDIT.json
           if-no-files-found: error
           retention-days: 90
