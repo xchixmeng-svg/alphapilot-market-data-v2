@@ -65,13 +65,7 @@ jobs:
             round=$((round + 1))
             echo "[0C CONTINUOUS] round=$round elapsed=$((SECONDS-started))s"
             python -u scripts/build_v6_stage0_company_valuation_pit.py
-            status="$(python - <<'PY'
-import json
-from pathlib import Path
-p=Path("data/history/v6-layered/progress/0C_COMPANY.json")
-print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))
-PY
-)"
+            status="$(python -c 'import json,pathlib; p=pathlib.Path("data/history/v6-layered/progress/0C_COMPANY.json"); print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))')"
             echo "[0C CONTINUOUS] status=$status"
             if [ "$status" = "PASS" ]; then
               echo "[0C CONTINUOUS] layer PASS; stopping loop"
@@ -98,13 +92,7 @@ PY
         shell: bash
         run: |
           set -euo pipefail
-          status="$(python - <<'PY'
-import json
-from pathlib import Path
-p=Path("data/history/v6-layered/progress/0C_COMPANY.json")
-print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))
-PY
-)"
+          status="$(python -c 'import json,pathlib; p=pathlib.Path("data/history/v6-layered/progress/0C_COMPANY.json"); print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))')"
           if [ "$status" != "PASS" ]; then
             echo "[0C AUTO-CHAIN] status=$status; dispatching continuation"
             gh workflow run research_ai_market_reasoning_v6_stage0_0c_valuation.yml --ref "$GITHUB_REF_NAME"
