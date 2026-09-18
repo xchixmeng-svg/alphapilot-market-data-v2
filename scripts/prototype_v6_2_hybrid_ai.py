@@ -126,6 +126,8 @@ def barrier_label(g: pd.DataFrame, pos: int, up: float, down: float, horizon: in
         if j >= len(g):
             return "CENSORED_RESET_OR_END", None
         rr = g.iloc[j]
+        if int(rr["date"]) > max_outcome_date:
+            return "CENSORED_RESET_OR_END", None
         if int(rr["price_segment_id"]) != seg:
             return "CENSORED_RESET_OR_END", None
         hi = float(rr["high"]) / entry - 1.0
@@ -144,9 +146,10 @@ def main():
     panel, base_feats, _ = v61.load_frozen_panel(require_lock=False)
     ds, feats = v61.add_safe_observable_transforms(panel, base_feats)
 
-    # Barrier audit on deterministic sample: all eligible rows on 2024 month-end-like final 20 dates, capped per date.
+    # Barrier audit on deterministic sample: 10 late-June-2024 decision dates, capped per date; outcomes hard-censored after 2024-12-31.
     dates = sorted(ds.loc[(ds["date"] >= 20240101) & (ds["date"] <= 20241231) & ds["universe_ok"], "date"].unique())
-    safe_dates = [int(d) for d in dates if int(d) <= 20240630]\n    sample_dates = safe_dates[-10:]
+    safe_dates = [int(d) for d in dates if int(d) <= 20240630]
+    sample_dates = safe_dates[-10:]
     sample = ds[ds["date"].isin(sample_dates) & ds["universe_ok"]].copy()
     sample = sample.sort_values(["date","code"]).groupby("date", group_keys=False).head(100)
 
