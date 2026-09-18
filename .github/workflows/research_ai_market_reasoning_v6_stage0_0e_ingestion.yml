@@ -21,8 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
-      V6_0E_MAX_UNITS: '120'
-      V6_0E_WORKERS: '2'
+      V6_0E_CHUNK_UNITS: '160'
+      V6_0E_WORKERS: '4'
+      V6_0E_MIN_WORKERS: '1'
+      V6_0E_RUN_BUDGET_SECONDS: '2700'
+      V6_0E_COOLDOWN_SECONDS: '12'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,28 +42,8 @@ jobs:
           key: v6-stage0-0e-history-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             v6-stage0-0e-history-${{ github.ref_name }}-
-      - name: Build historical event ingestion checkpoints continuously
-        shell: bash
-        run: |
-          set -euo pipefail
-          started=$SECONDS
-          round=0
-          while true; do
-            round=$((round + 1))
-            echo "[0E CONTINUOUS] round=$round elapsed=$((SECONDS-started))s"
-            python -u scripts/build_v6_stage0_event_history_ingestion.py
-            status="$(python -c 'import json,pathlib; p=pathlib.Path("data/history/v6-layered/progress/0E_EVENT_TIME.json"); print(json.loads(p.read_text(encoding="utf-8")).get("status","UNKNOWN"))')"
-            echo "[0E CONTINUOUS] status=$status"
-            if [ "$status" = "PASS" ]; then
-              echo "[0E CONTINUOUS] layer PASS; stopping loop"
-              break
-            fi
-            if [ $((SECONDS-started)) -ge 3000 ]; then
-              echo "[0E CONTINUOUS] time budget reached; persist checkpoints and chain next run"
-              break
-            fi
-            sleep 5
-          done
+      - name: Build historical event ingestion checkpoints long-run
+        run: python -u scripts/build_v6_stage0_event_history_ingestion.py
       - name: Save 0E event checkpoints
         if: always()
         uses: actions/cache/save@v4
