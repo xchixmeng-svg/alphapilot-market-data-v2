@@ -1,0 +1,89 @@
+{
+  "lock_status": "LOCKED",
+  "lock_id": "V6-CPU-QUANTILE-STAGE-A-LOCK-20260918",
+  "branch": "research-ai-market-reasoning-v6-parallel-stage0-20260917",
+  "source_freeze_commit": "5580c987063acfc407817a96738619be9f35173c",
+  "source_freeze_evidence": {
+    "workflow_run_id": 35333778627,
+    "job_id": 105563827250,
+    "conclusion": "success",
+    "stage0f_panel_sha256": "afd4b86fafed8d3ab576bf5fcc39e6a8ed5fbd0a015909534fe7ac070628c358",
+    "layer_manifest_sha256": {
+      "0A_MARKET": "d287ff5d8a11e550375d76249663702ab30e4ad1121caaf5453cd20d61b87e42",
+      "0B_INDUSTRY": "b89fbfd5fb28a892941ec40bf069daa95da20e4daf181655c5492352081a4d58",
+      "0C_COMPANY": "0c73277eebb3e2e1dedda3a93d5316e96c849d5a35454b4e3d6b14becf7f98e6",
+      "0D_MACRO": "6e74a9c6cbff3f62d98f1515c96b90da2e4f215e5cf163869fd9f7a02cd3086e",
+      "0E_EVENT_TIME": "df21d15644a37896329cb7b99da5bc79be1b2697b1ec45e2f7ca349a0c08d381",
+      "0F_FINAL_ASSEMBLY": "8c39da30c819d6a9c6a79b2421544cc2fda15ccfc107ee1ffabfe40c8c949479"
+    }
+  },
+  "prelock_audits": {
+    "industry_boundary_source_equivalence": {
+      "workflow_run_id": 35334587032,
+      "job_id": 105566375900,
+      "artifact_id": 10542199747,
+      "artifact_sha256": "a45d365b344e62974aa3f550a7aaab374af31003374cdad8f796f57ade3ca10f",
+      "audit_commit": "4555eccaa695d47dbeecf03f472b53451d2f9314",
+      "status": "PASS",
+      "requested_window": [
+        "2020-12-01",
+        "2021-01-31"
+      ],
+      "tip_first_date": "2021-01-04",
+      "tip_dec_2020_rows": 0,
+      "overlap_month": "2021-01",
+      "compared_observations": 660,
+      "distinct_dates": 20,
+      "distinct_indices": 33,
+      "mismatch_count_gt_0p02": 0,
+      "max_abs_diff": 0,
+      "naming_alias_audited": {
+        "TIP_name": "電子類指數",
+        "TWSE_MI_INDEX_name": "電子工業類指數",
+        "index_code": "t13"
+      }
+    },
+    "total_return_index_missingness": {
+      "status": "PASS",
+      "frozen_missing_rows": 40392,
+      "frozen_missing_rate": 0.45286572786797025,
+      "old_segment_success_trading_dates_2016_2020": 1224,
+      "legacy_series_count": 33,
+      "expected_old_segment_missing_rows": 40392,
+      "exact_accounting": true,
+      "model_feature_uses_total_return_index": false,
+      "explanation": "2016-2020 TWSE MI_INDEX rows explicitly carry total_return_index=null in the frozen builder contract; 1224*33 exactly accounts for all frozen missing rows. No residual TIP-segment total_return_index missingness remains."
+    }
+  },
+  "locked_files": {
+    "research/V6_SOURCE_FREEZE.json": "3f26c81750d56c3b9868ed432c9c89455d6a5261f2329d9628f5fa1b30be7243",
+    "research/AI_MARKET_REASONING_FORECAST_V6_CPU_QUANTILE_PREREGISTRATION.md": "e023f21c6bf7556c507fc70322b190ac81cd6d208ef1c4932a2dfc38b7b57c77",
+    "research/AI_MARKET_REASONING_FORECAST_V6_VALIDATION_PROTOCOL.md": "265fce20659e7892765ce14c804e5d62fe69ee9e8a78ebb72891448f1c49a6de",
+    "research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json": "cc6ffb6099ff9b6e050ebdb34173b329f5e01e76974e864ff40c4ac2384804f8",
+    "research/V6_STAGE0_LAYER_CONTRACT.json": "3eef5245fa58d1523299db7752d2fde55f309a0f290d56295f61b2175dc54d46",
+    "scripts/backtest_ai_market_reasoning_v6_cpu_quantile.py": "7e5096a31d4d08e0f47c1d7280e430af7975b5e797499027ec6b611a166a59a5",
+    "scripts/verify_v6_prereg_lock.py": "e6d830c0f4831630ea4d80aacc1a4ee77ca70fc463e6088bf19a8a8ffaffb068",
+    ".github/workflows/research_ai_market_reasoning_v6_formal_stage_a.yml": "23080c5b5f2acadf9fde272d1badebc69da60a16658bd7609796914c3752bc19",
+    ".github/workflows/research_ai_market_reasoning_v6_source_freeze.yml": "7a4443f0c6a6b474e0839c1648f363246b0bde56ebeb31d1a0ec18299c312777"
+  },
+  "hypothesis_registry": "research/V6_CPU_QUANTILE_HYPOTHESIS_REGISTRY.json",
+  "runtime_versions": {
+    "pandas": "2.2.3",
+    "numpy": "2.3.5",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.5.2",
+    "pyarrow": "18.1.0"
+  },
+  "authorized_oos": {
+    "stage_a_years": [
+      2021,
+      2022,
+      2023,
+      2024
+    ],
+    "stage_b_2025": false,
+    "live_2026": false,
+    "rule": "Stage A executes once under this lock. 2025 remains sealed unless the preregistered Stage A gate passes."
+  },
+  "r10_isolation": true
+}
