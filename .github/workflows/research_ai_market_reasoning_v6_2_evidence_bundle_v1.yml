@@ -1,0 +1,58 @@
+name: V6.2 Evidence Bundle v1
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/build_v6_2_evidence_bundle_v1.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_2_evidence_bundle_v1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FROZEN_0F_ARTIFACT: '10537510796'
+      TWSE_ARTIFACT: '10564901503'
+      TPEX_ARTIFACT: '10564877589'
+      ADMISSION_ARTIFACT: '10564732901'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Download exact admitted inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p inputs/0f inputs/institutional inputs/admission
+          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" > /tmp/a.zip; unzip -oq /tmp/a.zip -d "$2"; }
+          get "$FROZEN_0F_ARTIFACT" inputs/0f
+          get "$TWSE_ARTIFACT" inputs/institutional
+          get "$TPEX_ARTIFACT" inputs/institutional
+          get "$ADMISSION_ARTIFACT" inputs/admission
+          find inputs -type f -printf '%p %s bytes\n' | sort
+      - name: Verify frozen 0F hash before join
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('inputs/0f/0F_FINAL_ASSEMBLY/decision_ticker_panel.parquet')
+          sf=json.loads(Path('research/V6_SOURCE_FREEZE.json').read_text())
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          assert h==sf['stage0_final']['decision_ticker_panel_sha256'], (h,sf['stage0_final']['decision_ticker_panel_sha256'])
+          print('FROZEN_0F_HASH_PASS',h)
+          PY
+      - name: Build and audit Evidence Bundle v1
+        run: python -u scripts/build_v6_2_evidence_bundle_v1.py
+      - name: Upload auditable bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-evidence-bundle-v1
+          path: v6_2_evidence_bundle_v1/
+          if-no-files-found: error
+          retention-days: 90
