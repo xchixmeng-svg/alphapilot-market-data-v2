@@ -1,0 +1,42 @@
+name: V6.1 Actionability Diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnostic:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2022, 2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install locked runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 scipy==1.18.1 scikit-learn==1.5.2 pyarrow==18.1.0
+      - name: Download exact frozen Stage0F
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10537510796/zip > /tmp/v6-0f.zip
+          mkdir -p /tmp/v6-0f && unzip -q /tmp/v6-0f.zip -d /tmp/v6-0f
+          mkdir -p data/history/v6-layered
+          cp -a /tmp/v6-0f/. data/history/v6-layered/
+      - name: Verify V6.1 machine lock
+        run: python scripts/verify_v6_1_prereg_lock.py
+      - name: Run locked human-readable diagnostic
+        run: python -u scripts/audit_v6_1_actionability.py --year ${{ matrix.year }}
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-1-actionability-${{ matrix.year }}
+          path: v6_1_actionability/
+          if-no-files-found: error
+          retention-days: 90
