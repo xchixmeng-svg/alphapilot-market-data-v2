@@ -1,0 +1,59 @@
+name: V6.2 Dynamic Candidate Admission Development
+on:
+  push:
+    branches: [research-v6-2-dynamic-candidate-admission-20260918]
+    paths:
+      - 'scripts/research_v6_2_dynamic_candidate_admission.py'
+      - '.github/workflows/research_v6_2_dynamic_candidate_admission.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  year:
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2022, 2023, 2024]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 scipy==1.18.1 scikit-learn==1.5.2 pyarrow==18.1.0
+      - name: Download exact frozen Stage0F
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10537510796/zip > /tmp/v6-0f.zip
+          mkdir -p /tmp/v6-0f data/history/v6-layered
+          unzip -q /tmp/v6-0f.zip -d /tmp/v6-0f
+          cp -a /tmp/v6-0f/. data/history/v6-layered/
+      - name: Run independent abstaining admission
+        run: python -u scripts/research_v6_2_dynamic_candidate_admission.py --year ${{ matrix.year }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-dynamic-${{ matrix.year }}
+          path: v6_2_dynamic_candidate_results/
+          if-no-files-found: error
+          retention-days: 90
+  aggregate:
+    needs: year
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 scipy==1.18.1 scikit-learn==1.5.2 pyarrow==18.1.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v6-2-dynamic-*
+          path: /tmp/v62
+          merge-multiple: true
+      - run: python -u scripts/research_v6_2_dynamic_candidate_admission.py --aggregate-dir /tmp/v62
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-dynamic-development-gate
+          path: v6_2_dynamic_candidate_results/
+          if-no-files-found: error
+          retention-days: 90
