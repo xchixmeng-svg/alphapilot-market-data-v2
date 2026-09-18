@@ -11,7 +11,7 @@ SRC=ROOT/"data/history/2020-2025/institutional_2020_2025.parquet"
 OUT=ROOT/"v6_2_institutional_admission_audit"
 OUT.mkdir(exist_ok=True)
 
-DATES=[20210802,20221230,20230703,20240628,20241230]
+DATES=[20210802,20230703,20240628]
 FIELDS=["foreign_net","trust_net","dealer_net"]
 
 def norm(s):
@@ -28,7 +28,7 @@ def fetch_json(url, params=None):
     if params:
         url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
     req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 AlphaPilot-V6.2-PIT-Audit"})
-    with urllib.request.urlopen(req,timeout=40) as r:
+    with urllib.request.urlopen(req,timeout=15) as r:
         return json.loads(r.read().decode("utf-8-sig"))
 
 def find_table(obj):
