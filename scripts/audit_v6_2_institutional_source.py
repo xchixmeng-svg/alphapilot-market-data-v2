@@ -205,7 +205,7 @@ def main():
     comp.to_csv(OUT/"OFFICIAL_SPOT_CHECK.csv",index=False,encoding="utf-8-sig")
     fs.to_csv(OUT/"OFFICIAL_FETCH_STATUS.csv",index=False,encoding="utf-8-sig")
 
-    numerical_ok=bool(len(comp)>=5 and int(comp["field_value_mismatches"].sum())==0) if len(comp) else False
+    numerical_ok=bool(\n        len(comp)>=5\n        and (comp["matched_codes"]>0).all()\n        and (comp["field_values_compared"]>0).all()\n        and int(comp["field_value_mismatches"].sum())==0\n    ) if len(comp) else False
     endpoint_ok=bool((fs["status"]=="PASS_FETCH").all()) if len(fs) else False
     pit_ok=False  # the source itself has no available_at; must be wrapped by next-session admission policy.
     duplicate_ok=(dup==0)
