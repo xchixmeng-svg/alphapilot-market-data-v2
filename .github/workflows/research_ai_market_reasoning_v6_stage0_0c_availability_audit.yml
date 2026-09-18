@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: v6-stage0-0c-availability-audit
@@ -37,10 +38,21 @@ jobs:
       - name: Restore completed 0C checkpoints
         uses: actions/cache/restore@v4
         with:
-          path: .cache/v6-context-stage
-          key: v6-stage0-0c-audit-${{ github.run_id }}
+          path: |
+            .cache/v6-context-stage/revenue
+            .cache/v6-context-stage/valuation
+          key: v6-stage0-0c-audit-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            v6-stage0-0c-valuation-${{ github.ref_name }}-
+            v6-stage0-0c-${{ github.ref_name }}-
+      - name: Hydrate completed monthly revenue artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/v6-0c-prior data/history/v6-layered/0C_COMPANY
+          gh run download 35222300271 -n alphapilot-v6-stage0-0C-company -D /tmp/v6-0c-prior
+          P="$(find /tmp/v6-0c-prior -name monthly_revenue_point_in_time.parquet -print -quit)"
+          test -n "$P"
+          cp "$P" data/history/v6-layered/0C_COMPANY/monthly_revenue_point_in_time.parquet
       - name: Rebuild 0C artifact from checkpoints without refetch
         run: python -u scripts/build_v6_stage0_company_valuation_pit.py
       - name: Audit and freeze conservative availability
