@@ -1,0 +1,44 @@
+name: V6.2 Evidence Bundle v2
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/build_v6_2_evidence_bundle_v2.py'
+      - '.github/workflows/research_ai_market_reasoning_v6_2_evidence_bundle_v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V1_ARTIFACT: '10570080749'
+      EVENT_0E_ARTIFACT: '10535817783'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Download exact admitted V1 and frozen 0E event artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p inputs/v1 inputs/0e
+          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" > /tmp/a.zip; unzip -oq /tmp/a.zip -d "$2"; }
+          get "$V1_ARTIFACT" inputs/v1
+          get "$EVENT_0E_ARTIFACT" inputs/0e
+          find inputs -type f -printf '%p %s bytes\n' | sort
+      - name: Build and audit Evidence Bundle v2
+        run: python -u scripts/build_v6_2_evidence_bundle_v2.py
+      - name: Upload auditable bundle v2
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-evidence-bundle-v2
+          path: v6_2_evidence_bundle_v2/
+          if-no-files-found: error
+          retention-days: 90
