@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "V6.2-LLM-REASONING-v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hypothesis_type",
+    "hypothesis",
+    "primary_evidence_ids",
+    "secondary_evidence_ids",
+    "counter_evidence_ids",
+    "bull_thesis",
+    "bear_thesis",
+    "invalidation",
+    "evidence_quality",
+    "decision",
+    "decision_reason"
+  ],
+  "properties": {
+    "hypothesis_type": {"type": "string", "minLength": 1, "maxLength": 80},
+    "hypothesis": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "primary_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "secondary_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "counter_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "bull_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
+    "bear_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
+    "invalidation": {"type": "string", "minLength": 1, "maxLength": 1200},
+    "evidence_quality": {"enum": ["STRONG", "MODERATE", "WEAK"]},
+    "decision": {"enum": ["REJECT", "WATCH", "CANDIDATE", "HIGH_CONVICTION"]},
+    "decision_reason": {"type": "string", "minLength": 1, "maxLength": 1000}
+  }
+}
