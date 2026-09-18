@@ -39,6 +39,9 @@ jobs:
           unzip -q /tmp/v6-0f.zip -d /tmp/v6-0f
           mkdir -p data/history/v6-layered
           cp -a /tmp/v6-0f/. data/history/v6-layered/
+      - name: Restore locked workflow file in runner only
+        run: |
+          git checkout c38e288e30317a34c69f8ce86319976759ba45ad -- .github/workflows/research_ai_market_reasoning_v6_formal_stage_a.yml
       - name: Verify locked scientific state
         run: python scripts/verify_v6_prereg_lock.py
       - name: Run human-readable actionability audit
