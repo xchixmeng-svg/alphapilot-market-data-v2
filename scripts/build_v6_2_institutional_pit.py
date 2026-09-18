@@ -50,17 +50,17 @@ def load_ohlcv() -> pd.DataFrame:
         x = pd.read_parquet(p)
         cols = {str(c).lower(): c for c in x.columns}
         date_col = cols.get("date") or cols.get("trade_date")
-        market_col = cols.get("market")
         code_col = cols.get("code") or cols.get("stock_id")
         vol_col = cols.get("volume") or cols.get("tradevolume") or cols.get("trading_shares")
-        if not all([date_col, market_col, code_col, vol_col]):
+        if not all([date_col, code_col, vol_col]):
             raise RuntimeError(f"OHLCV schema unsupported for {p}: {list(x.columns)}")
-        q = x[[date_col, market_col, code_col, vol_col]].copy()
-        q.columns = ["date", "market", "code", "volume"]
+        q = x[[date_col, code_col, vol_col]].copy()
+        q.columns = ["date", "code", "volume"]
         q["date"] = pd.to_numeric(q["date"], errors="coerce").astype("Int64")
-        q["market"] = q["market"].astype(str).str.upper()
         q["code"] = q["code"].astype(str).str.strip()
         q["volume"] = pd.to_numeric(q["volume"], errors="coerce")
+        if q.duplicated(["date","code"], keep=False).any():
+            raise RuntimeError(f"OHLCV duplicate date/code keys in {p}")
         xs.append(q)
     return pd.concat(xs, ignore_index=True)
 
@@ -82,8 +82,9 @@ def attach_pit_and_scale(z: pd.DataFrame, ohlcv: pd.DataFrame, market: str) -> t
     z["available_session"] = z["date"].map(ns).astype("Int64")
     z = z[z["available_session"].notna()].copy()
 
-    vol = ohlcv[ohlcv["market"] == market][["date", "market", "code", "volume"]].copy()
-    z = z.merge(vol, on=["date", "market", "code"], how="left", validate="one_to_one")
+    # Preserved historical OHLCV archive has no market column; date+code is unique.
+    vol = ohlcv[["date", "code", "volume"]].copy()
+    z = z.merge(vol, on=["date", "code"], how="left", validate="one_to_one")
 
     for c in FIELDS:
         z[c + "_ratio"] = np.where(z["volume"] > 0, z[c].astype("Float64") / z["volume"], np.nan)
