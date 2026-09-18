@@ -1,9 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "V6.2-LLM-REASONING-v0",
+  "$id": "V6.2-LLM-REASONING-v0.1",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "analysis_status",
+    "missing_required_inputs",
     "hypothesis_type",
     "hypothesis",
     "primary_evidence_ids",
@@ -17,16 +19,154 @@
     "decision_reason"
   ],
   "properties": {
-    "hypothesis_type": {"type": "string", "minLength": 1, "maxLength": 80},
-    "hypothesis": {"type": "string", "minLength": 1, "maxLength": 1000},
-    "primary_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "secondary_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "counter_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "bull_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
-    "bear_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
-    "invalidation": {"type": "string", "minLength": 1, "maxLength": 1200},
-    "evidence_quality": {"enum": ["STRONG", "MODERATE", "WEAK"]},
-    "decision": {"enum": ["REJECT", "WATCH", "CANDIDATE", "HIGH_CONVICTION"]},
-    "decision_reason": {"type": "string", "minLength": 1, "maxLength": 1000}
-  }
+    "analysis_status": {
+      "enum": [
+        "COMPLETE",
+        "INSUFFICIENT_INPUT"
+      ]
+    },
+    "missing_required_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "hypothesis_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "hypothesis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "primary_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "secondary_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "counter_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "bull_thesis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1200
+    },
+    "bear_thesis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1200
+    },
+    "invalidation": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1200
+    },
+    "evidence_quality": {
+      "enum": [
+        "STRONG",
+        "MODERATE",
+        "WEAK",
+        "NOT_ASSESSABLE"
+      ]
+    },
+    "decision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "REJECT",
+        "WATCH",
+        "CANDIDATE",
+        "HIGH_CONVICTION",
+        null
+      ]
+    },
+    "decision_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "analysis_status": {
+            "const": "INSUFFICIENT_INPUT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "const": null
+          },
+          "evidence_quality": {
+            "const": "NOT_ASSESSABLE"
+          }
+        },
+        "required": [
+          "missing_required_inputs"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "analysis_status": {
+            "const": "COMPLETE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "REJECT",
+              "WATCH",
+              "CANDIDATE",
+              "HIGH_CONVICTION"
+            ]
+          },
+          "evidence_quality": {
+            "enum": [
+              "STRONG",
+              "MODERATE",
+              "WEAK"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }
