@@ -208,7 +208,8 @@ def main():
       "barrier_tasks":len(BARRIER_TASKS),
       "evidence_family_coverage":coverage,
       "bundle_size":size_meta,
-      "development_data_cutoff":20241231,\n      "2025_opened_for_model_evaluation":False,
+      "development_data_cutoff":20241231,
+      "2025_opened_for_model_evaluation":False,
       "notes":[
         "No LLM was called in this workflow.",
         "This run tests deterministic retrieval, barrier-label semantics, missing-data honesty, and bundle scale only.",
