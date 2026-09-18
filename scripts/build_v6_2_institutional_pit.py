@@ -149,13 +149,34 @@ def fetch_tpex(d: int) -> pd.DataFrame:
     for raw in aa:
         if not isinstance(raw, list) or len(raw) < 23:
             continue
+        # TPEx columns after code/name are 7 buy/sell/net triplets:
+        # [2:5] foreign+China EXCLUDING foreign dealers, [5:8] foreign dealers,
+        # [8:11] foreign total, [11:14] trust, [14:17] dealer proprietary,
+        # [17:20] dealer hedge, [20:23] dealer total.  Official TPEx notes say
+        # foreign-dealer flow is already included in dealer flow and must be excluded
+        # from the three-institution total to avoid double counting.  Therefore the
+        # canonical foreign_net is raw[4], NOT foreign-total raw[10].
+        foreign_ex_dealer_net = num(raw[4])
+        foreign_dealer_net = num(raw[7])
+        foreign_total_net = num(raw[10])
+        trust_net = num(raw[13])
+        dealer_prop_net = num(raw[16])
+        dealer_hedge_net = num(raw[19])
+        dealer_total_net = num(raw[22])
+        # Fail closed if the endpoint's positional semantics drift.
+        if None not in (foreign_ex_dealer_net, foreign_dealer_net, foreign_total_net):
+            if foreign_ex_dealer_net + foreign_dealer_net != foreign_total_net:
+                raise RuntimeError(f"TPEx foreign mapping identity failed for {d} code={raw[0]}")
+        if None not in (dealer_prop_net, dealer_hedge_net, dealer_total_net):
+            if dealer_prop_net + dealer_hedge_net != dealer_total_net:
+                raise RuntimeError(f"TPEx dealer mapping identity failed for {d} code={raw[0]}")
         rows.append({
             "date": d,
             "market": "TPEX",
             "code": str(raw[0]).strip(),
-            "foreign_net": num(raw[10]),
-            "trust_net": num(raw[13]),
-            "dealer_net": num(raw[22]),
+            "foreign_net": foreign_ex_dealer_net,
+            "trust_net": trust_net,
+            "dealer_net": dealer_total_net,
         })
     if not rows:
         raise RuntimeError(f"TPEx parsed zero rows for {d}")
@@ -239,7 +260,7 @@ def assemble_tpex():
     for y in range(2020, 2025):
         p = OUT / f"tpex_rebuild_{y}.parquet"
         if not p.exists():
-            raise RuntimeError(f"missing rebuilt year: {p}")
+            raise RuntimeError(f"missing TPEx checkpoint {p}")
         xs.append(pd.read_parquet(p))
     raw = pd.concat(xs, ignore_index=True)
     z, audit = attach_pit_and_scale(raw, ohlcv, "TPEX")
@@ -259,15 +280,15 @@ def assemble_tpex():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", choices=["twse", "tpex-year", "tpex-assemble"], required=True)
+    ap.add_argument("mode", choices=["twse", "tpex-year", "tpex-assemble"])
     ap.add_argument("--year", type=int)
-    ns = ap.parse_args()
-    if ns.mode == "twse":
+    a = ap.parse_args()
+    if a.mode == "twse":
         build_twse()
-    elif ns.mode == "tpex-year":
-        if ns.year not in range(2020, 2025):
+    elif a.mode == "tpex-year":
+        if a.year not in range(2020, 2025):
             raise SystemExit("--year must be 2020..2024")
-        rebuild_tpex_year(ns.year)
+        rebuild_tpex_year(a.year)
     else:
         assemble_tpex()
 
