@@ -22,7 +22,7 @@ jobs:
       - name: Install runtime
         run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
       - name: Build TWSE next-session PIT layer
-        run: python -u scripts/build_v6_2_institutional_pit.py --mode twse
+        run: python -u scripts/build_v6_2_institutional_pit.py twse
       - name: Upload TWSE layer
         uses: actions/upload-artifact@v4
         with:
@@ -46,7 +46,7 @@ jobs:
       - name: Install runtime
         run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
       - name: Rebuild TPEx official institutional history
-        run: python -u scripts/build_v6_2_institutional_pit.py --mode tpex-year --year "${{ matrix.year }}"
+        run: python -u scripts/build_v6_2_institutional_pit.py tpex-year --year "${{ matrix.year }}"
       - name: Upload TPEx year checkpoint
         uses: actions/upload-artifact@v4
         with:
@@ -76,7 +76,7 @@ jobs:
           path: v6_2_institutional_pit/
           merge-multiple: true
       - name: Assemble TPEx next-session PIT layer
-        run: python -u scripts/build_v6_2_institutional_pit.py --mode tpex-assemble
+        run: python -u scripts/build_v6_2_institutional_pit.py tpex-assemble
       - name: Upload assembled TPEx PIT layer
         uses: actions/upload-artifact@v4
         with:
