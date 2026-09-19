@@ -555,7 +555,7 @@
           "minimum": 1
         }
       },
-      "description": "Primary V6.2 maturity target is approximately 20-30 trading sessions for at least +10%; longer duration is allowed only under an explicit continuation decision."
+      "description": "Launch window is 1-30 trading sessions. Profit-target timing is predicted separately and must not be conflated with launch timing."
     },
     "continuation": {
       "type": "object",
@@ -594,13 +594,16 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "p_next_session_positive",
-        "p_launch_within_3_sessions",
-        "p_launch_within_5_sessions",
+        "p_launch_by_1_session",
+        "p_launch_by_3_sessions",
+        "p_launch_by_5_sessions",
+        "p_launch_by_10_sessions",
+        "p_launch_by_20_sessions",
+        "p_launch_by_30_sessions",
         "expected_prelaunch_mae_pct"
       ],
       "properties": {
-        "p_next_session_positive": {
+        "p_launch_by_1_session": {
           "type": [
             "number",
             "null"
@@ -608,7 +611,7 @@
           "minimum": 0,
           "maximum": 1
         },
-        "p_launch_within_3_sessions": {
+        "p_launch_by_3_sessions": {
           "type": [
             "number",
             "null"
@@ -616,7 +619,31 @@
           "minimum": 0,
           "maximum": 1
         },
-        "p_launch_within_5_sessions": {
+        "p_launch_by_5_sessions": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_launch_by_10_sessions": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_launch_by_20_sessions": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_launch_by_30_sessions": {
           "type": [
             "number",
             "null"
@@ -631,7 +658,7 @@
           ]
         }
       },
-      "description": "Entry-timing quality only. Fast launch is preferred but is not the primary success definition."
+      "description": "Launch is expected within 1-30 trading sessions. Earlier launch is better but not a hard requirement."
     }
   },
   "allOf": [
