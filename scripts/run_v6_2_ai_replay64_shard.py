@@ -20,63 +20,53 @@ For CANDIDATE/HIGH_CONVICTION, provide a stock-specific entry zone and a pre-ent
 For WATCH/REJECT, failure_exit.exit_price must be null and trigger_type UNAVAILABLE.
 Return exactly one JSON object and no markdown."""
 
-def finite(v):
-    return isinstance(v,(int,float)) and math.isfinite(float(v))
+def finite(v): return isinstance(v,(int,float)) and math.isfinite(float(v))
+def _canon(s): return re.sub(r"[^a-z0-9]+","",str(s).lower())
 
-def _canon(s):
-    return re.sub(r"[^a-z0-9]+","",str(s).lower())
+def _closed_enum(v,allowed):
+    hits=[x for x in allowed if _canon(x)==_canon(v)]
+    return hits[0] if len(hits)==1 else v
 
-def normalize_ids(pkt,o):
-    """Normalize harmless LLM spelling/case/punctuation variants only.
-    No fuzzy semantic matching: an ID must canonicalize uniquely to an exact supplied ID.
-    This preserves fail-closed no-hallucination semantics while avoiding false failures such
-    as `price-volume-structure` vs `price_volume_structure`.
-    """
-    avail=list(pkt["evidence"]["available_evidence_ids"])
-    missing=list(pkt["evidence"]["missing_evidence_ids"])
+def normalize_output(pkt,o):
+    # Harmless representation normalization only; never infer or alter semantics.
+    if "decision" in o: o["decision"]=_closed_enum(o["decision"],DECISIONS)
+    if isinstance(o.get("entry"),dict) and "status" in o["entry"]: o["entry"]["status"]=_closed_enum(o["entry"]["status"],ENTRY)
+    if isinstance(o.get("failure_exit"),dict) and "trigger_type" in o["failure_exit"]: o["failure_exit"]["trigger_type"]=_closed_enum(o["failure_exit"]["trigger_type"],TRIGGERS)
+    avail=list(pkt["evidence"]["available_evidence_ids"]); missing=list(pkt["evidence"]["missing_evidence_ids"])
     canonical={}
-    for x in avail+missing:
-        canonical.setdefault(_canon(x),[]).append(x)
+    for x in avail+missing: canonical.setdefault(_canon(x),[]).append(x)
     def one(x,allow_missing=False):
-        pref=str(x).lower().startswith("missing:")
-        raw=str(x).split(":",1)[1] if pref else str(x)
+        pref=str(x).lower().startswith("missing:"); raw=str(x).split(":",1)[1] if pref else str(x)
         pool=missing if pref else (avail+missing if allow_missing else avail)
         hits=[v for v in canonical.get(_canon(raw),[]) if v in pool]
         if len(hits)==1:
-            v=hits[0]
-            return "missing:"+v if (pref or (allow_missing and v in missing)) else v
+            v=hits[0]; return "missing:"+v if (pref or (allow_missing and v in missing)) else v
         return x
     for k in ["primary_evidence_ids","secondary_evidence_ids"]:
         if isinstance(o.get(k),list): o[k]=[one(x,False) for x in o[k]]
-    if isinstance(o.get("counter_evidence_ids"),list):
-        o["counter_evidence_ids"]=[one(x,True) for x in o["counter_evidence_ids"]]
+    if isinstance(o.get("counter_evidence_ids"),list): o["counter_evidence_ids"]=[one(x,True) for x in o["counter_evidence_ids"]]
 
 def validate(pkt,o):
-    normalize_ids(pkt,o)
-    keys={"decision","evidence_quality","hypothesis_type","hypothesis","primary_evidence_ids","secondary_evidence_ids",
-          "counter_evidence_ids","bull_thesis","bear_thesis","invalidation","decision_reason","entry","failure_exit"}
+    normalize_output(pkt,o)
+    keys={"decision","evidence_quality","hypothesis_type","hypothesis","primary_evidence_ids","secondary_evidence_ids","counter_evidence_ids","bull_thesis","bear_thesis","invalidation","decision_reason","entry","failure_exit"}
     if set(o)!=keys: raise ValueError(f"schema keys {sorted(o)}")
     if o["decision"] not in DECISIONS: raise ValueError("bad decision")
     if o["evidence_quality"] not in {"STRONG","MODERATE","WEAK"}: raise ValueError("bad evidence_quality")
     for k in ["hypothesis_type","hypothesis","bull_thesis","bear_thesis","invalidation","decision_reason"]:
         if not isinstance(o[k],str) or not o[k].strip(): raise ValueError(f"empty {k}")
-    avail=set(pkt["evidence"]["available_evidence_ids"])
-    missing_raw=set(pkt["evidence"]["missing_evidence_ids"])
-    missing_prefixed={"missing:"+x for x in missing_raw}
+    avail=set(pkt["evidence"]["available_evidence_ids"]); missing_raw=set(pkt["evidence"]["missing_evidence_ids"]); missing_prefixed={"missing:"+x for x in missing_raw}
     for k in ["primary_evidence_ids","secondary_evidence_ids"]:
         if not isinstance(o[k],list) or any(x not in avail for x in o[k]): raise ValueError(f"unsupported {k}")
     if not o["primary_evidence_ids"]: raise ValueError("empty primary evidence")
     if not isinstance(o["counter_evidence_ids"],list): raise ValueError("counter_evidence_ids must be list")
-    allowed_counter=avail|missing_raw|missing_prefixed
-    bad_counter=[x for x in o["counter_evidence_ids"] if x not in allowed_counter]
+    bad_counter=[x for x in o["counter_evidence_ids"] if x not in (avail|missing_raw|missing_prefixed)]
     if bad_counter: raise ValueError("unsupported counter evidence: "+",".join(map(str,bad_counter)))
     o["counter_evidence_ids"]=[("missing:"+x if x in missing_raw else x) for x in o["counter_evidence_ids"]]
     e=o["entry"]
-    if set(e)!={"status","ideal_low","ideal_high"} or e["status"] not in ENTRY: raise ValueError("bad entry")
+    if not isinstance(e,dict) or set(e)!={"status","ideal_low","ideal_high"} or e["status"] not in ENTRY: raise ValueError("bad entry")
     f=o["failure_exit"]
-    if set(f)!={"exit_price","reason","trigger_type"} or f["trigger_type"] not in TRIGGERS: raise ValueError("bad failure_exit")
-    actionable=o["decision"] in {"CANDIDATE","HIGH_CONVICTION"}
-    current=float(pkt["evidence"]["price_volume_structure"]["current_price"])
+    if not isinstance(f,dict) or set(f)!={"exit_price","reason","trigger_type"} or f["trigger_type"] not in TRIGGERS: raise ValueError("bad failure_exit")
+    actionable=o["decision"] in {"CANDIDATE","HIGH_CONVICTION"}; current=float(pkt["evidence"]["price_volume_structure"]["current_price"])
     if actionable:
         if e["status"]=="NOT_ACTIONABLE": raise ValueError("actionable decision has NOT_ACTIONABLE entry")
         if not finite(e["ideal_low"]) or not finite(e["ideal_high"]) or not (0<e["ideal_low"]<=e["ideal_high"]): raise ValueError("bad entry zone")
@@ -85,10 +75,8 @@ def validate(pkt,o):
         if f["trigger_type"]=="UNAVAILABLE" or not isinstance(f["reason"],str) or not f["reason"].strip(): raise ValueError("missing failure exit reasoning")
     else:
         if f["exit_price"] is not None or f["trigger_type"]!="UNAVAILABLE": raise ValueError("non-actionable must not fabricate failure exit")
-    txt=json.dumps(o,ensure_ascii=False).lower()
-    forbidden={"eps_revisions":["eps revision","eps revisions","eps上修","eps 預估上修"],"analyst_consensus":["analyst consensus","consensus estimate","分析師共識"],"industry_pricing":["industry pricing","spot price","產業報價","現貨價"],"inventory_supply_demand":["inventory destocking","supply shortage","供不應求","庫存去化"],"broad_news_semantics":["news sentiment","媒體情緒"]}
-    miss=set(pkt["evidence"]["missing_evidence_ids"])
-    bad=[fam for fam,terms in forbidden.items() if fam in miss and any(t in txt for t in terms)]
+    txt=json.dumps(o,ensure_ascii=False).lower(); forbidden={"eps_revisions":["eps revision","eps revisions","eps上修","eps 預估上修"],"analyst_consensus":["analyst consensus","consensus estimate","分析師共識"],"industry_pricing":["industry pricing","spot price","產業報價","現貨價"],"inventory_supply_demand":["inventory destocking","supply shortage","供不應求","庫存去化"],"broad_news_semantics":["news sentiment","媒體情緒"]}
+    miss=set(pkt["evidence"]["missing_evidence_ids"]); bad=[fam for fam,terms in forbidden.items() if fam in miss and any(t in txt for t in terms)]
     if bad: raise ValueError("hallucinated missing evidence "+",".join(bad))
 
 def call(pkt,repair=None):
@@ -96,17 +84,14 @@ def call(pkt,repair=None):
     user={"case":pkt,"response_schema":response_schema,"allowed_primary_secondary_evidence_ids":pkt["evidence"]["available_evidence_ids"],"allowed_counter_evidence_ids":pkt["evidence"]["available_evidence_ids"]+pkt["evidence"]["missing_evidence_ids"]+["missing:"+x for x in pkt["evidence"]["missing_evidence_ids"]]}
     if repair:
         user["previous_schema_error"]=repair
-        user["repair_instruction"]="Return the same analysis but use ONLY exact IDs from the allowed ID arrays. Copy IDs verbatim; do not invent descriptive evidence IDs."
+        user["repair_instruction"]="Preserve your substantive analysis. Repair exactly the reported schema/validation error. Use enum strings exactly as shown in response_schema; use ONLY exact evidence IDs from the allowed arrays; do not invent evidence or alter immutable numerical forecasts."
     body=json.dumps({"model":MODEL,"messages":[{"role":"system","content":SYSTEM},{"role":"user","content":json.dumps(user,ensure_ascii=False,separators=(",",":"))}],"stream":False,"format":"json","options":{"temperature":0,"num_predict":950}}).encode()
-    req=urllib.request.Request("http://127.0.0.1:11434/api/chat",data=body,headers={"Content-Type":"application/json"})
-    t0=time.time()
+    req=urllib.request.Request("http://127.0.0.1:11434/api/chat",data=body,headers={"Content-Type":"application/json"}); t0=time.time()
     with urllib.request.urlopen(req,timeout=900) as resp: raw=json.loads(resp.read().decode())
-    obj=json.loads(raw["message"]["content"].strip()); validate(pkt,obj)
-    return obj,time.time()-t0
+    obj=json.loads(raw["message"]["content"].strip()); validate(pkt,obj); return obj,time.time()-t0
 
 def main(shard):
-    cases=[json.loads(x) for x in Path(f"prepared/cases_shard_{shard}.jsonl").read_text().splitlines() if x.strip()]
-    rows=[]; errors=[]
+    cases=[json.loads(x) for x in Path(f"prepared/cases_shard_{shard}.jsonl").read_text().splitlines() if x.strip()]; rows=[]; errors=[]
     for pkt in cases:
         err=None; obj=None; elapsed=None
         for attempt in [1,2]:
@@ -114,12 +99,9 @@ def main(shard):
             except Exception as e: err=repr(e)
         if obj is None:
             errors.append({"case_id":pkt["case_id"],"date":pkt["decision_date"],"code":pkt["code"],"error":err}); print("ERROR",errors[-1],flush=True); continue
-        rows.append({"case_id":pkt["case_id"],"date":pkt["decision_date"],"code":pkt["code"],"elapsed_seconds":elapsed,"p_hit10_h120":pkt["numerical_reference_read_only"]["p_hit10_h120"],**obj})
-        print(json.dumps({"case_id":pkt["case_id"],"code":pkt["code"],"decision":obj["decision"],"seconds":round(elapsed,2)},ensure_ascii=False),flush=True)
-    (OUT/f"responses_shard_{shard}.json").write_text(json.dumps(rows,ensure_ascii=False,indent=2)+"\n")
-    (OUT/f"errors_shard_{shard}.json").write_text(json.dumps(errors,ensure_ascii=False,indent=2)+"\n")
-    summary={"shard":shard,"requested":len(cases),"completed":len(rows),"errors":len(errors),"model":MODEL,"api_cost_usd":0}
-    (OUT/f"summary_shard_{shard}.json").write_text(json.dumps(summary,indent=2)+"\n"); print("SUMMARY="+json.dumps(summary),flush=True)
+        rows.append({"case_id":pkt["case_id"],"date":pkt["decision_date"],"code":pkt["code"],"elapsed_seconds":elapsed,"p_hit10_h120":pkt["numerical_reference_read_only"]["p_hit10_h120"],**obj}); print(json.dumps({"case_id":pkt["case_id"],"code":pkt["code"],"decision":obj["decision"],"seconds":round(elapsed,2)},ensure_ascii=False),flush=True)
+    (OUT/f"responses_shard_{shard}.json").write_text(json.dumps(rows,ensure_ascii=False,indent=2)+"\n"); (OUT/f"errors_shard_{shard}.json").write_text(json.dumps(errors,ensure_ascii=False,indent=2)+"\n")
+    summary={"shard":shard,"requested":len(cases),"completed":len(rows),"errors":len(errors),"model":MODEL,"api_cost_usd":0}; (OUT/f"summary_shard_{shard}.json").write_text(json.dumps(summary,indent=2)+"\n"); print("SUMMARY="+json.dumps(summary),flush=True)
     if errors: raise SystemExit(2)
 
 if __name__=="__main__":
