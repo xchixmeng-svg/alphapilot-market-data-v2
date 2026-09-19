@@ -30,6 +30,10 @@ Evidence availability has two distinct meanings:
 
 Score evidence_quality only from case_available_evidence_ids, considering point-in-time validity, timeliness, internal consistency, independent corroboration, thesis sufficiency, and support for a concrete invalidation. Do not score it by counting families in the full registry. Three timely, consistent and sufficient available families may be STRONG; five stale or contradictory families may be WEAK.
 
+Removing the system-limitations penalty does not turn available evidence into positive evidence. Availability is not direction. Inspect the actual values and text. Neutral, mixed, stale, merely present, or internally contradictory observations are not corroboration and must not be described as positive. Do not call valuation cheap or expensive without a supplied historical, peer, or growth-relative benchmark. Do not treat one short-period revenue change as durable growth by itself. Do not treat routine or procedural corporate disclosures as an economic catalyst unless their supplied content establishes a concrete earnings, demand, pricing, capital-allocation, or risk change. Price support by itself is not a sufficient why-now mechanism for a >=10% thesis.
+
+STRONG means the chosen thesis is genuinely corroborated by timely, directionally supportive, independent case-available evidence and has a well-supported invalidation. It does not mean that many fields are populated. Bear-thesis facts that concretely contradict the chosen thesis must be represented in counter_evidence_ids rather than dismissed as merely neutral.
+
 Decision semantics are qualitative contracts, not thresholds:
 - REJECT: available evidence actively contradicts a credible >=10% opportunity, or no coherent profit thesis can be formed from available evidence.
 - WATCH: a credible >=10% thesis exists, but available evidence shows mixed confirmation, poor present entry, immature timing, or a concrete unresolved contradiction.
@@ -39,10 +43,20 @@ Decision semantics are qualitative contracts, not thresholds:
 If your decision is materially weaker than the numerical forecasts imply, decision_reason must identify a specific contradiction in case_available_evidence_ids. A system limitation may never be the reason for discounting the forecast.
 primary_evidence_ids, secondary_evidence_ids, and counter_evidence_ids may contain only supplied case_available_evidence_ids. counter_evidence_ids must identify evidence that concretely contradicts the thesis. Echo system_unavailable_evidence_ids exactly in system_limitations for transparency only.
 Before finalizing REJECT or WATCH, verify that the reason comes from case-available evidence or a case-specific supported gap, not from permanent system limitations.
+Before finalizing CANDIDATE or HIGH_CONVICTION, verify that you have identified a concrete economic or market launch mechanism, not merely a collection of available fields. The calibrated prior informs plausibility but does not make the qualitative evidence automatically bullish.
 For CANDIDATE/HIGH_CONVICTION, provide a stock-specific entry zone and pre-entry AI Failure Exit Price based on case-available evidence; never use a universal fixed stop percentage.
 For WATCH/REJECT, entry must be NOT_ACTIONABLE with null ideal_low and ideal_high; failure_exit.exit_price must be null and trigger_type must be UNAVAILABLE.
 For CANDIDATE/HIGH_CONVICTION, entry bounds and failure_exit.exit_price must be finite positive numbers, ideal_low <= ideal_high, and failure_exit.exit_price must be strictly below ideal_high.
 Return exactly one JSON object and no markdown."""
+
+
+SYSTEM_LIMITATION_ALIASES = {
+    "eps_revisions": ("eps revision", "eps revisions", "eps修正", "eps預估", "eps预估"),
+    "analyst_consensus": ("analyst consensus", "分析師共識", "分析师共识"),
+    "industry_pricing": ("industry pricing", "產業定價", "产业定价", "行業定價", "行业定价"),
+    "inventory_supply_demand": ("inventory supply demand", "inventory and supply", "庫存供需", "库存供需"),
+    "broad_news_semantics": ("broad news semantics", "news sentiment", "新聞情緒", "新闻情绪"),
+}
 
 
 def _schema_path() -> Path:
@@ -144,6 +158,16 @@ def _family_mentioned(text: str, family: str) -> bool:
     return all(word in lowered for word in words)
 
 
+def _named_system_limitations(text: str, families: set[str]) -> list[str]:
+    lowered = text.lower()
+    found = []
+    for family in families:
+        aliases = SYSTEM_LIMITATION_ALIASES.get(family, ())
+        if _family_mentioned(text, family) or any(alias.lower() in lowered for alias in aliases):
+            found.append(family)
+    return sorted(found)
+
+
 def validate(pkt: dict[str, Any], out: dict[str, Any]) -> list[str]:
     """Raise ContractError on hard violations and return audit warnings."""
     schema = load_response_schema()
@@ -220,7 +244,7 @@ def validate(pkt: dict[str, Any], out: dict[str, Any]) -> list[str]:
 
         basis_text = " ".join(str(out.get(k, "")) for k in ("decision_reason", "bear_thesis"))
         review_text = basis_text + " " + str(out.get("invalidation", ""))
-        mentions_system = any(_family_mentioned(basis_text, family) for family in system_unavailable)
+        mentions_system = bool(_named_system_limitations(basis_text, system_unavailable))
         mentions_available = any(_family_mentioned(basis_text, family) for family in available)
         has_counter = bool(out.get("counter_evidence_ids"))
         if mentions_system and not mentions_available and not has_counter:
@@ -233,9 +257,9 @@ def validate(pkt: dict[str, Any], out: dict[str, Any]) -> list[str]:
             warnings.append("non-actionable reason uses generic missing-data language without a case-specific supported gap")
 
     all_narrative = " ".join(str(out.get(k, "")) for k in ("hypothesis", "bull_thesis", "bear_thesis", "invalidation", "decision_reason"))
-    named_system_limitations = sorted(f for f in system_unavailable if _family_mentioned(all_narrative, f))
+    named_system_limitations = _named_system_limitations(all_narrative, system_unavailable)
     if named_system_limitations:
-        warnings.append(
+        errors.append(
             "system-unavailable families mentioned outside system_limitations: "
             + ",".join(named_system_limitations)
         )
