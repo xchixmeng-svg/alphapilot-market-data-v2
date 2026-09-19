@@ -18,7 +18,7 @@ Candidate count is emergent and may be 0, 1, 2, 15, or more. No TopK admission q
 For WATCH/CANDIDATE/HIGH_CONVICTION the final output must expose:
 - why an opportunity may be forming now;
 - best entry status and price zone;
-- all 11 calibrated barrier probabilities;
+- calibrated unconditional +10/+20/+30/+50 probabilities across the formal horizons, with barrier probabilities retained only as secondary path-risk diagnostics;
 - expected upside range and bull case;
 - expected MAE range;
 - likely start window and main opportunity window;
@@ -160,3 +160,10 @@ Historical replay must test:
 7. no downward revision of the failure exit price after entry.
 
 The failure exit price is not the same as MAE prediction. MAE describes expected path risk; the failure exit price is the action level where the AI concedes that its thesis no longer deserves capital.
+
+
+## Architecture-alignment gate
+The authoritative implementation decisions are recorded in research/V6_2_ARCHITECTURE_ALIGNMENT_DECISIONS.md.
+Primary profit training must use unconditional labels. The legacy barrier matrix is secondary only.
+Launch is an auxiliary time-to-event target inside the Numerical Opportunity Engine, not a third independent candidate-selection model.
+Failure-exit reasoning must be thesis-dependent on actually available evidence; unavailable EPS-revision, industry-pricing, supply-demand, or news evidence must never be hallucinated.
