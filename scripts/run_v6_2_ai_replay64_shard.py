@@ -32,12 +32,20 @@ def validate(pkt,o):
     for k in ["hypothesis_type","hypothesis","bull_thesis","bear_thesis","invalidation","decision_reason"]:
         if not isinstance(o[k],str) or not o[k].strip(): raise ValueError(f"empty {k}")
     avail=set(pkt["evidence"]["available_evidence_ids"])
-    missing={"missing:"+x for x in pkt["evidence"]["missing_evidence_ids"]}
+    missing_raw=set(pkt["evidence"]["missing_evidence_ids"])
+    missing_prefixed={"missing:"+x for x in missing_raw}
     for k in ["primary_evidence_ids","secondary_evidence_ids"]:
         if not isinstance(o[k],list) or any(x not in avail for x in o[k]): raise ValueError(f"unsupported {k}")
     if not o["primary_evidence_ids"]: raise ValueError("empty primary evidence")
-    if not isinstance(o["counter_evidence_ids"],list) or any(x not in avail|missing for x in o["counter_evidence_ids"]):
-        raise ValueError("unsupported counter evidence")
+    if not isinstance(o["counter_evidence_ids"],list):
+        raise ValueError("counter_evidence_ids must be list")
+    allowed_counter=avail|missing_raw|missing_prefixed
+    bad_counter=[x for x in o["counter_evidence_ids"] if x not in allowed_counter]
+    if bad_counter:
+        raise ValueError("unsupported counter evidence: "+",".join(map(str,bad_counter)))
+    o["counter_evidence_ids"]=[
+        ("missing:"+x if x in missing_raw else x) for x in o["counter_evidence_ids"]
+    ]
     e=o["entry"]
     if set(e)!={"status","ideal_low","ideal_high"} or e["status"] not in ENTRY: raise ValueError("bad entry")
     f=o["failure_exit"]
@@ -78,8 +86,19 @@ def call(pkt,repair=None):
       "entry":{"status":"NOW|WAIT_FOR_PULLBACK|WAIT_FOR_CONFIRMATION|NOT_ACTIONABLE","ideal_low":"number|null","ideal_high":"number|null"},
       "failure_exit":{"exit_price":"number|null","reason":"string|null","trigger_type":"PRICE_STRUCTURE_BREAK|THESIS_INVALIDATION|CATALYST_FAILURE|VALUATION_EXPECTATION_BREAK|MULTI_EVIDENCE_FAILURE|UNAVAILABLE"}
     }
-    user={"case":pkt,"response_schema":response_schema}
-    if repair: user["previous_schema_error"]=repair
+    user={
+      "case":pkt,
+      "response_schema":response_schema,
+      "allowed_primary_secondary_evidence_ids":pkt["evidence"]["available_evidence_ids"],
+      "allowed_counter_evidence_ids":(
+          pkt["evidence"]["available_evidence_ids"]
+          + pkt["evidence"]["missing_evidence_ids"]
+          + ["missing:"+x for x in pkt["evidence"]["missing_evidence_ids"]]
+      )
+    }
+    if repair:
+        user["previous_schema_error"]=repair
+        user["repair_instruction"]="Return the same analysis but use ONLY the exact allowed evidence IDs above. Do not invent descriptive evidence IDs."
     body=json.dumps({"model":MODEL,"messages":[{"role":"system","content":SYSTEM},{"role":"user","content":json.dumps(user,ensure_ascii=False,separators=(",",":"))}],
                      "stream":False,"format":"json","options":{"temperature":0,"num_predict":950}}).encode()
     req=urllib.request.Request("http://127.0.0.1:11434/api/chat",data=body,headers={"Content-Type":"application/json"})
