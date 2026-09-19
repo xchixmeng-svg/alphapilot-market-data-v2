@@ -9,7 +9,7 @@ V1=Path("inputs/v1/EVIDENCE_BUNDLE_V1.parquet")
 REASON=Path("inputs/reason/REAL_EVIDENCE_REASONING_RESULTS.csv")
 OUT=Path("out"); OUT.mkdir(exist_ok=True)
 HORIZONS=[20,40,60,120]
-TARGETS=[0.05,0.10,0.20,0.30,0.50]
+TARGETS=[0.10,0.20,0.30,0.50]
 RESET=0.20
 
 x=pd.read_parquet(V1)
