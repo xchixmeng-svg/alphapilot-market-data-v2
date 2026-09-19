@@ -88,15 +88,22 @@ Secondary:
 A forecast whose expected opportunity is below +10% is not a V6.2 profit opportunity. It may be WATCH/REJECT for context, but it must not become CANDIDATE or HIGH_CONVICTION merely because a +3% or +5% move appears likely.
 
 
-## Primary maturity window
-The default V6.2 opportunity should produce at least +10% within 20-30 trading sessions.
+## Launch window
+The V6.2 launch target is 1-30 trading sessions after entry.
 
-Primary outcome labels must therefore include:
-- hit +10% within 20 sessions;
-- hit +10% within 30 sessions;
-- MFE at 20 and 30 sessions;
-- time to first +10% hit;
-- whether the move is still making upward progress at session 30.
+Required launch outcomes:
+- launch by session 1;
+- launch by session 3;
+- launch by session 5;
+- launch by session 10;
+- launch by session 20;
+- launch by session 30;
+- time to detected launch;
+- MAE before launch.
+
+A launch within 1-3 sessions is ideal but is not a hard pass/fail threshold. A valid setup may begin its real upward move later, as long as it launches within 30 sessions and the thesis remains intact.
+
+Profit-target timing is separate from launch timing. The system should model when +10/+20/+30/+50 may be reached after or around the launch rather than forcing those profit targets to occur by session 30.
 
 ## Winner continuation rule
 The model must not impose a blind time stop at session 30. Instead, session 30 is a maturity/reassessment boundary.
@@ -112,14 +119,15 @@ If the move has stalled or rolled over, continuation should end even if the stoc
 This continuation logic is dynamic and must be validated independently from initial candidate selection.
 
 
-## Early-launch quality
-The preferred V6.2 entry is one that begins advancing immediately after purchase.
+## Launch quality
+The preferred V6.2 entry begins advancing as early as possible, but the valid launch horizon is 1-30 sessions.
 
-Record as separate path-quality outcomes:
+Record:
 - next-session close return;
-- whether the next-session close is above entry;
-- whether positive launch begins within 1-3 sessions;
-- whether positive launch begins within 5 sessions;
-- MAE before launch.
+- positive progress by 1/3/5/10/20/30 sessions;
+- detected launch session;
+- MAE before launch;
+- post-launch MFE and target-hit timing.
 
-These are entry-quality / timing diagnostics only. They do not replace the primary >=+10% within 20-30 sessions profit objective.
+Earlier launch is a quality advantage, not a hard requirement.
+
