@@ -1,172 +1,50 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "V6.2-LLM-REASONING-v0.1",
+  "$id": "V6.2-LLM-REASONING-v2.0",
+  "title": "AlphaPilot V6.2 LLM decision response",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "analysis_status",
-    "missing_required_inputs",
-    "hypothesis_type",
-    "hypothesis",
-    "primary_evidence_ids",
-    "secondary_evidence_ids",
-    "counter_evidence_ids",
-    "bull_thesis",
-    "bear_thesis",
-    "invalidation",
-    "evidence_quality",
-    "decision",
-    "decision_reason"
+    "decision", "evidence_quality", "hypothesis_type", "hypothesis",
+    "primary_evidence_ids", "secondary_evidence_ids", "counter_evidence_ids",
+    "system_limitations", "bull_thesis", "bear_thesis", "invalidation",
+    "decision_reason", "entry", "failure_exit"
   ],
   "properties": {
-    "analysis_status": {
-      "enum": [
-        "COMPLETE",
-        "INSUFFICIENT_INPUT"
-      ]
-    },
-    "missing_required_inputs": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "uniqueItems": true
-    },
-    "hypothesis_type": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 80
-    },
-    "hypothesis": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 1000
-    },
-    "primary_evidence_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "uniqueItems": true
-    },
-    "secondary_evidence_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "uniqueItems": true
-    },
-    "counter_evidence_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "uniqueItems": true
-    },
-    "bull_thesis": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 1200
-    },
-    "bear_thesis": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 1200
-    },
-    "invalidation": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 1200
-    },
-    "evidence_quality": {
-      "enum": [
-        "STRONG",
-        "MODERATE",
-        "WEAK",
-        "NOT_ASSESSABLE"
-      ]
-    },
-    "decision": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "enum": [
-        "REJECT",
-        "WATCH",
-        "CANDIDATE",
-        "HIGH_CONVICTION",
-        null
-      ]
-    },
-    "decision_reason": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 1000
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "analysis_status": {
-            "const": "INSUFFICIENT_INPUT"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "decision": {
-            "const": null
-          },
-          "evidence_quality": {
-            "const": "NOT_ASSESSABLE"
-          }
-        },
-        "required": [
-          "missing_required_inputs"
-        ]
+    "decision": {"type": "string", "enum": ["REJECT", "WATCH", "CANDIDATE", "HIGH_CONVICTION"]},
+    "evidence_quality": {"type": "string", "enum": ["STRONG", "MODERATE", "WEAK"]},
+    "hypothesis_type": {"type": "string", "minLength": 1, "maxLength": 80},
+    "hypothesis": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "primary_evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+    "secondary_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "counter_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "system_limitations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "bull_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
+    "bear_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
+    "invalidation": {"type": "string", "minLength": 1, "maxLength": 1200},
+    "decision_reason": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "ideal_low", "ideal_high"],
+      "properties": {
+        "status": {"type": "string", "enum": ["NOW", "WAIT_FOR_PULLBACK", "WAIT_FOR_CONFIRMATION", "NOT_ACTIONABLE"]},
+        "ideal_low": {"type": ["number", "null"]},
+        "ideal_high": {"type": ["number", "null"]}
       }
     },
-    {
-      "if": {
-        "properties": {
-          "analysis_status": {
-            "const": "COMPLETE"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "decision": {
-            "enum": [
-              "REJECT",
-              "WATCH",
-              "CANDIDATE",
-              "HIGH_CONVICTION"
-            ]
-          },
-          "evidence_quality": {
-            "enum": [
-              "STRONG",
-              "MODERATE",
-              "WEAK"
-            ]
-          }
+    "failure_exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_price", "reason", "trigger_type"],
+      "properties": {
+        "exit_price": {"type": ["number", "null"]},
+        "reason": {"type": ["string", "null"]},
+        "trigger_type": {
+          "type": "string",
+          "enum": ["PRICE_STRUCTURE_BREAK", "THESIS_INVALIDATION", "CATALYST_FAILURE", "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE", "UNAVAILABLE"]
         }
       }
     }
-  ]
+  }
 }
