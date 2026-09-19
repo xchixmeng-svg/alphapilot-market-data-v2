@@ -29,6 +29,8 @@ jobs:
           gh run download "${SOURCE_RUN_ID}" -D source_inputs
           echo "profit=$(find source_inputs -type f -name '*_FULL_2024_SCORES.parquet' | grep -v 'LAUNCH_CONDITIONAL' | wc -l)"
           echo "launch=$(find source_inputs -type f -name 'V6_2_LAUNCH_CONDITIONAL_FULL_2024_SCORES.parquet' | wc -l)"
+      - name: Compile reconciliation script
+        run: python -m py_compile scripts/reconcile_v6_2_probability_surface.py
       - name: Reconcile and validate probability surface
         run: python -u scripts/reconcile_v6_2_probability_surface.py
       - uses: actions/upload-artifact@v4
