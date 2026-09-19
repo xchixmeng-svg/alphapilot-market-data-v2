@@ -1,0 +1,65 @@
+name: V6.2 GitHub Models Probe
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - '.github/workflows/v6_2_github_models_probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  models: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Probe GitHub Models inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+
+          token=os.environ["GITHUB_TOKEN"]
+          url="https://models.github.ai/inference/chat/completions"
+          candidates=[
+            "openai/gpt-4.1-mini",
+            "openai/gpt-4o-mini",
+            "openai/gpt-4.1",
+            "openai/gpt-4o"
+          ]
+          last=None
+          for model in candidates:
+              body=json.dumps({
+                  "model":model,
+                  "messages":[
+                      {"role":"system","content":"Return JSON only."},
+                      {"role":"user","content":"Return exactly {\"status\":\"PASS\",\"purpose\":\"v6.2 reasoning probe\"}."}
+                  ],
+                  "temperature":0,
+                  "max_tokens":80
+              }).encode()
+              req=urllib.request.Request(
+                  url,data=body,method="POST",
+                  headers={
+                    "Authorization":"Bearer "+token,
+                    "Content-Type":"application/json",
+                    "Accept":"application/json"
+                  })
+              try:
+                  with urllib.request.urlopen(req,timeout=60) as r:
+                      out=json.loads(r.read().decode())
+                  txt=out["choices"][0]["message"]["content"]
+                  print("GITHUB_MODELS_AUTH=true")
+                  print("MODEL="+model)
+                  print("RESPONSE="+txt.replace("\n"," ")[:500])
+                  print("V6_2_GITHUB_MODELS_PROBE=PASS")
+                  raise SystemExit(0)
+              except urllib.error.HTTPError as e:
+                  last=(model,e.code,e.read().decode("utf-8","replace")[:500])
+                  print(f"MODEL_ATTEMPT_FAIL model={model} status={e.code}")
+          print("LAST_ERROR="+repr(last))
+          raise SystemExit(2)
+          PY
