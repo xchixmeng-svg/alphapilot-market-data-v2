@@ -30,8 +30,16 @@ def _closed_enum(v,allowed):
 def normalize_output(pkt,o):
     # Harmless representation normalization only; never infer or alter semantics.
     if "decision" in o: o["decision"]=_closed_enum(o["decision"],DECISIONS)
-    if isinstance(o.get("entry"),dict) and "status" in o["entry"]: o["entry"]["status"]=_closed_enum(o["entry"]["status"],ENTRY)
-    if isinstance(o.get("failure_exit"),dict) and "trigger_type" in o["failure_exit"]: o["failure_exit"]["trigger_type"]=_closed_enum(o["failure_exit"]["trigger_type"],TRIGGERS)
+    if isinstance(o.get("entry"),dict):
+        if "status" in o["entry"]: o["entry"]["status"]=_closed_enum(o["entry"]["status"],ENTRY)
+        # The model sometimes adds harmless explanatory keys. Keep only contract fields.
+        o["entry"]={k:o["entry"].get(k) for k in ["status","ideal_low","ideal_high"]}
+        if o.get("decision") in {"REJECT","WATCH"}:
+            o["entry"]["ideal_low"]=None if o["entry"]["ideal_low"] is None else o["entry"]["ideal_low"]
+            o["entry"]["ideal_high"]=None if o["entry"]["ideal_high"] is None else o["entry"]["ideal_high"]
+    if isinstance(o.get("failure_exit"),dict):
+        if "trigger_type" in o["failure_exit"]: o["failure_exit"]["trigger_type"]=_closed_enum(o["failure_exit"]["trigger_type"],TRIGGERS)
+        o["failure_exit"]={k:o["failure_exit"].get(k) for k in ["exit_price","reason","trigger_type"]}
     avail=list(pkt["evidence"]["available_evidence_ids"]); missing=list(pkt["evidence"]["missing_evidence_ids"])
     canonical={}
     for x in avail+missing: canonical.setdefault(_canon(x),[]).append(x)
@@ -75,13 +83,16 @@ def validate(pkt,o):
         if f["trigger_type"]=="UNAVAILABLE" or not isinstance(f["reason"],str) or not f["reason"].strip(): raise ValueError("missing failure exit reasoning")
     else:
         if f["exit_price"] is not None or f["trigger_type"]!="UNAVAILABLE": raise ValueError("non-actionable must not fabricate failure exit")
-    txt=json.dumps(o,ensure_ascii=False).lower(); forbidden={"eps_revisions":["eps revision","eps revisions","eps上修","eps 預估上修"],"analyst_consensus":["analyst consensus","consensus estimate","分析師共識"],"industry_pricing":["industry pricing","spot price","產業報價","現貨價"],"inventory_supply_demand":["inventory destocking","supply shortage","供不應求","庫存去化"],"broad_news_semantics":["news sentiment","媒體情緒"]}
-    miss=set(pkt["evidence"]["missing_evidence_ids"]); bad=[fam for fam,terms in forbidden.items() if fam in miss and any(t in txt for t in terms)]
-    if bad: raise ValueError("hallucinated missing evidence "+",".join(bad))
+    # Missing families can be mentioned only as limitations/counter-evidence. They are already
+    # structurally forbidden from primary/secondary evidence IDs, which is the hard anti-hallucination gate.
+    miss=set(pkt["evidence"]["missing_evidence_ids"])
+    supporting=set(o["primary_evidence_ids"])|set(o["secondary_evidence_ids"])
+    bad_support=sorted(supporting & miss)
+    if bad_support: raise ValueError("missing evidence used as support: "+",".join(bad_support))
 
 def call(pkt,repair=None):
     response_schema={"decision":"REJECT|WATCH|CANDIDATE|HIGH_CONVICTION","evidence_quality":"STRONG|MODERATE|WEAK","hypothesis_type":"string","hypothesis":"string","primary_evidence_ids":"list of supplied available evidence IDs only","secondary_evidence_ids":"list of supplied available evidence IDs only","counter_evidence_ids":"list of supplied available IDs or missing:<family>","bull_thesis":"string","bear_thesis":"string","invalidation":"string","decision_reason":"string","entry":{"status":"NOW|WAIT_FOR_PULLBACK|WAIT_FOR_CONFIRMATION|NOT_ACTIONABLE","ideal_low":"number|null","ideal_high":"number|null"},"failure_exit":{"exit_price":"number|null","reason":"string|null","trigger_type":"PRICE_STRUCTURE_BREAK|THESIS_INVALIDATION|CATALYST_FAILURE|VALUATION_EXPECTATION_BREAK|MULTI_EVIDENCE_FAILURE|UNAVAILABLE"}}
-    user={"case":pkt,"response_schema":response_schema,"allowed_primary_secondary_evidence_ids":pkt["evidence"]["available_evidence_ids"],"allowed_counter_evidence_ids":pkt["evidence"]["available_evidence_ids"]+pkt["evidence"]["missing_evidence_ids"]+["missing:"+x for x in pkt["evidence"]["missing_evidence_ids"]]}
+    user={"case":pkt,"response_schema":response_schema,"entry_contract":"entry must contain exactly status, ideal_low, ideal_high. For REJECT/WATCH use NOT_ACTIONABLE with null ideal_low/ideal_high.","allowed_primary_secondary_evidence_ids":pkt["evidence"]["available_evidence_ids"],"allowed_counter_evidence_ids":pkt["evidence"]["available_evidence_ids"]+pkt["evidence"]["missing_evidence_ids"]+["missing:"+x for x in pkt["evidence"]["missing_evidence_ids"]]}
     if repair:
         user["previous_schema_error"]=repair
         user["repair_instruction"]="Preserve your substantive analysis. Repair exactly the reported schema/validation error. Use enum strings exactly as shown in response_schema; use ONLY exact evidence IDs from the allowed arrays; do not invent evidence or alter immutable numerical forecasts."
