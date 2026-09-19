@@ -1,41 +1,116 @@
 name: V6.2 Decision Collapse Audit
+
 on:
   push:
     branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
     paths:
-      - 'research/V6_2_DECISION_COLLAPSE_AUDIT_TRIGGER.txt'
+      - 'scripts/audit_v6_2_decision_collapse.py'
+      - '.github/workflows/v6_2_decision_collapse_audit.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
   actions: read
+
 jobs:
-  audit:
+  audit-existing-artifacts-only:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
-      FINAL_ARTIFACT: '10582872959'
-      PREPARED_ARTIFACT: '10582014726'
+      PREPARED_ARTIFACT_ID: '10582014726'
+      RESPONSE_ARTIFACT_0: '10583306332'
+      RESPONSE_ARTIFACT_1: '10582917794'
+      RESPONSE_ARTIFACT_2: '10581414968'
+      RESPONSE_ARTIFACT_3: '10582976677'
+      V62_PREPARED_DIR: ${{ github.workspace }}/audit_input/prepared
+      V62_RESPONSES_DIR: ${{ github.workspace }}/audit_input/responses
+      V62_OUTPUT_DIR: ${{ github.workspace }}/audit_output
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
-        with: {python-version: '3.12'}
-      - run: |
-          python -m pip install pandas==2.2.3 numpy==2.3.5
+        with:
+          python-version: '3.12'
+
+      - name: Install audit dependencies and compile
+        run: |
+          set -euo pipefail
+          python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
           python -m py_compile scripts/audit_v6_2_decision_collapse.py
-      - name: Download exact successful 64-case outputs and hidden outcomes
+
+      - name: Download exact successful Run 35435870750 artifacts
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p inputs/final inputs/prepared
-          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" >/tmp/x.zip; unzip -oq /tmp/x.zip -d "$2"; }
-          get "$FINAL_ARTIFACT" inputs/final
-          get "$PREPARED_ARTIFACT" inputs/prepared
-          test -n "$(find inputs/final -name 'AI_REPLAY_64_CASES.json' -print -quit)"
-          test -n "$(find inputs/prepared -name 'HIDDEN_OUTCOMES.csv' -print -quit)"
-      - run: python -u scripts/audit_v6_2_decision_collapse.py
+          mkdir -p "$V62_PREPARED_DIR" "$V62_RESPONSES_DIR" /tmp/v62-audit-zips
+
+          download_artifact() {
+            local artifact_id="$1"
+            local destination="$2"
+            local zip_path="/tmp/v62-audit-zips/${artifact_id}.zip"
+            gh api -H 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$zip_path"
+            unzip -oq "$zip_path" -d "$destination"
+          }
+
+          download_artifact "$PREPARED_ARTIFACT_ID" "$V62_PREPARED_DIR"
+          download_artifact "$RESPONSE_ARTIFACT_0" "$V62_RESPONSES_DIR"
+          download_artifact "$RESPONSE_ARTIFACT_1" "$V62_RESPONSES_DIR"
+          download_artifact "$RESPONSE_ARTIFACT_2" "$V62_RESPONSES_DIR"
+          download_artifact "$RESPONSE_ARTIFACT_3" "$V62_RESPONSES_DIR"
+
+          cat > /tmp/v62-audit-zips/SHA256SUMS <<'EOF'
+          1938d154cbb4266a2377f520aa9822f4b0ca181e82133cfbdbd89128507cd08f  10582014726.zip
+          dce788b6be562f1df525a8e4e4fcee9faa0704fd30c39f88810945378b8c1b50  10583306332.zip
+          26651d83976baa5b9a3da00653e81046c6757ad6e1b644ee82f131b0f4652518  10582917794.zip
+          ba70da65cdc84a7b18da602ca3f6555d9c825d778c534c7bad85d0be386bcc5b  10581414968.zip
+          f7c7ce194579d51bf8aa0945dde9fb121888edd234070506c533952ce9a91d09  10582976677.zip
+          EOF
+          cd /tmp/v62-audit-zips
+          sha256sum --check SHA256SUMS
+
+          test -s "$V62_PREPARED_DIR/PREP_SUMMARY.json"
+          test -s "$V62_PREPARED_DIR/HIDDEN_OUTCOMES.csv"
+          test -s "$V62_PREPARED_DIR/HIDDEN_FUTURE_PATHS.parquet"
+          test "$(find "$V62_RESPONSES_DIR" -maxdepth 1 -name 'responses_shard_*.json' | wc -l)" -eq 4
+          test "$(find "$V62_RESPONSES_DIR" -maxdepth 1 -name 'errors_shard_*.json' | wc -l)" -eq 4
+
+      - name: Audit frozen responses without replaying AI
+        run: python -u scripts/audit_v6_2_decision_collapse.py
+
+      - name: Verify audit contract
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path(os.environ['V62_OUTPUT_DIR'])
+          summary = json.loads((out / '01_AUDIT_SUMMARY.json').read_text())
+          integrity = json.loads((out / '19_DATA_INTEGRITY_REPORT.json').read_text())
+
+          assert summary['status'] == 'COMPLETE'
+          assert summary['n_cases'] == 64
+          assert summary['decision_counts'] == {
+              'REJECT': 60,
+              'WATCH': 4,
+              'CANDIDATE': 0,
+              'HIGH_CONVICTION': 0,
+          }
+          assert summary['2025_opened'] is False
+          assert summary['source_provenance']['run_id'] == 35435870750
+          assert integrity['columns_unique'] is True
+          assert integrity['case_id_unique'] is True
+          assert integrity['response_probability_immutable'] is True
+          assert all(integrity['required_outcome_columns_non_na'].values())
+          print('AUDIT_CONTRACT_PASS')
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: v6-2-decision-collapse-audit
-          path: out/
+          path: audit_output/
           if-no-files-found: error
           retention-days: 90
