@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 35
     env:
       GH_TOKEN: ${{ github.token }}
-      V62_LOCAL_MODEL: qwen2.5:3b
+      V62_LOCAL_MODEL: qwen2.5:7b
       V1_ARTIFACT: '10570644207'
       NUM_ARTIFACT: '10572172533'
     steps:
