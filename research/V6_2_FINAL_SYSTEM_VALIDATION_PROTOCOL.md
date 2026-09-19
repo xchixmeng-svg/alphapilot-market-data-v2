@@ -145,3 +145,18 @@ Required implementation:
 - final admission is the AI judgment, while deterministic code only enforces data integrity, schema validity, no-hallucination constraints, and numerical immutability.
 
 The historical validation must evaluate whether AI decisions add value over the raw numerical forecasts. If a deterministic threshold performs the same function as the AI decision layer, the architecture has failed the intended design.
+
+
+## Failure-exit validation
+Every actionable historical AI output must include an AI Failure Exit Price defined before entry.
+
+Historical replay must test:
+1. whether the failure exit price was known before entry;
+2. frequency of exit-price triggers;
+3. realized loss at actual executable exit, including adverse gaps/slippage;
+4. whether a triggered exit prevented materially larger subsequent loss;
+5. false-exit rate: cases where the exit triggered but the stock later became a large winner;
+6. whether AI-raised exit prices protected gains after a successful launch;
+7. no downward revision of the failure exit price after entry.
+
+The failure exit price is not the same as MAE prediction. MAE describes expected path risk; the failure exit price is the action level where the AI concedes that its thesis no longer deserves capital.
