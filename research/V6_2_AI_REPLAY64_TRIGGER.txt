@@ -1,0 +1,4 @@
+V6.2 structured AI replay trigger
+purpose: schema-constrained 4-case canary before any full 64-case run
+source_prepared_artifact: 10581735186
+created: 2026-09-19
