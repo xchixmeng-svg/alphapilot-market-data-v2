@@ -178,9 +178,22 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "p_up5_before_down3_h5",
-        "p_up5_before_down3_h10",
-        "p_up5_before_down3_h20",
+        "p_hit10_h20",
+        "p_hit10_h40",
+        "p_hit10_h60",
+        "p_hit10_h120",
+        "p_hit20_h20",
+        "p_hit20_h40",
+        "p_hit20_h60",
+        "p_hit20_h120",
+        "p_hit30_h20",
+        "p_hit30_h40",
+        "p_hit30_h60",
+        "p_hit30_h120",
+        "p_hit50_h20",
+        "p_hit50_h40",
+        "p_hit50_h60",
+        "p_hit50_h120",
         "p_up10_before_down5_h10",
         "p_up10_before_down5_h20",
         "p_up10_before_down5_h40",
@@ -191,29 +204,149 @@
         "p_up20_before_down10_h120"
       ],
       "properties": {
-        "p_up5_before_down3_h5": {
+        "p_hit10_h20": {
           "type": [
             "number",
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +10% within 20 trading sessions, regardless of interim drawdown."
         },
-        "p_up5_before_down3_h10": {
+        "p_hit10_h40": {
           "type": [
             "number",
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +10% within 40 trading sessions, regardless of interim drawdown."
         },
-        "p_up5_before_down3_h20": {
+        "p_hit10_h60": {
           "type": [
             "number",
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +10% within 60 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit10_h120": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +10% within 120 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit20_h20": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +20% within 20 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit20_h40": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +20% within 40 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit20_h60": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +20% within 60 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit20_h120": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +20% within 120 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit30_h20": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +30% within 20 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit30_h40": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +30% within 40 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit30_h60": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +30% within 60 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit30_h120": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +30% within 120 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit50_h20": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +50% within 20 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit50_h40": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +50% within 40 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit50_h60": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +50% within 60 trading sessions, regardless of interim drawdown."
+        },
+        "p_hit50_h120": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Calibrated unconditional probability of reaching +50% within 120 trading sessions, regardless of interim drawdown."
         },
         "p_up10_before_down5_h10": {
           "type": [
@@ -221,7 +354,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up10_before_down5_h20": {
           "type": [
@@ -229,7 +363,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up10_before_down5_h40": {
           "type": [
@@ -237,7 +372,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up10_before_down5_h60": {
           "type": [
@@ -245,7 +381,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up20_before_down10_h20": {
           "type": [
@@ -253,7 +390,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up20_before_down10_h40": {
           "type": [
@@ -261,7 +399,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up20_before_down10_h60": {
           "type": [
@@ -269,7 +408,8 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         },
         "p_up20_before_down10_h120": {
           "type": [
@@ -277,9 +417,11 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Secondary path-quality probability; not the primary profit-success definition."
         }
-      }
+      },
+      "description": "Primary calibrated profit probabilities start at +10%. Sub-10% moves are not V6.2 profit opportunities. Barrier-first fields are secondary path-risk diagnostics only."
     },
     "upside": {
       "type": "object",
