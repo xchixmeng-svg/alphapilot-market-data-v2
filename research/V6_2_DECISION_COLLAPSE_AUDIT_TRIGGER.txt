@@ -1,0 +1,1 @@
+audit existing successful 64-case outputs; no new LLM replay
