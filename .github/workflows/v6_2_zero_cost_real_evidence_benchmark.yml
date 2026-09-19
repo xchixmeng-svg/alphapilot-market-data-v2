@@ -39,7 +39,7 @@ jobs:
           get "$NUM_ARTIFACT" inputs/num
           NUMFILE=$(find inputs/num -name 'u10_d5_h20_AUDIT_SAMPLE.csv' -print -quit)
           test -n "$NUMFILE"
-          cp "$NUMFILE" inputs/num/u10_d5_h20_AUDIT_SAMPLE.csv
+          test -s "$NUMFILE"
       - name: Run 8-stock real evidence benchmark
         run: python -u scripts/v6_2_zero_cost_real_evidence_benchmark.py
       - uses: actions/upload-artifact@v4
