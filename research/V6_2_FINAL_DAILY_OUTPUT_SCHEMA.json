@@ -25,7 +25,8 @@
     "risk",
     "timing",
     "continuation",
-    "launch_quality"
+    "launch_quality",
+    "failure_exit"
   ],
   "properties": {
     "decision_date": {
@@ -659,6 +660,53 @@
         }
       },
       "description": "Launch is expected within 1-30 trading sessions. Earlier launch is better but not a hard requirement."
+    },
+    "failure_exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exit_price",
+        "loss_pct_from_planned_entry",
+        "reason",
+        "trigger_type",
+        "can_move_lower_after_entry"
+      ],
+      "properties": {
+        "exit_price": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "loss_pct_from_planned_entry": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1500
+        },
+        "trigger_type": {
+          "enum": [
+            "PRICE_STRUCTURE_BREAK",
+            "THESIS_INVALIDATION",
+            "CATALYST_FAILURE",
+            "VALUATION_EXPECTATION_BREAK",
+            "MULTI_EVIDENCE_FAILURE",
+            "UNAVAILABLE"
+          ]
+        },
+        "can_move_lower_after_entry": {
+          "const": false
+        }
+      },
+      "description": "Mandatory AI-reasoned failure exit for CANDIDATE/HIGH_CONVICTION. It is not a fixed-percent stop. After entry it may stay unchanged or move upward, never downward."
     }
   },
   "allOf": [
