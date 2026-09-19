@@ -19,11 +19,12 @@ For each decision date, compute without using future information in the decision
 
 ### Unconditional target-hit outcomes
 Whether the stock reaches:
-- +5%
 - +10%
 - +20%
 - +30%
 - +50%
+
+Sub-10% upside is not a primary success target.
 
 within:
 - 20 sessions
@@ -38,7 +39,7 @@ For 20/40/60/120-session windows record:
 - maximum favorable excursion (MFE);
 - terminal return;
 - session of maximum favorable excursion;
-- time to first +5/+10/+20/+30/+50 hit.
+- time to first +10/+20/+30/+50 hit.
 
 ### Path/risk outcomes
 Record separately:
@@ -46,7 +47,7 @@ Record separately:
 - MAE before first target hit;
 - MAE before realized peak;
 - recovery time after interim drawdown;
-- legacy barrier diagnostics (+5 before -3, +10 before -5, +20 before -10).
+- secondary barrier diagnostics (+10 before -5, +20 before -10). The +5 before -3 task is retired from the formal V6.2 objective set.
 
 ## Interpretation examples
 
@@ -57,7 +58,7 @@ Record separately:
 
 ## AI output implications
 The AI should estimate:
-- probability of reaching +5/+10/+20/+30/+50 within relevant windows;
+- probability of reaching +10/+20/+30/+50 within relevant windows;
 - expected/base/bull MFE or upside range;
 - likely launch window and main move window;
 - expected MAE separately;
@@ -81,3 +82,7 @@ Secondary:
 4. clean-path vs deep-drawdown winner mix.
 
 2025 remains sealed until the final architecture and prediction contract are frozen.
+
+
+## Hard opportunity floor
+A forecast whose expected opportunity is below +10% is not a V6.2 profit opportunity. It may be WATCH/REJECT for context, but it must not become CANDIDATE or HIGH_CONVICTION merely because a +3% or +5% move appears likely.
