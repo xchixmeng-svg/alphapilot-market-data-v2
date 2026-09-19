@@ -53,9 +53,9 @@ def call(pkt: dict, repair: str | None = None) -> tuple[dict, float, list[str]]:
     return obj, time.time() - started, warnings
 
 
-def call_with_retry(pkt: dict) -> tuple[dict, float, list[str]]:
+def call_with_retry(pkt: dict, attempts: int = 3) -> tuple[dict, float, list[str]]:
     error: str | None = None
-    for _attempt in (1, 2):
+    for _attempt in range(1, attempts + 1):
         try:
             return call(pkt, error)
         except Exception as exc:
