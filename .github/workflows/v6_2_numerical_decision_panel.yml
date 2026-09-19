@@ -1,0 +1,100 @@
+name: V6.2 Numerical Decision Panel Audit
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/run_v6_2_unconditional_full_scores.py'
+      - 'scripts/score_v6_2_launch_distribution_all.py'
+      - 'scripts/build_v6_2_numerical_decision_panel.py'
+      - '.github/workflows/v6_2_numerical_decision_panel.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  profit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        task: [u10_h20,u10_h30,u10_h40,u10_h60,u10_h120,u20_h20,u20_h30,u20_h40,u20_h60,u20_h120,u30_h20,u30_h30,u30_h40,u30_h60,u30_h120,u50_h20,u50_h30,u50_h40,u50_h60,u50_h120]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V1_ARTIFACT: '10570644207'
+      FROZEN_0F_ARTIFACT: '10537510796'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 scikit-learn==1.6.1
+      - name: Download numerical inputs
+        shell: bash
+        run: |
+          set -euo pipefail; mkdir -p inputs/v1 inputs/0f
+          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" >/tmp/a.zip; unzip -oq /tmp/a.zip -d "$2"; }
+          get "$V1_ARTIFACT" inputs/v1; get "$FROZEN_0F_ARTIFACT" inputs/0f
+      - run: python -u scripts/run_v6_2_unconditional_full_scores.py --task "${{ matrix.task }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-full-score-${{ matrix.task }}
+          path: v6_2_unconditional_full_scores/
+          if-no-files-found: error
+          retention-days: 90
+
+  launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V1_ARTIFACT: '10570644207'
+      FROZEN_0F_ARTIFACT: '10537510796'
+      LAUNCH_ARTIFACT: '10579051288'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 scikit-learn==1.6.1
+      - name: Download launch inputs
+        shell: bash
+        run: |
+          set -euo pipefail; mkdir -p inputs/v1 inputs/0f inputs/launch
+          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" >/tmp/a.zip; unzip -oq /tmp/a.zip -d "$2"; }
+          get "$V1_ARTIFACT" inputs/v1; get "$FROZEN_0F_ARTIFACT" inputs/0f; get "$LAUNCH_ARTIFACT" inputs/launch
+      - run: python -u scripts/score_v6_2_launch_distribution_all.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-launch-full-scores
+          path: v6_2_launch_full_scores/
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    needs: [profit,launch]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Download current-run score artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p all_inputs matrix_inputs launch_inputs
+          gh run download "${GITHUB_RUN_ID}" -D all_inputs
+          find all_inputs -type f -name '*_FULL_2024_SCORES.parquet' -exec cp {} matrix_inputs/ \;
+          find all_inputs -type f -name 'V6_2_LAUNCH_CONDITIONAL_FULL_2024_SCORES.parquet' -exec cp {} launch_inputs/ \;
+          test "$(find matrix_inputs -name '*_FULL_2024_SCORES.parquet' | wc -l)" -eq 20
+          test "$(find launch_inputs -name '*.parquet' | wc -l)" -eq 1
+      - run: python -u scripts/build_v6_2_numerical_decision_panel.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-numerical-decision-panel-2024
+          path: v6_2_numerical_decision_panel/
+          if-no-files-found: error
+          retention-days: 90
