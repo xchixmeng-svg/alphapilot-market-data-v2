@@ -123,3 +123,25 @@ Historical validation must separately test:
 8. eventual +10/+20/+30/+50 upside after launch;
 9. whether HIGH_CONVICTION launches earlier and/or produces larger post-launch upside than ordinary CANDIDATE.
 
+
+
+## AI-first selection contract
+V6.2 is an AI opportunity-selection system, not a deterministic screening-rule engine.
+
+The AI must make the final stock-level decision from the full admitted evidence bundle and numerical forecasts. Numerical values such as +10/+20/+30/+50 probabilities, launch timing, MAE, valuation, flow, trend, revenue, events, sector context, and catalyst evidence are inputs to reasoning, not standalone admission rules.
+
+Forbidden implementations include:
+- fixed factor filters that mechanically decide CANDIDATE/HIGH_CONVICTION;
+- rules such as p_hit10 > X, MA20 > MA60, foreign flow > X, launch probability > X, or any fixed conjunction used as the final selection gate;
+- ranking the market and admitting a fixed TopK;
+- using the historical validation targets themselves as hard-coded screening thresholds.
+
+Required implementation:
+- every stock is independently assessed by the AI;
+- the AI identifies the relevant causal opportunity story for that stock;
+- the AI may weigh different evidence families differently for different stocks;
+- the AI can reject a stock despite strong numerical scores when the evidence story is weak or contradictory;
+- the AI can keep a stock as WATCH when timing/entry is not attractive even if long-run upside exists;
+- final admission is the AI judgment, while deterministic code only enforces data integrity, schema validity, no-hallucination constraints, and numerical immutability.
+
+The historical validation must evaluate whether AI decisions add value over the raw numerical forecasts. If a deterministic threshold performs the same function as the AI decision layer, the architecture has failed the intended design.
