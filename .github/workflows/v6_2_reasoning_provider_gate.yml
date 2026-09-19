@@ -1,0 +1,47 @@
+name: V6.2 Reasoning Provider Gate
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/v6_2_reasoning_provider_gate.py'
+      - '.github/workflows/v6_2_reasoning_provider_gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise fail-closed provider-neutral contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cat > /tmp/evidence.json <<'EOF'
+          {"date":"2024-12-31","code":"2330","price_structure":"present","institutional_pit":"present"}
+          EOF
+          cat > /tmp/numerical.json <<'EOF'
+          {"p_up10_before_down5_h20":0.61,"expected_mae_low_pct":-0.04,"expected_mae_high_pct":-0.01}
+          EOF
+          cat > /tmp/valid.json <<'EOF'
+          {"decision":"CANDIDATE","why_now":"evidence-supported setup","evidence_used":["price_structure","institutional_pit"],"counter_evidence":["valuation unavailable"],"invalidation":"structure breaks","p_up10_before_down5_h20":0.61,"expected_mae_low_pct":-0.04,"expected_mae_high_pct":-0.01}
+          EOF
+          python scripts/v6_2_reasoning_provider_gate.py --evidence /tmp/evidence.json --numerical /tmp/numerical.json --response /tmp/valid.json --out out/valid_audit.json
+          cat > /tmp/tamper.json <<'EOF'
+          {"decision":"CANDIDATE","why_now":"x","evidence_used":["x"],"counter_evidence":["y"],"invalidation":"z","p_up10_before_down5_h20":0.99}
+          EOF
+          if python scripts/v6_2_reasoning_provider_gate.py --evidence /tmp/evidence.json --numerical /tmp/numerical.json --response /tmp/tamper.json --out out/tamper.json; then echo 'tamper unexpectedly passed'; exit 2; fi
+          cat > /tmp/missing.json <<'EOF'
+          {}
+          EOF
+          cat > /tmp/insufficient.json <<'EOF'
+          {"decision":"INSUFFICIENT_INPUT"}
+          EOF
+          python scripts/v6_2_reasoning_provider_gate.py --evidence /tmp/missing.json --numerical /tmp/numerical.json --response /tmp/insufficient.json --out out/insufficient_audit.json
+          sha256sum out/*.json | tee out/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-reasoning-provider-gate
+          path: out/
