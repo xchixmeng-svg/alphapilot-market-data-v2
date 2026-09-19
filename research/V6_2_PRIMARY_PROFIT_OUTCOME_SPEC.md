@@ -86,3 +86,27 @@ Secondary:
 
 ## Hard opportunity floor
 A forecast whose expected opportunity is below +10% is not a V6.2 profit opportunity. It may be WATCH/REJECT for context, but it must not become CANDIDATE or HIGH_CONVICTION merely because a +3% or +5% move appears likely.
+
+
+## Primary maturity window
+The default V6.2 opportunity should produce at least +10% within 20-30 trading sessions.
+
+Primary outcome labels must therefore include:
+- hit +10% within 20 sessions;
+- hit +10% within 30 sessions;
+- MFE at 20 and 30 sessions;
+- time to first +10% hit;
+- whether the move is still making upward progress at session 30.
+
+## Winner continuation rule
+The model must not impose a blind time stop at session 30. Instead, session 30 is a maturity/reassessment boundary.
+
+A position/opportunity may continue beyond session 30 only if current evidence shows that the move is still advancing. Continuation evidence can include:
+- higher highs / higher lows or otherwise positive price progress;
+- improving or persistent positive flow;
+- catalyst/thesis still active;
+- upside target not yet exhausted;
+- no material invalidation or trend rollover.
+
+If the move has stalled or rolled over, continuation should end even if the stock once qualified.
+This continuation logic is dynamic and must be validated independently from initial candidate selection.
