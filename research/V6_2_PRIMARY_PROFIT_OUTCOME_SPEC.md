@@ -110,3 +110,16 @@ A position/opportunity may continue beyond session 30 only if current evidence s
 
 If the move has stalled or rolled over, continuation should end even if the stock once qualified.
 This continuation logic is dynamic and must be validated independently from initial candidate selection.
+
+
+## Early-launch quality
+The preferred V6.2 entry is one that begins advancing immediately after purchase.
+
+Record as separate path-quality outcomes:
+- next-session close return;
+- whether the next-session close is above entry;
+- whether positive launch begins within 1-3 sessions;
+- whether positive launch begins within 5 sessions;
+- MAE before launch.
+
+These are entry-quality / timing diagnostics only. They do not replace the primary >=+10% within 20-30 sessions profit objective.
