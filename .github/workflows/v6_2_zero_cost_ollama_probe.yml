@@ -1,0 +1,48 @@
+name: V6.2 Zero-Cost Quantized LLM Probe
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/v6_2_zero_cost_ollama_probe.py'
+      - '.github/workflows/v6_2_zero_cost_ollama_probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      V62_LOCAL_MODEL: qwen2.5:3b
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ollama
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama --version
+      - name: Start local inference server and pull quantized model
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          ollama pull "$V62_LOCAL_MODEL"
+      - name: Run semantic capability and speed probe
+        run: python -u scripts/v6_2_zero_cost_ollama_probe.py
+      - name: Validate provider-neutral invariants
+        run: |
+          python scripts/v6_2_reasoning_provider_gate.py             --evidence out/evidence.json             --numerical out/numerical.json             --response out/response.json             --out out/gate_audit.json
+      - name: Record hashes
+        run: sha256sum out/*.json | tee out/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v6-2-zero-cost-quantized-llm-probe
+          path: out/
+          if-no-files-found: warn
+          retention-days: 30
