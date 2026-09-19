@@ -13,6 +13,11 @@ manifest_paths=list(Path("inputs/prepared").rglob("cases_shard_*.jsonl"))
 
 ai=pd.read_json(cases_path)
 o=pd.read_csv(outcome_path,dtype={"code":str})
+# Canonical merge keys: JSON numeric-looking stock codes may deserialize as int.
+for df in (ai,o):
+    df["code"]=df["code"].astype(str).str.replace(r"\\.0$","",regex=True).str.zfill(4)
+    df["date"]=pd.to_numeric(df["date"],errors="raise").astype(np.int64)
+    df["case_id"]=pd.to_numeric(df["case_id"],errors="raise").astype(np.int64)
 packets=[]
 for p in manifest_paths:
     for line in p.read_text().splitlines():
