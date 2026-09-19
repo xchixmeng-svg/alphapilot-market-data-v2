@@ -9,7 +9,7 @@ ROOT=Path("v6_2_probability_surface_reconciliation"); ROOT.mkdir(exist_ok=True)
 TARGETS=[10,20,30,50]
 HORIZONS=[20,30,40,60,120]
 TOL=1e-12
-MAX_SWEEPS=40
+MAX_SWEEPS=500
 
 def ece(y,p,bins=10):
     edges=np.linspace(0,1,bins+1); out=0.0
@@ -134,9 +134,9 @@ mdf=pd.DataFrame(metrics)
 summary={
   "status":"COHERENT" if not post_h.any() and not post_t.any() and launch_viol==0 else "FAIL",
   "scientific_lock":False,
-  "method":"cyclic symmetric Euclidean projection onto adjacent order halfspaces; validation compares pre/post probability quality",
+  "method":"iterative symmetric adjacent-order reconciliation to numerical convergence; validation compares pre/post probability quality",
   "rows":int(len(panel)),
-  "sweeps":int(sweeps),
+  "sweeps":int(sweeps),\n  "convergence_tolerance":TOL,
   "pre_horizon_violation_rows":int(pre_h.sum()),
   "pre_target_violation_rows":int(pre_t.sum()),
   "post_horizon_violation_rows":int(post_h.sum()),
