@@ -153,6 +153,15 @@ REASON_LANGUAGE_PATTERNS: dict[str, str] = {
     "support": r"\bsupport\b|支撐",
     "resistance": r"\bresistance\b|壓力",
     "volume": r"\bvolume\b|成交量|量能",
+    # References to evidence families that the packet explicitly marks as
+    # unavailable.  These are references-to-missing-data diagnostics; they do
+    # not by themselves prove a factual hallucination.
+    "eps_revision_reference": r"\beps\b|earnings per share|每股盈餘|每股收益|獲利預估|盈利预测",
+    "analyst_consensus_reference": r"analyst|consensus|分析師|分析师|市場共識|市场共识|機構評級|机构评级",
+    "industry_pricing_reference": r"industry pricing|產業報價|产业报价|行業價格|行业价格|產品報價|产品报价",
+    "inventory_supply_demand_reference": r"inventory|supply.?demand|庫存|库存|供需|缺貨|缺货",
+    "broad_news_reference": r"\bnews\b|新聞|新闻",
+    "net_profit_reference": r"net profit|淨利|净利|淨利润|净利润",
 }
 _COMPILED_REASON_PATTERNS = {
     name: re.compile(pat, flags=re.IGNORECASE) for name, pat in REASON_LANGUAGE_PATTERNS.items()
@@ -679,6 +688,26 @@ def build_canonical_table(
             "AI response p_hit10_h120 differs from the immutable prepared value for "
             f"case_ids {m.loc[prob_bad, 'case_id'].tolist()}."
         )
+
+    for _, row in m.iterrows():
+        available = row.get("pkt__available_evidence_ids")
+        missing_ids = row.get("pkt__missing_evidence_ids")
+        if not isinstance(available, list) or not isinstance(missing_ids, list):
+            _fail(
+                f"case_id={row['case_id']}: available/missing evidence IDs must be JSON lists."
+            )
+        available_set = set(available)
+        explicit_missing_set = {f"missing:{x}" for x in missing_ids}
+        for col in ("primary_evidence_ids", "secondary_evidence_ids", "counter_evidence_ids"):
+            cited = row.get(col)
+            if not isinstance(cited, list):
+                _fail(f"case_id={row['case_id']}: {col} must be a JSON list.")
+            allowed = available_set | (explicit_missing_set if col == "counter_evidence_ids" else set())
+            invalid = sorted(set(cited) - allowed)
+            if invalid:
+                _fail(
+                    f"case_id={row['case_id']}: {col} contains invalid evidence IDs {invalid}."
+                )
 
     # --- merge 2: (AI+packet) -> outcome -------------------------------
     m = m.merge(
@@ -1767,6 +1796,7 @@ def write_outputs(
                 atol=1e-12,
             )
         ),
+        "response_evidence_ids_subset_of_available": True,
         "realized_launch_status_counts": canonical["realized_launch_status"].value_counts().to_dict(),
     }
     with open(OUTPUT_DIR / "19_DATA_INTEGRITY_REPORT.json", "w", encoding="utf-8") as f:
