@@ -160,6 +160,13 @@ class ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "unavailable/unknown"):
             validate(pkt, out)
 
+    def test_chinese_system_limitation_language_is_rejected_outside_echo_field(self):
+        response = candidate_response()
+        response["decision_reason"] += "，但缺乏分析師共識與產業定價資料。"
+        pkt, out = self.normalized(response)
+        with self.assertRaisesRegex(ContractError, "system-unavailable families mentioned"):
+            validate(pkt, out)
+
     def test_reject_based_only_on_system_limits_is_hard_error(self):
         response = candidate_response()
         response.update({
