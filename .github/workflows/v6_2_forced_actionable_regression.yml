@@ -1,0 +1,43 @@
+name: V6.2 Forced Actionable Branch Regression
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'research/V6_2_FORCED_ACTIONABLE_TRIGGER.txt'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V62_LOCAL_MODEL: qwen2.5:7b
+      V62_CASE_ID: '4'
+      PREPARED_ARTIFACT: '10581735186'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m py_compile scripts/run_v6_2_forced_actionable_regression.py
+      - name: Install Ollama and prepared packets
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break; sleep 1; done
+          ollama pull "$V62_LOCAL_MODEL"
+          mkdir -p prepared_raw prepared
+          gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PREPARED_ARTIFACT}/zip" >/tmp/prepared.zip
+          unzip -oq /tmp/prepared.zip -d prepared_raw
+          find prepared_raw -maxdepth 2 -type f -exec cp {} prepared/ \;
+      - run: python -u scripts/run_v6_2_forced_actionable_regression.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v6-2-forced-actionable-regression
+          path: out/
+          if-no-files-found: warn
+          retention-days: 90
