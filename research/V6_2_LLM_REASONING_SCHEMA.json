@@ -18,11 +18,11 @@
     "primary_evidence_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
     "secondary_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "counter_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "system_limitations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "system_limitations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true, "description": "Must exactly echo system_unavailable_evidence_ids. Transparency only; never evidence, counter-evidence, or a reason for caution."},
     "bull_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
     "bear_thesis": {"type": "string", "minLength": 1, "maxLength": 1200},
     "invalidation": {"type": "string", "minLength": 1, "maxLength": 1200},
-    "decision_reason": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "decision_reason": {"type": "string", "minLength": 1, "maxLength": 1000, "description": "Must rely on case-available evidence or case-specific supported gaps. Do not cite permanent system limitations as a reason."},
     "entry": {
       "type": "object",
       "additionalProperties": false,
@@ -31,7 +31,8 @@
         "status": {"type": "string", "enum": ["NOW", "WAIT_FOR_PULLBACK", "WAIT_FOR_CONFIRMATION", "NOT_ACTIONABLE"]},
         "ideal_low": {"type": ["number", "null"]},
         "ideal_high": {"type": ["number", "null"]}
-      }
+      },
+      "description": "REJECT/WATCH require NOT_ACTIONABLE and null bounds. CANDIDATE/HIGH_CONVICTION require positive numeric bounds with ideal_low <= ideal_high."
     },
     "failure_exit": {
       "type": "object",
@@ -44,7 +45,8 @@
           "type": "string",
           "enum": ["PRICE_STRUCTURE_BREAK", "THESIS_INVALIDATION", "CATALYST_FAILURE", "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE", "UNAVAILABLE"]
         }
-      }
+      },
+      "description": "REJECT/WATCH require null exit_price and UNAVAILABLE. CANDIDATE/HIGH_CONVICTION require a positive exit_price strictly below entry.ideal_high, a non-empty reason, and a non-UNAVAILABLE trigger."
     }
   }
 }
