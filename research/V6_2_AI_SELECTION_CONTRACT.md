@@ -49,3 +49,20 @@ Historical replay must compare:
 3. whether AI decisions improve opportunity concentration, large-winner capture, entry quality, and missed-winner control beyond raw numbers alone.
 
 If AI decisions merely reproduce a fixed numerical threshold, V6.2 has failed its intended architecture.
+
+
+## AI Failure Exit Price (mandatory)
+Every CANDIDATE and HIGH_CONVICTION decision must include a pre-entry AI Failure Exit Price.
+
+This price answers:
+"If the AI thesis is wrong after entry, at what price must the position be exited rather than defended?"
+
+Rules:
+- the exit price is stock-specific and AI-reasoned, not a fixed percentage stop;
+- it must be supported by the stock's own price structure, opportunity thesis, catalyst, valuation/expectation context, and plausible failure path;
+- it is mandatory before entry;
+- after entry, the failure exit price may stay unchanged or be raised, but must not be lowered to avoid admitting a failed thesis;
+- a non-price thesis invalidation may also force exit earlier;
+- touching/breaching the trigger does not imply an impossible fill at the exact trigger price: historical/live execution must use the next realistically tradable price with adverse gap/slippage handling.
+
+Deterministic code may enforce that the field exists and that it is not lowered after entry, but it may not calculate the exit price from a fixed percentage formula. The AI owns the exit-price judgment.
