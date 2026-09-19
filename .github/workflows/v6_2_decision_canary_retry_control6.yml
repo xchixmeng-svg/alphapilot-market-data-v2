@@ -19,7 +19,7 @@ jobs:
       PREPARED_ARTIFACT_ID: '10582014726'
       V62_LOCAL_MODEL: qwen2.5:7b
       CANARY_CASE_IDS: '14,15,16,24,32,48'
-      CANARY_SELECTION_DESCRIPTION: 'two contract failures from canary8 plus four lowest p_hit10_h120 outcome-blind controls'
+      CANARY_SELECTION_DESCRIPTION: 'balanced-prompt rerun: two high-prior contract cases plus four lowest p_hit10_h120 outcome-blind controls'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
