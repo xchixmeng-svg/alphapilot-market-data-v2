@@ -1,0 +1,121 @@
+name: V6.2 AI Decision Replay 64
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/prepare_v6_2_ai_replay64.py'
+      - 'scripts/run_v6_2_ai_replay64_shard.py'
+      - 'scripts/evaluate_v6_2_ai_replay64.py'
+      - '.github/workflows/v6_2_ai_decision_replay64.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V2_ARTIFACT: '10577910077'
+      PANEL_ARTIFACT: '10579426338'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: |
+          python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+          python -m py_compile scripts/prepare_v6_2_ai_replay64.py scripts/run_v6_2_ai_replay64_shard.py scripts/evaluate_v6_2_ai_replay64.py
+      - name: Download exact V2 and coherent numerical panel
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p raw_v2 raw_panel inputs/v2 inputs/panel
+          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" >/tmp/a.zip; unzip -oq /tmp/a.zip -d "$2"; }
+          get "$V2_ARTIFACT" raw_v2
+          get "$PANEL_ARTIFACT" raw_panel
+          V2=$(find raw_v2 -name 'EVIDENCE_BUNDLE_V2.parquet' -print -quit)
+          PANEL=$(find raw_panel -name 'V6_2_NUMERICAL_DECISION_PANEL_2024_RECONCILED.parquet' -print -quit)
+          test -n "$V2"; test -n "$PANEL"
+          cp "$V2" inputs/v2/EVIDENCE_BUNDLE_V2.parquet
+          cp "$PANEL" inputs/panel/V6_2_NUMERICAL_DECISION_PANEL_2024_RECONCILED.parquet
+      - run: python -u scripts/prepare_v6_2_ai_replay64.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-ai-replay64-prepared
+          path: prepared/
+          if-no-files-found: error
+          retention-days: 90
+
+  reason:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V62_LOCAL_MODEL: qwen2.5:7b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install Ollama and fetch prepared packets
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break; sleep 1; done
+          ollama pull "$V62_LOCAL_MODEL"
+          mkdir -p prepzip prepared
+          gh run download "${GITHUB_RUN_ID}" -n v6-2-ai-replay64-prepared -D prepzip
+          cp prepzip/* prepared/
+      - name: Run independent AI decisions
+        run: python -u scripts/run_v6_2_ai_replay64_shard.py --shard "${{ matrix.shard }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v6-2-ai-replay64-reason-${{ matrix.shard }}
+          path: out/
+          if-no-files-found: warn
+          retention-days: 90
+
+  evaluate:
+    needs: [prepare,reason]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Fetch prepared data and AI outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p all prepared reason_inputs
+          gh run download "${GITHUB_RUN_ID}" -D all
+          find all -type f -path '*/v6-2-ai-replay64-prepared/*' -exec cp {} prepared/ \;
+          find all -type f -name 'responses_shard_*.json' -exec cp {} reason_inputs/ \;
+          find all -type f -name 'errors_shard_*.json' -exec cp {} reason_inputs/ \;
+          test "$(find reason_inputs -name 'responses_shard_*.json' | wc -l)" -eq 4
+          ERRORS=$(python - <<'PY'
+          import json,glob
+          print(sum(len(json.load(open(f))) for f in glob.glob('reason_inputs/errors_shard_*.json')))
+          PY
+          )
+          test "$ERRORS" -eq 0
+      - run: python -u scripts/evaluate_v6_2_ai_replay64.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-ai-decision-replay64-final
+          path: final/
+          if-no-files-found: error
+          retention-days: 90
