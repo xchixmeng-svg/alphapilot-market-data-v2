@@ -82,40 +82,44 @@ Predictions near X% should realize near X% within their own definition.
 V6.2 does not target 3%-5% trades. A stock must be assessed on the possibility of at least a +10% future move to qualify as a meaningful opportunity. +3%/+5% movements may appear inside path diagnostics but must not be treated as a profitable-opportunity success, candidate admission target, or headline forecast.
 
 
-## Primary timing contract: 20-30 session opportunity window
-V6.2 is intended to identify opportunities that can normally deliver at least +10% within approximately 20-30 trading sessions.
+## Timing contract: launch and profit are separate
+V6.2 must not confuse launch timing with profit-target timing.
 
-Primary candidate qualification:
-- A CANDIDATE or HIGH_CONVICTION setup should normally have a credible path to >= +10% within 20-30 trading sessions.
-- If the expected move is below +10% by 30 sessions, or the model expects the move to require materially longer without an active catalyst, the stock should normally remain WATCH/REJECT rather than be promoted to CANDIDATE.
-- The 20-30 session window is a forecast/maturity expectation, not an automatic forced sell date.
+Launch:
+- expected start window is 1-30 trading sessions after entry;
+- earlier is better, but any evidence-supported launch within 30 sessions can qualify.
 
-Continuation after 30 sessions:
-- A winner may remain active beyond 30 sessions only while the move is still demonstrably progressing upward and the underlying opportunity thesis/catalyst remains active.
-- Continued holding must be re-evaluated from current evidence, not granted automatically because the stock was previously a CANDIDATE.
-- If price progress stalls, trend deteriorates, or the thesis/catalyst weakens, the continuation state should be withdrawn even if the original 30-session target was once met.
+Profit:
+- minimum meaningful opportunity remains +10%;
+- +20%, +30%, and +50% extensions are explicitly modeled;
+- profit-target timing must be predicted independently from launch timing rather than forced into a fixed 20-30-session deadline.
 
-Historical validation must therefore separately test:
-1. >= +10% hit rate by 20 sessions;
-2. >= +10% hit rate by 30 sessions;
-3. +20/+30/+50% extension rates after a valid +10% move;
-4. whether post-30 continuation decisions correctly retain ongoing winners and release stalled/rolling-over names.
+Continuation:
+- once an upward move has launched, the opportunity can remain active beyond session 30 while price progress and thesis/catalyst remain intact;
+- if the thesis breaks, price rolls over, or the move stalls materially, the continuation state can become REASSESS or END.
 
+## Launch-window preference
+V6.2 launch timing is a forecast window of 1-30 trading sessions after entry.
 
-## Early-launch preference
-Among otherwise comparable >=+10% opportunities, V6.2 should prefer entries that begin advancing immediately after entry.
+Core rule:
+- a valid opportunity should have a credible expectation that its upward move begins within 1-30 trading sessions;
+- next-session or 1-3-session launch is ideal and receives higher entry-quality assessment, but it is not a hard requirement;
+- a launch on session 10, 20, or 30 can still be valid if the evidence and profit thesis remain intact;
+- failure to rise immediately must not invalidate a stock before the 30-session launch window has expired unless the thesis itself breaks.
 
-Ideal behavior:
-- next trading session shows positive progress;
-- strongest preference: launch begins within 1-3 trading sessions;
-- acceptable: launch begins within 5 sessions if the 20-30 session >=+10% thesis remains intact.
-
-This is a quality preference, not the primary definition of success. A stock must NOT be labeled a failed opportunity merely because it does not rise the next day if it later produces the intended >=+10% move within the primary 20-30 session maturity window.
+Launch and profit magnitude are distinct:
+- launch timing asks when the upward move begins;
+- profit objective asks whether the move can ultimately deliver at least +10%;
+- the system must not force +10% to be completed by the same deadline used for launch prediction.
 
 Historical validation must separately test:
-1. next-session positive-close rate after AI entry;
-2. launch-within-3-session rate;
-3. launch-within-5-session rate;
-4. MAE before launch;
-5. whether HIGH_CONVICTION launches faster than ordinary CANDIDATE;
-6. whether fast-launch candidates also preserve the primary >=+10% 20-30 session success rate.
+1. launch within 1 session;
+2. launch within 3 sessions;
+3. launch within 5 sessions;
+4. launch within 10 sessions;
+5. launch within 20 sessions;
+6. launch within 30 sessions;
+7. MAE before launch;
+8. eventual +10/+20/+30/+50 upside after launch;
+9. whether HIGH_CONVICTION launches earlier and/or produces larger post-launch upside than ordinary CANDIDATE.
+
