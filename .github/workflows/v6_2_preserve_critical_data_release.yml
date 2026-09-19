@@ -1,0 +1,81 @@
+name: V6.2 Preserve Critical Data Snapshot
+on:
+  workflow_dispatch:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'research/V6_2_DATA_PRESERVATION_CONTRACT.md'
+      - 'research/V6_2_CRITICAL_DATA_INVENTORY.json'
+      - '.github/workflows/v6_2_preserve_critical_data_release.yml'
+permissions:
+  actions: read
+  contents: write
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SNAPSHOT_TAG: v6.2-data-snapshot-20260919
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download immutable critical artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot/raw snapshot/upload
+          cat > snapshot/artifacts.tsv <<'EOF'
+          10537510796	frozen_0F
+          10535817783	frozen_0E_material_info
+          10570644207	evidence_bundle_v1
+          10564901503	twse_institutional_pit
+          10564877589	tpex_institutional_pit
+          10564732901	institutional_admission
+          10572510252	legacy_barrier_matrix
+          10576322171	reasoning_7b_milestone
+          EOF
+          while IFS=$'\t' read -r id name; do
+            echo "ARCHIVE_DOWNLOAD id=$id name=$name"
+            gh api -H 'Accept: application/vnd.github+json'               "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip"               > "snapshot/raw/${id}_${name}.zip"
+            test -s "snapshot/raw/${id}_${name}.zip"
+          done < snapshot/artifacts.tsv
+
+      - name: Hash and split for durable release storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > snapshot/ARCHIVE_SHA256.txt
+          : > snapshot/CHUNK_SHA256.txt
+          : > snapshot/ARCHIVE_SIZES.txt
+          for f in snapshot/raw/*.zip; do
+            sha256sum "$f" >> snapshot/ARCHIVE_SHA256.txt
+            stat -c '%n %s' "$f" >> snapshot/ARCHIVE_SIZES.txt
+            base="$(basename "$f")"
+            split -b 1800M -d -a 3 "$f" "snapshot/upload/${base}.part"
+          done
+          sha256sum snapshot/upload/* > snapshot/CHUNK_SHA256.txt
+          cp research/V6_2_CRITICAL_DATA_INVENTORY.json snapshot/
+          cp research/V6_2_DATA_PRESERVATION_CONTRACT.md snapshot/
+          cp snapshot/ARCHIVE_SHA256.txt snapshot/upload/
+          cp snapshot/CHUNK_SHA256.txt snapshot/upload/
+          cp snapshot/ARCHIVE_SIZES.txt snapshot/upload/
+          cp snapshot/V6_2_CRITICAL_DATA_INVENTORY.json snapshot/upload/
+          cp snapshot/V6_2_DATA_PRESERVATION_CONTRACT.md snapshot/upload/
+
+      - name: Create or update durable GitHub Release snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$SNAPSHOT_TAG" >/dev/null 2>&1; then
+            gh release create "$SNAPSHOT_TAG"               --title "V6.2 Canonical Data Snapshot 2026-09-19"               --notes "Immutable research-critical data snapshot. Actions artifacts are temporary transport only. Verify ARCHIVE_SHA256.txt and CHUNK_SHA256.txt before reuse."
+          fi
+          gh release upload "$SNAPSHOT_TAG" snapshot/upload/* --clobber
+
+      - name: Verify release has preservation manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$SNAPSHOT_TAG" --json tagName,assets > snapshot/RELEASE_VERIFY.json
+          grep -q 'ARCHIVE_SHA256.txt' snapshot/RELEASE_VERIFY.json
+          grep -q 'V6_2_CRITICAL_DATA_INVENTORY.json' snapshot/RELEASE_VERIFY.json
+          echo "V6_2_CANONICAL_PRESERVATION=PASS"
