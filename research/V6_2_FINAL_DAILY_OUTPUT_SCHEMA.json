@@ -24,7 +24,8 @@
     "upside",
     "risk",
     "timing",
-    "continuation"
+    "continuation",
+    "launch_quality"
   ],
   "properties": {
     "decision_date": {
@@ -588,6 +589,49 @@
         }
       },
       "description": "Post-maturity continuation state. Beyond ~30 sessions, only an opportunity still advancing with an intact thesis should remain active."
+    },
+    "launch_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p_next_session_positive",
+        "p_launch_within_3_sessions",
+        "p_launch_within_5_sessions",
+        "expected_prelaunch_mae_pct"
+      ],
+      "properties": {
+        "p_next_session_positive": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_launch_within_3_sessions": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_launch_within_5_sessions": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "expected_prelaunch_mae_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "description": "Entry-timing quality only. Fast launch is preferred but is not the primary success definition."
     }
   },
   "allOf": [
