@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "V6.2-FINAL-DAILY-OPPORTUNITY-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_date",
+    "code",
+    "analysis_status",
+    "missing_required_inputs",
+    "decision",
+    "evidence_quality",
+    "hypothesis_type",
+    "hypothesis",
+    "primary_evidence_ids",
+    "secondary_evidence_ids",
+    "counter_evidence_ids",
+    "bull_thesis",
+    "bear_thesis",
+    "invalidation",
+    "decision_reason",
+    "entry",
+    "probabilities",
+    "upside",
+    "risk",
+    "timing"
+  ],
+  "properties": {
+    "decision_date": {
+      "type": "integer"
+    },
+    "code": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 10
+    },
+    "analysis_status": {
+      "enum": [
+        "COMPLETE",
+        "INSUFFICIENT_INPUT"
+      ]
+    },
+    "missing_required_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "decision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "REJECT",
+        "WATCH",
+        "CANDIDATE",
+        "HIGH_CONVICTION",
+        null
+      ]
+    },
+    "evidence_quality": {
+      "enum": [
+        "STRONG",
+        "MODERATE",
+        "WEAK",
+        "NOT_ASSESSABLE"
+      ]
+    },
+    "hypothesis_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "hypothesis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1500
+    },
+    "primary_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "secondary_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "counter_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "bull_thesis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1800
+    },
+    "bear_thesis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1800
+    },
+    "invalidation": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1800
+    },
+    "decision_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1200
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "current_price",
+        "ideal_low",
+        "ideal_high",
+        "conditional_on_entry"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "NOW",
+            "WAIT_FOR_PULLBACK",
+            "WAIT_FOR_CONFIRMATION",
+            "NOT_ACTIONABLE",
+            "UNAVAILABLE"
+          ]
+        },
+        "current_price": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ideal_low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "ideal_high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "conditional_on_entry": {
+          "type": "boolean"
+        }
+      }
+    },
+    "probabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p_up5_before_down3_h5",
+        "p_up5_before_down3_h10",
+        "p_up5_before_down3_h20",
+        "p_up10_before_down5_h10",
+        "p_up10_before_down5_h20",
+        "p_up10_before_down5_h40",
+        "p_up10_before_down5_h60",
+        "p_up20_before_down10_h20",
+        "p_up20_before_down10_h40",
+        "p_up20_before_down10_h60",
+        "p_up20_before_down10_h120"
+      ],
+      "properties": {
+        "p_up5_before_down3_h5": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up5_before_down3_h10": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up5_before_down3_h20": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up10_before_down5_h10": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up10_before_down5_h20": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up10_before_down5_h40": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up10_before_down5_h60": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up20_before_down10_h20": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up20_before_down10_h40": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up20_before_down10_h60": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "p_up20_before_down10_h120": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "upside": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_low_pct",
+        "base_high_pct",
+        "bull_pct"
+      ],
+      "properties": {
+        "base_low_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "base_high_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "bull_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_mae_low_pct",
+        "expected_mae_high_pct"
+      ],
+      "properties": {
+        "expected_mae_low_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "expected_mae_high_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "likely_start_min_sessions",
+        "likely_start_max_sessions",
+        "main_window_min_sessions",
+        "main_window_max_sessions"
+      ],
+      "properties": {
+        "likely_start_min_sessions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "likely_start_max_sessions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "main_window_min_sessions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "main_window_max_sessions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "analysis_status": {
+            "const": "INSUFFICIENT_INPUT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "const": null
+          },
+          "evidence_quality": {
+            "const": "NOT_ASSESSABLE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "analysis_status": {
+            "const": "COMPLETE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "REJECT",
+              "WATCH",
+              "CANDIDATE",
+              "HIGH_CONVICTION"
+            ]
+          },
+          "evidence_quality": {
+            "enum": [
+              "STRONG",
+              "MODERATE",
+              "WEAK"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
