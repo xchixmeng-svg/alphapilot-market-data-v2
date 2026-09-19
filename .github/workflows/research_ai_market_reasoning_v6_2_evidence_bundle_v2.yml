@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      V1_ARTIFACT: '10570080749'
+      V1_ARTIFACT: '10570644207'
       EVENT_0E_ARTIFACT: '10535817783'
     steps:
       - uses: actions/checkout@v4
