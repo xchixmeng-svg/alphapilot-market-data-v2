@@ -40,7 +40,8 @@ If your decision is materially weaker than the numerical forecasts imply, decisi
 primary_evidence_ids, secondary_evidence_ids, and counter_evidence_ids may contain only supplied case_available_evidence_ids. counter_evidence_ids must identify evidence that concretely contradicts the thesis. Echo system_unavailable_evidence_ids exactly in system_limitations for transparency only.
 Before finalizing REJECT or WATCH, verify that the reason comes from case-available evidence or a case-specific supported gap, not from permanent system limitations.
 For CANDIDATE/HIGH_CONVICTION, provide a stock-specific entry zone and pre-entry AI Failure Exit Price based on case-available evidence; never use a universal fixed stop percentage.
-For WATCH/REJECT, entry must be NOT_ACTIONABLE with null bounds; failure_exit.exit_price must be null and trigger_type UNAVAILABLE.
+For WATCH/REJECT, entry must be NOT_ACTIONABLE with null ideal_low and ideal_high; failure_exit.exit_price must be null and trigger_type must be UNAVAILABLE.
+For CANDIDATE/HIGH_CONVICTION, entry bounds and failure_exit.exit_price must be finite positive numbers, ideal_low <= ideal_high, and failure_exit.exit_price must be strictly below ideal_high.
 Return exactly one JSON object and no markdown."""
 
 
@@ -230,6 +231,14 @@ def validate(pkt: dict[str, Any], out: dict[str, Any]) -> list[str]:
         generic_absence = re.search(r"\b(unavailable|not available|no data|lack of data|missing data)\b", review_text.lower())
         if generic_absence and not mentions_available and not case_missing:
             warnings.append("non-actionable reason uses generic missing-data language without a case-specific supported gap")
+
+    all_narrative = " ".join(str(out.get(k, "")) for k in ("hypothesis", "bull_thesis", "bear_thesis", "invalidation", "decision_reason"))
+    named_system_limitations = sorted(f for f in system_unavailable if _family_mentioned(all_narrative, f))
+    if named_system_limitations:
+        warnings.append(
+            "system-unavailable families mentioned outside system_limitations: "
+            + ",".join(named_system_limitations)
+        )
 
     if errors:
         raise ContractError("; ".join(errors))
