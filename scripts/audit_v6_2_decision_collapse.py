@@ -11,13 +11,28 @@ cases_path=next(Path("inputs/final").rglob("AI_REPLAY_64_CASES.json"))
 outcome_path=next(Path("inputs/prepared").rglob("HIDDEN_OUTCOMES.csv"))
 manifest_paths=list(Path("inputs/prepared").rglob("cases_shard_*.jsonl"))
 
-ai=pd.read_json(cases_path)
-o=pd.read_csv(outcome_path,dtype={"code":str})
-# Canonical merge keys: JSON numeric-looking stock codes may deserialize as int.
-for df in (ai,o):
-    df["code"]=df["code"].astype(str).str.replace(r"\\.0$","",regex=True).str.zfill(4)
+# Preserve code exactly as a JSON string; pd.read_json may infer numeric-looking
+# stock codes and silently destroy leading zeroes (e.g. 0050 / 009829).
+ai=pd.DataFrame(json.loads(cases_path.read_text()))
+o=pd.read_csv(outcome_path,dtype={"code":"string"})
+
+def normalize_code(s: pd.Series) -> pd.Series:
+    x=s.astype("string").str.strip().str.replace(r"\.0$","",regex=True)
+    # Taiwan security codes are at least four characters; zfill repairs accidental
+    # short numeric coercions such as 50 -> 0050, while leaving 6-char codes intact.
+    return x.str.zfill(4)
+
+for name,df in (("ai",ai),("outcomes",o)):
+    if "code" not in df.columns:
+        raise RuntimeError(f"{name} missing code column")
+    df["code"]=normalize_code(df["code"])
+    if df["code"].isna().any():
+        raise RuntimeError(f"{name} has null code")
     df["date"]=pd.to_numeric(df["date"],errors="raise").astype(np.int64)
     df["case_id"]=pd.to_numeric(df["case_id"],errors="raise").astype(np.int64)
+
+if str(ai["code"].dtype) != str(o["code"].dtype):
+    raise RuntimeError(f"code dtype mismatch after normalization: {ai['code'].dtype} vs {o['code'].dtype}")
 packets=[]
 for p in manifest_paths:
     for line in p.read_text().splitlines():
@@ -36,7 +51,11 @@ pk=pd.DataFrame([{
     "launch30":x["numerical_reference_read_only"].get("p_successful_launch_by_30"),
 } for x in packets])
 
-m=ai.merge(o,on=["case_id","date","code"],how="left",validate="one_to_one",suffixes=("","_out")).merge(pk,on="case_id",how="left",validate="one_to_one")
+m=ai.merge(o,on=["case_id","date","code"],how="left",validate="one_to_one",suffixes=("","_out"),indicator="_outcome_merge")
+if not (m["_outcome_merge"]=="both").all():
+    bad=m.loc[m["_outcome_merge"]!="both",["case_id","date","code","_outcome_merge"]]
+    raise RuntimeError("outcome key mismatch after canonical code normalization: "+bad.head(10).to_json(orient="records"))
+m=m.drop(columns="_outcome_merge").merge(pk,on="case_id",how="left",validate="one_to_one")
 m["actual10"]=m["y_hit10_h120"].astype(int)
 m["actual20"]=m["y_hit20_h120"].astype(int)
 m["actual30"]=m["y_hit30_h120"].astype(int)
