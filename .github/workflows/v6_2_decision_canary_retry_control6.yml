@@ -1,0 +1,57 @@
+name: V6.2 Decision Canary Retry and Control 6
+on:
+  push:
+    branches: [research-v6-2-decision-contract-fix-20260919]
+    paths:
+      - '.github/workflows/v6_2_decision_canary_retry_control6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PREPARED_ARTIFACT_ID: '10582014726'
+      V62_LOCAL_MODEL: qwen2.5:7b
+      CANARY_CASE_IDS: '14,15,16,24,32,48'
+      CANARY_SELECTION_DESCRIPTION: 'two contract failures from canary8 plus four lowest p_hit10_h120 outcome-blind controls'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile contract and canary
+        run: python -m py_compile scripts/evidence_capability.py scripts/v6_2_decision_contract.py scripts/run_v6_2_ai_replay64_shard.py scripts/run_v6_2_decision_canary.py
+      - name: Download immutable prepared artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p prepared_raw prepared
+          gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PREPARED_ARTIFACT_ID}/zip" >/tmp/prepared.zip
+          unzip -oq /tmp/prepared.zip -d prepared_raw
+          find prepared_raw -type f -name 'cases_shard_*.jsonl' -exec cp {} prepared/ \;
+          find prepared_raw -type f -name 'PREP_SUMMARY.json' -exec cp {} prepared/ \;
+          test "$(find prepared -name 'cases_shard_*.jsonl' | wc -l)" -eq 4
+          test -f prepared/PREP_SUMMARY.json
+      - name: Install local model
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break; sleep 1; done
+          ollama pull "$V62_LOCAL_MODEL"
+      - name: Run retry and low-prior control canary
+        run: python -u scripts/run_v6_2_decision_canary.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v6-2-decision-canary-retry-control6
+          path: canary_out/
+          if-no-files-found: warn
+          retention-days: 90
