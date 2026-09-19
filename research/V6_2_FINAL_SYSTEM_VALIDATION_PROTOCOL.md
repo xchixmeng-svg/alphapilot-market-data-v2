@@ -80,3 +80,23 @@ Predictions near X% should realize near X% within their own definition.
 
 ## Minimum opportunity magnitude
 V6.2 does not target 3%-5% trades. A stock must be assessed on the possibility of at least a +10% future move to qualify as a meaningful opportunity. +3%/+5% movements may appear inside path diagnostics but must not be treated as a profitable-opportunity success, candidate admission target, or headline forecast.
+
+
+## Primary timing contract: 20-30 session opportunity window
+V6.2 is intended to identify opportunities that can normally deliver at least +10% within approximately 20-30 trading sessions.
+
+Primary candidate qualification:
+- A CANDIDATE or HIGH_CONVICTION setup should normally have a credible path to >= +10% within 20-30 trading sessions.
+- If the expected move is below +10% by 30 sessions, or the model expects the move to require materially longer without an active catalyst, the stock should normally remain WATCH/REJECT rather than be promoted to CANDIDATE.
+- The 20-30 session window is a forecast/maturity expectation, not an automatic forced sell date.
+
+Continuation after 30 sessions:
+- A winner may remain active beyond 30 sessions only while the move is still demonstrably progressing upward and the underlying opportunity thesis/catalyst remains active.
+- Continued holding must be re-evaluated from current evidence, not granted automatically because the stock was previously a CANDIDATE.
+- If price progress stalls, trend deteriorates, or the thesis/catalyst weakens, the continuation state should be withdrawn even if the original 30-session target was once met.
+
+Historical validation must therefore separately test:
+1. >= +10% hit rate by 20 sessions;
+2. >= +10% hit rate by 30 sessions;
+3. +20/+30/+50% extension rates after a valid +10% move;
+4. whether post-30 continuation decisions correctly retain ongoing winners and release stalled/rolling-over names.
