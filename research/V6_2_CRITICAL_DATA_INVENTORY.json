@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "CANONICAL_PRESERVATION_REQUIRED",
+  "created_date": "2026-09-19",
+  "branch": "research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918",
+  "notes": [
+    "Actions artifact IDs are transport/cache references, not permanent storage.",
+    "SHA256 values below are known from passed audits where available.",
+    "A release snapshot workflow archives the bytes and writes an archive manifest."
+  ],
+  "tier_a": [
+    {
+      "role": "frozen_0F",
+      "artifact_id": 10537510796,
+      "name": "0F frozen final assembly",
+      "sha256_panel": "afd4b86fafed8d3ab576bf5fcc39e6a8ed5fbd0a015909534fe7ac070628c358",
+      "scope": "frozen research foundation"
+    },
+    {
+      "role": "frozen_0E_material_info",
+      "artifact_id": 10535817783,
+      "name": "0E historical material information",
+      "sha256_data": "5342861ec5a532c3a8d40ef194d8515c781b806e66101ec16c7161e579a44c53",
+      "scope": "historical MOPS material information"
+    },
+    {
+      "role": "evidence_bundle_v1",
+      "artifact_id": 10570644207,
+      "name": "V6.2 Evidence Bundle V1",
+      "sha256_data": "5853b15ea69bfd3dd2eadb3214bd34894d589f5afce53cd5245c4079f8d1ab7e",
+      "scope": "2020-2024 development only"
+    },
+    {
+      "role": "twse_institutional_pit",
+      "artifact_id": 10564901503,
+      "name": "TWSE institutional PIT",
+      "scope": "2020-2024 development source"
+    },
+    {
+      "role": "tpex_institutional_pit",
+      "artifact_id": 10564877589,
+      "name": "TPEx institutional PIT",
+      "scope": "2020-2024 development source"
+    },
+    {
+      "role": "institutional_admission",
+      "artifact_id": 10564732901,
+      "name": "institutional supplemental admission",
+      "scope": "admission/audit manifest"
+    }
+  ],
+  "tier_b_milestones": [
+    {
+      "role": "legacy_barrier_matrix",
+      "artifact_id": 10572510252,
+      "name": "V6.2 core numerical full matrix",
+      "status": "SECONDARY_PATH_DIAGNOSTIC"
+    },
+    {
+      "role": "7b_reasoning_benchmark",
+      "artifact_id": 10576322171,
+      "name": "V6.2 zero-cost real-evidence reasoning benchmark",
+      "status": "MILESTONE_OUTPUT"
+    }
+  ],
+  "sealed": {
+    "year_2025": true,
+    "year_2026": "live_only"
+  }
+}
