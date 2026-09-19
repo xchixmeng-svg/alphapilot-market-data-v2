@@ -100,3 +100,22 @@ Historical validation must therefore separately test:
 2. >= +10% hit rate by 30 sessions;
 3. +20/+30/+50% extension rates after a valid +10% move;
 4. whether post-30 continuation decisions correctly retain ongoing winners and release stalled/rolling-over names.
+
+
+## Early-launch preference
+Among otherwise comparable >=+10% opportunities, V6.2 should prefer entries that begin advancing immediately after entry.
+
+Ideal behavior:
+- next trading session shows positive progress;
+- strongest preference: launch begins within 1-3 trading sessions;
+- acceptable: launch begins within 5 sessions if the 20-30 session >=+10% thesis remains intact.
+
+This is a quality preference, not the primary definition of success. A stock must NOT be labeled a failed opportunity merely because it does not rise the next day if it later produces the intended >=+10% move within the primary 20-30 session maturity window.
+
+Historical validation must separately test:
+1. next-session positive-close rate after AI entry;
+2. launch-within-3-session rate;
+3. launch-within-5-session rate;
+4. MAE before launch;
+5. whether HIGH_CONVICTION launches faster than ordinary CANDIDATE;
+6. whether fast-launch candidates also preserve the primary >=+10% 20-30 session success rate.
