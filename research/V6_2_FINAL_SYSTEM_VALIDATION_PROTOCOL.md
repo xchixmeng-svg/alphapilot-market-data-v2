@@ -30,19 +30,37 @@ For WATCH/CANDIDATE/HIGH_CONVICTION the final output must expose:
 The LLM may reason over evidence and decide the stock state, but it may not invent or alter calibrated numerical probabilities.
 
 ## Historical replay validation
-The historical replay must evaluate the final daily AI answers. Required tests:
-1. Candidate pool actual +5%, +10%, +20% outcomes.
-2. Candidate barrier hit rates: +5 before -3, +10 before -5, +20 before -10.
-3. Probability calibration: predictions near X% must realize near X%.
-4. Candidate vs full eligible market base-rate lift.
-5. Predicted upside range vs realized MFE/terminal return.
-6. Predicted MAE range vs realized MAE.
-7. Predicted start/main timing windows vs realized first-hit times.
-8. HIGH_CONVICTION vs CANDIDATE separation.
-9. WATCH conversion / missed-opportunity diagnostics.
-10. No-candidate-day diagnostics: whether abstention days truly had weaker opportunity distributions.
-11. Candidate count distribution; zero candidate days are valid.
-12. Results by year, evidence family, market regime, and opportunity hypothesis type.
+
+### Primary objective: real profit opportunity
+The primary success question is NOT whether price reached an upside barrier before a small downside barrier. A stock that first falls -5% or -10% and later rallies +30%, +50%, or more can still be a genuine profitable opportunity.
+
+The historical replay must therefore evaluate the final AI answers primarily by eventual opportunity magnitude and timing:
+1. Probability of reaching +5%, +10%, +20%, +30%, and +50% within multiple research windows (20/40/60/120 sessions), regardless of whether a smaller drawdown occurred first.
+2. Realized maximum favorable excursion (MFE) over 20/40/60/120 sessions.
+3. Time to first reach each upside level and time to realized peak.
+4. Predicted base/bull upside ranges vs realized MFE.
+5. Candidate / HIGH_CONVICTION vs full eligible market on large-winner rates, MFE distribution, and expected upside.
+6. WATCH missed-winner diagnostics, especially stocks that later produced +20%, +30%, or +50% moves.
+7. HIGH_CONVICTION vs CANDIDATE separation on realized upside magnitude and large-winner frequency.
+8. No-candidate-day diagnostics: whether abstention days truly had weaker future opportunity distributions.
+9. Candidate count distribution; zero candidate days are valid.
+10. Results by year, evidence family, market regime, and opportunity hypothesis type.
+
+### Secondary objective: path quality and risk
+Path metrics remain important, but they are risk/comfort diagnostics rather than the main definition of success:
+- +5% before -3%, +10% before -5%, +20% before -10%;
+- realized MAE before first upside hit and before realized peak;
+- drawdown depth before a later large rally;
+- recovery time from interim drawdown;
+- predicted MAE range vs realized MAE.
+
+A case such as -8% first and then +50% must be classified as a large profitable winner with poor/intermediate path quality, NOT as a failed opportunity.
+
+### Calibration
+Probability calibration must be tested separately for:
+- unconditional upside probabilities (reach +X within Y sessions regardless of interim drawdown);
+- barrier/path probabilities (reach +X before -Y).
+Predictions near X% should realize near X% within their own definition.
 
 ## Chronology
 - Build/dev/replay without opening sealed 2025 confirmation.
