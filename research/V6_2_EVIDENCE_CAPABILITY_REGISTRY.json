@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-19",
+  "purpose": "Machine-readable point-in-time evidence capability registry. AI may reason only from AVAILABLE/PARTIAL families actually present in the evidence packet.",
+  "families": {
+    "price_volume_structure": {
+      "status": "AVAILABLE",
+      "may_support_thesis": true,
+      "may_support_failure_exit": true
+    },
+    "valuation": {
+      "status": "AVAILABLE",
+      "may_support_thesis": true,
+      "may_support_failure_exit": true
+    },
+    "revenue": {
+      "status": "AVAILABLE",
+      "may_support_thesis": true,
+      "may_support_failure_exit": true
+    },
+    "institutional_flow": {
+      "status": "AVAILABLE",
+      "source": "Evidence Bundle V1 admitted PIT supplemental",
+      "may_support_thesis": true,
+      "may_support_failure_exit": true
+    },
+    "mops_material_information": {
+      "status": "AVAILABLE",
+      "source": "Evidence Bundle V2 raw MOPS titles",
+      "may_support_thesis": true,
+      "may_support_failure_exit": true
+    },
+    "eps_revisions": {
+      "status": "UNAVAILABLE",
+      "may_support_thesis": false,
+      "may_support_failure_exit": false
+    },
+    "analyst_consensus": {
+      "status": "UNAVAILABLE",
+      "may_support_thesis": false,
+      "may_support_failure_exit": false
+    },
+    "industry_pricing": {
+      "status": "UNAVAILABLE",
+      "may_support_thesis": false,
+      "may_support_failure_exit": false
+    },
+    "inventory_supply_demand": {
+      "status": "UNAVAILABLE",
+      "may_support_thesis": false,
+      "may_support_failure_exit": false
+    },
+    "broad_news_semantics": {
+      "status": "UNAVAILABLE",
+      "may_support_thesis": false,
+      "may_support_failure_exit": false
+    }
+  },
+  "rules": [
+    "UNAVAILABLE evidence must never be inferred from another family.",
+    "Revenue growth is not EPS revision evidence.",
+    "Price strength is not proof of industry pricing or news catalyst.",
+    "Failure-exit reasons must be supported by at least one evidence family marked usable for failure exit."
+  ]
+}
