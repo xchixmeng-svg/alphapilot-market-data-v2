@@ -1,0 +1,33 @@
+name: V6.2 Decision Contract Tests
+on:
+  push:
+    branches: [research-v6-2-decision-contract-fix-20260919]
+    paths:
+      - 'scripts/evidence_capability.py'
+      - 'scripts/v6_2_decision_contract.py'
+      - 'scripts/run_v6_2_ai_replay64_shard.py'
+      - 'research/V6_2_LLM_REASONING_SCHEMA.json'
+      - 'research/V6_2_EVIDENCE_CAPABILITY_REGISTRY.json'
+      - 'tests/test_v6_2_decision_contract.py'
+      - '.github/workflows/v6_2_decision_contract_tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile and validate JSON
+        run: |
+          python -m py_compile scripts/evidence_capability.py scripts/v6_2_decision_contract.py scripts/run_v6_2_ai_replay64_shard.py tests/test_v6_2_decision_contract.py
+          python -m json.tool research/V6_2_LLM_REASONING_SCHEMA.json >/dev/null
+          python -m json.tool research/V6_2_EVIDENCE_CAPABILITY_REGISTRY.json >/dev/null
+      - name: Run synthetic contract tests
+        run: python -m unittest discover -s tests -p 'test_v6_2_decision_contract.py' -v
