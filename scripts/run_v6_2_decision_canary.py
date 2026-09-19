@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -32,6 +33,13 @@ def load_cases() -> list[dict]:
 
 
 def select_cases(rows: list[dict]) -> list[dict]:
+    requested = os.environ.get("CANARY_CASE_IDS", "").strip()
+    if requested:
+        ids = [int(x) for x in requested.split(",") if x.strip()]
+        by_id = {x["case_id"]: x for x in rows}
+        if len(ids) != len(set(ids)) or any(x not in by_id for x in ids):
+            raise RuntimeError(f"invalid CANARY_CASE_IDS={requested!r}")
+        return [by_id[x] for x in ids]
     enriched = []
     for pkt in rows:
         gaps = derive_case_evidence_sets(pkt["evidence"])["case_missing_but_system_supported_evidence_ids"]
@@ -89,18 +97,18 @@ def main() -> None:
     reject_count = decisions.get("REJECT", 0)
     non_actionable = reject_count + decisions.get("WATCH", 0)
     summary = {
-        "status": "PASS" if not errors and len(responses) == 8 else "FAIL",
+        "status": "PASS" if not errors and len(responses) == len(selected) else "FAIL",
         "model": MODEL,
         "selection_is_outcome_blind": True,
-        "selection": "all case-specific-gap packets plus highest p_hit10_h120 packets among remaining cases, eight total",
-        "requested": 8,
+        "selection": os.environ.get("CANARY_SELECTION_DESCRIPTION", "all case-specific-gap packets plus highest p_hit10_h120 packets among remaining cases, eight total"),
+        "requested": len(selected),
         "completed": len(responses),
         "errors": len(errors),
         "decision_counts": dict(sorted(decisions.items())),
         "evidence_quality_counts": dict(sorted(qualities.items())),
         "contract_warning_cases": len(warnings),
-        "diagnostic_reject_collapse_flag": reject_count >= 6,
-        "diagnostic_non_actionable_collapse_flag": non_actionable >= 7,
+        "diagnostic_reject_collapse_flag": reject_count / len(selected) >= 0.75,
+        "diagnostic_non_actionable_collapse_flag": non_actionable / len(selected) >= 0.875,
         "2025_opened": False,
     }
     (OUT / "CANARY_MANIFEST.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
@@ -109,7 +117,7 @@ def main() -> None:
     (OUT / "CANARY_WARNINGS.json").write_text(json.dumps(warnings, ensure_ascii=False, indent=2) + "\n")
     (OUT / "CANARY_SUMMARY.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
     print("CANARY_SUMMARY=" + json.dumps(summary, ensure_ascii=False), flush=True)
-    if summary["status"] != "PASS":
+    if errors or len(responses) != len(selected):
         raise SystemExit(2)
 
 
