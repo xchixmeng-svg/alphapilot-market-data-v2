@@ -1,0 +1,98 @@
+name: V6.2 Unconditional Primary Profit Matrix
+on:
+  push:
+    branches: [research-ai-market-reasoning-v6-2-dynamic-candidate-pool-20260918]
+    paths:
+      - 'scripts/run_v6_2_unconditional_profit_matrix.py'
+      - '.github/workflows/v6_2_unconditional_profit_matrix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        task:
+          - u10_h20
+          - u10_h30
+          - u10_h40
+          - u10_h60
+          - u10_h120
+          - u20_h20
+          - u20_h30
+          - u20_h40
+          - u20_h60
+          - u20_h120
+          - u30_h20
+          - u30_h30
+          - u30_h40
+          - u30_h60
+          - u30_h120
+          - u50_h20
+          - u50_h30
+          - u50_h40
+          - u50_h60
+          - u50_h120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V1_ARTIFACT: '10570644207'
+      FROZEN_0F_ARTIFACT: '10537510796'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 scikit-learn==1.6.1
+      - name: Download exact V1 and frozen 0F registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p inputs/v1 inputs/0f
+          get(){ gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/$1/zip" > /tmp/a.zip; unzip -oq /tmp/a.zip -d "$2"; }
+          get "$V1_ARTIFACT" inputs/v1
+          get "$FROZEN_0F_ARTIFACT" inputs/0f
+          test -s inputs/v1/EVIDENCE_BUNDLE_V1.parquet
+          test -s inputs/0f/0F_FINAL_ASSEMBLY/feature_registry.json
+      - name: Train and evaluate unconditional task
+        run: python -u scripts/run_v6_2_unconditional_profit_matrix.py --task "${{ matrix.task }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-unconditional-${{ matrix.task }}
+          path: v6_2_unconditional_profit_matrix/
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    needs: task
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 scikit-learn==1.6.1
+      - name: Download task artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p matrix_inputs
+          gh run download "${GITHUB_RUN_ID}" -D matrix_inputs
+          find matrix_inputs -name '*_SUMMARY.json' | wc -l
+      - name: Aggregate
+        run: python -u scripts/run_v6_2_unconditional_profit_matrix.py --aggregate matrix_inputs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-unconditional-primary-profit-full-matrix
+          path: v6_2_unconditional_profit_matrix/
+          if-no-files-found: error
+          retention-days: 90
