@@ -35,7 +35,7 @@ The LLM may reason over evidence and decide the stock state, but it may not inve
 The primary success question is NOT whether price reached an upside barrier before a small downside barrier. A stock that first falls -5% or -10% and later rallies +30%, +50%, or more can still be a genuine profitable opportunity.
 
 The historical replay must therefore evaluate the final AI answers primarily by eventual opportunity magnitude and timing:
-1. Probability of reaching +5%, +10%, +20%, +30%, and +50% within multiple research windows (20/40/60/120 sessions), regardless of whether a smaller drawdown occurred first.
+1. Probability of reaching +10%, +20%, +30%, and +50% within multiple research windows (20/40/60/120 sessions), regardless of whether an interim drawdown occurred first. Moves below +10% are not primary profit opportunities for V6.2.
 2. Realized maximum favorable excursion (MFE) over 20/40/60/120 sessions.
 3. Time to first reach each upside level and time to realized peak.
 4. Predicted base/bull upside ranges vs realized MFE.
@@ -48,7 +48,7 @@ The historical replay must therefore evaluate the final AI answers primarily by 
 
 ### Secondary objective: path quality and risk
 Path metrics remain important, but they are risk/comfort diagnostics rather than the main definition of success:
-- +5% before -3%, +10% before -5%, +20% before -10%;
+- +10% before -5% and +20% before -10% as secondary path-quality diagnostics; +5% before -3% is removed from the formal target set because sub-10% moves are not the strategy objective;
 - realized MAE before first upside hit and before realized peak;
 - drawdown depth before a later large rally;
 - recovery time from interim drawdown;
@@ -76,3 +76,7 @@ Predictions near X% should realize near X% within their own definition.
 - No tuning a probability threshold on the same historical slice and then describing it as untouched validation.
 - Missing evidence must be represented explicitly; the AI may not hallucinate unavailable EPS revisions, industry pricing, or other evidence.
 - Historical LLM outputs must be persisted and replayed; later model upgrades create a new version rather than silently rewriting history.
+
+
+## Minimum opportunity magnitude
+V6.2 does not target 3%-5% trades. A stock must be assessed on the possibility of at least a +10% future move to qualify as a meaningful opportunity. +3%/+5% movements may appear inside path diagnostics but must not be treated as a profitable-opportunity success, candidate admission target, or headline forecast.
