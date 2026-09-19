@@ -36,7 +36,7 @@ jobs:
         run: python -u scripts/v6_2_zero_cost_ollama_probe.py
       - name: Validate provider-neutral invariants
         run: |
-          python scripts/v6_2_reasoning_provider_gate.py             --evidence out/evidence.json             --numerical out/numerical.json             --response out/response.json             --out out/gate_audit.json
+          python scripts/v6_2_reasoning_provider_gate.py             --evidence out/evidence.json             --numerical out/numerical.json             --response out/reasoning_response.json             --out out/gate_audit.json
       - name: Record hashes
         run: sha256sum out/*.json | tee out/SHA256SUMS
       - uses: actions/upload-artifact@v4
