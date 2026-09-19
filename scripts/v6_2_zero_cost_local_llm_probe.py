@@ -6,7 +6,7 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-MODEL_ID="Qwen/Qwen2.5-1.5B-Instruct"
+MODEL_ID="Qwen/Qwen2.5-3B-Instruct"
 
 evidence={
   "date":"2024-12-31",
@@ -42,7 +42,7 @@ user={
     "why_now":"...",
     "evidence_used":["..."],
     "counter_evidence":["..."],
-    "invalidation":"...",
+    "invalidation":"A concrete evidence-based condition that would falsify the setup.",
     "p_up10_before_down5_h20":0.61,
     "expected_mae_low_pct":-0.04,
     "expected_mae_high_pct":-0.01
@@ -52,7 +52,7 @@ user={
 tok=AutoTokenizer.from_pretrained(MODEL_ID)
 model=AutoModelForCausalLM.from_pretrained(
     MODEL_ID,
-    torch_dtype=torch.float32,
+    torch_dtype=torch.bfloat16,
     low_cpu_mem_usage=True
 )
 messages=[
@@ -65,7 +65,7 @@ t0=time.time()
 with torch.no_grad():
     out=model.generate(
         **inputs,
-        max_new_tokens=280,
+        max_new_tokens=420,
         do_sample=False,
         temperature=None,
         top_p=None,
