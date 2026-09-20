@@ -72,9 +72,9 @@ delivery. Deploy this version only.
 **Timeout budget (review point 7):** the old 240s per-case default could
 never have completed a 3-stage pipeline given the reported ~149s single
 real-call latency. `OrchestratorConfig` now defaults to
-`per_call_timeout_seconds=180` (headroom above 149s) and
-`per_case_timeout_seconds=1500` (headroom above the 8-call worst case at
-180s each = 1440s). Both are configurable.
+`per_call_timeout_seconds=300` and `per_case_timeout_seconds=2500`, updated
+after the first real three-stage canary showed multiple Qwen calls
+exceeding 180 seconds. Both are configurable.
 
 **Hard timeout (review point 8):** every model call now goes through
 `concurrent.futures.ThreadPoolExecutor.submit(...).result(timeout=...)`,
