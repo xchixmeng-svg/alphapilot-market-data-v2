@@ -1,0 +1,61 @@
+name: V6.2 Contract Tests (no LLM, no canary)
+
+# Runs on every push/PR touching the V6.2 three-stage code. This workflow
+# calls NO model, reads NO prepared packets, and opens NO hidden outcomes
+# or 2025 data. It only exercises deterministic_validators.py,
+# safe_finalizer.py, retry_orchestrator.py (with mock stage callables),
+# and fresh_canary_selector.py against synthetic fixtures. It should
+# complete in well under 2 minutes and is safe to run on every commit.
+
+on:
+  push:
+    paths:
+      - "scripts/v6_2/**"
+      - ".github/workflows/v6_2_contract_only.yml"
+  pull_request:
+    paths:
+      - "scripts/v6_2/**"
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run synthetic contract tests (Stage 1/2/3 validators + safe finalizer)
+        working-directory: scripts/v6_2
+        run: pytest tests/test_three_stage_contract.py -v
+
+      - name: Run orchestrator integration tests (mock LLM callables)
+        working-directory: scripts/v6_2
+        run: pytest tests/test_orchestrator_integration.py -v
+
+      - name: Run schema-vs-runtime parity tests
+        working-directory: scripts/v6_2
+        run: pytest tests/test_schema_runtime_parity.py -v
+
+      - name: Run run_fresh_canary.py guard + Ollama-client tests (mocked HTTP, no network)
+        working-directory: scripts/v6_2
+        run: pytest tests/test_run_fresh_canary.py -v
+
+      - name: Run fresh canary selector tests (incl. outcome-blindness guard)
+        working-directory: scripts/v6_2
+        run: pytest tests/test_fresh_canary_selector.py -v
+        # Note: outcome-blindness of fresh_canary_selector.py is enforced by
+        # test_module_never_reads_any_outcome_files() above (a Python-level
+        # source check for read_csv/read_parquet/read_json/open calls), not
+        # by a separate shell grep step -- a grep-based check on this
+        # docstring-heavy file would be too fragile (false positives on the
+        # documentation's own explanation of what NOT to do).
+
