@@ -78,16 +78,16 @@ class OrchestratorConfig:
     # ~149s. A single model call must be allowed to run at least that
     # long without being killed, so per_call_timeout_seconds is set with
     # headroom above the observed figure, not below it.
-    per_call_timeout_seconds: float = 180.0
+    per_call_timeout_seconds: float = 300.0
 
     # Worst case call count for one case: stage1(<=2) + stage2 initial
     # (<=2) + critic round1(1) + stage2 revision(<=2) + critic round2(1)
     # = <=8 calls. At up to per_call_timeout_seconds each, that is up to
-    # 8 * 180s = 1440s. per_case_timeout_seconds is set with headroom
+    # 8 * 300s = 2400s. per_case_timeout_seconds is set with headroom
     # above that worst case, not equal to or below it (the previous 240s
     # default could never have completed even one full round in practice
     # and is retired).
-    per_case_timeout_seconds: float = 1500.0
+    per_case_timeout_seconds: float = 2500.0
 
 
 @dataclass
