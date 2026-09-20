@@ -30,9 +30,10 @@ printed a warning and continued).
 
 Usage:
     python3 run_fresh_canary.py \\
-        --max-cases 12 \\
-        --exclude-case-ids "5,7,14,15,16,24,32,38,39,48,55,57" \\
-        --per-case-timeout-seconds 1500 \\
+        --max-cases 8 \\
+        --exclude-case-ids "0,1,2,3,4,5,6,7,10,13,14,15,16,24,32,38,39,40,47,48,53,55,57" \\
+        --per-case-timeout-seconds 2500 \\
+        --per-call-timeout-seconds 300 \\
         --output-dir ./canary_output \\
         [--prepared-dir ./data/prepared] \\
         [--ollama-url http://127.0.0.1:11434/api/chat] \\
@@ -135,7 +136,15 @@ def validate_immutable_packet_set(summary: dict, packets: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def call_ollama(system_prompt: str, user_payload: dict, *, model: str, url: str, timeout_s: float) -> dict:
+def call_ollama(
+    system_prompt: str,
+    user_payload: dict,
+    *,
+    model: str,
+    url: str,
+    timeout_s: float,
+    response_schema: dict | None = None,
+) -> dict:
     """
     POSTs to Ollama's /api/chat endpoint and returns the model's response
     parsed as JSON. Sets its own request-level timeout (belt-and-suspenders
@@ -152,8 +161,12 @@ def call_ollama(system_prompt: str, user_payload: dict, *, model: str, url: str,
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
-        "format": "json",
+        # Ollama structured outputs accepts a JSON Schema object here.  A
+        # bare "json" only guarantees syntactic JSON and was insufficient
+        # for Qwen2.5-7B: it repeatedly invented a different response shape.
+        "format": response_schema if response_schema is not None else "json",
         "stream": False,
+        "options": {"temperature": 0},
     }
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
@@ -168,10 +181,23 @@ def call_ollama(system_prompt: str, user_payload: dict, *, model: str, url: str,
     return json.loads(content)
 
 
-def make_stage_call(model: str, url: str, timeout_s: float):
+def make_stage_call(model: str, url: str, timeout_s: float, response_schema: dict):
     def _call(system_prompt: str, user_payload: dict) -> dict:
-        return call_ollama(system_prompt, user_payload, model=model, url=url, timeout_s=timeout_s)
+        return call_ollama(
+            system_prompt,
+            user_payload,
+            model=model,
+            url=url,
+            timeout_s=timeout_s,
+            response_schema=response_schema,
+        )
     return _call
+
+
+def load_response_schema(filename: str) -> dict:
+    path = Path(__file__).resolve().parent / "schemas" / filename
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # ---------------------------------------------------------------------------
@@ -223,8 +249,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-cases", type=int, default=12)
     parser.add_argument("--exclude-case-ids", type=str, default="")
-    parser.add_argument("--per-case-timeout-seconds", type=float, default=1500.0)
-    parser.add_argument("--per-call-timeout-seconds", type=float, default=180.0)
+    parser.add_argument("--per-case-timeout-seconds", type=float, default=2500.0)
+    parser.add_argument("--per-call-timeout-seconds", type=float, default=300.0)
     parser.add_argument("--output-dir", type=str, required=True)
     parser.add_argument("--prepared-dir", type=str, default="data/prepared")
     parser.add_argument("--ollama-url", type=str, default="http://127.0.0.1:11434/api/chat")
@@ -276,18 +302,42 @@ def main() -> int:
         per_case_timeout_seconds=args.per_case_timeout_seconds,
         per_call_timeout_seconds=args.per_call_timeout_seconds,
     )
-    stage_call = make_stage_call(args.model, args.ollama_url, args.per_call_timeout_seconds)
-
-    results = run_batch(
-        selected_packets, numerical_priors,
-        stage_call, stage_call, stage_call,
-        STAGE1_SYSTEM, STAGE2_SYSTEM, STAGE3_SYSTEM,
-        build_stage1_user_payload, build_stage2_user_payload, build_stage3_user_payload,
-        config=config,
+    stage1_call = make_stage_call(
+        args.model, args.ollama_url, args.per_call_timeout_seconds,
+        load_response_schema("STAGE1_EVIDENCE_DIRECTION_SCHEMA.json"),
+    )
+    stage2_call = make_stage_call(
+        args.model, args.ollama_url, args.per_call_timeout_seconds,
+        load_response_schema("STAGE2_DECISION_SCHEMA.json"),
+    )
+    stage3_call = make_stage_call(
+        args.model, args.ollama_url, args.per_call_timeout_seconds,
+        load_response_schema("STAGE3_CRITIC_SCHEMA.json"),
     )
 
-    write_outputs(results, output_dir, selector_result)
-    return 0
+    # Run one case at a time so every completed case is checkpointed.  A
+    # cancelled/failed long canary still leaves useful partial history.
+    results: list[CaseResult] = []
+    for packet in selected_packets:
+        one = run_batch(
+            [packet], numerical_priors,
+            stage1_call, stage2_call, stage3_call,
+            STAGE1_SYSTEM, STAGE2_SYSTEM, STAGE3_SYSTEM,
+            build_stage1_user_payload, build_stage2_user_payload, build_stage3_user_payload,
+            config=config,
+        )[0]
+        results.append(one)
+        write_outputs(results, output_dir, selector_result)
+        print(json.dumps({
+            "completed_case_id": one.case_id,
+            "status": one.status,
+            "elapsed_seconds": one.elapsed_seconds,
+            "failure_stage": one.failure_stage,
+        }, ensure_ascii=False), flush=True)
+
+    # Contract failures are experimental failures, even though their full
+    # audit artifact was written successfully.
+    return 2 if any(r.status != "FINALIZED" for r in results) else 0
 
 
 if __name__ == "__main__":
