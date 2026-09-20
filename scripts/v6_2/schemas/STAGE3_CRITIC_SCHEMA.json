@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alphapilot.internal/schema/STAGE3_CRITIC_SCHEMA.json",
+  "title": "V6.2 Stage 3: Independent Critic",
+  "schema_version": "1.0.0",
+  "description": "Stage 3 is a SEPARATE model call (same or different model; recommend same model but a fresh context with no memory of having generated Stage 2's answer, to reduce self-confirmation bias) that receives ONLY: the Stage 1 evidence_observations, the Stage 2 decision output, and the deterministic pre-check results (see deterministic_validators.py, run BEFORE this stage). Its job is to catch content-level problems deterministic code cannot: does each claim in bull_thesis/bear_thesis/decision_reason actually follow from the cited evidence_id's exact_observations, or does it overstate/invert/hallucinate? The critic does NOT get to silently rewrite anything -- it either APPROVES or returns a structured list of concrete problems for Stage 2 to revise against.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "problems"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE", "REVISE"]
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "claim_text", "cited_evidence_id", "problem_type", "explanation"],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": ["bull_thesis", "bear_thesis", "decision_reason", "invalidation", "hypothesis", "evidence_quality", "decision"]
+          },
+          "claim_text": {
+            "type": "string",
+            "description": "The specific sentence or clause in the Stage 2 output being flagged."
+          },
+          "cited_evidence_id": {
+            "type": ["string", "null"],
+            "description": "The evidence_id the claim is (or should be) grounded in, if identifiable."
+          },
+          "problem_type": {
+            "type": "string",
+            "enum": [
+              "UNGROUNDED_CLAIM",
+              "CONTRADICTS_EXACT_OBSERVATIONS",
+              "OVERSTATES_DIRECTION",
+              "BENCHMARK_MISSING_BUT_VALUE_JUDGMENT_MADE",
+              "SINGLE_PERIOD_TREATED_AS_TREND",
+              "ROUTINE_FILING_TREATED_AS_CATALYST",
+              "MIXED_EVIDENCE_TREATED_AS_UNIFORM",
+              "CLAIM_NOT_REFLECTED_IN_EVIDENCE_ID_LISTS",
+              "DECISION_INCONSISTENT_WITH_EVIDENCE_BALANCE"
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Must quote or closely paraphrase the relevant exact_observations that the claim contradicts or fails to support."
+          }
+        }
+      }
+    }
+  }
+}
