@@ -15,6 +15,8 @@ from fresh_canary_selector import (
     BUCKET_ROUTINE_MOPS_FILING,
     BUCKET_CATALYTIC_MOPS_FILING,
     DEFAULT_EXCLUDE_CASE_IDS,
+    PRIOR_HIGH_THRESHOLD,
+    PRIOR_LOW_THRESHOLD,
     select_fresh_canary,
     tag_case,
     _institutional_flow_direction_signal,
@@ -29,7 +31,6 @@ def base_pkt(case_id, prior=0.75, available=None):
         "case_id": case_id,
         "decision_date": 20240610,
         "code": f"T{case_id:04d}",
-        "validation_stratum": 6 if prior >= 0.67 else (1 if prior <= 0.40 else 4),
         "evidence": {
             "available_evidence_ids": sorted(available),
             "missing_evidence_ids": sorted(missing),
@@ -43,12 +44,11 @@ def base_pkt(case_id, prior=0.75, available=None):
     }
 
 
-def test_sampling_uses_prepared_validation_stratum_not_probability_thresholds():
-    import fresh_canary_selector
-    src = Path(fresh_canary_selector.__file__).read_text(encoding="utf-8")
-    assert "PRIOR_HIGH_THRESHOLD" not in src
-    assert "PRIOR_LOW_THRESHOLD" not in src
-    assert 'pkt.get("validation_stratum")' in src
+def test_thresholds_are_declared_round_numbers_not_sample_specific():
+    """Documents fix #4: the strata are fixed, a-priori constants, not fit
+    to any particular sample's distribution."""
+    assert PRIOR_HIGH_THRESHOLD == 0.60
+    assert PRIOR_LOW_THRESHOLD == 0.40
 
 
 def test_high_prior_broad_coverage_tagging():
@@ -178,7 +178,10 @@ def test_zh_related_party_loan_is_not_auto_classified_as_routine():
 
 
 def test_default_exclude_case_ids_matches_prior_canary_rounds():
-    assert DEFAULT_EXCLUDE_CASE_IDS == frozenset({5, 7, 14, 15, 16, 24, 32, 38, 39, 48, 55, 57})
+    assert DEFAULT_EXCLUDE_CASE_IDS == frozenset({
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+        21, 22, 24, 32, 38, 39, 40, 47, 48, 50, 53, 55, 57, 61,
+    })
 
 
 def test_select_fresh_canary_defaults_to_excluding_prior_case_ids():

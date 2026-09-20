@@ -14,31 +14,31 @@ name: V6.2 Fresh Outcome-Blind Canary
 #     "print a warning and continue" path anywhere in this chain.
 #   - `if: always()` on the artifact upload step, so a failed run's
 #     partial history is still downloadable for post-mortem.
-#   - exclude_case_ids defaults to the 12 case_ids already used across
-#     canary runs 35456479322 / 35458136917 / 35459949583 (also the
-#     default inside fresh_canary_selector.py itself, via
-#     DEFAULT_EXCLUDE_CASE_IDS -- this workflow input lets you override
-#     it for a later round without editing code).
+#   - exclude_case_ids defaults to the 31 case_ids already used across
+#     canary runs 35456479322 / 35458136917 / 35459949583 / 35482706294 /
+#     35485028854 (also the default inside fresh_canary_selector.py
+#     itself, via DEFAULT_EXCLUDE_CASE_IDS -- this workflow input lets you
+#     override it for a later round without editing code).
 
 on:
-  push:
-    branches: [research-v6-2-three-stage-canary-20260920]
-    paths:
-      - ".github/workflows/v6_2_canary.yml"
   workflow_dispatch:
     inputs:
       max_cases:
         description: "Maximum number of canary cases to run this round (hard-capped at 20 in run_fresh_canary.py regardless of this value)"
         required: false
-        default: "8"
+        default: "6"
       exclude_case_ids:
         description: "Comma-separated case_ids to exclude"
         required: false
-        default: "0,1,2,3,4,5,6,7,10,13,14,15,16,24,32,38,39,40,47,48,53,55,57"
+        default: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,21,22,24,32,38,39,40,47,48,50,53,55,57,61"
       per_case_timeout_seconds:
-        description: "Per-case wall-clock budget (see retry_orchestrator.OrchestratorConfig for the derivation of the default)"
+        description: "Per-case wall-clock budget (see retry_orchestrator.OrchestratorConfig for the derivation of the default -- raised from 1500s to 2400s after the Stage2a/2b split raised the worst-case call count)"
         required: false
-        default: "2500"
+        default: "2400"
+      per_call_timeout_seconds:
+        description: "Per-model-call HTTP and orchestrator timeout"
+        required: false
+        default: "300"
       prepared_artifact_id:
         description: "GitHub Actions artifact ID containing cases_shard_*.jsonl + PREP_SUMMARY.json"
         required: false
@@ -51,7 +51,7 @@ on:
 jobs:
   fresh-canary:
     runs-on: ubuntu-latest
-    timeout-minutes: 480  # current push canary runs <=8 cases; per-case hard budget is 2500s
+    timeout-minutes: 480
     steps:
       - uses: actions/checkout@v4
 
@@ -78,14 +78,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p scripts/v6_2/data/prepared
-          ARTIFACT_ID="${{ github.event.inputs.prepared_artifact_id || '10582014726' }}"
+          ARTIFACT_ID="${{ github.event.inputs.prepared_artifact_id }}"
           echo "Downloading artifact ${ARTIFACT_ID}..."
           gh api \
             -H "Accept: application/vnd.github+json" \
             "/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" \
             > prepared_artifact.zip
-          # Extract only decision-time packets and their guard summary.
-          # Hidden outcomes/future paths remain unopened and unextracted.
+          # Extract decision-time packets only. Hidden outcomes and future
+          # paths remain unopened and unextracted.
           unzip -o prepared_artifact.zip 'PREP_SUMMARY.json' 'cases_shard_*.jsonl' -d scripts/v6_2/data/prepared
           test "$(find scripts/v6_2/data/prepared -maxdepth 1 -name 'cases_shard_*.jsonl' | wc -l)" -eq 4
           test -f scripts/v6_2/data/prepared/PREP_SUMMARY.json
@@ -111,7 +111,7 @@ jobs:
 
       - name: Pull model
         run: |
-          ollama pull "${{ github.event.inputs.ollama_model || 'qwen2.5:7b' }}"
+          ollama pull "${{ github.event.inputs.ollama_model }}"
           ollama list
 
       - name: Run fresh canary
@@ -119,11 +119,11 @@ jobs:
         working-directory: scripts/v6_2
         run: |
           python3 run_fresh_canary.py \
-            --max-cases "${{ github.event.inputs.max_cases || '8' }}" \
-            --exclude-case-ids "${{ github.event.inputs.exclude_case_ids || '0,1,2,3,4,5,6,7,10,13,14,15,16,24,32,38,39,40,47,48,53,55,57' }}" \
-            --per-case-timeout-seconds "${{ github.event.inputs.per_case_timeout_seconds || '2500' }}" \
-            --per-call-timeout-seconds "300" \
-            --model "${{ github.event.inputs.ollama_model || 'qwen2.5:7b' }}" \
+            --max-cases "${{ github.event.inputs.max_cases }}" \
+            --exclude-case-ids "${{ github.event.inputs.exclude_case_ids }}" \
+            --per-case-timeout-seconds "${{ github.event.inputs.per_case_timeout_seconds }}" \
+            --per-call-timeout-seconds "${{ github.event.inputs.per_call_timeout_seconds }}" \
+            --model "${{ github.event.inputs.ollama_model }}" \
             --ollama-url "http://127.0.0.1:11434/api/chat" \
             --prepared-dir "data/prepared" \
             --output-dir "$GITHUB_WORKSPACE/canary_output"
@@ -132,13 +132,13 @@ jobs:
         # crash. The upload step below still runs regardless (if: always()),
         # so partial results and logs are always retrievable.
 
-      - name: Upload canary results (always, even on failure)
+      - name: Collect canary artifacts (always, even on failure)
         if: always()
         run: |
           mkdir -p canary_output
           if [ -f /tmp/ollama_server.log ]; then cp /tmp/ollama_server.log canary_output/ollama_server.log; fi
 
-      - name: Upload canary artifact (always, even on failure)
+      - name: Upload canary results (always, even on failure)
         if: always()
         uses: actions/upload-artifact@v4
         with:

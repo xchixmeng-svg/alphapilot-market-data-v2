@@ -58,4 +58,3 @@ jobs:
         # by a separate shell grep step -- a grep-based check on this
         # docstring-heavy file would be too fragile (false positives on the
         # documentation's own explanation of what NOT to do).
-

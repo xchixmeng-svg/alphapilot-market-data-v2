@@ -21,7 +21,7 @@
         "properties": {
           "field": {
             "type": "string",
-            "enum": ["bull_thesis", "bear_thesis", "decision_reason", "invalidation", "hypothesis", "evidence_quality", "decision"]
+            "enum": ["bull_thesis", "bear_thesis", "decision_reason", "invalidation", "hypothesis", "evidence_quality", "decision", "entry_or_failure_exit"]
           },
           "claim_text": {
             "type": "string",
@@ -42,7 +42,8 @@
               "ROUTINE_FILING_TREATED_AS_CATALYST",
               "MIXED_EVIDENCE_TREATED_AS_UNIFORM",
               "CLAIM_NOT_REFLECTED_IN_EVIDENCE_ID_LISTS",
-              "DECISION_INCONSISTENT_WITH_EVIDENCE_BALANCE"
+              "DECISION_INCONSISTENT_WITH_EVIDENCE_BALANCE",
+              "ACTIONABILITY_PRICE_NOT_GROUNDED"
             ]
           },
           "explanation": {

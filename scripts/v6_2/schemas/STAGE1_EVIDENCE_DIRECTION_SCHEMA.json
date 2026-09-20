@@ -47,7 +47,7 @@
         "timeliness": {
           "type": "string",
           "enum": ["CURRENT", "STALE", "UNKNOWN_AGE"],
-          "description": "CURRENT: this evidence reflects a recent/current state. STALE: the evidence is old relative to the decision date (e.g. a MOPS filing more than ~30 trading days old, or a routine periodic filing with no new information). UNKNOWN_AGE: no timestamp/age metadata was supplied."
+          "description": "CURRENT: this evidence reflects a recent/current state. STALE: the evidence is old relative to the decision date (e.g. a MOPS filing more than ~30 trading days old). Routine or periodic content is not stale merely because it is routine; express low novelty through relevance/limitations. UNKNOWN_AGE: no timestamp/age metadata was supplied."
         },
         "relevance_to_hypothesis_space": {
           "type": "string",

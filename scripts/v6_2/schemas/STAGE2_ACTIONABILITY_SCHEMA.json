@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alphapilot.internal/schema/STAGE2_ACTIONABILITY_SCHEMA.json",
+  "title": "V6.2 Stage 2b: Actionability ONLY (entry/failure_exit; called only for CANDIDATE/HIGH_CONVICTION)",
+  "schema_version": "1.0.0",
+  "description": "NEW schema, added after real-model canary runs 35482706294/35485028854 showed decision=CANDIDATE repeatedly paired with entry.status=NOT_ACTIONABLE and null prices. This call is only ever made after Stage 2a's decision is already known to be CANDIDATE/HIGH_CONVICTION, so entry.status and failure_exit.trigger_type's enums here structurally EXCLUDE the non-actionable values (NOT_ACTIONABLE / UNAVAILABLE) -- they are not valid JSON for this response at all, not merely discouraged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entry", "failure_exit"],
+  "properties": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "ideal_low", "ideal_high"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["NOW", "WAIT_FOR_PULLBACK", "WAIT_FOR_CONFIRMATION"],
+          "description": "NOT_ACTIONABLE is intentionally not a valid value in this schema -- this call only happens when the decision is already known to be actionable."
+        },
+        "ideal_low": { "type": "number" },
+        "ideal_high": { "type": "number" }
+      }
+    },
+    "failure_exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_price", "reason", "trigger_type"],
+      "properties": {
+        "exit_price": { "type": "number" },
+        "reason": { "type": "string", "minLength": 1 },
+        "trigger_type": {
+          "type": "string",
+          "enum": [
+            "PRICE_STRUCTURE_BREAK", "THESIS_INVALIDATION", "CATALYST_FAILURE",
+            "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE"
+          ],
+          "description": "UNAVAILABLE is intentionally not a valid value in this schema."
+        }
+      }
+    }
+  }
+}

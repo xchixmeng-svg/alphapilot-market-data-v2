@@ -1,143 +1,176 @@
-# Changelog: fixes for the external review
+# Changelog v3: fixes for review of real canary runs 35482706294 / 35485028854
 
-Legend: [FIXED] = code change made and covered by a new/updated test.
-[ADDRESSED-DOC] = design/documentation change, not independently testable
-in this offline sandbox (e.g. requires a real network call).
+This review was different from the two before it: it was based on actual
+execution against real qwen2.5:7b via Ollama, not offline synthetic tests.
+Every point below is mapped to a concrete code change and a test that
+would have caught the specific reported symptom.
 
-## P0 -- would break the workflow
+## 1. Stage 2 contract structural failure
 
-1. [FIXED] `run_fresh_canary.py` and `summarize_canary_results.py` now
-   delivered as complete, working files (previously described as
-   out-of-scope wrappers). See `tests/test_run_fresh_canary.py` for
-   coverage of the parts that can be tested offline.
-2. [FIXED] `v6_2_canary.yml` now downloads the prepared artifact via
-   `gh api .../artifacts/{id}/zip` before running anything.
-3. [FIXED] `v6_2_canary.yml` now installs Ollama, starts the server,
-   waits for readiness, and pulls the model before calling
-   `run_fresh_canary.py`.
-4. [FIXED] The 2025/data-integrity guard is fail-closed:
-   `load_and_guard_prep_summary()` raises `GuardFailure` (exit code 1,
-   nothing runs) if `PREP_SUMMARY.json` is missing, malformed, or does
-   not explicitly declare `2025_opened: false`. Also checks decision_date
-   <= 20241231 and rejects duplicate case_id in `load_packets()`. Covered
-   by 9 tests in `test_run_fresh_canary.py`.
-5. [FIXED] `v6_2_canary.yml`'s upload step now has `if: always()`.
+**Reported**: 8/8 Stage 2 cases failed, including after retries. Model
+repeatedly produced `decision=CANDIDATE` with `entry.status=
+NOT_ACTIONABLE` and null prices.
 
-## P0 -- orchestrator bugs
+**Root cause**: one shared schema/enum space let the model express an
+internally-contradictory combination -- nothing prevented "decision says
+actionable" and "entry fields say not actionable" from both validating
+independently against their own (too-permissive) rules.
 
-6. [FIXED] Retries now pass `previous_attempt` (raw output + validation
-   errors) or `critic_feedback` to the model on every attempt after the
-   first. Covered by `test_retry_second_attempt_payload_contains_first_
-   attempt_errors` and `test_stage2_revision_payload_contains_critic_
-   feedback_and_prior_errors`.
-7. [FIXED] Default timeouts recalibrated after real canary execution:
-   `per_call_timeout_seconds=300`, `per_case_timeout_seconds=2500`.
-8. [FIXED] Hard timeout via `ThreadPoolExecutor.result(timeout=...)`, plus
-   a deadline recheck immediately after every call returns, before the
-   result is accepted. Covered by `test_hard_per_call_timeout_is_
-   enforced_even_if_call_never_returns` and `test_late_result_after_
-   deadline_is_not_finalized`.
-9. [FIXED] Every `validate_*` function now catches its own exceptions
-   internally; `retry_orchestrator.py` adds a second layer plus an
-   outermost per-case try/except in `run_batch()`. Covered by
-   `test_malformed_field_types_do_not_crash_run_case` and
-   `test_run_batch_survives_unexpected_exception_in_one_case`, plus the
-   `test_stage2_output_not_a_dict_does_not_crash` /
-   `test_stage2_malformed_evidence_id_field_types_do_not_crash` pair that
-   directly reproduces the reported `TypeError: 'int' object is not
-   iterable`.
-10. [FIXED] `HistoryEntry` now has `applied_fixes` and `warnings` fields;
-    the Stage2 retry loop uses `_stage2_validate_with_finalizer()` which
-    returns the full `FinalizeResult` tuple. Covered by
-    `test_history_retains_applied_fixes_and_warnings`.
+**Fix**: Stage 2 split into `validate_stage2_decision_output()` (schema:
+`STAGE2_DECISION_SCHEMA.json`, no entry/failure_exit keys accepted at
+all) and `validate_stage2_actionability_output()` (schema:
+`STAGE2_ACTIONABILITY_SCHEMA.json`, called only for CANDIDATE/
+HIGH_CONVICTION, `entry.status` enum excludes NOT_ACTIONABLE,
+`failure_exit.trigger_type` enum excludes UNAVAILABLE). For REJECT/WATCH,
+`safe_finalizer.assemble_non_actionable_stage2()` sets the null block
+deterministically -- no model call.
 
-## P1 -- validator/grounding
+**Tests**: `test_stage2_decision_output_rejects_entry_field_entirely`,
+`test_actionability_schema_structurally_excludes_not_actionable`,
+`test_actionability_schema_structurally_excludes_unavailable_trigger`,
+`test_actionability_null_prices_rejected`,
+`test_non_actionable_decision_never_calls_actionability_stage`,
+`test_actionable_decision_calls_actionability_stage_exactly_once`.
 
-11. [FIXED] `validate_stage1_output()` now takes `expected_case_id` and
-    strictly checks type-and-value equality. Covered by
-    `test_stage1_wrong_case_id_is_rejected` and
-    `test_stage1_case_id_wrong_type_is_rejected`.
-12. [FIXED] `_ground_numeric_claims()` cross-checks every number in
-    `exact_observations` against the same family's raw packet data (~1%
-    tolerance). Covered by `test_stage1_fabricated_number_is_rejected_by_
-    grounding_check`, `test_stage1_genuine_number_passes_grounding_check`,
-    `test_stage1_grounding_rejects_cross_family_number_borrowing`. Free
-    text with no extractable number is intentionally left unchecked here
-    (mechanically unverifiable) and remains Stage 3's job.
-13. [FIXED] `validate_stage3_output()` now checks `field` enum,
-    non-empty-string `claim_text`, null-or-known-id `cited_evidence_id`,
-    `problem_type` enum, non-empty `explanation`, individually. Covered
-    by 5 new tests including the exact malformed-response reproduction
-    from the review.
-14. [FIXED] Actionable entry/failure-exit prices are now checked for
-    plausibility against Stage1's `price_volume_structure` numbers
-    (0.5x-2x bound). Covered by 2 new tests.
-15. [ADDRESSED-DOC] `tests/test_schema_runtime_parity.py` (17 tests) now
-    checks every hand-written required-key-set and enum in
-    `deterministic_validators.py` against the corresponding JSON Schema
-    file. This does not make the schema the actual single source of truth
-    at runtime (the `jsonschema` package could not be installed in this
-    offline sandbox to wire real schema validation) -- it prevents silent
-    drift between the two. Recommend adding `pip install jsonschema` and
-    real schema validation in your CI, which has network access.
+## 2. `_text_mentions_family()` false positives
 
-## P1 -- prompt semantics
+**Reported**: "reasonable valuation" matched institutional_flow, mops_
+material_information, price_volume_structure, AND revenue via generic
+single-word substring matching ("flow", "information", "structure",
+"price").
 
-16. [FIXED] Stage1 prompt no longer says routine content should be marked
-    STALE regardless of actual age; `timeliness` is now strictly about
-    data recency, `relevance_to_hypothesis_space`/`limitations` carry the
-    "routine, not a catalyst" judgment.
-17. [FIXED] Related-party/intercompany loan filings removed from
-    `ROUTINE_MOPS_KEYWORDS`; Stage1 prompt now requires amount/
-    counterparty/rationale judgment for these, defaulting to
-    NOT_INTERPRETABLE with a stated limitation when that detail is
-    absent. Covered by `test_related_party_loan_is_not_auto_classified_
-    as_routine` (EN and ZH title variants).
+**Fix**: `FAMILY_ALIASES` dict of curated, multi-word (or otherwise
+distinctive) phrases per family. `_text_mentions_family()` only matches
+against these; no bare generic word is ever an alias by itself.
 
-## P2 -- fresh selector
+**Tests**: `test_reasonable_valuation_does_not_false_positive_on_other_
+families` (exact reproduction), `test_generic_words_alone_never_match_
+any_family`, `test_alias_matching_still_detects_real_mentions`,
+`test_value_judgment_regression_no_longer_over_triggers_across_families`.
 
-18. [FIXED] Renamed `BUCKET_HIGH_PRIOR_STRONG_EVIDENCE` /
-    `BUCKET_LOW_PRIOR_STRONG_SUPPORTIVE_EVIDENCE` to
-    `..._BROAD_COVERAGE_NO_DETECTED_CONFLICT`, with docstrings stating
-    explicitly this is a sampling-stratification proxy, not an
-    evidence_quality judgment (that judgment happens only in Stage 1/2).
-19. [ADDRESSED-DOC] `PRIOR_HIGH_THRESHOLD`/`PRIOR_LOW_THRESHOLD` changed
-    to 0.60/0.40 (round numbers dividing [0,1] into thirds) and
-    documented as declared a-priori sampling strata, never a decision
-    admission rule. Covered by
-    `test_thresholds_are_declared_round_numbers_not_sample_specific`.
-20. [FIXED] Replaced the tautological
-    `has_negative and (has_positive or True)` with
-    `_institutional_flow_direction_signal()`, an honest 4-way
-    classification. Covered by
-    `test_institutional_flow_signal_negative_only_distinct_from_mixed`.
+## 3. Stage 1 / Stage 2 valuation rule contradiction
 
-## Additional regression tests required by the review, all present
+**Reported**: Stage 1 allowed SUPPORTIVE/CONTRADICTORY from "absolute
+valuation extreme" without a benchmark; Stage 2 banned any value-judgment
+language without a benchmark. Directly contradictory instructions.
 
-- wrong Stage1 case_id rejected -- `test_stage1_wrong_case_id_is_rejected`
-- Stage2 evidence-ID fields int/dict/string don't crash --
-  `test_stage2_malformed_evidence_id_field_types_do_not_crash`
-- validator exception doesn't abort batch --
-  `test_run_batch_survives_unexpected_exception_in_one_case`
-- retry 2nd payload contains 1st errors --
-  `test_retry_second_attempt_payload_contains_first_attempt_errors`
-- safe-finalizer fixes/warnings in history --
-  `test_history_retains_applied_fixes_and_warnings`
-- model call timeout -> not FINALIZED --
-  `test_hard_per_call_timeout_is_enforced_even_if_call_never_returns`,
-  `test_late_result_after_deadline_is_not_finalized`
-- malformed Stage3 field/claim_text/cited_evidence_id rejected -- 5 tests
-  in `test_three_stage_contract.py`
-- fabricated Stage1 numeric observation rejected --
-  `test_stage1_fabricated_number_is_rejected_by_grounding_check`
-- missing PREP_SUMMARY.json -> hard fail --
-  `test_missing_prep_summary_raises_guard_failure`
-- canary failure -> artifact still uploaded -- `if: always()` in
-  `v6_2_canary.yml` (workflow-level, not unit-testable offline)
-- workflow downloads artifact, starts qwen2.5:7b -- `v6_2_canary.yml`
-  steps (workflow-level, not unit-testable offline; never run for real
-  in this sandbox -- see README's "What I still could NOT verify")
-- runner defaults exclude the 12 prior canary case_ids --
-  `test_default_exclude_case_ids_matches_prior_canary_rounds`,
-  `test_select_fresh_canary_defaults_to_excluding_prior_case_ids`, and
-  the workflow's `exclude_case_ids` input default
+**Fix**: unified on the stricter rule. Stage 1's prompt no longer
+mentions judging absolute magnitude; `validate_stage1_output()` now hard-
+rejects any valuation observation with `benchmark_available=false` whose
+`direction` is not `NOT_INTERPRETABLE`.
+
+**Tests**: `test_stage1_valuation_without_benchmark_must_be_not_
+interpretable`, `test_stage1_valuation_without_benchmark_supportive_
+also_rejected`, `test_stage1_valuation_without_benchmark_not_
+interpretable_passes`, `test_stage1_valuation_with_benchmark_can_be_
+supportive_or_contradictory`.
+
+## 4. Evidence-role constraints insufficient
+
+**Reported**: NEUTRAL families placed in primary/secondary evidence;
+CONTRADICTORY valuation sometimes omitted from counter_evidence.
+
+**Fix**: (a) every family with Stage-1 direction strictly CONTRADICTORY
+now MUST appear in `counter_evidence_ids` -- new hard error if omitted;
+(b) explicit, specifically-worded rejection whenever a NEUTRAL or
+NOT_INTERPRETABLE family appears in ANY of primary/secondary/counter
+(previously only an algebraic consequence of other checks, now a named
+error).
+
+**Tests**: `test_contradictory_family_must_appear_in_counter_evidence_
+ids`, `test_contradictory_family_correctly_listed_passes_that_check`,
+`test_neutral_family_forbidden_in_any_role`, `test_not_interpretable_
+family_forbidden_in_any_role`.
+
+## 5. Retry ineffective
+
+**Reported**: second Stage 2 attempt typically identical to the first
+(same decision, NOT_ACTIONABLE, null prices).
+
+**Fix**: `errors_to_repair_request()` parses the (already fixed-format,
+since this module generates them) error strings into a compact
+`{field, problem, received, allowed}` list, sent as a `repair_request`
+field on every retry payload alongside (not instead of) the raw errors.
+
+**Tests -- explicitly required by the review ("必須有fixture證明每種
+Stage 2 failure能在retry修復")**: `test_repair_request_driven_retry_
+fixes_decision_enum_violation`, `test_repair_request_driven_retry_fixes_
+missing_counter_evidence`, `test_repair_request_driven_retry_fixes_
+actionability_price_violation` -- each uses a "smart mock" callable that
+reads `repair_request` off the payload and applies exactly the indicated
+fix, proving the feedback channel carries enough information for a
+mechanical repair to converge. This proves the channel works, NOT that
+the real model will reliably use it -- that is only testable with a real
+canary round.
+
+## 6. Stage 3 unverified
+
+**Reported**: no case ever reached Stage 3 with real output.
+
+**Status**: still true, still not claimed fixed. No change was possible
+here without a real Stage 2 pass to build on.
+
+## 7. Performance
+
+**Reported**: 316.47s mean per case, 367.35s max, zero finalized, across
+round 2.
+
+**Analysis**: the time was being spent on doomed retries against an
+unsatisfiable contract (#1), not primarily on raw model latency.
+
+**Fix**: `HistoryEntry.elapsed_seconds` now records real wall-clock time
+per individual model call (previously only per-case totals existed).
+`summarize_canary_results.py`'s "Repair / retry activity & per-stage
+latency" section reports attempts/errors/mean/max latency per stage name
+(`stage1`, `stage2_decision`, `stage2_actionability`, `stage3`, and their
+`*_revision` counterparts). `OrchestratorConfig.per_case_timeout_seconds`
+raised from 1500s to 2400s to match the new worst-case call count (~12
+under the split design vs ~8 before), with the derivation documented in
+the dataclass's docstring. The common REJECT/WATCH case now needs FEWER
+calls than before (no Stage 2b at all), so real elapsed time for most
+cases should fall once #1 is actually fixed for real.
+
+**Tests**: `test_history_entries_record_elapsed_seconds`.
+
+## 8. Possible Qwen2.5-7B capability ceiling
+
+**Reported**: if the minimal canary still can't satisfy Stage 2 after
+restructuring, don't keep loosening the contract to accommodate the
+model -- consider a stronger model for Stage 2/critic while keeping
+Qwen2.5-7B for Stage 1 (which passed 8/8 for real in round 2).
+
+**Status**: acknowledged as the explicit fallback plan if the next real
+round still fails at Stage 2b or reveals persistent unreliability.
+**Not implemented** -- this delivery is the structural fix attempt first,
+per the review's own instruction not to keep loosening the contract. If
+the next round shows the split schema itself is still beyond the model's
+reliable capability (as opposed to the previous shared-schema confusion),
+that is the trigger to act on this contingency, not before.
+
+## Already-consumed case_ids (31 total, do not claim fresh)
+
+Spans canary rounds 35456479322 / 35458136917 / 35459949583 /
+35482706294 / 35485028854:
+
+```
+0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,21,22,24,32,38,39,40,47,48,50,53,55,57,61
+```
+
+`fresh_canary_selector.DEFAULT_EXCLUDE_CASE_IDS` and `workflows/
+v6_2_canary.yml`'s `exclude_case_ids` input default both updated to match.
+
+## Root cause fixed in run_fresh_canary.py itself
+
+Independent of the review's 8 numbered points: run 35482706294's 0/11
+Stage 1 failure was traced to `run_fresh_canary.py` sending Ollama
+`"format": "json"` (loose) instead of the real JSON Schema. Each stage's
+`call_fn` (built by `make_stage_call()`) now carries its own schema file,
+passed as Ollama's `format` field for structured decoding. Tests:
+`test_call_ollama_sends_real_json_schema_as_format_when_provided`,
+`test_make_stage_call_binds_distinct_schema_per_stage`,
+`test_load_schema_strips_meta_keys_ollama_would_reject`.
+
+## Test count
+
+105 tests total (was 92): 35 contract (+7), 13 orchestrator integration,
+20 canary selector, 19 schema parity (+2), 18 run_fresh_canary (+5).

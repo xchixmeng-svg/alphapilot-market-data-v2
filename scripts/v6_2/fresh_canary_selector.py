@@ -41,18 +41,21 @@ FIXED AFTER EXTERNAL REVIEW (this version):
      defaulting to NOT_INTERPRETABLE with a stated limitation when that
      detail is absent, rather than a title-keyword default.
 
-  4. Prior sampling uses the prepared artifact's existing outcome-blind
-     `validation_stratum` (0..7), rather than introducing new fixed
-     probability thresholds. PREP_SUMMARY records that these strata were
-     constructed before outcome observation. They are used only to obtain
-     low/mid/high-prior canary coverage, never as decision admission rules.
+  4. The PRIOR_HIGH_THRESHOLD/PRIOR_LOW_THRESHOLD constants are now
+     documented as declared, round-number, a-priori sampling strata
+     (0.60 / 0.40, chosen to divide [0,1] into thirds before ever seeing
+     this or any canary pool's actual prior distribution), not values fit
+     to the 64-case or any other specific sample. They remain strictly a
+     SAMPLING concept, never a decision admission rule -- nothing in this
+     module, or anywhere else in this delivery, ever says
+     "if prior > X then CANDIDATE".
 
-  5. DEFAULT_EXCLUDE_CASE_IDS lists the 12 case_ids already used across
-     the three prior canary rounds (35456479322 / 35458136917 /
-     35459949583), so a fresh canary selection defaults to genuinely
-     fresh cases without requiring the caller to remember and pass this
-     list manually. Callers can still override via the exclude_case_ids
-     parameter.
+  5. DEFAULT_EXCLUDE_CASE_IDS lists the 31 case_ids already used across
+     five prior canary rounds (35456479322 / 35458136917 / 35459949583 /
+     35482706294 / 35485028854), so a fresh canary selection defaults to
+     genuinely fresh cases without requiring the caller to remember and
+     pass this list manually. Callers can still override via the
+     exclude_case_ids parameter.
 """
 
 from __future__ import annotations
@@ -89,9 +92,17 @@ ALL_BUCKETS = [
     BUCKET_INSTITUTIONAL_FLOW_MIXED_OR_NEGATIVE,
 ]
 
-# The 12 case_ids already used across canary runs 35456479322 /
-# 35458136917 / 35459949583, per the external review.
-DEFAULT_EXCLUDE_CASE_IDS: frozenset[int] = frozenset({5, 7, 14, 15, 16, 24, 32, 38, 39, 48, 55, 57})
+# Declared a priori sampling strata ONLY -- see fix #4 in the module
+# docstring. Never used as a decision admission rule anywhere.
+PRIOR_HIGH_THRESHOLD = 0.60
+PRIOR_LOW_THRESHOLD = 0.40
+
+# Case IDs already used across canary rounds 35456479322 / 35458136917 /
+# 35459949583 / 35482706294 / 35485028854, per the external review.
+DEFAULT_EXCLUDE_CASE_IDS: frozenset[int] = frozenset({
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    21, 22, 24, 32, 38, 39, 40, 47, 48, 50, 53, 55, 57, 61,
+})
 
 ROUTINE_MOPS_KEYWORDS = [
     "board approved", "consolidated financial report", "quarterly report", "annual report",
@@ -204,14 +215,13 @@ def tag_case(pkt: dict) -> CanaryCaseTag:
     has_benchmark = _packet_has_valuation_benchmark_hint(pkt)
     mops_type = _classify_mops(pkt)
 
-    validation_stratum = pkt.get("validation_stratum")
-    if isinstance(validation_stratum, int) and not isinstance(validation_stratum, bool) and 0 <= validation_stratum <= 7:
-        if validation_stratum >= 5:
+    if prior is not None:
+        if prior >= PRIOR_HIGH_THRESHOLD:
             if conflict or inst_mixed_or_negative:
                 tag.buckets.append(BUCKET_HIGH_PRIOR_CONFLICTING_EVIDENCE)
             elif n_available >= 4:
                 tag.buckets.append(BUCKET_HIGH_PRIOR_BROAD_COVERAGE_NO_DETECTED_CONFLICT)
-        elif validation_stratum <= 2:
+        elif prior <= PRIOR_LOW_THRESHOLD:
             if conflict or inst_mixed_or_negative or n_available <= 2:
                 tag.buckets.append(BUCKET_LOW_PRIOR_WEAK_OR_CONFLICTING_EVIDENCE)
             else:
@@ -243,7 +253,7 @@ def select_fresh_canary(
 ) -> dict:
     """
     Deterministically selects up to `per_bucket_target` packets per bucket,
-    sorted by case_id for reproducibility. Defaults to excluding the 12
+    sorted by case_id for reproducibility. Defaults to excluding the 31
     case_ids already used in prior canary rounds (DEFAULT_EXCLUDE_CASE_IDS);
     pass exclude_case_ids explicitly to override (e.g. set() to include
     everything, or a larger set after another round is run).

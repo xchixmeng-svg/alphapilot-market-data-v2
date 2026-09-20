@@ -30,10 +30,9 @@ printed a warning and continued).
 
 Usage:
     python3 run_fresh_canary.py \\
-        --max-cases 8 \\
-        --exclude-case-ids "0,1,2,3,4,5,6,7,10,13,14,15,16,24,32,38,39,40,47,48,53,55,57" \\
-        --per-case-timeout-seconds 2500 \\
-        --per-call-timeout-seconds 300 \\
+        --max-cases 12 \\
+        --exclude-case-ids "5,7,14,15,16,24,32,38,39,48,55,57" \\
+        --per-case-timeout-seconds 1500 \\
         --output-dir ./canary_output \\
         [--prepared-dir ./data/prepared] \\
         [--ollama-url http://127.0.0.1:11434/api/chat] \\
@@ -56,7 +55,8 @@ from evidence_capability import derive_case_evidence_sets  # noqa: E402
 from fresh_canary_selector import select_fresh_canary  # noqa: E402
 from retry_orchestrator import CaseResult, HistoryEntry, OrchestratorConfig, run_batch  # noqa: E402
 from stage1_extractor_prompt import STAGE1_SYSTEM, build_stage1_user_payload  # noqa: E402
-from stage2_decision_prompt import STAGE2_SYSTEM, build_stage2_user_payload  # noqa: E402
+from stage2_decision_prompt import STAGE2_SYSTEM as STAGE2_DECISION_SYSTEM, build_stage2_decision_user_payload  # noqa: E402
+from stage2_actionability_prompt import STAGE2_ACTIONABILITY_SYSTEM, build_stage2_actionability_user_payload  # noqa: E402
 from stage3_critic_prompt import STAGE3_SYSTEM, build_stage3_user_payload  # noqa: E402
 
 HARD_MAX_CASES = 20  # hard safety cap, independent of whatever --max-cases is passed
@@ -122,11 +122,9 @@ def load_packets(prepared_dir: Path) -> list[dict]:
 
 
 def validate_immutable_packet_set(summary: dict, packets: list[dict]) -> None:
-    """Require the exact immutable 64-case prepared artifact contract."""
+    """Require the exact immutable 64-case prepared-artifact contract."""
     if summary.get("cases") != 64:
-        raise GuardFailure(
-            f"PREP_SUMMARY.json must declare cases=64; got {summary.get('cases')!r}."
-        )
+        raise GuardFailure(f"PREP_SUMMARY.json must declare cases=64; got {summary.get('cases')!r}.")
     if len(packets) != 64:
         raise GuardFailure(f"Immutable prepared artifact must contain exactly 64 packets; got {len(packets)}.")
 
@@ -136,20 +134,20 @@ def validate_immutable_packet_set(summary: dict, packets: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def call_ollama(
-    system_prompt: str,
-    user_payload: dict,
-    *,
-    model: str,
-    url: str,
-    timeout_s: float,
-    response_schema: dict | None = None,
-) -> dict:
+def call_ollama(system_prompt: str, user_payload: dict, *, model: str, url: str, timeout_s: float, json_schema: dict | None = None) -> dict:
     """
     POSTs to Ollama's /api/chat endpoint and returns the model's response
     parsed as JSON. Sets its own request-level timeout (belt-and-suspenders
-    with retry_orchestrator's own hard per-call timeout -- see that
-    module's docstring on why both layers matter).
+    with retry_orchestrator's own hard per-call timeout).
+
+    FIXED after real canary run 35482706294 (Stage 1: 0/11 finalized, all
+    Stage 1 calls failed): the previous version of this function sent
+    "format": "json" (Ollama's loose "some JSON, shape unconstrained"
+    mode) instead of the actual JSON Schema. Ollama's /api/chat `format`
+    field also accepts a full JSON Schema object for constrained/
+    structured decoding (a much stronger guarantee for a 7B model than
+    "some JSON"), which is what every call in this file now passes -- see
+    make_stage_call()'s json_schema argument.
 
     Raises on any failure (HTTP error, non-JSON response body, non-JSON
     model content) -- the orchestrator's retry loop treats any exception
@@ -161,10 +159,7 @@ def call_ollama(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
-        # Ollama structured outputs accepts a JSON Schema object here.  A
-        # bare "json" only guarantees syntactic JSON and was insufficient
-        # for Qwen2.5-7B: it repeatedly invented a different response shape.
-        "format": response_schema if response_schema is not None else "json",
+        "format": json_schema if json_schema is not None else "json",
         "stream": False,
         "options": {"temperature": 0},
     }
@@ -181,23 +176,33 @@ def call_ollama(
     return json.loads(content)
 
 
-def make_stage_call(model: str, url: str, timeout_s: float, response_schema: dict):
+def _load_schema(name: str) -> dict:
+    """Loads a schema file and strips the top-level meta keys ($schema,
+    $id, schema_version, title) that are useful for humans/tests but are
+    not part of what Ollama's structured-output `format` field expects --
+    some Ollama versions reject or ignore a `format` object with unknown
+    top-level keys, so only the actual constraint keys are sent."""
+    schema_path = Path(__file__).resolve().parent / "schemas" / name
+    with open(schema_path, "r", encoding="utf-8") as f:
+        full = json.load(f)
+    return {k: v for k, v in full.items() if k not in ("$schema", "$id", "schema_version", "title")}
+
+
+def make_stage_call(model: str, url: str, timeout_s: float, schema_name: str):
+    """Returns a call_fn bound to ONE specific stage's JSON Schema, passed
+    to Ollama's `format` field for structured decoding. Each of Stage1,
+    Stage2-decision, Stage2-actionability, and Stage3 gets its own call_fn
+    with its own schema -- they must never share one, since their shapes
+    are now deliberately different (that's the whole point of the
+    Stage2a/2b split)."""
+    schema = _load_schema(schema_name)
+
     def _call(system_prompt: str, user_payload: dict) -> dict:
         return call_ollama(
-            system_prompt,
-            user_payload,
-            model=model,
-            url=url,
-            timeout_s=timeout_s,
-            response_schema=response_schema,
+            system_prompt, user_payload, model=model, url=url,
+            timeout_s=timeout_s, json_schema=schema,
         )
     return _call
-
-
-def load_response_schema(filename: str) -> dict:
-    path = Path(__file__).resolve().parent / "schemas" / filename
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +254,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-cases", type=int, default=12)
     parser.add_argument("--exclude-case-ids", type=str, default="")
-    parser.add_argument("--per-case-timeout-seconds", type=float, default=2500.0)
+    parser.add_argument("--per-case-timeout-seconds", type=float, default=2400.0)
     parser.add_argument("--per-call-timeout-seconds", type=float, default=300.0)
     parser.add_argument("--output-dir", type=str, required=True)
     parser.add_argument("--prepared-dir", type=str, default="data/prepared")
@@ -291,6 +296,9 @@ def main() -> int:
 
     packets_by_id = {p["case_id"]: p for p in packets}
     selected_packets = [packets_by_id[cid] for cid in selected_ids]
+    if not selected_packets:
+        print("GUARD FAILURE: selector produced no eligible canary cases.", file=sys.stderr)
+        return 1
     numerical_priors = {p["case_id"]: p.get("numerical_reference_read_only", {}) for p in selected_packets}
 
     print(f"Selected {len(selected_packets)} case(s): {selected_ids}")
@@ -302,28 +310,24 @@ def main() -> int:
         per_case_timeout_seconds=args.per_case_timeout_seconds,
         per_call_timeout_seconds=args.per_call_timeout_seconds,
     )
-    stage1_call = make_stage_call(
-        args.model, args.ollama_url, args.per_call_timeout_seconds,
-        load_response_schema("STAGE1_EVIDENCE_DIRECTION_SCHEMA.json"),
-    )
-    stage2_call = make_stage_call(
-        args.model, args.ollama_url, args.per_call_timeout_seconds,
-        load_response_schema("STAGE2_DECISION_SCHEMA.json"),
-    )
-    stage3_call = make_stage_call(
-        args.model, args.ollama_url, args.per_call_timeout_seconds,
-        load_response_schema("STAGE3_CRITIC_SCHEMA.json"),
-    )
+    # FIXED after run 35482706294: each stage gets its OWN call_fn bound
+    # to its OWN JSON Schema (passed to Ollama's structured-output
+    # `format` field), never a shared loose "format": "json".
+    stage1_call = make_stage_call(args.model, args.ollama_url, args.per_call_timeout_seconds, "STAGE1_EVIDENCE_DIRECTION_SCHEMA.json")
+    stage2_decision_call = make_stage_call(args.model, args.ollama_url, args.per_call_timeout_seconds, "STAGE2_DECISION_SCHEMA.json")
+    stage2_actionability_call = make_stage_call(args.model, args.ollama_url, args.per_call_timeout_seconds, "STAGE2_ACTIONABILITY_SCHEMA.json")
+    stage3_call = make_stage_call(args.model, args.ollama_url, args.per_call_timeout_seconds, "STAGE3_CRITIC_SCHEMA.json")
 
-    # Run one case at a time so every completed case is checkpointed.  A
-    # cancelled/failed long canary still leaves useful partial history.
+    # Checkpoint every completed case so a cancelled or failed long run
+    # still preserves all completed histories.
     results: list[CaseResult] = []
     for packet in selected_packets:
         one = run_batch(
             [packet], numerical_priors,
-            stage1_call, stage2_call, stage3_call,
-            STAGE1_SYSTEM, STAGE2_SYSTEM, STAGE3_SYSTEM,
-            build_stage1_user_payload, build_stage2_user_payload, build_stage3_user_payload,
+            stage1_call, stage2_decision_call, stage2_actionability_call, stage3_call,
+            STAGE1_SYSTEM, STAGE2_DECISION_SYSTEM, STAGE2_ACTIONABILITY_SYSTEM, STAGE3_SYSTEM,
+            build_stage1_user_payload, build_stage2_decision_user_payload,
+            build_stage2_actionability_user_payload, build_stage3_user_payload,
             config=config,
         )[0]
         results.append(one)
@@ -335,8 +339,6 @@ def main() -> int:
             "failure_stage": one.failure_stage,
         }, ensure_ascii=False), flush=True)
 
-    # Contract failures are experimental failures, even though their full
-    # audit artifact was written successfully.
     return 2 if any(r.status != "FINALIZED" for r in results) else 0
 
 

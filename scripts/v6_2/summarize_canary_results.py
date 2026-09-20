@@ -63,18 +63,24 @@ def summarize(input_dir: Path) -> None:
     if len(eq_counts) <= 1 and finalized:
         print("  *** WARNING: evidence_quality has NO real distribution either. ***")
 
-    print("\n-- Repair / retry activity --")
+    print("\n-- Repair / retry activity & per-stage latency --")
     total_attempts_by_stage = Counter()
     total_errors_by_stage = Counter()
+    latencies_by_stage: dict[str, list[float]] = {}
     for r in results:
         for h in r["raw_history"]:
             total_attempts_by_stage[h["stage"]] += 1
             if h["errors"]:
                 total_errors_by_stage[h["stage"]] += 1
+            latencies_by_stage.setdefault(h["stage"], []).append(h.get("elapsed_seconds", 0.0))
     for stage in sorted(total_attempts_by_stage):
         attempts = total_attempts_by_stage[stage]
         errs = total_errors_by_stage[stage]
-        print(f"  {stage}: {attempts} attempt(s) across all cases, {errs} had contract errors ({_pct(errs, attempts)})")
+        lat = sorted(latencies_by_stage.get(stage, []))
+        mean_lat = sum(lat) / len(lat) if lat else 0.0
+        max_lat = lat[-1] if lat else 0.0
+        print(f"  {stage}: {attempts} attempt(s), {errs} had contract errors ({_pct(errs, attempts)}), "
+              f"mean call latency {mean_lat:.1f}s, max {max_lat:.1f}s")
 
     print("\n-- Latency --")
     elapsed = sorted(r["elapsed_seconds"] for r in results)

@@ -121,17 +121,16 @@ def test_load_packets_accepts_valid_data():
         assert packets[0]["case_id"] == 1
 
 
-def test_immutable_packet_set_requires_summary_and_loaded_count_of_64():
+def test_validate_immutable_packet_set_requires_summary_and_exact_64():
     packets = [{"case_id": i} for i in range(64)]
     rfc.validate_immutable_packet_set({"cases": 64}, packets)
-
-    for summary, rows in (({"cases": 63}, packets), ({"cases": 64}, packets[:-1])):
-        raised = False
+    for bad_summary, bad_packets in (({"cases": 63}, packets), ({"cases": 64}, packets[:-1])):
         try:
-            rfc.validate_immutable_packet_set(summary, rows)
+            rfc.validate_immutable_packet_set(bad_summary, bad_packets)
         except rfc.GuardFailure:
-            raised = True
-        assert raised
+            pass
+        else:
+            raise AssertionError("immutable 64-case guard must fail closed")
 
 
 def test_call_ollama_parses_valid_response():
@@ -167,34 +166,9 @@ def test_call_ollama_parses_valid_response():
         assert sent_body["model"] == "qwen2.5:7b"
         assert sent_body["format"] == "json"
         assert sent_body["stream"] is False
+        assert sent_body["options"]["temperature"] == 0
         assert sent_body["messages"][0]["role"] == "system"
         assert sent_body["messages"][0]["content"] == "system prompt"
-
-
-def test_call_ollama_sends_json_schema_for_structured_output():
-    schema = {
-        "type": "object",
-        "required": ["case_id", "evidence_observations"],
-        "properties": {
-            "case_id": {"type": "integer"},
-            "evidence_observations": {"type": "array"},
-        },
-    }
-    envelope = {"message": {"content": json.dumps({"case_id": 1, "evidence_observations": []})}}
-
-    class FakeResponse:
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def read(self): return json.dumps(envelope).encode("utf-8")
-
-    with mock.patch("urllib.request.urlopen", return_value=FakeResponse()) as mocked:
-        rfc.call_ollama(
-            "sys", {"case_id": 1}, model="qwen2.5:7b", url="http://x",
-            timeout_s=10.0, response_schema=schema,
-        )
-        sent_body = json.loads(mocked.call_args[0][0].data.decode("utf-8"))
-        assert sent_body["format"] == schema
-        assert sent_body["options"]["temperature"] == 0
 
 
 def test_call_ollama_raises_on_missing_message_content():
@@ -246,3 +220,122 @@ def test_call_ollama_raises_on_non_json_model_content():
 
 def test_max_cases_is_hard_capped_regardless_of_argument():
     assert rfc.HARD_MAX_CASES == 20
+
+
+# ---------------------------------------------------------------------------
+# NEW regression tests: JSON Schema actually passed to Ollama (fix for the
+# root cause of run 35482706294's Stage 1 100% failure -- the runner was
+# sending the loose "format": "json" instead of the real schema).
+# ---------------------------------------------------------------------------
+
+
+def test_call_ollama_sends_real_json_schema_as_format_when_provided():
+    fake_model_json = {"case_id": 1, "evidence_observations": []}
+    ollama_envelope = {"message": {"content": json.dumps(fake_model_json)}}
+    schema = {"type": "object", "required": ["case_id"], "properties": {"case_id": {"type": "integer"}}}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(ollama_envelope).encode("utf-8")
+
+    with mock.patch("urllib.request.urlopen", return_value=FakeResponse()) as mocked:
+        rfc.call_ollama("sys", {"case_id": 1}, model="qwen2.5:7b", url="http://x", timeout_s=10.0, json_schema=schema)
+        sent_body = json.loads(mocked.call_args[0][0].data.decode("utf-8"))
+        assert sent_body["format"] == schema, "the actual JSON Schema object must be sent, not the string 'json'"
+
+
+def test_call_ollama_falls_back_to_loose_json_format_without_schema():
+    ollama_envelope = {"message": {"content": json.dumps({"x": 1})}}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(ollama_envelope).encode("utf-8")
+
+    with mock.patch("urllib.request.urlopen", return_value=FakeResponse()) as mocked:
+        rfc.call_ollama("sys", {}, model="qwen2.5:7b", url="http://x", timeout_s=10.0)
+        sent_body = json.loads(mocked.call_args[0][0].data.decode("utf-8"))
+        assert sent_body["format"] == "json"
+
+
+def test_load_schema_strips_meta_keys_ollama_would_reject():
+    schema = rfc._load_schema("STAGE1_EVIDENCE_DIRECTION_SCHEMA.json")
+    assert "$schema" not in schema
+    assert "$id" not in schema
+    assert "schema_version" not in schema
+    assert "title" not in schema
+    assert "properties" in schema  # the actual constraint content survives
+    assert "required" in schema
+
+
+def test_load_schema_works_for_all_four_stage_schemas():
+    for name in (
+        "STAGE1_EVIDENCE_DIRECTION_SCHEMA.json",
+        "STAGE2_DECISION_SCHEMA.json",
+        "STAGE2_ACTIONABILITY_SCHEMA.json",
+        "STAGE3_CRITIC_SCHEMA.json",
+    ):
+        schema = rfc._load_schema(name)
+        assert "properties" in schema
+
+
+def test_make_stage_call_binds_distinct_schema_per_stage():
+    """Verify each stage's call_fn actually carries its OWN schema in the
+    request body, not a shared/generic one -- the whole Stage2a/2b split
+    only works if these never get mixed up."""
+    seen_bodies = {}
+
+    class FakeResponse:
+        def __init__(self, content):
+            self._content = content
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps({"message": {"content": self._content}}).encode("utf-8")
+
+    def fake_urlopen(req, timeout=None):
+        body = json.loads(req.data.decode("utf-8"))
+        seen_bodies[req.full_url] = body
+        return FakeResponse(json.dumps({"ok": True}))
+
+    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        stage1_call = rfc.make_stage_call("qwen2.5:7b", "http://x/stage1", 17.0, "STAGE1_EVIDENCE_DIRECTION_SCHEMA.json")
+        stage2a_call = rfc.make_stage_call("qwen2.5:7b", "http://x/stage2a", 17.0, "STAGE2_DECISION_SCHEMA.json")
+        stage2b_call = rfc.make_stage_call("qwen2.5:7b", "http://x/stage2b", 17.0, "STAGE2_ACTIONABILITY_SCHEMA.json")
+
+        stage1_call("sys", {})
+        stage2a_call("sys", {})
+        stage2b_call("sys", {})
+
+        assert "case_id" in seen_bodies["http://x/stage1"]["format"]["properties"]
+        assert "decision" in seen_bodies["http://x/stage2a"]["format"]["properties"]
+        assert "entry" in seen_bodies["http://x/stage2b"]["format"]["properties"]
+        assert "entry" not in seen_bodies["http://x/stage2a"]["format"]["properties"]
+
+
+def test_make_stage_call_passes_configured_http_timeout():
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return json.dumps({"message": {"content": "{}"}}).encode("utf-8")
+
+    with mock.patch("urllib.request.urlopen", return_value=FakeResponse()) as mocked:
+        call = rfc.make_stage_call("qwen2.5:7b", "http://x", 23.5, "STAGE3_CRITIC_SCHEMA.json")
+        call("sys", {})
+        assert mocked.call_args.kwargs["timeout"] == 23.5

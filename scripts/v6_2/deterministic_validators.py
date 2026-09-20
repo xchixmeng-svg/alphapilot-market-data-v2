@@ -1,41 +1,69 @@
 """
 deterministic_validators.py
 
-All checks in this file are pure functions over already-parsed JSON dicts.
-No LLM calls here. Split into:
+FIXED AFTER REAL-MODEL CANARY RUNS 35482706294 / 35485028854 (v2 was never
+run against a real model before that; this version incorporates the real
+failure modes those two runs actually exhibited):
 
-  validate_stage1_output(raw, expected_case_id, case_available_evidence_ids, pkt_evidence)
-      -> (normalized, errors)
-  validate_stage2_output(raw, stage1_observations, pkt_evidence) -> (normalized, errors, warnings)
-  validate_stage3_output(raw, stage1_evidence_ids) -> (normalized, errors)
+  STRUCTURAL FIX (review point 1): Stage 2 is now TWO separate contracts,
+  not one:
+    validate_stage2_decision_output()   -- decision, evidence_quality,
+        theses, evidence-id roles, system_limitations. NEVER asks for or
+        accepts entry/failure_exit fields at all.
+    validate_stage2_actionability_output() -- entry/failure_exit ONLY,
+        called only when the decision is CANDIDATE/HIGH_CONVICTION, with
+        an enum that EXCLUDES NOT_ACTIONABLE/UNAVAILABLE entirely, so the
+        model cannot reproduce the reported failure (decision=CANDIDATE +
+        entry.status=NOT_ACTIONABLE + null prices) even in principle --
+        that combination requires two different calls to both go wrong in
+        two different, structurally incompatible ways, not one call
+        picking an internally-contradictory combination from one shared
+        enum space. For REJECT/WATCH, entry/failure_exit is no longer
+        asked of the model at all -- it is deterministically assembled by
+        assemble_final_stage2() in safe_finalizer.py, because it is
+        always exactly the same fixed value regardless of the case; that
+        is a structural fact, not a judgment call, so there is nothing
+        for the model to get wrong.
 
-`errors` are hard contract violations: the case must be retried/revised,
-never persisted as a final result while errors is non-empty.
-`warnings` are soft, best-effort text-pattern signals for human/audit
-review; they never block finalization by themselves.
+  ALIAS FIX (review point 2): _text_mentions_family() previously matched
+  on ANY individual word (>=3 chars) split out of a family_id, so generic
+  words like "structure", "flow", "price", "information" caused massive
+  false positives (e.g. "reasonable valuation" was detected as mentioning
+  institutional_flow, mops_material_information, price_volume_structure,
+  AND revenue, none of which the text was actually about). Replaced with
+  FAMILY_ALIASES: a curated, per-family phrase list. A family is only
+  considered "mentioned" if one of its own specific alias phrases appears
+  verbatim as a substring -- generic single words are never aliases by
+  themselves.
 
-EXCEPTION SAFETY (fixed after external review): every public validate_*
-function in this module wraps its body in try/except Exception and
-converts any unexpected exception (e.g. a malformed field of the wrong
-Python type, such as primary_evidence_ids being an int instead of a list)
-into a normal contract error string. No exception may propagate out of
-this module -- a single malformed model response must never crash the
-orchestrator or abort a batch.
+  VALUATION RULE UNIFIED (review point 3): Stage 1's prompt previously
+  allowed SUPPORTIVE/CONTRADICTORY from "absolute valuation extreme" even
+  without benchmark_available, while Stage 2's validator banned any
+  cheap/expensive/reasonable claim without a benchmark -- directly
+  contradictory instructions. Resolved in favor of the stricter,
+  consistent rule: valuation with benchmark_available=False MUST be
+  direction=NOT_INTERPRETABLE. This is now a HARD ERROR in Stage 1
+  validation, not just a Stage 2 text-pattern check. (Stage 1's prompt
+  file has been updated to match -- see stage1_extractor_prompt.py.)
 
-GROUNDING (added after external review): Stage 1 is no longer trusted on
-the strength of "the field is a non-empty list of strings". Numeric claims
-inside exact_observations are cross-checked against the actual numeric
-values present in the corresponding raw evidence family of the packet
-(see _extract_numbers, _ground_numeric_claims). A claim whose numbers do
-not appear anywhere in that family's raw data is flagged UNGROUNDED. Free
-text with no extractable number is passed through (this mechanical check
-cannot verify prose meaning -- that remains Stage 3's job) rather than
-silently trusted as fact.
+  EVIDENCE-ROLE RULES TIGHTENED (review point 4): in addition to the
+  existing SUPPORTIVE/MIXED-only and CONTRADICTORY/MIXED-only membership
+  checks, added: (a) an explicit, clearly-worded rejection whenever a
+  NEUTRAL or NOT_INTERPRETABLE family appears in ANY of primary/
+  secondary/counter_evidence_ids (previously true only as an algebraic
+  consequence of the membership checks, now also a named, specific error
+  message); (b) every family with direction=CONTRADICTORY (strict, not
+  MIXED) MUST appear in counter_evidence_ids -- it is no longer optional
+  for the model to omit a contradictory family from counter_evidence.
 
-CASE_ID CHECK (added after external review): Stage 1's returned case_id
-must match the case_id the request was actually built for, with strict
-type and value equality. A Stage1 response for the wrong case must never
-be accepted.
+  STRUCTURED REPAIR REQUESTS (review point 5): errors_to_repair_request()
+  converts the existing human-readable error strings into a compact list
+  of {field, problem, received, allowed} dicts wherever the error matches
+  a known, enumerable pattern (which covers the vast majority of this
+  module's error messages, since they are all generated by this same
+  module in fixed formats). retry_orchestrator.py now sends this
+  structured list to the model on retry, in addition to (not instead of)
+  the raw error strings.
 """
 
 from __future__ import annotations
@@ -55,10 +83,14 @@ RELEVANCE_VALUES = {"HIGH", "MEDIUM", "LOW"}
 
 DECISION_VALUES = {"REJECT", "WATCH", "CANDIDATE", "HIGH_CONVICTION"}
 EVIDENCE_QUALITY_VALUES = {"STRONG", "MODERATE", "WEAK"}
-ENTRY_STATUS_VALUES = {"NOW", "WAIT_FOR_PULLBACK", "WAIT_FOR_CONFIRMATION", "NOT_ACTIONABLE"}
-FAILURE_TRIGGER_VALUES = {
+
+# Actionability sub-contract enums deliberately EXCLUDE the non-actionable
+# values (NOT_ACTIONABLE / UNAVAILABLE) -- this call is only ever made for
+# CANDIDATE/HIGH_CONVICTION, so those values are not offered as an option.
+ENTRY_STATUS_ACTIONABLE_VALUES = {"NOW", "WAIT_FOR_PULLBACK", "WAIT_FOR_CONFIRMATION"}
+FAILURE_TRIGGER_ACTIONABLE_VALUES = {
     "PRICE_STRUCTURE_BREAK", "THESIS_INVALIDATION", "CATALYST_FAILURE",
-    "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE", "UNAVAILABLE",
+    "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE",
 }
 NON_ACTIONABLE_DECISIONS = {"REJECT", "WATCH"}
 ACTIONABLE_DECISIONS = {"CANDIDATE", "HIGH_CONVICTION"}
@@ -69,14 +101,14 @@ CRITIC_PROBLEM_TYPES = {
     "BENCHMARK_MISSING_BUT_VALUE_JUDGMENT_MADE", "SINGLE_PERIOD_TREATED_AS_TREND",
     "ROUTINE_FILING_TREATED_AS_CATALYST", "MIXED_EVIDENCE_TREATED_AS_UNIFORM",
     "CLAIM_NOT_REFLECTED_IN_EVIDENCE_ID_LISTS", "DECISION_INCONSISTENT_WITH_EVIDENCE_BALANCE",
+    "ACTIONABILITY_PRICE_NOT_GROUNDED",
 }
 CRITIC_PROBLEM_REQUIRED_KEYS = {"field", "claim_text", "cited_evidence_id", "problem_type", "explanation"}
 CRITIC_PROBLEM_FIELD_VALUES = {
     "bull_thesis", "bear_thesis", "decision_reason", "invalidation", "hypothesis",
-    "evidence_quality", "decision",
+    "evidence_quality", "decision", "entry_or_failure_exit",
 }
 
-# Narrow, enumerable phrase sets for the HARD-ERROR text checks (EN + ZH).
 VALUE_JUDGMENT_PHRASES = {
     "cheap", "expensive", "undervalued", "overvalued", "reasonable",
     "fairly valued", "attractively valued", "reasonable valuation",
@@ -92,14 +124,62 @@ CATALYST_PHRASES = {
     "催化", "催化劑", "正面消息", "利多",
 }
 
-# Match standalone numeric values, but not digits embedded in field names
-# such as ret5_pct, ret20_pct, foreign_mean5, or support_low60.  Those
-# digits describe a lookback window; they are not claimed packet values.
+# ---------------------------------------------------------------------------
+# Family alias phrases (fix for review point 2 -- exact/curated matching
+# only, no single generic-word substring matching).
+# ---------------------------------------------------------------------------
+
+FAMILY_ALIASES: dict[str, list[str]] = {
+    "price_volume_structure": [
+        "price_volume_structure", "price volume structure", "price/volume structure",
+        "price-volume structure", "technical structure", "chart structure",
+        "support and resistance", "股價結構", "價量結構", "技術結構", "支撐壓力",
+    ],
+    "valuation": [
+        "valuation", "估值", "本益比", "股價淨值比", "pe ratio", "p/e ratio", "pb ratio", "p/b ratio",
+    ],
+    "revenue": [
+        "revenue", "營收", "monthly revenue", "sales revenue",
+    ],
+    "institutional_flow": [
+        "institutional flow", "institutional investor flow", "foreign investor flow",
+        "foreign fund flow", "法人買賣超", "外資買賣超", "投信買賣超", "三大法人",
+    ],
+    "mops_material_information": [
+        "mops filing", "material information disclosure", "material information filing",
+        "公開資訊觀測站", "重大訊息", "重訊",
+    ],
+    "eps_revisions": [
+        "eps revisions", "earnings revisions", "analyst estimate revisions",
+        "盈餘預估修正", "獲利預估修正",
+    ],
+    "analyst_consensus": [
+        "analyst consensus", "consensus estimate", "分析師共識",
+    ],
+    "industry_pricing": [
+        "industry pricing", "industry price benchmark", "產業報價",
+    ],
+    "inventory_supply_demand": [
+        "inventory supply demand", "inventory/supply/demand", "庫存供需",
+    ],
+    "broad_news_semantics": [
+        "broad news semantics", "broad news sentiment", "新聞語意",
+    ],
+}
+
+# Match standalone numeric values, but not lookback digits embedded in field
+# names such as ret5_pct, foreign_mean20, support_low60.  Those digits name a
+# window; they are not claimed packet values.
 _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_])-?\d+(?:\.\d+)?(?![A-Za-z0-9_])")
 
 _VALUATION_BENCHMARK_KEYS = {
     "peer_pe", "peer_pe_median", "historical_pe_band", "historical_pe_low",
     "historical_pe_high", "sector_median_pe", "peer_pb", "historical_pb_band",
+}
+
+_PRICE_ANCHOR_KEYS = {
+    "current_price", "support_low5", "support_low10", "support_low20",
+    "support_low60", "high20", "high60",
 }
 
 
@@ -114,12 +194,10 @@ def _text_mentions_any_phrase(text: str, phrases: set[str]) -> list[str]:
 
 
 def _text_mentions_family(text_lower: str, family_id: str) -> bool:
-    words = [w for w in family_id.split("_") if len(w) >= 3] or family_id.split("_")
-    for w in words:
-        singular = w[:-1] if w.endswith("s") and len(w) > 1 else w
-        if singular in text_lower or w in text_lower:
-            return True
-    return False
+    """Only matches on curated alias phrases for family_id (see
+    FAMILY_ALIASES). Never matches on a single generic word."""
+    aliases = FAMILY_ALIASES.get(family_id, [family_id.replace("_", " ")])
+    return any(alias.lower() in text_lower for alias in aliases)
 
 
 # ---------------------------------------------------------------------------
@@ -149,9 +227,6 @@ def _flatten_raw_values(raw_family: Any) -> list[float]:
 
 
 def _number_matches_any(claimed: float, raw_numbers: list[float], rel_tol: float = 0.01, abs_tol: float = 0.011) -> bool:
-    """~1% tolerance, tight on purpose -- this exists to catch fabrication,
-    not to be lenient about it. Also tolerates a fraction/percent mismatch
-    (0.1984 vs 19.84) since raw data may store either form."""
     for r in raw_numbers:
         if abs(claimed - r) <= max(abs_tol, abs(r) * rel_tol):
             return True
@@ -163,19 +238,8 @@ def _number_matches_any(claimed: float, raw_numbers: list[float], rel_tol: float
 
 
 def _ground_numeric_claims(exact_observations: list[str], evidence_id: str, pkt_evidence: dict) -> list[str]:
-    """
-    Empty list if every number in exact_observations traces back to THIS
-    SAME family's raw data in pkt_evidence. Cross-family number-borrowing
-    is caught naturally: a number is only accepted if it appears in the
-    raw data of the family named by evidence_id, not any other family.
-    Non-numeric prose is not checked here (left for Stage 3's judgment).
-    """
     raw_family = pkt_evidence.get(evidence_id)
     if raw_family is None:
-        # No raw numeric data available for this family in the packet at
-        # all -- cannot mechanically verify; do not fabricate a false
-        # failure for a family that is legitimately non-numeric (e.g. a
-        # pure text/id family).
         return []
     raw_numbers = _flatten_raw_values(raw_family)
     if not raw_numbers:
@@ -204,7 +268,7 @@ def validate_stage1_output(
 ) -> tuple[dict, list[str]]:
     try:
         return _validate_stage1_output_impl(raw, expected_case_id, case_available_evidence_ids, pkt_evidence)
-    except Exception as e:  # noqa: BLE001 -- never let a malformed field crash the caller
+    except Exception as e:  # noqa: BLE001
         return {}, [f"Stage1 validator crashed on malformed input: {type(e).__name__}: {e}"]
 
 
@@ -295,9 +359,8 @@ def _validate_stage1_output_impl(
         if not isinstance(benchmark_available, bool):
             errors.append(f"{prefix}.benchmark_available must be boolean")
 
-        # For valuation this flag is a packet fact, not a model judgment.
-        # Enforce it deterministically whenever the raw family is present so
-        # the model cannot bypass the no-benchmark rule by echoing true.
+        # This is a packet fact, not a model judgment.  Without this check a
+        # model can evade the valuation rule simply by echoing true.
         if eid == "valuation" and pkt_evidence is not None:
             raw_valuation = pkt_evidence.get("valuation")
             if isinstance(raw_valuation, dict):
@@ -308,12 +371,23 @@ def _validate_stage1_output_impl(
                         f"valuation packet; expected {expected_benchmark!r} from explicit benchmark fields."
                     )
 
+        # UNIFIED valuation rule (review point 3): no benchmark => must be
+        # NOT_INTERPRETABLE. This is now the ONLY rule (Stage 1 prompt has
+        # been updated to match; the old "absolute magnitude can still be
+        # SUPPORTIVE/CONTRADICTORY" language is removed).
         if eid == "valuation" and benchmark_available is False:
             has_caveat = any("benchmark" in lim.lower() or "基準" in lim or "比較" in lim for lim in limitations)
             if not has_caveat:
                 errors.append(
                     f"{prefix}: evidence_id='valuation' has benchmark_available=false but limitations "
                     f"does not state the no-benchmark caveat required by the contract."
+                )
+            if direction != "NOT_INTERPRETABLE":
+                errors.append(
+                    f"{prefix}: evidence_id='valuation' has benchmark_available=false, so direction must be "
+                    f"'NOT_INTERPRETABLE' (an absolute PE/PB number alone, with no peer or historical "
+                    f"comparison point, cannot support a SUPPORTIVE or CONTRADICTORY judgment). Got "
+                    f"direction={direction!r}."
                 )
 
         if pkt_evidence is not None and eid in case_available_evidence_ids and exact_obs:
@@ -341,15 +415,15 @@ def _validate_stage1_output_impl(
 
 
 # ---------------------------------------------------------------------------
-# Stage 2 validation
+# Stage 2a: decision-only validation (NO entry/failure_exit fields at all)
 # ---------------------------------------------------------------------------
 
 
-def validate_stage2_output(raw: Any, stage1_observations: list[dict], pkt_evidence: dict) -> tuple[dict, list[str], list[str]]:
+def validate_stage2_decision_output(raw: Any, stage1_observations: list[dict], pkt_evidence: dict) -> tuple[dict, list[str], list[str]]:
     try:
-        return _validate_stage2_output_impl(raw, stage1_observations, pkt_evidence)
+        return _validate_stage2_decision_output_impl(raw, stage1_observations, pkt_evidence)
     except Exception as e:  # noqa: BLE001
-        return {}, [f"Stage2 validator crashed on malformed input: {type(e).__name__}: {e}"], []
+        return {}, [f"Stage2 decision validator crashed on malformed input: {type(e).__name__}: {e}"], []
 
 
 def _as_str_list_safe(value: Any, field_name: str, errors: list[str]) -> list[str]:
@@ -367,36 +441,30 @@ def _as_str_list_safe(value: Any, field_name: str, errors: list[str]) -> list[st
     return list(dict.fromkeys(out))
 
 
-def _validate_stage2_output_impl(raw: Any, stage1_observations: list[dict], pkt_evidence: dict) -> tuple[dict, list[str], list[str]]:
+def _validate_stage2_decision_output_impl(raw: Any, stage1_observations: list[dict], pkt_evidence: dict) -> tuple[dict, list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
     if not isinstance(raw, dict):
-        return {}, [f"Stage2 output must be a JSON object, got {type(raw)}"], []
+        return {}, [f"Stage2 decision output must be a JSON object, got {type(raw)}"], []
 
     required_top = {
         "decision", "evidence_quality", "hypothesis_type", "hypothesis",
         "primary_evidence_ids", "secondary_evidence_ids", "counter_evidence_ids",
-        "system_limitations", "bull_thesis", "bear_thesis", "invalidation",
-        "decision_reason", "entry", "failure_exit",
+        "system_limitations", "bull_thesis", "bear_thesis", "invalidation", "decision_reason",
     }
     extra = set(raw.keys()) - required_top
     missing = required_top - set(raw.keys())
     if extra:
-        errors.append(f"Stage2 output has unexpected top-level key(s): {sorted(extra)}")
+        errors.append(
+            f"Stage2 decision output has unexpected top-level key(s): {sorted(extra)}. "
+            f"NOTE: entry/failure_exit do NOT belong in this response -- they are a separate call "
+            f"made only when decision is CANDIDATE/HIGH_CONVICTION."
+        )
     if missing:
-        errors.append(f"Stage2 output missing key(s): {sorted(missing)}")
+        errors.append(f"Stage2 decision output missing key(s): {sorted(missing)}")
     if errors:
         return {}, errors, []
-
-    entry = raw.get("entry")
-    failure_exit = raw.get("failure_exit")
-    if not isinstance(entry, dict) or set(entry.keys()) != {"status", "ideal_low", "ideal_high"}:
-        errors.append("'entry' must be an object with exactly status/ideal_low/ideal_high")
-        entry = {"status": None, "ideal_low": None, "ideal_high": None}
-    if not isinstance(failure_exit, dict) or set(failure_exit.keys()) != {"exit_price", "reason", "trigger_type"}:
-        errors.append("'failure_exit' must be an object with exactly exit_price/reason/trigger_type")
-        failure_exit = {"exit_price": None, "reason": None, "trigger_type": None}
 
     for str_field in ("decision", "evidence_quality", "hypothesis_type", "hypothesis",
                        "bull_thesis", "bear_thesis", "invalidation", "decision_reason"):
@@ -416,19 +484,6 @@ def _validate_stage2_output_impl(raw: Any, stage1_observations: list[dict], pkt_
         "bear_thesis": raw.get("bear_thesis", "").strip() if isinstance(raw.get("bear_thesis"), str) else "",
         "invalidation": raw.get("invalidation", "").strip() if isinstance(raw.get("invalidation"), str) else "",
         "decision_reason": raw.get("decision_reason", "").strip() if isinstance(raw.get("decision_reason"), str) else "",
-        "entry": {
-            "status": entry.get("status", "").strip().upper() if isinstance(entry.get("status"), str) else entry.get("status"),
-            "ideal_low": entry.get("ideal_low"),
-            "ideal_high": entry.get("ideal_high"),
-        },
-        "failure_exit": {
-            "exit_price": failure_exit.get("exit_price"),
-            "reason": failure_exit.get("reason"),
-            "trigger_type": (
-                failure_exit.get("trigger_type", "").strip().upper()
-                if isinstance(failure_exit.get("trigger_type"), str) else failure_exit.get("trigger_type")
-            ),
-        },
     }
 
     decision = normalized["decision"]
@@ -438,9 +493,28 @@ def _validate_stage2_output_impl(raw: Any, stage1_observations: list[dict], pkt_
     if evidence_quality not in EVIDENCE_QUALITY_VALUES:
         errors.append(f"evidence_quality={evidence_quality!r} not in {sorted(EVIDENCE_QUALITY_VALUES)}")
 
+    if decision in {"WATCH", "CANDIDATE", "HIGH_CONVICTION"} and not normalized["primary_evidence_ids"]:
+        errors.append(
+            f"decision={decision} requires at least one primary_evidence_id grounded in SUPPORTIVE/MIXED Stage1 evidence"
+        )
+    if decision == "HIGH_CONVICTION" and len(set(normalized["primary_evidence_ids"] + normalized["secondary_evidence_ids"])) < 2:
+        errors.append(
+            "decision=HIGH_CONVICTION requires at least two distinct SUPPORTIVE/MIXED evidence families"
+        )
+
     obs_by_id = {o["evidence_id"]: o for o in stage1_observations if isinstance(o, dict) and isinstance(o.get("evidence_id"), str)}
     supportive_or_mixed = {eid for eid, o in obs_by_id.items() if o.get("direction") in ("SUPPORTIVE", "MIXED")}
     contradictory_or_mixed = {eid for eid, o in obs_by_id.items() if o.get("direction") in ("CONTRADICTORY", "MIXED")}
+    contradictory_strict = {eid for eid, o in obs_by_id.items() if o.get("direction") == "CONTRADICTORY"}
+    forbidden_role_families = {eid for eid, o in obs_by_id.items() if o.get("direction") in ("NEUTRAL", "NOT_INTERPRETABLE")}
+
+    for fld in ("primary_evidence_ids", "secondary_evidence_ids", "counter_evidence_ids"):
+        bad_forbidden = set(normalized[fld]) & forbidden_role_families
+        if bad_forbidden:
+            errors.append(
+                f"{fld} contains id(s) with Stage1 direction NEUTRAL or NOT_INTERPRETABLE, which may "
+                f"never be used as evidence for or against the thesis in any role: {sorted(bad_forbidden)}"
+            )
 
     for fld in ("primary_evidence_ids", "secondary_evidence_ids"):
         bad = set(normalized[fld]) - supportive_or_mixed
@@ -450,6 +524,15 @@ def _validate_stage2_output_impl(raw: Any, stage1_observations: list[dict], pkt_
     if bad_counter:
         errors.append(f"counter_evidence_ids contains id(s) not CONTRADICTORY/MIXED per Stage1: {sorted(bad_counter)}")
 
+    # NEW hard rule (review point 4): every strictly-CONTRADICTORY family
+    # MUST be listed in counter_evidence_ids -- it is not optional.
+    missing_required_counter = contradictory_strict - set(normalized["counter_evidence_ids"])
+    if missing_required_counter:
+        errors.append(
+            f"counter_evidence_ids is missing required CONTRADICTORY family/families (Stage1 marked these "
+            f"CONTRADICTORY; they must be listed, not silently dropped): {sorted(missing_required_counter)}"
+        )
+
     evidence_sets = derive_case_evidence_sets(pkt_evidence)
     expected_system_unavailable = set(evidence_sets["system_unavailable_evidence_ids"])
     if set(normalized["system_limitations"]) != expected_system_unavailable:
@@ -457,6 +540,21 @@ def _validate_stage2_output_impl(raw: Any, stage1_observations: list[dict], pkt_
             f"system_limitations does not match system_unavailable_evidence_ids. "
             f"Expected {sorted(expected_system_unavailable)}, got {sorted(normalized['system_limitations'])}"
         )
+
+    # System-unavailable families are transparency metadata only.  Keeping
+    # them out of decision prose makes it mechanically impossible to use
+    # their absence as a hidden justification for WATCH/REJECT.
+    for fld in ("bull_thesis", "bear_thesis", "decision_reason"):
+        text_lower = normalized[fld].lower()
+        mentioned_system_limits = sorted(
+            eid for eid in expected_system_unavailable
+            if _text_mentions_family(text_lower, eid)
+        )
+        if mentioned_system_limits:
+            errors.append(
+                f"{fld} references system-unavailable family/families {mentioned_system_limits}; "
+                f"system limitations belong only in system_limitations and may not support or oppose the decision."
+            )
 
     bear_text_lower = normalized["bear_thesis"].lower()
     for eid in contradictory_or_mixed:
@@ -515,63 +613,139 @@ def _validate_stage2_output_impl(raw: Any, stage1_observations: list[dict], pkt_
                     if any(kw in text_lower for kw in ("clearly positive", "uniformly positive", "全面正向", "全面看多", "clearly negative", "uniformly negative", "全面負向", "全面看空")):
                         warnings.append(f"{fld} describes MIXED-direction family '{eid}' in uniform terms.")
 
-    if normalized["entry"]["status"] not in ENTRY_STATUS_VALUES:
-        errors.append(f"entry.status={normalized['entry']['status']!r} not in {sorted(ENTRY_STATUS_VALUES)}")
-    if normalized["failure_exit"]["trigger_type"] not in FAILURE_TRIGGER_VALUES:
-        errors.append(f"failure_exit.trigger_type={normalized['failure_exit']['trigger_type']!r} not in {sorted(FAILURE_TRIGGER_VALUES)}")
-
-    if decision in NON_ACTIONABLE_DECISIONS:
-        if normalized["entry"]["status"] != "NOT_ACTIONABLE":
-            errors.append(f"decision={decision} requires entry.status == 'NOT_ACTIONABLE'")
-        if normalized["entry"]["ideal_low"] is not None or normalized["entry"]["ideal_high"] is not None:
-            errors.append(f"decision={decision} requires entry.ideal_low/ideal_high == null")
-        if normalized["failure_exit"]["exit_price"] is not None:
-            errors.append(f"decision={decision} requires failure_exit.exit_price == null")
-        if normalized["failure_exit"]["trigger_type"] != "UNAVAILABLE":
-            errors.append(f"decision={decision} requires failure_exit.trigger_type == 'UNAVAILABLE'")
-
-    if decision in ACTIONABLE_DECISIONS:
-        if normalized["entry"]["status"] == "NOT_ACTIONABLE":
-            errors.append(f"decision={decision} must not have entry.status == 'NOT_ACTIONABLE'")
-        il, ih = normalized["entry"]["ideal_low"], normalized["entry"]["ideal_high"]
-        price_family = obs_by_id.get("price_volume_structure")
-        raw_price_numbers: list[float] = []
-        if price_family:
-            for txt in price_family.get("exact_observations", []):
-                raw_price_numbers.extend(_extract_numbers(txt))
-        if il is None or ih is None:
-            errors.append(f"decision={decision} requires non-null entry.ideal_low/ideal_high")
-        elif isinstance(il, bool) or isinstance(ih, bool) or not isinstance(il, (int, float)) or not isinstance(ih, (int, float)):
-            errors.append("entry.ideal_low/ideal_high must be numeric for an actionable decision")
-        else:
-            if il > ih:
-                errors.append(f"entry.ideal_low ({il}) must be <= entry.ideal_high ({ih})")
-            if raw_price_numbers:
-                lo, hi = min(raw_price_numbers) * 0.5, max(raw_price_numbers) * 2.0
-                if not (lo <= il <= hi) or not (lo <= ih <= hi):
-                    errors.append(
-                        f"entry.ideal_low/ideal_high ({il}/{ih}) is not within a plausible range of the "
-                        f"price_volume_structure numbers Stage1 observed ({raw_price_numbers})."
-                    )
-        exit_price = normalized["failure_exit"]["exit_price"]
-        if exit_price is None:
-            errors.append(f"decision={decision} requires non-null failure_exit.exit_price")
-        elif isinstance(exit_price, bool) or not isinstance(exit_price, (int, float)):
-            errors.append("failure_exit.exit_price must be numeric for an actionable decision")
-        elif raw_price_numbers:
-            lo, hi = min(raw_price_numbers) * 0.5, max(raw_price_numbers) * 2.0
-            if not (lo <= exit_price <= hi):
-                errors.append(f"failure_exit.exit_price ({exit_price}) is not within a plausible range of {raw_price_numbers}.")
-        if normalized["failure_exit"]["trigger_type"] == "UNAVAILABLE":
-            errors.append(f"decision={decision} requires a real failure_exit.trigger_type")
-        if not normalized["failure_exit"]["reason"]:
-            errors.append(f"decision={decision} requires a non-empty failure_exit.reason")
-
     for text_field in ("hypothesis", "bull_thesis", "bear_thesis", "invalidation", "decision_reason"):
         if not normalized[text_field]:
             errors.append(f"'{text_field}' must not be empty")
 
     return normalized, errors, warnings
+
+
+# ---------------------------------------------------------------------------
+# Stage 2b: actionability-only validation (entry/failure_exit ONLY; called
+# exclusively when decision is CANDIDATE/HIGH_CONVICTION)
+# ---------------------------------------------------------------------------
+
+
+def validate_stage2_actionability_output(
+    raw: Any,
+    stage1_observations: list[dict],
+    pkt_evidence: dict | None = None,
+) -> tuple[dict, list[str]]:
+    try:
+        return _validate_stage2_actionability_output_impl(raw, stage1_observations, pkt_evidence)
+    except Exception as e:  # noqa: BLE001
+        return {}, [f"Stage2 actionability validator crashed on malformed input: {type(e).__name__}: {e}"]
+
+
+def _validate_stage2_actionability_output_impl(
+    raw: Any,
+    stage1_observations: list[dict],
+    pkt_evidence: dict | None,
+) -> tuple[dict, list[str]]:
+    errors: list[str] = []
+    if not isinstance(raw, dict):
+        return {}, [f"Stage2 actionability output must be a JSON object, got {type(raw)}"]
+
+    extra = set(raw.keys()) - {"entry", "failure_exit"}
+    missing = {"entry", "failure_exit"} - set(raw.keys())
+    if extra:
+        errors.append(f"Stage2 actionability output has unexpected top-level key(s): {sorted(extra)}")
+    if missing:
+        errors.append(f"Stage2 actionability output missing key(s): {sorted(missing)}")
+    if errors:
+        return {}, errors
+
+    entry = raw.get("entry")
+    failure_exit = raw.get("failure_exit")
+    if not isinstance(entry, dict) or set(entry.keys()) != {"status", "ideal_low", "ideal_high"}:
+        return {}, ["'entry' must be an object with exactly status/ideal_low/ideal_high"]
+    if not isinstance(failure_exit, dict) or set(failure_exit.keys()) != {"exit_price", "reason", "trigger_type"}:
+        return {}, ["'failure_exit' must be an object with exactly exit_price/reason/trigger_type"]
+
+    status = entry.get("status", "").strip().upper() if isinstance(entry.get("status"), str) else entry.get("status")
+    trigger_type = (
+        failure_exit.get("trigger_type", "").strip().upper()
+        if isinstance(failure_exit.get("trigger_type"), str) else failure_exit.get("trigger_type")
+    )
+
+    if status not in ENTRY_STATUS_ACTIONABLE_VALUES:
+        errors.append(
+            f"entry.status={status!r} not in {sorted(ENTRY_STATUS_ACTIONABLE_VALUES)}. This call is only made "
+            f"for an actionable decision, so NOT_ACTIONABLE is not a valid answer here."
+        )
+    if trigger_type not in FAILURE_TRIGGER_ACTIONABLE_VALUES:
+        errors.append(
+            f"failure_exit.trigger_type={trigger_type!r} not in {sorted(FAILURE_TRIGGER_ACTIONABLE_VALUES)}. "
+            f"UNAVAILABLE is not a valid answer here."
+        )
+
+    obs_by_id = {o["evidence_id"]: o for o in stage1_observations if isinstance(o, dict) and isinstance(o.get("evidence_id"), str)}
+    price_family = obs_by_id.get("price_volume_structure")
+    observed_price_numbers: list[float] = []
+    if price_family:
+        for txt in price_family.get("exact_observations", []):
+            observed_price_numbers.extend(_extract_numbers(txt))
+
+    # Prefer packet-owned named price anchors.  Returns, volume ratios and
+    # ATR values must not widen the admissible price range accidentally.
+    raw_price_family = (pkt_evidence or {}).get("price_volume_structure")
+    price_anchors: list[float] = []
+    atr = 0.0
+    if isinstance(raw_price_family, dict):
+        for key in _PRICE_ANCHOR_KEYS:
+            value = raw_price_family.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                price_anchors.append(float(value))
+        atr_value = raw_price_family.get("atr20")
+        if isinstance(atr_value, (int, float)) and not isinstance(atr_value, bool):
+            atr = max(0.0, float(atr_value))
+    if not price_anchors:
+        price_anchors = observed_price_numbers
+
+    plausible_low = max(0.0, min(price_anchors) - 2.0 * atr) if price_anchors else None
+    plausible_high = max(price_anchors) + 2.0 * atr if price_anchors else None
+
+    il, ih = entry.get("ideal_low"), entry.get("ideal_high")
+    if il is None or ih is None:
+        errors.append("entry.ideal_low/ideal_high must both be non-null real numbers for an actionable decision")
+    elif isinstance(il, bool) or isinstance(ih, bool) or not isinstance(il, (int, float)) or not isinstance(ih, (int, float)):
+        errors.append("entry.ideal_low/ideal_high must be numeric")
+    else:
+        if il > ih:
+            errors.append(f"entry.ideal_low ({il}) must be <= entry.ideal_high ({ih})")
+        if plausible_low is not None and plausible_high is not None:
+            if not (plausible_low <= il <= plausible_high) or not (plausible_low <= ih <= plausible_high):
+                errors.append(
+                    f"entry.ideal_low/ideal_high ({il}/{ih}) is not within a plausible range of the "
+                    f"packet price anchors ({price_anchors}); allowed envelope is "
+                    f"[{plausible_low}, {plausible_high}]."
+                )
+
+    exit_price = failure_exit.get("exit_price")
+    if exit_price is None:
+        errors.append("failure_exit.exit_price must be a non-null real number for an actionable decision")
+    elif isinstance(exit_price, bool) or not isinstance(exit_price, (int, float)):
+        errors.append("failure_exit.exit_price must be numeric")
+    elif plausible_low is not None and plausible_high is not None:
+        if not (plausible_low <= exit_price <= plausible_high):
+            errors.append(
+                f"failure_exit.exit_price ({exit_price}) is not within the packet price-anchor envelope "
+                f"[{plausible_low}, {plausible_high}]."
+            )
+        if isinstance(il, (int, float)) and not isinstance(il, bool) and exit_price >= il:
+            errors.append(
+                f"failure_exit.exit_price ({exit_price}) must be below entry.ideal_low ({il}) for a long-only actionable plan."
+            )
+
+    reason = failure_exit.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        errors.append("failure_exit.reason must be a non-empty string")
+
+    normalized = {
+        "entry": {"status": status, "ideal_low": il, "ideal_high": ih},
+        "failure_exit": {"exit_price": exit_price, "reason": reason if isinstance(reason, str) else None, "trigger_type": trigger_type},
+    }
+    return normalized, errors
 
 
 # ---------------------------------------------------------------------------
@@ -651,3 +825,89 @@ def _validate_stage3_output_impl(raw: Any, stage1_evidence_ids: list[str]) -> tu
         errors.append("verdict=REVISE but problems is empty (or none were valid); must list at least one concrete problem")
 
     return {"verdict": verdict, "problems": normalized_problems}, errors
+
+
+# ---------------------------------------------------------------------------
+# Structured repair requests (review point 5)
+# ---------------------------------------------------------------------------
+
+_ENUM_PATTERN = re.compile(r"^(?P<field>[\w.]+)=(?P<received>.+?) not in (?P<allowed>\[.+\])\.?$")
+_ID_LIST_PATTERN = re.compile(r"^(?P<field>\w+) contains id\(s\) (?P<problem>not \w+(?:/\w+)? per Stage1): (?P<received>\[.+\])$")
+_MISSING_COUNTER_PATTERN = re.compile(r"^counter_evidence_ids is missing required CONTRADICTORY family/families.*?: (?P<missing>\[.+\])$")
+_SYSTEM_LIMITATIONS_PATTERN = re.compile(r"^system_limitations does not match system_unavailable_evidence_ids\. Expected (?P<expected>\[.+?\]), got (?P<received>\[.+\])$")
+_EMPTY_FIELD_PATTERN = re.compile(r"^'(?P<field>\w+)' must not be empty$")
+_MISSING_KEY_PATTERN = re.compile(r"^Stage2 (?:decision|actionability) output missing key\(s\): (?P<keys>\[.+\])$")
+_UNEXPECTED_KEY_PATTERN = re.compile(r"^Stage2 (?:decision|actionability) output has unexpected top-level key\(s\): (?P<keys>\[.+?\])")
+
+
+def errors_to_repair_request(errors: list[str]) -> list[dict]:
+    """
+    Converts this module's own human-readable error strings into a compact
+    list of {field, problem, received, allowed} dicts, for the subset of
+    error shapes this module itself generates in a fixed, enumerable
+    format (which is most of them, since they all come from this file).
+    Any error string that doesn't match a known pattern is passed through
+    as {"field": "unspecified", "problem": <the raw string>}, so nothing
+    is silently dropped -- the structured list is a SUPPLEMENT to the raw
+    errors sent to the model, never a replacement that could hide
+    something.
+    """
+    repairs: list[dict] = []
+    for e in errors:
+        m = _ENUM_PATTERN.match(e)
+        if m:
+            repairs.append({
+                "field": m.group("field"), "problem": "invalid_enum_value",
+                "received": m.group("received"), "allowed": m.group("allowed"),
+            })
+            continue
+        m = _ID_LIST_PATTERN.match(e)
+        if m:
+            repairs.append({
+                "field": m.group("field"), "problem": m.group("problem"),
+                "received": m.group("received"), "instruction": "remove these ids from this field",
+            })
+            continue
+        m = _MISSING_COUNTER_PATTERN.match(e)
+        if m:
+            repairs.append({
+                "field": "counter_evidence_ids", "problem": "missing_required_contradictory_family",
+                "must_add": m.group("missing"),
+            })
+            continue
+        m = _SYSTEM_LIMITATIONS_PATTERN.match(e)
+        if m:
+            repairs.append({
+                "field": "system_limitations", "problem": "must_exactly_equal_system_unavailable_ids",
+                "expected": m.group("expected"), "received": m.group("received"),
+            })
+            continue
+        m = _EMPTY_FIELD_PATTERN.match(e)
+        if m:
+            repairs.append({"field": m.group("field"), "problem": "must_not_be_empty"})
+            continue
+        m = _MISSING_KEY_PATTERN.match(e)
+        if m:
+            repairs.append({"field": "top_level", "problem": "missing_required_keys", "missing": m.group("keys")})
+            continue
+        m = _UNEXPECTED_KEY_PATTERN.match(e)
+        if m:
+            repairs.append({"field": "top_level", "problem": "unexpected_keys_present", "received": m.group("keys")})
+            continue
+        if "value judgment" in e:
+            repairs.append({"field": "unspecified", "problem": "value_judgment_without_benchmark", "detail": e})
+            continue
+        if "durative/trend language" in e:
+            repairs.append({"field": "unspecified", "problem": "single_period_described_as_trend", "detail": e})
+            continue
+        if "as a catalyst" in e:
+            repairs.append({"field": "unspecified", "problem": "routine_filing_described_as_catalyst", "detail": e})
+            continue
+        if "not within a plausible range" in e:
+            repairs.append({"field": "unspecified", "problem": "price_not_grounded_in_evidence", "detail": e})
+            continue
+        if "NEUTRAL or NOT_INTERPRETABLE" in e:
+            repairs.append({"field": "unspecified", "problem": "forbidden_role_family_used", "detail": e})
+            continue
+        repairs.append({"field": "unspecified", "problem": e})
+    return repairs

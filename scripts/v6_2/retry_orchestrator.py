@@ -1,53 +1,47 @@
 """
 retry_orchestrator.py
 
-Runs the Stage1 -> Stage2 -> Stage3(critic) -> [revise Stage2] pipeline for
-one case.
+REWRITTEN after real-model canary runs 35482706294 / 35485028854.
 
-FIXED AFTER EXTERNAL REVIEW (this version):
+STRUCTURAL FIX (review point 1): Stage 2 is now driven through TWO
+possible model calls per attempt, never one call that has to get both
+"what's the decision" and "what's the actionable price, if any" right at
+once:
 
-  1. Retries now actually feed the model concrete feedback. Every payload
-     builder receives (previous_raw_output, previous_errors) in addition
-     to its normal arguments. On attempt 1 both are None/[]; on attempt 2+
-     they carry exactly what the model returned last time and exactly
-     which contract rules it violated. Verified by
-     test_retry_second_attempt_payload_contains_first_attempt_errors.
+    stage2_decision_call   -- always called. Produces decision, thesis,
+        evidence roles. Never entry/failure_exit.
+    stage2_actionability_call -- called ONLY if the decision that came
+        back is CANDIDATE/HIGH_CONVICTION. Produces entry/failure_exit
+        ONLY, with an enum that cannot express NOT_ACTIONABLE/UNAVAILABLE.
 
-  2. Timeout is now enforced two ways, not one:
-       a) each model call is wrapped in a hard per-call timeout via
-          concurrent.futures (the call is abandoned at the code level if
-          it doesn't return in time -- note Python cannot forcibly kill a
-          native thread, so the underlying HTTP call should ALSO set its
-          own request timeout in your model client for a true network-
-          level abort; this is documented, not hidden);
-       b) after every call returns, the deadline is re-checked BEFORE the
-          result is accepted/validated. A result that arrives after the
-          case deadline has passed is discarded and treated as a timeout,
-          even if it would otherwise have been a valid APPROVE. Verified
-          by test_late_result_after_deadline_is_not_finalized.
+For REJECT/WATCH, entry/failure_exit is assembled deterministically by
+safe_finalizer.assemble_non_actionable_stage2() with NO model call at
+all -- see that module's docstring for why this is assembly, not
+invention. This also means the common case (REJECT/WATCH, which the
+original decision-collapse investigation found to be ~94% of cases) now
+costs FEWER model calls than the old single-call design, not more.
 
-  3. Every validate_fn call is wrapped in an additional orchestrator-level
-     try/except as defense-in-depth (the validators in
-     deterministic_validators.py are already internally exception-safe as
-     of this version, but the orchestrator does not rely on that alone).
-     A single malformed Stage2 field (e.g. primary_evidence_ids=123) can
-     no longer raise an uncaught exception anywhere in this file. Verified
-     by test_malformed_field_types_do_not_crash_run_case.
+STRUCTURED REPAIR REQUESTS (review point 5): every retry payload now
+carries BOTH the raw previous errors (as before) AND a compact structured
+`repair_request` list from deterministic_validators.errors_to_repair_
+request(), so the model gets a short, mechanical "what exactly to change"
+alongside the full text.
 
-  4. run_batch() now wraps each run_case() call in its own try/except, so
-     an unexpected bug in ANY single case can never abort the rest of the
-     batch. Verified by test_run_batch_survives_unexpected_exception_in_
-     one_case.
+PER-STAGE LATENCY (review point 7): HistoryEntry now has an
+elapsed_seconds field, populated around every individual model call, so
+summarize_canary_results.py can report real per-stage latency/call-count
+breakdowns, not just per-case totals.
 
-  5. History now retains the FULL FinalizeResult for Stage 2 attempts
-     (normalized output, applied_fixes, remaining_errors, remaining_
-     warnings), not just errors. Verified by
-     test_history_retains_applied_fixes_and_warnings.
-
-  6. Default timeouts recalibrated against the REPORTED real Qwen2.5-7B
-     single-call latency (~149s observed). See OrchestratorConfig for the
-     derivation. The previous 240s per-case default was never realistic
-     for a 3-stage pipeline and has been replaced.
+TIMEOUT BUDGET RECALIBRATED (review point 7): the real 2-round canary
+measured a 316.47s mean per-case elapsed time with ZERO finalized cases
+-- i.e. the old budget was being burned entirely on doomed retries, not
+on legitimate model latency. Worst-case call count under the new design
+is higher on paper (stage1 <=2, stage2a <=2, stage2b <=2, critic 1,
+revision stage2a <=2, revision stage2b <=2, critic 1 = <=12 calls), so
+per_case_timeout_seconds is raised accordingly (see OrchestratorConfig),
+but the STRUCTURAL fixes above mean the common REJECT/WATCH case no
+longer needs stage2b or usually needs a full revision round, so real
+elapsed time for most cases should fall, not rise.
 """
 
 from __future__ import annotations
@@ -57,12 +51,19 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from typing import Callable
 
-from deterministic_validators import validate_stage1_output, validate_stage3_output
+from deterministic_validators import (
+    ACTIONABLE_DECISIONS,
+    NON_ACTIONABLE_DECISIONS,
+    errors_to_repair_request,
+    validate_stage1_output,
+    validate_stage2_actionability_output,
+    validate_stage2_decision_output,
+    validate_stage3_output,
+)
 from evidence_capability import derive_case_evidence_sets
-from safe_finalizer import FinalizeResult, attempt_safe_finalize
+from safe_finalizer import assemble_actionable_stage2, assemble_non_actionable_stage2
 
 StageCallable = Callable[[str, dict], dict]
-# payload_factory(previous_raw, previous_errors) -> user_payload dict
 PayloadFactory = Callable[[dict | None, list[str]], dict]
 
 _executor = ThreadPoolExecutor(max_workers=8)
@@ -71,28 +72,24 @@ _executor = ThreadPoolExecutor(max_workers=8)
 @dataclass
 class OrchestratorConfig:
     stage1_max_attempts: int = 2
-    stage2_max_format_attempts: int = 2
+    stage2_decision_max_attempts: int = 2
+    stage2_actionability_max_attempts: int = 2
     critic_max_rounds: int = 2
 
-    # Derivation: the reported real single Qwen2.5-7B call latency is
-    # ~149s. A single model call must be allowed to run at least that
-    # long without being killed, so per_call_timeout_seconds is set with
-    # headroom above the observed figure, not below it.
-    per_call_timeout_seconds: float = 300.0
+    # Derivation: reported real single Qwen2.5-7B call latency ~149s.
+    per_call_timeout_seconds: float = 180.0
 
-    # Worst case call count for one case: stage1(<=2) + stage2 initial
-    # (<=2) + critic round1(1) + stage2 revision(<=2) + critic round2(1)
-    # = <=8 calls. At up to per_call_timeout_seconds each, that is up to
-    # 8 * 300s = 2400s. per_case_timeout_seconds is set with headroom
-    # above that worst case, not equal to or below it (the previous 240s
-    # default could never have completed even one full round in practice
-    # and is retired).
-    per_case_timeout_seconds: float = 2500.0
+    # Worst-case call count for one case under the split-Stage2 design:
+    #   stage1(<=2) + stage2a(<=2) + stage2b(<=2, only if actionable)
+    #   + critic round1(1) + revision stage2a(<=2) + revision stage2b(<=2)
+    #   + critic round2(1) = <=12 calls. At <=180s each: <=2160s. Budget
+    # is set with headroom above that worst case.
+    per_case_timeout_seconds: float = 2400.0
 
 
 @dataclass
 class HistoryEntry:
-    stage: str  # "stage1" | "stage2" | "stage3" | "stage2_revision"
+    stage: str  # "stage1" | "stage2_decision" | "stage2_actionability" | "stage3" | "*_revision"
     attempt: int
     raw_output: dict | None
     errors: list[str]
@@ -100,6 +97,7 @@ class HistoryEntry:
     applied_fixes: list[str] = field(default_factory=list)
     exception: str | None = None
     timed_out: bool = False
+    elapsed_seconds: float = 0.0
 
 
 @dataclass
@@ -116,15 +114,6 @@ class CaseResult:
 
 
 def _call_with_hard_timeout(call_fn: StageCallable, system_prompt: str, payload: dict, timeout_s: float):
-    """
-    Runs call_fn in a worker thread and enforces `timeout_s` at the code
-    level via Future.result(timeout=...). Raises FutureTimeoutError if the
-    call does not return in time (the underlying thread may continue
-    running in the background -- Python offers no safe way to forcibly
-    kill it; your actual model-serving client should set its own request-
-    level timeout, e.g. `requests.post(..., timeout=timeout_s)`, so the
-    network call itself is aborted rather than merely abandoned here).
-    """
     future = _executor.submit(call_fn, system_prompt, payload)
     return future.result(timeout=timeout_s)
 
@@ -141,12 +130,6 @@ def _run_stage_with_retries(
     config: OrchestratorConfig,
     has_warnings: bool = False,
 ) -> tuple[dict | None, list[str]]:
-    """
-    Generic retry loop. Returns (normalized_output_or_None, last_errors).
-    Appends exactly one HistoryEntry per attempt. On attempt 2+, the
-    payload_factory receives the previous raw output and previous errors
-    so the model gets concrete feedback, not a repeat of the same request.
-    """
     last_errors: list[str] = ["not attempted"]
     previous_raw: dict | None = None
     previous_errors: list[str] = []
@@ -156,13 +139,13 @@ def _run_stage_with_retries(
         if remaining <= 0:
             history.append(HistoryEntry(
                 stage=stage_name, attempt=attempt, raw_output=None,
-                errors=["per-case wall-clock budget exceeded before this attempt"],
-                timed_out=True,
+                errors=["per-case wall-clock budget exceeded before this attempt"], timed_out=True,
             ))
             return None, ["per-case wall-clock budget exceeded"]
 
         payload = payload_factory(previous_raw, previous_errors)
         call_timeout = min(config.per_call_timeout_seconds, remaining)
+        call_start = time.monotonic()
 
         try:
             raw = _call_with_hard_timeout(call_fn, system_prompt, payload, call_timeout)
@@ -170,42 +153,43 @@ def _run_stage_with_retries(
             history.append(HistoryEntry(
                 stage=stage_name, attempt=attempt, raw_output=None,
                 errors=[f"model call exceeded {call_timeout:.0f}s hard timeout"], timed_out=True,
+                elapsed_seconds=time.monotonic() - call_start,
             ))
             last_errors = ["model call timed out"]
             previous_raw, previous_errors = None, last_errors
             continue
-        except Exception as e:  # noqa: BLE001 -- any call failure is a retryable attempt, never a crash
+        except Exception as e:  # noqa: BLE001
             history.append(HistoryEntry(
-                stage=stage_name, attempt=attempt, raw_output=None,
-                errors=[], exception=f"{type(e).__name__}: {e}",
+                stage=stage_name, attempt=attempt, raw_output=None, errors=[],
+                exception=f"{type(e).__name__}: {e}", elapsed_seconds=time.monotonic() - call_start,
             ))
             last_errors = [f"{type(e).__name__}: {e}"]
             previous_raw, previous_errors = None, last_errors
             continue
 
-        # Re-check the deadline AFTER the call returns. A result that
-        # arrives late is discarded, never validated/accepted/finalized.
+        call_elapsed = time.monotonic() - call_start
+
         if time.monotonic() > deadline:
             history.append(HistoryEntry(
                 stage=stage_name, attempt=attempt, raw_output=raw,
                 errors=["result arrived after per-case deadline; discarded"], timed_out=True,
+                elapsed_seconds=call_elapsed,
             ))
             return None, ["result arrived after per-case deadline"]
 
         try:
             if has_warnings:
-                result = validate_fn(raw)
-                normalized, errors, warnings, applied_fixes = result
+                normalized, errors, warnings = validate_fn(raw)
             else:
                 normalized, errors = validate_fn(raw)
-                warnings, applied_fixes = [], []
-        except Exception as e:  # noqa: BLE001 -- defense in depth; validators are also self-protecting
+                warnings = []
+        except Exception as e:  # noqa: BLE001
             errors = [f"validator crashed unexpectedly: {type(e).__name__}: {e}"]
-            normalized, warnings, applied_fixes = {}, [], []
+            normalized, warnings = {}, []
 
         history.append(HistoryEntry(
-            stage=stage_name, attempt=attempt, raw_output=raw,
-            errors=errors, warnings=warnings, applied_fixes=applied_fixes,
+            stage=stage_name, attempt=attempt, raw_output=raw, errors=errors, warnings=warnings,
+            elapsed_seconds=call_elapsed,
         ))
 
         if not errors:
@@ -217,24 +201,105 @@ def _run_stage_with_retries(
     return None, last_errors
 
 
-def _stage2_validate_with_finalizer(raw, stage1_observations, pkt_evidence) -> tuple[dict, list[str], list[str], list[str]]:
-    """Adapter so the generic retry loop's has_warnings=True path also
-    gets applied_fixes, keeping the full FinalizeResult in history."""
-    result: FinalizeResult = attempt_safe_finalize(raw, stage1_observations, pkt_evidence)
-    return result.normalized, result.remaining_errors, result.remaining_warnings, result.applied_fixes
+def _with_repair_request(base_payload: dict, previous_raw: dict | None, previous_errors: list[str], extra_instruction: str) -> dict:
+    if previous_raw is not None or previous_errors:
+        base_payload["previous_attempt"] = {"raw_output": previous_raw, "validation_errors": previous_errors}
+        base_payload["repair_request"] = errors_to_repair_request(previous_errors)
+        base_payload["instruction"] = base_payload.get("instruction", "") + " " + extra_instruction
+    return base_payload
+
+
+def _run_stage2_pipeline(
+    pkt: dict,
+    stage1_output: dict,
+    numerical_prior: dict,
+    stage2_decision_call: StageCallable,
+    stage2_actionability_call: StageCallable,
+    stage2_decision_system_prompt: str,
+    stage2_actionability_system_prompt: str,
+    build_stage2_decision_payload: Callable[[dict, dict, dict], dict],
+    build_stage2_actionability_payload: Callable[[dict, dict, dict, dict], dict],
+    history: list[HistoryEntry],
+    deadline: float,
+    config: OrchestratorConfig,
+    critic_feedback: list[dict] | None = None,
+    stage_prefix: str = "stage2",
+) -> tuple[dict | None, list[str]]:
+    """
+    Runs the decision call, then (if actionable) the actionability call,
+    then deterministically assembles the final Stage2 dict. Used for both
+    the initial pass and for a critic-triggered revision pass (via
+    critic_feedback + stage_prefix="stage2_revision").
+    """
+
+    def decision_payload_factory(prev_raw, prev_errors):
+        base = build_stage2_decision_payload(pkt, stage1_output, numerical_prior)
+        if critic_feedback:
+            base["critic_feedback"] = critic_feedback
+            base["instruction"] = (
+                base.get("instruction", "")
+                + " An independent critic returned verdict=REVISE with the problems in critic_feedback. "
+                  "Address every listed problem using only evidence_observations already supplied."
+            )
+        return _with_repair_request(
+            base, prev_raw, prev_errors,
+            "The previous attempt failed contract validation. repair_request lists exactly what to change, "
+            "field by field -- apply every item in it. Do not repeat the same invalid value.",
+        )
+
+    decision_output, decision_errors = _run_stage_with_retries(
+        f"{stage_prefix}_decision", stage2_decision_call, stage2_decision_system_prompt,
+        decision_payload_factory,
+        lambda raw: validate_stage2_decision_output(raw, stage1_output["evidence_observations"], pkt["evidence"]),
+        config.stage2_decision_max_attempts, history, deadline, config, has_warnings=True,
+    )
+    if decision_output is None:
+        return None, decision_errors
+
+    decision = decision_output["decision"]
+
+    if decision in NON_ACTIONABLE_DECISIONS:
+        assembled = assemble_non_actionable_stage2(decision_output)
+        return assembled.combined, []
+
+    def actionability_payload_factory(prev_raw, prev_errors):
+        base = build_stage2_actionability_payload(pkt, stage1_output, decision_output, numerical_prior)
+        return _with_repair_request(
+            base, prev_raw, prev_errors,
+            "The previous attempt failed contract validation. repair_request lists exactly what to change. "
+            "entry.status may NOT be NOT_ACTIONABLE and failure_exit.trigger_type may NOT be UNAVAILABLE in "
+            "this call -- this call is only made because the decision is actionable.",
+        )
+
+    actionability_output, actionability_errors = _run_stage_with_retries(
+        f"{stage_prefix}_actionability", stage2_actionability_call, stage2_actionability_system_prompt,
+        actionability_payload_factory,
+        lambda raw: validate_stage2_actionability_output(
+            raw, stage1_output["evidence_observations"], pkt["evidence"]
+        ),
+        config.stage2_actionability_max_attempts, history, deadline, config, has_warnings=False,
+    )
+    if actionability_output is None:
+        return None, actionability_errors
+
+    assembled = assemble_actionable_stage2(decision_output, actionability_output)
+    return assembled.combined, []
 
 
 def run_case(
     pkt: dict,
     numerical_prior: dict,
     stage1_call: StageCallable,
-    stage2_call: StageCallable,
+    stage2_decision_call: StageCallable,
+    stage2_actionability_call: StageCallable,
     stage3_call: StageCallable,
     stage1_system_prompt: str,
-    stage2_system_prompt: str,
+    stage2_decision_system_prompt: str,
+    stage2_actionability_system_prompt: str,
     stage3_system_prompt: str,
     build_stage1_payload: Callable[[dict], dict],
-    build_stage2_payload: Callable[[dict, dict, dict], dict],
+    build_stage2_decision_payload: Callable[[dict, dict, dict], dict],
+    build_stage2_actionability_payload: Callable[[dict, dict, dict, dict], dict],
     build_stage3_payload: Callable[[dict, dict, dict], dict],
     config: OrchestratorConfig | None = None,
 ) -> CaseResult:
@@ -252,22 +317,17 @@ def run_case(
             final_stage2_output=None, stage1_output=None, critic_history=[],
             raw_history=[HistoryEntry(stage="setup", attempt=0, raw_output=None,
                                        errors=[f"evidence set derivation failed: {e}"])],
-            elapsed_seconds=time.monotonic() - start,
-            failure_stage="setup", failure_reason=str(e),
+            elapsed_seconds=time.monotonic() - start, failure_stage="setup", failure_reason=str(e),
         )
     case_available_ids = evidence_sets["case_available_evidence_ids"]
 
     # ---- Stage 1 -----------------------------------------------------
     def stage1_payload_factory(prev_raw, prev_errors):
         base = build_stage1_payload(pkt)
-        if prev_raw is not None or prev_errors:
-            base["previous_attempt"] = {"raw_output": prev_raw, "validation_errors": prev_errors}
-            base["instruction"] = (
-                base.get("instruction", "")
-                + " The previous attempt failed contract validation with the errors listed in "
-                  "previous_attempt.validation_errors. Fix exactly those problems."
-            )
-        return base
+        return _with_repair_request(
+            base, prev_raw, prev_errors,
+            "Fix precisely the errors listed in previous_attempt.validation_errors / repair_request.",
+        )
 
     stage1_output, stage1_errors = _run_stage_with_retries(
         "stage1", stage1_call, stage1_system_prompt, stage1_payload_factory,
@@ -282,25 +342,14 @@ def run_case(
             failure_stage="stage1", failure_reason="; ".join(stage1_errors),
         )
 
-    # ---- Stage 2 (format-only retry loop) -----------------------------
-    def stage2_payload_factory(prev_raw, prev_errors):
-        base = build_stage2_payload(pkt, stage1_output, numerical_prior)
-        if prev_raw is not None or prev_errors:
-            base["previous_attempt"] = {"raw_output": prev_raw, "validation_errors": prev_errors}
-            base["instruction"] = (
-                base.get("instruction", "")
-                + " The previous attempt failed contract validation with the errors listed in "
-                  "previous_attempt.validation_errors. Fix exactly those problems using only "
-                  "evidence_observations already supplied; do not introduce new claims."
-            )
-        return base
-
-    stage2_output, stage2_errors = _run_stage_with_retries(
-        "stage2", stage2_call, stage2_system_prompt, stage2_payload_factory,
-        lambda raw: _stage2_validate_with_finalizer(raw, stage1_output["evidence_observations"], pkt["evidence"]),
-        config.stage2_max_format_attempts, history, deadline, config, has_warnings=True,
+    # ---- Stage 2 (decision, then conditionally actionability) --------
+    current_stage2, stage2_errors = _run_stage2_pipeline(
+        pkt, stage1_output, numerical_prior, stage2_decision_call, stage2_actionability_call,
+        stage2_decision_system_prompt, stage2_actionability_system_prompt,
+        build_stage2_decision_payload, build_stage2_actionability_payload,
+        history, deadline, config,
     )
-    if stage2_output is None:
+    if current_stage2 is None:
         return CaseResult(
             case_id=case_id, status="MODEL_CONTRACT_FAILURE",
             final_stage2_output=None, stage1_output=stage1_output, critic_history=[],
@@ -310,7 +359,6 @@ def run_case(
 
     # ---- Stage 3 critic loop --------------------------------------------
     critic_history: list[dict] = []
-    current_stage2 = stage2_output
     stage1_evidence_ids = [o["evidence_id"] for o in stage1_output["evidence_observations"]]
 
     for critic_round in range(1, config.critic_max_rounds + 1):
@@ -327,12 +375,14 @@ def run_case(
         det_precheck_summary = {"errors": [], "note": "structural checks already passed prior to critic"}
         payload = build_stage3_payload(stage1_output, current_stage2, det_precheck_summary)
         call_timeout = min(config.per_call_timeout_seconds, remaining)
+        call_start = time.monotonic()
 
         try:
             raw_critic = _call_with_hard_timeout(stage3_call, stage3_system_prompt, payload, call_timeout)
         except FutureTimeoutError:
             history.append(HistoryEntry(stage="stage3", attempt=critic_round, raw_output=None,
-                                         errors=[f"model call exceeded {call_timeout:.0f}s hard timeout"], timed_out=True))
+                                         errors=[f"model call exceeded {call_timeout:.0f}s hard timeout"],
+                                         timed_out=True, elapsed_seconds=time.monotonic() - call_start))
             return CaseResult(
                 case_id=case_id, status="MODEL_CONTRACT_FAILURE",
                 final_stage2_output=current_stage2, stage1_output=stage1_output,
@@ -341,8 +391,8 @@ def run_case(
                 failure_stage="stage3", failure_reason="model call timed out",
             )
         except Exception as e:  # noqa: BLE001
-            history.append(HistoryEntry(stage="stage3", attempt=critic_round, raw_output=None,
-                                         errors=[], exception=f"{type(e).__name__}: {e}"))
+            history.append(HistoryEntry(stage="stage3", attempt=critic_round, raw_output=None, errors=[],
+                                         exception=f"{type(e).__name__}: {e}", elapsed_seconds=time.monotonic() - call_start))
             return CaseResult(
                 case_id=case_id, status="MODEL_CONTRACT_FAILURE",
                 final_stage2_output=current_stage2, stage1_output=stage1_output,
@@ -351,11 +401,12 @@ def run_case(
                 failure_stage="stage3", failure_reason=f"{type(e).__name__}: {e}",
             )
 
-        # Late-result discard: a critic APPROVE that arrives after the
-        # deadline must never finalize the case.
+        call_elapsed = time.monotonic() - call_start
+
         if time.monotonic() > deadline:
             history.append(HistoryEntry(stage="stage3", attempt=critic_round, raw_output=raw_critic,
-                                         errors=["result arrived after per-case deadline; discarded"], timed_out=True))
+                                         errors=["result arrived after per-case deadline; discarded"],
+                                         timed_out=True, elapsed_seconds=call_elapsed))
             return CaseResult(
                 case_id=case_id, status="MODEL_CONTRACT_FAILURE",
                 final_stage2_output=current_stage2, stage1_output=stage1_output,
@@ -366,10 +417,11 @@ def run_case(
 
         try:
             normalized_critic, critic_errors = validate_stage3_output(raw_critic, stage1_evidence_ids)
-        except Exception as e:  # noqa: BLE001 -- defense in depth
+        except Exception as e:  # noqa: BLE001
             normalized_critic, critic_errors = {}, [f"validator crashed unexpectedly: {type(e).__name__}: {e}"]
 
-        history.append(HistoryEntry(stage="stage3", attempt=critic_round, raw_output=raw_critic, errors=critic_errors))
+        history.append(HistoryEntry(stage="stage3", attempt=critic_round, raw_output=raw_critic,
+                                     errors=critic_errors, elapsed_seconds=call_elapsed))
 
         if critic_errors:
             critic_history.append({"round": critic_round, "raw": raw_critic, "contract_errors": critic_errors})
@@ -388,29 +440,12 @@ def run_case(
         if critic_round >= config.critic_max_rounds:
             break
 
-        problems_for_revision = normalized_critic["problems"]
-
-        def stage2_revision_payload_factory(prev_raw, prev_errors, _problems=problems_for_revision):
-            base = build_stage2_payload(pkt, stage1_output, numerical_prior)
-            base["critic_feedback"] = _problems
-            instr = (
-                " An independent critic returned verdict=REVISE with the problems listed in "
-                "critic_feedback. Address every listed problem using only evidence_observations "
-                "already supplied, without introducing new unsupported claims."
-            )
-            if prev_raw is not None or prev_errors:
-                base["previous_attempt"] = {"raw_output": prev_raw, "validation_errors": prev_errors}
-                instr += (
-                    " Your previous revision attempt ALSO failed contract validation with the "
-                    "errors in previous_attempt.validation_errors -- fix those too."
-                )
-            base["instruction"] = base.get("instruction", "") + instr
-            return base
-
-        revised_stage2, revised_errors = _run_stage_with_retries(
-            "stage2_revision", stage2_call, stage2_system_prompt, stage2_revision_payload_factory,
-            lambda raw: _stage2_validate_with_finalizer(raw, stage1_output["evidence_observations"], pkt["evidence"]),
-            config.stage2_max_format_attempts, history, deadline, config, has_warnings=True,
+        revised_stage2, revised_errors = _run_stage2_pipeline(
+            pkt, stage1_output, numerical_prior, stage2_decision_call, stage2_actionability_call,
+            stage2_decision_system_prompt, stage2_actionability_system_prompt,
+            build_stage2_decision_payload, build_stage2_actionability_payload,
+            history, deadline, config,
+            critic_feedback=normalized_critic["problems"], stage_prefix="stage2_revision",
         )
         if revised_stage2 is None:
             return CaseResult(
@@ -435,35 +470,30 @@ def run_batch(
     packets: list[dict],
     numerical_priors: dict,
     stage1_call: StageCallable,
-    stage2_call: StageCallable,
+    stage2_decision_call: StageCallable,
+    stage2_actionability_call: StageCallable,
     stage3_call: StageCallable,
     stage1_system_prompt: str,
-    stage2_system_prompt: str,
+    stage2_decision_system_prompt: str,
+    stage2_actionability_system_prompt: str,
     stage3_system_prompt: str,
     build_stage1_payload: Callable[[dict], dict],
-    build_stage2_payload: Callable[[dict, dict, dict], dict],
+    build_stage2_decision_payload: Callable[[dict, dict, dict], dict],
+    build_stage2_actionability_payload: Callable[[dict, dict, dict, dict], dict],
     build_stage3_payload: Callable[[dict, dict, dict], dict],
     config: OrchestratorConfig | None = None,
 ) -> list[CaseResult]:
-    """
-    Runs run_case() independently for every packet. Each call is wrapped
-    in its own try/except: an unexpected bug in ANY single case (not just
-    a validator's normal contract-error path, which never raises, but a
-    genuinely unforeseen exception anywhere in run_case's own logic) is
-    caught here and converted into a MODEL_CONTRACT_FAILURE for that case
-    only. It can never abort or skip any other case in the batch.
-    """
     results = []
     for pkt in packets:
         prior = numerical_priors.get(pkt["case_id"], {})
         try:
             result = run_case(
-                pkt, prior, stage1_call, stage2_call, stage3_call,
-                stage1_system_prompt, stage2_system_prompt, stage3_system_prompt,
-                build_stage1_payload, build_stage2_payload, build_stage3_payload,
-                config,
+                pkt, prior, stage1_call, stage2_decision_call, stage2_actionability_call, stage3_call,
+                stage1_system_prompt, stage2_decision_system_prompt, stage2_actionability_system_prompt,
+                stage3_system_prompt, build_stage1_payload, build_stage2_decision_payload,
+                build_stage2_actionability_payload, build_stage3_payload, config,
             )
-        except Exception as e:  # noqa: BLE001 -- outermost per-case isolation
+        except Exception as e:  # noqa: BLE001
             result = CaseResult(
                 case_id=pkt.get("case_id", -1), status="MODEL_CONTRACT_FAILURE",
                 final_stage2_output=None, stage1_output=None, critic_history=[],
