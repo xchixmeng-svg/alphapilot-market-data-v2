@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alphapilot.internal/schema/STAGE1_EVIDENCE_DIRECTION_SCHEMA.json",
+  "title": "V6.2 Stage 1: Per-Family Evidence Direction Extraction",
+  "schema_version": "1.0.0",
+  "description": "Stage 1 runs ONCE per case, over ALL case_available_evidence_ids at once (not once per family -- see README for the latency rationale). It performs ONLY extraction + directional classification. It must NOT form a thesis, must NOT decide REJECT/WATCH/CANDIDATE/HIGH_CONVICTION, and must NOT propose an entry or failure-exit price. Keeping this stage single-purpose is the core fix for task overload.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "evidence_observations"],
+  "properties": {
+    "case_id": { "type": "integer" },
+    "evidence_observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/evidence_observation" }
+    }
+  },
+  "definitions": {
+    "evidence_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "exact_observations",
+        "direction",
+        "timeliness",
+        "relevance_to_hypothesis_space",
+        "limitations",
+        "benchmark_available"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "description": "Must be one of the case_available_evidence_ids supplied for this case. Stage-2/3 validators reject any id not in that set."
+        },
+        "exact_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Each item must directly restate a number or short verbatim phrase actually present in the supplied packet for this evidence family (e.g. 'PE = 215.37', 'revenue YoY = -19.84%', 'MOPS title: 董事會通過第三季合併財務報告'). Never a paraphrase that adds an interpretation. No invented figures. This is the field a downstream critic and a human reviewer both check claims against."
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["SUPPORTIVE", "CONTRADICTORY", "NEUTRAL", "MIXED", "NOT_INTERPRETABLE"],
+          "description": "SUPPORTIVE/CONTRADICTORY are relative to a >=10% upside opportunity. MIXED means the family itself contains both supportive and contradictory signals (e.g. institutional flow negative last session but positive 20-day mean). NOT_INTERPRETABLE means the raw data cannot be assigned a direction without further context Stage 1 does not have (e.g. a single macro data point with no trend)."
+        },
+        "timeliness": {
+          "type": "string",
+          "enum": ["CURRENT", "STALE", "UNKNOWN_AGE"],
+          "description": "CURRENT: this evidence reflects a recent/current state. STALE: the evidence is old relative to the decision date (e.g. a MOPS filing more than ~30 trading days old, or a routine periodic filing with no new information). UNKNOWN_AGE: no timestamp/age metadata was supplied."
+        },
+        "relevance_to_hypothesis_space": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"],
+          "description": "How directly this family speaks to a >=10% opportunity thesis, independent of its direction."
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Concrete caveats on this family's evidentiary value, stated explicitly rather than silently assumed away. Common required limitations (Stage 1 MUST state these when applicable; deterministic validators check for their presence, see D.4/D.5/D.6 rules): 'no historical or peer valuation benchmark supplied -- cheap/expensive cannot be asserted'; 'single-period revenue change -- does not by itself establish a sustained trend'; 'routine/periodic filing -- not evidence of a new catalyst'; 'mixed direction across sub-signals -- cannot be summarized as uniformly positive or negative'."
+        },
+        "benchmark_available": {
+          "type": "boolean",
+          "description": "True only if the packet supplies an explicit historical or peer comparison point for this family (e.g. a historical PE band, a peer PE). Stage 2/Critic use this to deterministically block any 'cheap'/'expensive'/'undervalued' claim when false."
+        }
+      }
+    }
+  }
+}
