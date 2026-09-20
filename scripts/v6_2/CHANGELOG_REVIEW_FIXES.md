@@ -30,9 +30,8 @@ in this offline sandbox (e.g. requires a real network call).
    first. Covered by `test_retry_second_attempt_payload_contains_first_
    attempt_errors` and `test_stage2_revision_payload_contains_critic_
    feedback_and_prior_errors`.
-7. [FIXED] Default timeouts recalibrated: `per_call_timeout_seconds=180`
-   (headroom above the reported ~149s real call), `per_case_timeout_
-   seconds=1500` (headroom above the 8-call worst case).
+7. [FIXED] Default timeouts recalibrated after real canary execution:
+   `per_call_timeout_seconds=300`, `per_case_timeout_seconds=2500`.
 8. [FIXED] Hard timeout via `ThreadPoolExecutor.result(timeout=...)`, plus
    a deadline recheck immediately after every call returns, before the
    result is accepted. Covered by `test_hard_per_call_timeout_is_
