@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://alphapilot.internal/schema/STAGE2_DECISION_SCHEMA.json",
+  "title": "V6.2 Stage 2: Thesis + Decision (grounded in Stage 1 output)",
+  "schema_version": "1.0.0",
+  "description": "Stage 2 receives the case packet, the calibrated numerical forecasts (as a prior, not an admission rule), and the Stage 1 evidence_observations array (already validated -- ids and exact_observations are trustworthy inputs at this point). Stage 2 forms a thesis and a decision. It must ground every claim in a specific evidence_id from Stage 1's output; it may not introduce new factual claims about the evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision",
+    "evidence_quality",
+    "hypothesis_type",
+    "hypothesis",
+    "primary_evidence_ids",
+    "secondary_evidence_ids",
+    "counter_evidence_ids",
+    "system_limitations",
+    "bull_thesis",
+    "bear_thesis",
+    "invalidation",
+    "decision_reason",
+    "entry",
+    "failure_exit"
+  ],
+  "properties": {
+    "decision": { "type": "string", "enum": ["REJECT", "WATCH", "CANDIDATE", "HIGH_CONVICTION"] },
+    "evidence_quality": {
+      "type": "string",
+      "enum": ["STRONG", "MODERATE", "WEAK"],
+      "description": "Scored only from Stage 1's per-family direction/timeliness/limitations for case_available families. Never scored by counting how many of the 10 registry families are present."
+    },
+    "hypothesis_type": { "type": "string", "minLength": 1 },
+    "hypothesis": { "type": "string", "minLength": 1 },
+    "primary_evidence_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Must be a subset of Stage 1's evidence_observations[*].evidence_id whose direction is SUPPORTIVE (or MIXED with a supportive component described in exact_observations)."
+    },
+    "secondary_evidence_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Subset of Stage 1 evidence_ids providing weaker/contextual support."
+    },
+    "counter_evidence_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Must be a subset of Stage 1's evidence_observations[*].evidence_id whose direction is CONTRADICTORY (or MIXED with a contradictory component). If bear_thesis references any evidence family's negative aspect, that family's id MUST appear here -- deterministically checked downstream."
+    },
+    "system_limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Must exactly equal the system_unavailable_evidence_ids supplied for this case. Transparency-only."
+    },
+    "bull_thesis": { "type": "string", "minLength": 1 },
+    "bear_thesis": { "type": "string", "minLength": 1 },
+    "invalidation": { "type": "string", "minLength": 1 },
+    "decision_reason": { "type": "string", "minLength": 1 },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "ideal_low", "ideal_high"],
+      "properties": {
+        "status": { "type": "string", "enum": ["NOW", "WAIT_FOR_PULLBACK", "WAIT_FOR_CONFIRMATION", "NOT_ACTIONABLE"] },
+        "ideal_low": { "type": ["number", "null"] },
+        "ideal_high": { "type": ["number", "null"] }
+      }
+    },
+    "failure_exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_price", "reason", "trigger_type"],
+      "properties": {
+        "exit_price": { "type": ["number", "null"] },
+        "reason": { "type": ["string", "null"] },
+        "trigger_type": {
+          "type": "string",
+          "enum": [
+            "PRICE_STRUCTURE_BREAK", "THESIS_INVALIDATION", "CATALYST_FAILURE",
+            "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE", "UNAVAILABLE"
+          ]
+        }
+      }
+    }
+  }
+}
