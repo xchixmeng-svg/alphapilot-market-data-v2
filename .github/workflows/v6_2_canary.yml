@@ -21,6 +21,10 @@ name: V6.2 Fresh Outcome-Blind Canary
 #     override it for a later round without editing code).
 
 on:
+  push:
+    branches: [research-v6-2-three-stage-canary-20260920]
+    paths:
+      - ".github/V6_2_CANARY_V3_TRIGGER"
   workflow_dispatch:
     inputs:
       max_cases:
@@ -78,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p scripts/v6_2/data/prepared
-          ARTIFACT_ID="${{ github.event.inputs.prepared_artifact_id }}"
+          ARTIFACT_ID="${{ github.event.inputs.prepared_artifact_id || '10582014726' }}"
           echo "Downloading artifact ${ARTIFACT_ID}..."
           gh api \
             -H "Accept: application/vnd.github+json" \
@@ -111,7 +115,7 @@ jobs:
 
       - name: Pull model
         run: |
-          ollama pull "${{ github.event.inputs.ollama_model }}"
+          ollama pull "${{ github.event.inputs.ollama_model || 'qwen2.5:7b' }}"
           ollama list
 
       - name: Run fresh canary
@@ -119,11 +123,11 @@ jobs:
         working-directory: scripts/v6_2
         run: |
           python3 run_fresh_canary.py \
-            --max-cases "${{ github.event.inputs.max_cases }}" \
-            --exclude-case-ids "${{ github.event.inputs.exclude_case_ids }}" \
-            --per-case-timeout-seconds "${{ github.event.inputs.per_case_timeout_seconds }}" \
-            --per-call-timeout-seconds "${{ github.event.inputs.per_call_timeout_seconds }}" \
-            --model "${{ github.event.inputs.ollama_model }}" \
+            --max-cases "${{ github.event.inputs.max_cases || '6' }}" \
+            --exclude-case-ids "${{ github.event.inputs.exclude_case_ids || '0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,21,22,24,32,38,39,40,47,48,50,53,55,57,61' }}" \
+            --per-case-timeout-seconds "${{ github.event.inputs.per_case_timeout_seconds || '2400' }}" \
+            --per-call-timeout-seconds "${{ github.event.inputs.per_call_timeout_seconds || '300' }}" \
+            --model "${{ github.event.inputs.ollama_model || 'qwen2.5:7b' }}" \
             --ollama-url "http://127.0.0.1:11434/api/chat" \
             --prepared-dir "data/prepared" \
             --output-dir "$GITHUB_WORKSPACE/canary_output"
