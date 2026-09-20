@@ -1,0 +1,159 @@
+name: V6.2 Fresh Outcome-Blind Canary
+
+# Manually triggered only.
+#
+# FIXED AFTER EXTERNAL REVIEW:
+#   - Actually downloads the prepared-data artifact (10582014726) via
+#     `gh api`, instead of only checking out the repo.
+#   - Actually installs Ollama and pulls qwen2.5:7b before calling
+#     run_fresh_canary.py, instead of leaving this as a comment.
+#   - The 2025/data-integrity guard is fail-closed: this workflow calls
+#     run_fresh_canary.py, whose own load_and_guard_prep_summary() raises
+#     and exits non-zero if PREP_SUMMARY.json is missing or does not
+#     explicitly declare 2025_opened=false -- there is no longer a
+#     "print a warning and continue" path anywhere in this chain.
+#   - `if: always()` on the artifact upload step, so a failed run's
+#     partial history is still downloadable for post-mortem.
+#   - exclude_case_ids defaults to the 12 case_ids already used across
+#     canary runs 35456479322 / 35458136917 / 35459949583 (also the
+#     default inside fresh_canary_selector.py itself, via
+#     DEFAULT_EXCLUDE_CASE_IDS -- this workflow input lets you override
+#     it for a later round without editing code).
+
+on:
+  push:
+    branches: [research-v6-2-three-stage-canary-20260920]
+    paths:
+      - ".github/workflows/v6_2_canary.yml"
+  workflow_dispatch:
+    inputs:
+      max_cases:
+        description: "Maximum number of canary cases to run this round (hard-capped at 20 in run_fresh_canary.py regardless of this value)"
+        required: false
+        default: "12"
+      exclude_case_ids:
+        description: "Comma-separated case_ids to exclude"
+        required: false
+        default: "5,7,14,15,16,24,32,38,39,48,55,57"
+      per_case_timeout_seconds:
+        description: "Per-case wall-clock budget (see retry_orchestrator.OrchestratorConfig for the derivation of the default)"
+        required: false
+        default: "1500"
+      prepared_artifact_id:
+        description: "GitHub Actions artifact ID containing cases_shard_*.jsonl + PREP_SUMMARY.json"
+        required: false
+        default: "10582014726"
+      ollama_model:
+        description: "Ollama model tag"
+        required: false
+        default: "qwen2.5:7b"
+
+jobs:
+  fresh-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480  # up to 20 cases * up to 1500s each in the worst case; see OrchestratorConfig
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Re-run contract tests first (fail fast if the contract layer itself is broken)
+        working-directory: scripts/v6_2
+        run: |
+          pytest tests/test_three_stage_contract.py tests/test_orchestrator_integration.py \
+                 tests/test_fresh_canary_selector.py tests/test_schema_runtime_parity.py \
+                 tests/test_run_fresh_canary.py -v
+
+      - name: Download prepared-data artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p scripts/v6_2/data/prepared
+          ARTIFACT_ID="${{ github.event.inputs.prepared_artifact_id || '10582014726' }}"
+          echo "Downloading artifact ${ARTIFACT_ID}..."
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > prepared_artifact.zip
+          # Extract only decision-time packets and their guard summary.
+          # Hidden outcomes/future paths remain unopened and unextracted.
+          unzip -o prepared_artifact.zip 'PREP_SUMMARY.json' 'cases_shard_*.jsonl' -d scripts/v6_2/data/prepared
+          test "$(find scripts/v6_2/data/prepared -maxdepth 1 -name 'cases_shard_*.jsonl' | wc -l)" -eq 4
+          test -f scripts/v6_2/data/prepared/PREP_SUMMARY.json
+          echo "Downloaded and extracted. Contents:"
+          ls -la scripts/v6_2/data/prepared
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama server
+        run: |
+          nohup ollama serve > /tmp/ollama_server.log 2>&1 &
+          echo "Waiting for Ollama to become ready..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:11434/api/tags > /dev/null; then
+              echo "Ollama is ready."
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:11434/api/tags || (echo "Ollama did not become ready" && cat /tmp/ollama_server.log && exit 1)
+
+      - name: Pull model
+        run: |
+          ollama pull "${{ github.event.inputs.ollama_model || 'qwen2.5:7b' }}"
+          ollama list
+
+      - name: Run fresh canary
+        id: canary
+        working-directory: scripts/v6_2
+        run: |
+          python3 run_fresh_canary.py \
+            --max-cases "${{ github.event.inputs.max_cases || '12' }}" \
+            --exclude-case-ids "${{ github.event.inputs.exclude_case_ids || '5,7,14,15,16,24,32,38,39,48,55,57' }}" \
+            --per-case-timeout-seconds "${{ github.event.inputs.per_case_timeout_seconds || '1500' }}" \
+            --model "${{ github.event.inputs.ollama_model || 'qwen2.5:7b' }}" \
+            --ollama-url "http://127.0.0.1:11434/api/chat" \
+            --prepared-dir "data/prepared" \
+            --output-dir "$GITHUB_WORKSPACE/canary_output"
+        # Note: this step is allowed to fail (non-zero exit) -- e.g. the
+        # fail-closed 2025/data guard inside run_fresh_canary.py, or a
+        # crash. The upload step below still runs regardless (if: always()),
+        # so partial results and logs are always retrievable.
+
+      - name: Upload canary results (always, even on failure)
+        if: always()
+        run: |
+          mkdir -p canary_output
+          if [ -f /tmp/ollama_server.log ]; then cp /tmp/ollama_server.log canary_output/ollama_server.log; fi
+
+      - name: Upload canary artifact (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v6-2-fresh-canary-results
+          path: canary_output/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Summarize results (best-effort; does not fail the job)
+        if: always()
+        working-directory: scripts/v6_2
+        continue-on-error: true
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/canary_output/canary_case_results.json" ]; then
+            python3 summarize_canary_results.py --input-dir "$GITHUB_WORKSPACE/canary_output"
+          else
+            echo "No canary_case_results.json produced -- see the 'Run fresh canary' step's log and the uploaded artifact."
+          fi
+
