@@ -171,6 +171,32 @@ def test_call_ollama_parses_valid_response():
         assert sent_body["messages"][0]["content"] == "system prompt"
 
 
+def test_call_ollama_sends_json_schema_for_structured_output():
+    schema = {
+        "type": "object",
+        "required": ["case_id", "evidence_observations"],
+        "properties": {
+            "case_id": {"type": "integer"},
+            "evidence_observations": {"type": "array"},
+        },
+    }
+    envelope = {"message": {"content": json.dumps({"case_id": 1, "evidence_observations": []})}}
+
+    class FakeResponse:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return json.dumps(envelope).encode("utf-8")
+
+    with mock.patch("urllib.request.urlopen", return_value=FakeResponse()) as mocked:
+        rfc.call_ollama(
+            "sys", {"case_id": 1}, model="qwen2.5:7b", url="http://x",
+            timeout_s=10.0, response_schema=schema,
+        )
+        sent_body = json.loads(mocked.call_args[0][0].data.decode("utf-8"))
+        assert sent_body["format"] == schema
+        assert sent_body["options"]["temperature"] == 0
+
+
 def test_call_ollama_raises_on_missing_message_content():
     ollama_envelope = {"model": "qwen2.5:7b", "message": {"role": "assistant"}, "done": True}  # no content
 
