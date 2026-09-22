@@ -9,8 +9,13 @@ on:
       - 'scripts/fetch_today_runner.py'
       - '.github/workflows/data_only.yml'
   schedule:
-    # 20:00 Asia/Taipei, weekdays (12:00 UTC)
-    - cron: "0 12 * * 1-5"
+    # Asia/Taipei (UTC+8).
+    # Avoid GitHub Actions' busiest :00 window and give the downloader two evening chances.
+    - cron: "17 12 * * 1-5"  # 20:17 Taipei, weekdays
+    - cron: "47 12 * * 1-5"  # 20:47 Taipei, weekdays
+    # Next-morning recovery run. If the prior evening schedule was delayed/dropped,
+    # official market snapshots should still point to the prior completed trade day.
+    - cron: "17 1 * * *"     # 09:17 Taipei, daily catch-up
 
 permissions:
   contents: write
