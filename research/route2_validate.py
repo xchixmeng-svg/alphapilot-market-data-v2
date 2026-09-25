@@ -59,7 +59,7 @@ ALIAS = {
     "value": ["trading_value", "成交金額", "turnover", "amount", "trading_money", "value"],
 }
 CORP = {
-    "prev": ["prev_close", "除權息前收盤價", "before_price", "close_before", "前收盤價"],
+    "prev": ["prev_close", "official_prev_close", "除權息前收盤價", "before_price", "close_before", "前收盤價"],
     "ref": ["ref_price", "reference_price", "除權息參考價", "after_price", "參考價"],
     "drop": ["權值+息值", "權息值", "drop", "dividend_total"],
     "cash": ["cash_dividend", "現金股利", "息值", "cash_div"],
