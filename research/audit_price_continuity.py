@@ -26,7 +26,16 @@ for p in sorted(glob.glob(os.path.join(ROOT,"data/history/2020-2025/ohlcv_*.parq
     if not set(need)<=set(d.columns):
         raise RuntimeError(f"missing columns in {p}: {d.columns.tolist()}")
     d=d[need+([ "volume"] if "volume" in d.columns else [])].copy()
-    d["date"]=pd.to_datetime(d["date"],errors="coerce")
+    raw_date=d["date"]
+    if pd.api.types.is_numeric_dtype(raw_date):
+        x=raw_date.astype("Int64").astype(str)
+        d["date"]=pd.to_datetime(x,format="%Y%m%d",errors="coerce")
+    else:
+        x=raw_date.astype(str).str.strip().str.replace(r"\\.0$","",regex=True)
+        ymd=x.str.fullmatch(r"20\\d{6}")
+        parsed=pd.to_datetime(x.where(~ymd),errors="coerce")
+        parsed.loc[ymd]=pd.to_datetime(x[ymd],format="%Y%m%d",errors="coerce")
+        d["date"]=parsed
     d["code"]=d["code"].astype(str).str.replace(r"\.0$","",regex=True).str.replace(r"\.(TW|TWO)$","",regex=True)
     for c in ("open","high","low","close"):
         d[c]=pd.to_numeric(d[c],errors="coerce")
