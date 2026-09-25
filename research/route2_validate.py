@@ -361,7 +361,11 @@ def corp_ratio(path, C, dates, ids):
             stk = stk / 10.0 if stk > 0.5 else stk
             ref = (prev - cash) / (1 + stk)
         r = ref / prev if (prev > 0 and ref > 0) else np.nan
-        if not (0.3 < r < 1.5) or abs(r - 1) < 1e-9:
+        # Official 0050 4-for-1 split on 2025-06-18 has ref/prev = 47/188 = 0.25.
+        # The original generic 0.3 lower guard incorrectly rejected that valid official event,
+        # creating a fake ~75% benchmark crash and corrupting 0050-derived market features.
+        valid_ratio = (0.3 < r < 1.5) or (s == "0050" and abs(r - 0.25) < 1e-6)
+        if not valid_ratio or abs(r - 1) < 1e-9:
             stats["skipped"] += 1
             continue
         R[t, j] *= r
