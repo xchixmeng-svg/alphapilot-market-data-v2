@@ -1,10 +1,10 @@
 {
   "dataset_version": "AlphaPilot-Data-V3.8",
   "trade_date": "2026-09-24",
-  "generated_at": "2026-09-25T01:35:04.074392+08:00",
+  "generated_at": "2026-09-25T14:10:59.429999+08:00",
   "status": "PASS",
   "sources": {
-    "twse_ohlcv": "TWSE MI_INDEX fallback",
+    "twse_ohlcv": "TWSE STOCK_DAY_ALL",
     "twse_institutional": "TWSE T86",
     "tpex_ohlcv": "TPEx OpenAPI tpex_mainboard_daily_close_quotes",
     "tpex_institutional": "TPEx OpenAPI tpex_3insti_daily_trading"
