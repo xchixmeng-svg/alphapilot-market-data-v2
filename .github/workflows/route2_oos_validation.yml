@@ -21,7 +21,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Install dependencies
         run: |
@@ -32,7 +31,6 @@ jobs:
         run: |
           ls -lh data/history/2020-2025
           python - <<'PY'
-          import json
           from pathlib import Path
           p=Path("data/history/2020-2025/history_audit.json")
           print(p.read_text(encoding="utf-8"))
