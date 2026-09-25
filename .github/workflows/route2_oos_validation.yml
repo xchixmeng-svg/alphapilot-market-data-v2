@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   validate:
@@ -27,33 +28,51 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy pandas scikit-learn pyarrow
 
-      - name: Verify historical data
+      - name: Build formal 2020-2025 input sandbox
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          ls -lh data/history/2020-2025
-          python - <<'PY'
-          from pathlib import Path
-          p=Path("data/history/2020-2025/history_audit.json")
-          print(p.read_text(encoding="utf-8"))
-          PY
+          set -euxo pipefail
+          mkdir -p route2_input/data/history/2020-2025
+          mkdir -p route2_input/data/reference
+          for f in data/history/2020-2025/*.parquet; do
+            ln -s "$GITHUB_WORKSPACE/$f" "route2_input/data/history/2020-2025/$(basename "$f")"
+          done
 
-      - name: Run original Route2 OOS validation
+          curl -fsSL             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github.raw+json"             "https://api.github.com/repos/xchixmeng-svg/alphapilot-market-data-v2/contents/data/reference/official_corporate_actions_2020_2025.csv?ref=r10-no-trail-formal-fix-20260907"             -o route2_input/data/reference/official_corporate_actions_2020_2025.csv
+
+          curl -fsSL -L             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/xchixmeng-svg/alphapilot-market-data-v2/actions/artifacts/10022394246/zip"             -o r10_formal.zip
+          mkdir -p r10_formal
+          unzip -q r10_formal.zip -d r10_formal
+          test -f r10_formal/r10max_formal_nav.csv
+
+          sha256sum data/history/2020-2025/*.parquet > route2_input/parquet_sha256.txt
+          sha256sum route2_input/data/reference/official_corporate_actions_2020_2025.csv > route2_input/corp_sha256.txt
+          ls -lh route2_input/data/history/2020-2025
+          head -3 r10_formal/r10max_formal_nav.csv
+
+      - name: Run corrected original Route2 on 2020-2025 only
         shell: bash
         run: |
           set -o pipefail
-          python research/route2_validate.py             --root "$GITHUB_WORKSPACE"             --top 1 3 5             --seeds 20 2>&1 | tee route2_run.log
+          python research/route2_validate.py             --root "$GITHUB_WORKSPACE/route2_input"             --market-repo "$GITHUB_WORKSPACE/__no_market_repo__"             --corp-actions "$GITHUB_WORKSPACE/route2_input/data/reference/official_corporate_actions_2020_2025.csv"             --r10-equity "$GITHUB_WORKSPACE/r10_formal/r10max_formal_nav.csv"             --top 1 3 5             --seeds 20 2>&1 | tee route2_corrected_run.log
 
       - name: Show outputs
         if: always()
         run: |
-          find research/route2_out -maxdepth 3 -type f -print 2>/dev/null || true
-          tail -n 200 route2_run.log 2>/dev/null || true
+          find route2_input/research/route2_out -maxdepth 3 -type f -print 2>/dev/null || true
+          tail -n 240 route2_corrected_run.log 2>/dev/null || true
 
-      - name: Upload Route2 results
+      - name: Upload corrected Route2 results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: route2-oos-validation-results
+          name: route2-oos-validation-corrected-results
           path: |
-            research/route2_out/**
-            route2_run.log
+            route2_input/research/route2_out/**
+            route2_corrected_run.log
+            route2_input/parquet_sha256.txt
+            route2_input/corp_sha256.txt
+            r10_formal/r10max_formal_nav.csv
           if-no-files-found: warn
