@@ -1,0 +1,55 @@
+name: Price Continuity Audit
+
+on:
+  push:
+    branches:
+      - route2-oos-validation-20260925
+    paths:
+      - "research/audit_price_continuity.py"
+      - ".github/workflows/price_continuity_audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pandas numpy pyarrow
+      - name: Fetch formal corporate actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p audit_input/data/reference
+          curl -fsSL             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github.raw+json"             "https://api.github.com/repos/xchixmeng-svg/alphapilot-market-data-v2/contents/data/reference/official_corporate_actions_2020_2025.csv?ref=r10-no-trail-formal-fix-20260907"             -o audit_input/data/reference/official_corporate_actions_2020_2025.csv
+          mkdir -p audit_input/data/history/2020-2025
+          for f in data/history/2020-2025/ohlcv_*.parquet; do
+            ln -s "$GITHUB_WORKSPACE/$f" "audit_input/data/history/2020-2025/$(basename "$f")"
+          done
+      - name: Run audit
+        env:
+          AUDIT_ROOT: ${{ github.workspace }}/audit_input
+          CORP_FILE: ${{ github.workspace }}/audit_input/data/reference/official_corporate_actions_2020_2025.csv
+          AUDIT_OUT: ${{ github.workspace }}/audit_output
+        run: |
+          python research/audit_price_continuity.py | tee price_continuity_audit.log
+      - name: Show summary
+        if: always()
+        run: |
+          cat audit_output/audit_summary.json 2>/dev/null || true
+          tail -n 160 price_continuity_audit.log 2>/dev/null || true
+      - name: Upload audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: price-continuity-audit
+          path: |
+            audit_output/**
+            price_continuity_audit.log
+          if-no-files-found: warn
