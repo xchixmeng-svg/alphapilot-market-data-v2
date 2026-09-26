@@ -8,6 +8,8 @@ on:
       - 'scripts/build_v6_2_causal_context_sidecar.py'
       - 'scripts/upgrade_v6_2_v4_2_packets.py'
       - 'scripts/validate_v6_2_v4_2_delivery.py'
+      - 'scripts/run_v6_2_v4_2_stage_c.py'
+      - 'scripts/benchmark_v6_2_v4_2_transport.py'
       - 'tests/test_v6_2_v4_2_contract.py'
       - 'windows/**'
       - '.github/workflows/v6_2_v4_2_contract_only.yml'
@@ -30,7 +32,7 @@ jobs:
         run: python -m pip install -r windows/requirements-v6-2-v4-2.txt
       - name: Compile and run fail-closed unit tests
         run: |
-          python -m py_compile scripts/v6_2_v4_2_contract.py scripts/build_v6_2_causal_context_sidecar.py scripts/upgrade_v6_2_v4_2_packets.py scripts/validate_v6_2_v4_2_delivery.py
+          python -m py_compile scripts/v6_2_v4_2_contract.py scripts/build_v6_2_causal_context_sidecar.py scripts/upgrade_v6_2_v4_2_packets.py scripts/validate_v6_2_v4_2_delivery.py scripts/run_v6_2_v4_2_stage_c.py scripts/benchmark_v6_2_v4_2_transport.py
           python -m unittest -v tests.test_v6_2_v4_2_contract
       - name: Download exact frozen V2 and already-consumed packets only
         shell: bash
@@ -54,15 +56,17 @@ jobs:
           python scripts/build_v6_2_causal_context_sidecar.py --evidence inputs/EVIDENCE_BUNDLE_V2.parquet --cases inputs/consumed/cases_shard_0.jsonl inputs/consumed/cases_shard_1.jsonl inputs/consumed/cases_shard_2.jsonl inputs/consumed/cases_shard_3.jsonl --out output/causal_context_sidecar.jsonl
           python scripts/upgrade_v6_2_v4_2_packets.py --cases inputs/consumed/cases_shard_0.jsonl inputs/consumed/cases_shard_1.jsonl inputs/consumed/cases_shard_2.jsonl inputs/consumed/cases_shard_3.jsonl --sidecar output/causal_context_sidecar.jsonl --out output/v6_2_v4_2_stage_c_packets.jsonl
           python scripts/validate_v6_2_v4_2_delivery.py output/v6_2_v4_2_stage_c_packets.jsonl --summary output/CONTRACT_ONLY_SUMMARY.json
+          python scripts/run_v6_2_v4_2_stage_c.py output/v6_2_v4_2_stage_c_packets.jsonl --out output/STAGE_C_TRANSPORT_RECEIPTS.jsonl --transport-only
+          python scripts/benchmark_v6_2_v4_2_transport.py output/STAGE_C_TRANSPORT_RECEIPTS.jsonl --expected 64 --out output/TRANSPORT_BENCHMARK_SUMMARY.json
       - name: Build reproducible Windows delivery bundle
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p delivery/AlphaPilot_V6_2_V4_2/scripts delivery/AlphaPilot_V6_2_V4_2/tests delivery/AlphaPilot_V6_2_V4_2/windows delivery/AlphaPilot_V6_2_V4_2/output
-          cp scripts/v6_2_v4_2_contract.py scripts/build_v6_2_causal_context_sidecar.py scripts/upgrade_v6_2_v4_2_packets.py scripts/validate_v6_2_v4_2_delivery.py delivery/AlphaPilot_V6_2_V4_2/scripts/
+          cp scripts/v6_2_v4_2_contract.py scripts/build_v6_2_causal_context_sidecar.py scripts/upgrade_v6_2_v4_2_packets.py scripts/validate_v6_2_v4_2_delivery.py scripts/run_v6_2_v4_2_stage_c.py scripts/benchmark_v6_2_v4_2_transport.py delivery/AlphaPilot_V6_2_V4_2/scripts/
           cp tests/test_v6_2_v4_2_contract.py delivery/AlphaPilot_V6_2_V4_2/tests/
-          cp windows/RUN_V6_2_V4_2_CONTRACT_ONLY.cmd windows/requirements-v6-2-v4-2.txt delivery/AlphaPilot_V6_2_V4_2/windows/
-          cp output/CONTRACT_ONLY_SUMMARY.json output/CAUSAL_CONTEXT_BUILD_SUMMARY.json delivery/AlphaPilot_V6_2_V4_2/output/
+          cp windows/RUN_V6_2_V4_2_CONTRACT_ONLY.cmd windows/RUN_V6_2_V4_2_LOCAL_MODEL.cmd windows/requirements-v6-2-v4-2.txt delivery/AlphaPilot_V6_2_V4_2/windows/
+          cp output/CONTRACT_ONLY_SUMMARY.json output/CAUSAL_CONTEXT_BUILD_SUMMARY.json output/TRANSPORT_BENCHMARK_SUMMARY.json delivery/AlphaPilot_V6_2_V4_2/output/
           cp inputs/consumed/cases_shard_*.jsonl inputs/consumed/CASE_MANIFEST.csv inputs/consumed/PREP_SUMMARY.json delivery/AlphaPilot_V6_2_V4_2/output/
           cp output/causal_context_sidecar.jsonl output/v6_2_v4_2_stage_c_packets.jsonl delivery/AlphaPilot_V6_2_V4_2/output/
           (cd delivery && zip -qr AlphaPilot_V6_2_V4_2_contract_complete.zip AlphaPilot_V6_2_V4_2)
