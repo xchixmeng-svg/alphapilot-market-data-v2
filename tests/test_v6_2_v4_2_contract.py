@@ -1,5 +1,6 @@
 import copy
 import unittest
+from datetime import datetime
 
 from scripts.v6_2_v4_2_contract import (
     CONTRACT_VERSION,
@@ -78,6 +79,11 @@ class ContractTests(unittest.TestCase):
 
     def test_horizon_drift(self):
         self.assert_rejected(lambda p, s: s.update(profit_outcome_horizons=[120]))
+
+    def test_timestamp_date_normalizes(self):
+        s = sidecar()
+        s["decision_date"] = datetime(2024, 1, 2)
+        validate_pair(packet(), s)
 
 
 if __name__ == "__main__":

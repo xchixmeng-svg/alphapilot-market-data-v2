@@ -43,7 +43,15 @@ def norm_code(value: Any) -> str:
 
 
 def norm_date(value: Any) -> int:
+    if hasattr(value, "strftime"):
+        return int(value.strftime("%Y%m%d"))
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        numeric = str(int(value))
+        if len(numeric) == 8:
+            return int(numeric)
     s = re.sub(r"[^0-9]", "", str(value))
+    if len(s) >= 8:
+        s = s[:8]
     if len(s) != 8:
         raise ContractError(f"invalid decision date: {value!r}")
     return int(s)
