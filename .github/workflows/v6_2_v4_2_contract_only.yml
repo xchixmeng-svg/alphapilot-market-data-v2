@@ -33,7 +33,7 @@ jobs:
       - name: Compile and run fail-closed unit tests
         run: |
           python -m py_compile scripts/v6_2_v4_2_contract.py scripts/build_v6_2_causal_context_sidecar.py scripts/upgrade_v6_2_v4_2_packets.py scripts/validate_v6_2_v4_2_delivery.py scripts/run_v6_2_v4_2_stage_c.py scripts/benchmark_v6_2_v4_2_transport.py
-          python -m unittest -v tests.test_v6_2_v4_2_contract
+          python -m unittest -v tests.test_v6_2_v4_2_contract tests.test_v6_2_v4_2_stage_c
       - name: Download exact frozen V2 and already-consumed packets only
         shell: bash
         run: |
