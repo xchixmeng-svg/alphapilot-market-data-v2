@@ -111,6 +111,11 @@ jobs:
       - name: Execute Windows one-click contract flow
         shell: cmd
         run: windows\RUN_V6_2_V4_2_CONTRACT_ONLY.cmd
+      - name: Execute packaged Windows Stage-C launcher in transport-only mode
+        shell: cmd
+        env:
+          V62_TRANSPORT_ONLY: '1'
+        run: windows\RUN_V6_2_V4_2_LOCAL_MODEL.cmd
       - uses: actions/upload-artifact@v4
         with:
           name: AlphaPilot-V6-2-V4-2-windows-smoke
