@@ -115,6 +115,8 @@ def validate_sidecar(sidecar: dict[str, Any]) -> None:
         raise ContractError("industry_index_context must be an object")
     if industry.get("relationship_to_company") != "CONTEXT_ONLY_NOT_COMPANY_CLASSIFICATION":
         raise ContractError("industry index context may not impersonate company industry")
+    if len(industry.get("source_columns", [])) != 37:
+        raise ContractError("causal context must carry exactly 37 frozen industry indices")
     for path, child in _walk(context):
         key = re.sub(r".*\.", "", path).split("[")[0].lower()
         if key in {"company_industry", "company_sector", "company_industry_name"} and child not in (None, ""):

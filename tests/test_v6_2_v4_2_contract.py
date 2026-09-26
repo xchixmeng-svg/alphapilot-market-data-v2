@@ -29,7 +29,7 @@ def sidecar():
         "code": "2465",
         "causal_context_read_only": {
             "market_context": {"values": {"market_breadth": 0.55}},
-            "industry_index_context": {"values": {}, "relationship_to_company": "CONTEXT_ONLY_NOT_COMPANY_CLASSIFICATION", "company_industry_mapping": None},
+            "industry_index_context": {"values": {}, "source_columns": [f"industry_ret1_{i:02d}" for i in range(37)], "relationship_to_company": "CONTEXT_ONLY_NOT_COMPANY_CLASSIFICATION", "company_industry_mapping": None},
             "macro_context": {"values": {}},
             "event_timeliness_context": {"values": {"event_last_age_hours": 5}},
             "revenue_context": {"values": {"rev_yoy_pct": 101.25}},
@@ -76,6 +76,9 @@ class ContractTests(unittest.TestCase):
 
     def test_industry_impersonation(self):
         self.assert_rejected(lambda p, s: s["causal_context_read_only"]["industry_index_context"].update(company_industry="Semiconductor"))
+
+    def test_missing_industry_indices(self):
+        self.assert_rejected(lambda p, s: s["causal_context_read_only"]["industry_index_context"].update(source_columns=[]))
 
     def test_horizon_drift(self):
         self.assert_rejected(lambda p, s: s.update(profit_outcome_horizons=[120]))

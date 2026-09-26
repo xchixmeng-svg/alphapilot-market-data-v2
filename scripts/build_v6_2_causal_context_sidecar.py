@@ -33,8 +33,8 @@ FORBIDDEN = re.compile(r"hidden|outcome|future|forward|realized|label|target|y_h
 RAW_MULTIPLE = re.compile(r"(^|_)(raw_)?(pe|pb|p_e|p_b|price_earnings|price_book)($|_)", re.I)
 
 FAMILY_PATTERNS = {
-    "market_context": re.compile(r"^(market|twse|taiex|tpex|otc|benchmark|breadth|regime|index_market|mkt)_", re.I),
-    "industry_index_context": re.compile(r"^(industry_index|sector_index|industry_idx|sector_idx|industry_market|sector_market)_", re.I),
+    "market_context": re.compile(r"^(market|twse|taiex|tpex|otc|benchmark|breadth|regime|index_market|mkt|0050)_|^(equity_count|valid_return_count|extreme_return_excluded|advancers|decliners|unchanged|total_amount|median_amount)$", re.I),
+    "industry_index_context": re.compile(r"^(industry_ret1|industry_index|sector_index|industry_idx|sector_idx|industry_market|sector_market)_", re.I),
     "macro_context": re.compile(r"^(macro|fx|usd|twd|rate|yield|vix|oil|commodity|policy)_", re.I),
     "event_timeliness_context": re.compile(r"^(event|mops)_", re.I),
     "revenue_context": re.compile(r"^(rev|revenue|monthly_revenue)_", re.I),
@@ -100,6 +100,17 @@ def main() -> None:
         raise ContractError("evidence bundle has duplicate date/code keys")
     evidence_index = df.set_index(["date", "code"], drop=False)
     routed = safe_columns(list(df.columns))
+    expected_counts = {
+        "market_context": (10, None),
+        "industry_index_context": (37, 37),
+        "macro_context": (3, None),
+        "event_timeliness_context": (4, None),
+        "revenue_context": (7, None),
+    }
+    for family, (minimum, exact) in expected_counts.items():
+        count = len(routed[family])
+        if count < minimum or (exact is not None and count != exact):
+            raise ContractError(f"incomplete {family}: routed={count}, required={exact or ('>='+str(minimum))}")
 
     rows = []
     for exact, packet in sorted(packet_index.items()):
