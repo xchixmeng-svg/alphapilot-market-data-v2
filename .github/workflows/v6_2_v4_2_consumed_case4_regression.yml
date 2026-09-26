@@ -1,0 +1,80 @@
+name: V6.2 V4.2 Consumed Case 4 Regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [v6-2-causal-context-v4-2-20260920]
+    paths:
+      - 'scripts/audit_v6_2_v4_2_single_case_regression.py'
+      - '.github/workflows/v6_2_v4_2_consumed_case4_regression.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  consumed-case4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V2_ARTIFACT: '10577910077'
+      CONSUMED_PREPARED_ARTIFACT: '10582014726'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install pinned dependencies
+        run: python -m pip install -r windows/requirements-v6-2-v4-2.txt
+      - name: Download exact frozen evidence and consumed packets only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p raw_v2 inputs/consumed inputs output
+          gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${V2_ARTIFACT}/zip" >/tmp/v2.zip
+          unzip -oq /tmp/v2.zip -d raw_v2
+          V2=$(find raw_v2 -name 'EVIDENCE_BUNDLE_V2.parquet' -print -quit)
+          test -n "$V2"
+          cp "$V2" inputs/EVIDENCE_BUNDLE_V2.parquet
+          gh api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CONSUMED_PREPARED_ARTIFACT}/zip" >/tmp/consumed.zip
+          unzip -oq /tmp/consumed.zip 'cases_shard_*.jsonl' 'CASE_MANIFEST.csv' 'PREP_SUMMARY.json' -d inputs/consumed
+          test ! -e inputs/consumed/HIDDEN_OUTCOMES.csv
+          test ! -e inputs/consumed/HIDDEN_FUTURE_PATHS.parquet
+      - name: Rebuild causal transport and isolate exact consumed case 4
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_v6_2_causal_context_sidecar.py --evidence inputs/EVIDENCE_BUNDLE_V2.parquet --cases inputs/consumed/cases_shard_0.jsonl inputs/consumed/cases_shard_1.jsonl inputs/consumed/cases_shard_2.jsonl inputs/consumed/cases_shard_3.jsonl --out output/causal_context_sidecar.jsonl
+          python scripts/upgrade_v6_2_v4_2_packets.py --cases inputs/consumed/cases_shard_0.jsonl inputs/consumed/cases_shard_1.jsonl inputs/consumed/cases_shard_2.jsonl inputs/consumed/cases_shard_3.jsonl --sidecar output/causal_context_sidecar.jsonl --out output/all_packets.jsonl
+          python - <<'PY'
+          import json
+          src='output/all_packets.jsonl'; out='output/case4_packet.jsonl'
+          rows=[json.loads(x) for x in open(src,encoding='utf-8') if x.strip()]
+          hit=[r for r in rows if int(r['case_id'])==4]
+          assert len(hit)==1, f'exact case_id=4 count={len(hit)}'
+          assert int(str(hit[0]['decision_date']).replace('-','')[:8]) <= 20241231
+          open(out,'w',encoding='utf-8').write(json.dumps(hit[0],ensure_ascii=False,separators=(',',':'))+'\n')
+          PY
+          python scripts/validate_v6_2_v4_2_delivery.py output/case4_packet.jsonl --summary output/CASE4_TRANSPORT_SUMMARY.json
+      - name: Install Ollama and pull zero-API-cost locked model
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve >/tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break; sleep 1; done
+          ollama pull qwen2.5:7b
+      - name: Run exact one-case two-stage regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/run_v6_2_v4_2_stage_c.py output/case4_packet.jsonl --out output/case4_model_result.jsonl --model qwen2.5:7b --limit 1
+          python scripts/audit_v6_2_v4_2_single_case_regression.py output/case4_model_result.jsonl --out output/CASE4_REGRESSION_SUMMARY.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: V6-2-V4-2-consumed-case4-regression
+          path: |
+            output/CASE4_TRANSPORT_SUMMARY.json
+            output/case4_model_result.jsonl
+            output/CASE4_REGRESSION_SUMMARY.json
+            /tmp/ollama.log
+          if-no-files-found: warn
+          retention-days: 90
