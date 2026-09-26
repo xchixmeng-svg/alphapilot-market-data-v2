@@ -76,3 +76,46 @@ jobs:
           path: delivery/AlphaPilot_V6_2_V4_2_contract_complete.zip
           if-no-files-found: error
           retention-days: 90
+  windows-one-click:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V2_ARTIFACT: '10577910077'
+      CONSUMED_PREPARED_ARTIFACT: '10582014726'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prepare exact inputs without extracting hidden outcomes
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force raw_v2, inputs, inputs/consumed | Out-Null
+          gh api -H 'Accept: application/vnd.github+json' "/repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:V2_ARTIFACT/zip" > "$env:RUNNER_TEMP/v2.zip"
+          Expand-Archive -Force "$env:RUNNER_TEMP/v2.zip" raw_v2
+          $v2 = Get-ChildItem raw_v2 -Recurse -Filter EVIDENCE_BUNDLE_V2.parquet | Select-Object -First 1
+          if (-not $v2) { throw 'V2 missing' }
+          Copy-Item $v2.FullName inputs/EVIDENCE_BUNDLE_V2.parquet
+          gh api -H 'Accept: application/vnd.github+json' "/repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:CONSUMED_PREPARED_ARTIFACT/zip" > "$env:RUNNER_TEMP/consumed.zip"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead("$env:RUNNER_TEMP/consumed.zip")
+          try {
+            foreach ($entry in $zip.Entries) {
+              if ($entry.Name -like 'cases_shard_*.jsonl' -or $entry.Name -in @('CASE_MANIFEST.csv','PREP_SUMMARY.json')) {
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path (Resolve-Path inputs/consumed) $entry.Name), $true)
+              }
+            }
+          } finally { $zip.Dispose() }
+          if (Test-Path inputs/consumed/HIDDEN_OUTCOMES.csv) { throw 'hidden outcomes extracted' }
+          if (Test-Path inputs/consumed/HIDDEN_FUTURE_PATHS.parquet) { throw 'hidden future paths extracted' }
+      - name: Execute Windows one-click contract flow
+        shell: cmd
+        run: windows\RUN_V6_2_V4_2_CONTRACT_ONLY.cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlphaPilot-V6-2-V4-2-windows-smoke
+          path: |
+            output/CONTRACT_ONLY_SUMMARY.json
+            output/CAUSAL_CONTEXT_BUILD_SUMMARY.json
+          if-no-files-found: error
+          retention-days: 90
