@@ -80,12 +80,20 @@ def action_schema(packet: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_ollama(url: str, model: str, system: str, user: dict[str, Any], schema: dict[str, Any]) -> tuple[dict[str, Any], float]:
-    body = json.dumps({"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(user, ensure_ascii=False, separators=(",", ":"))}], "stream": False, "format": schema, "options": {"temperature": 0, "num_predict": 1100}}, ensure_ascii=False).encode()
+    body = json.dumps({"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(user, ensure_ascii=False, separators=(",", ":"))}], "stream": False, "format": schema, "options": {"temperature": 0, "num_predict": 3072}}, ensure_ascii=False).encode()
     req = urllib.request.Request(url.rstrip("/") + "/api/chat", data=body, headers={"Content-Type": "application/json"})
     started = time.time()
     with urllib.request.urlopen(req, timeout=1200) as response:
         raw = json.loads(response.read().decode())
-    return json.loads(raw["message"]["content"]), time.time() - started
+    content = raw.get("message", {}).get("content", "")
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ContractError(
+            f"local model returned invalid JSON; done_reason={raw.get('done_reason')!r}; "
+            f"chars={len(content)}; error={exc}"
+        ) from exc
+    return parsed, time.time() - started
 
 
 def assert_evidence_ids(packet: dict[str, Any], result: dict[str, Any]) -> None:
