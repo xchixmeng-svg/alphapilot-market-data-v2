@@ -1,6 +1,5 @@
 name: V6.2 V4.2 Consumed Case 4 Regression
 on:
-  workflow_dispatch:
   push:
     branches: [v6-2-causal-context-v4-2-20260920]
     paths:
