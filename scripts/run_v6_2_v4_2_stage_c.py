@@ -14,7 +14,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from v6_2_v4_2_contract import ContractError, load_jsonl, validate_packet
+from v6_2_v4_2_contract import ContractError, load_jsonl, validate_decision_semantics, validate_packet
 
 DECISIONS = ["REJECT", "WATCH", "CANDIDATE", "HIGH_CONVICTION"]
 ACTIONABLE = {"CANDIDATE", "HIGH_CONVICTION"}
@@ -24,9 +24,7 @@ Use only the supplied point-in-time packet. Frozen numerical forecasts are read-
 causal_context_read_only is background context, not company evidence: never put a context
 field in bull_evidence_ids, bear_evidence_ids, primary_evidence_ids, or secondary_evidence_ids.
 Do not infer the company's industry from industry_index_context; those 37 indices are global context only.
-Do not invent missing evidence, raw PE/PB, future paths, labels, or outcomes.
-Judge a genuine >=10% opportunity without TopK, quotas, or a fixed probability threshold.
-Return exactly one JSON object matching the supplied schema."""
+Do not invent missing evidence, raw PE/PB, future paths, labels, or outcomes. Evidence families absent from the packet are neutral: never mention them or use their absence as support, counter-evidence, invalidation, or veto.\nJudge a genuine >=10% opportunity without TopK, quotas, or a fixed probability threshold. Keep every narrative field concise and do not repeat packet contents.\nReturn exactly one JSON object matching the supplied schema."""
 
 ACTION_SYSTEM = """You are AlphaPilot V6.2/V4.2 execution planning.
 The Stage-C decision is already actionable and locked. Use supplied point-in-time company evidence
@@ -45,16 +43,16 @@ def decision_schema(packet: dict[str, Any]) -> dict[str, Any]:
         "required": ["decision", "hypothesis", "primary_evidence_ids", "secondary_evidence_ids", "bull_evidence_ids", "bear_evidence_ids", "bull_thesis", "bear_thesis", "invalidation", "context_assessment", "decision_reason"],
         "properties": {
             "decision": {"type": "string", "enum": DECISIONS},
-            "hypothesis": {"type": "string", "minLength": 1},
+            "hypothesis": {"type": "string", "minLength": 1, "maxLength": 280},
             "primary_evidence_ids": {**ids, "minItems": 1},
             "secondary_evidence_ids": ids,
             "bull_evidence_ids": ids,
             "bear_evidence_ids": ids,
-            "bull_thesis": {"type": "string", "minLength": 1},
-            "bear_thesis": {"type": "string", "minLength": 1},
-            "invalidation": {"type": "string", "minLength": 1},
-            "context_assessment": {"type": "string", "minLength": 1},
-            "decision_reason": {"type": "string", "minLength": 1},
+            "bull_thesis": {"type": "string", "minLength": 1, "maxLength": 420},
+            "bear_thesis": {"type": "string", "minLength": 1, "maxLength": 420},
+            "invalidation": {"type": "string", "minLength": 1, "maxLength": 320},
+            "context_assessment": {"type": "string", "minLength": 1, "maxLength": 360},
+            "decision_reason": {"type": "string", "minLength": 1, "maxLength": 420},
         },
     }
 
@@ -72,7 +70,7 @@ def action_schema(packet: dict[str, Any]) -> dict[str, Any]:
             }},
             "failure_exit": {"type": "object", "additionalProperties": False, "required": ["exit_price", "reason", "trigger_type"], "properties": {
                 "exit_price": {"type": "number", "exclusiveMinimum": 0, "maximum": hi},
-                "reason": {"type": "string", "minLength": 1},
+                "reason": {"type": "string", "minLength": 1, "maxLength": 360},
                 "trigger_type": {"type": "string", "enum": ["PRICE_STRUCTURE_BREAK", "THESIS_INVALIDATION", "CATALYST_FAILURE", "VALUATION_EXPECTATION_BREAK", "MULTI_EVIDENCE_FAILURE"]},
             }},
         },
@@ -80,7 +78,7 @@ def action_schema(packet: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_ollama(url: str, model: str, system: str, user: dict[str, Any], schema: dict[str, Any]) -> tuple[dict[str, Any], float]:
-    body = json.dumps({"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(user, ensure_ascii=False, separators=(",", ":"))}], "stream": False, "format": schema, "options": {"temperature": 0, "num_predict": 3072}}, ensure_ascii=False).encode()
+    body = json.dumps({"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(user, ensure_ascii=False, separators=(",", ":"))}], "stream": False, "format": schema, "options": {"temperature": 0, "num_predict": 2048}}, ensure_ascii=False).encode()
     req = urllib.request.Request(url.rstrip("/") + "/api/chat", data=body, headers={"Content-Type": "application/json"})
     started = time.time()
     with urllib.request.urlopen(req, timeout=1200) as response:
@@ -127,6 +125,7 @@ def main() -> None:
             continue
         decision, seconds = call_ollama(args.ollama_url, args.model, DECISION_SYSTEM, {"case": packet}, decision_schema(packet))
         assert_evidence_ids(packet, decision)
+        validate_decision_semantics(decision)
         result = {**base, "status": "MODEL_COMPLETED", "model": args.model, "decision_seconds": seconds, **decision}
         if decision["decision"] in ACTIONABLE:
             action, action_seconds = call_ollama(args.ollama_url, args.model, ACTION_SYSTEM, {"case": packet, "locked_decision": decision}, action_schema(packet))

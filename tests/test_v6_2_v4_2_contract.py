@@ -7,6 +7,7 @@ from scripts.v6_2_v4_2_contract import (
     ContractError,
     LAUNCH_WINDOWS,
     OUTCOME_HORIZONS,
+    validate_decision_semantics,
     validate_pair,
 )
 
@@ -87,6 +88,29 @@ class ContractTests(unittest.TestCase):
         s = sidecar()
         s["decision_date"] = datetime(2024, 1, 2)
         validate_pair(packet(), s)
+
+    def test_unavailable_evidence_cannot_enter_reasoning(self):
+        result = {
+            "hypothesis": "Revenue acceleration may support a rerating.",
+            "bull_thesis": "Reported revenue growth is strong.",
+            "bear_thesis": "Price structure is extended.",
+            "invalidation": "Revenue momentum reverses.",
+            "context_assessment": "Market context is mixed.",
+            "decision_reason": "Analyst consensus is unavailable, so confidence is lower.",
+        }
+        with self.assertRaises(ContractError):
+            validate_decision_semantics(result)
+
+    def test_available_only_reasoning_passes_semantic_guard(self):
+        result = {
+            "hypothesis": "Revenue acceleration may support a rerating.",
+            "bull_thesis": "Reported revenue growth is strong.",
+            "bear_thesis": "Price structure is extended.",
+            "invalidation": "Revenue momentum reverses.",
+            "context_assessment": "Market context is mixed.",
+            "decision_reason": "Available evidence is constructive but timing remains uncertain.",
+        }
+        validate_decision_semantics(result)
 
 
 if __name__ == "__main__":

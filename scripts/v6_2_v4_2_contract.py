@@ -23,6 +23,21 @@ REQUIRED_CONTEXT = {
     "revenue_context",
 }
 FALSE_FLAGS = ("outcomes_opened", "selection_recomputed", "frozen_layers_modified")
+DECISION_TEXT_FIELDS = (
+    "hypothesis",
+    "bull_thesis",
+    "bear_thesis",
+    "invalidation",
+    "context_assessment",
+    "decision_reason",
+)
+_UNAVAILABLE_EVIDENCE_RE = re.compile(
+    r"(?:eps\\s*(?:revision|revisions|estimate|estimates)|"
+    r"analyst(?:s)?|consensus|industry\\s*(?:pricing|inventory|supply|demand)|"
+    r"supply[-\\s]?demand|broad\\s+news|news\\s*(?:semantic|sentiment|corpus)|"
+    r"分析師|共識|eps\\s*修正|eps\\s*預估|產業(?:價格|庫存|供需)|新聞(?:語意|情緒))",
+    re.I,
+)
 
 _FORBIDDEN_KEY = re.compile(
     r"hidden|outcome|future|forward_path|realized|label|target|y_hit|mfe|mae|time_to_hit",
@@ -77,6 +92,19 @@ def _assert_no_leak(value: Any, *, where: str, allow_raw_multiples: bool = False
             raise ContractError(f"{where}: forbidden future/outcome field: {path}")
         if not allow_raw_multiples and _RAW_MULTIPLE_KEY.match(key) and child is not None:
             raise ContractError(f"{where}: raw PE/PB field leaked: {path}")
+
+
+def validate_decision_semantics(result: dict[str, Any]) -> None:
+    """Fail closed if model prose reasons from evidence families not admitted to V4.2."""
+    for field in DECISION_TEXT_FIELDS:
+        value = result.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ContractError(f"decision missing narrative field: {field}")
+        match = _UNAVAILABLE_EVIDENCE_RE.search(value)
+        if match:
+            raise ContractError(
+                f"unavailable evidence family referenced in {field}: {match.group(0)!r}"
+            )
 
 
 def validate_packet(packet: dict[str, Any], *, allow_legacy_raw_multiples: bool = False) -> None:
