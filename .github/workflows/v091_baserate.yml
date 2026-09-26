@@ -1,0 +1,25 @@
+name: AlphaPilot v0.9.1 baserate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v091-baserate-run-20260926-clean
+    paths:
+      - ".github/v091_baserate_once.trigger"
+jobs:
+  baserate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas numpy pyarrow
+      - run: python v091_baserate/run_baserate.py --out v091_baserate_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v091_baserate_out
+          path: v091_baserate_out/
