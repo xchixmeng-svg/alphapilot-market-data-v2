@@ -4,6 +4,7 @@ on:
     branches: [v6-2-causal-context-v4-2-20260920]
     paths:
       - 'scripts/audit_v6_2_v4_2_single_case_regression.py'
+      - 'scripts/run_v6_2_v4_2_stage_c.py'
       - '.github/workflows/v6_2_v4_2_consumed_case4_regression.yml'
 permissions:
   contents: read
