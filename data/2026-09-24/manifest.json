@@ -1,7 +1,7 @@
 {
   "dataset_version": "AlphaPilot-Data-V3.8",
   "trade_date": "2026-09-24",
-  "generated_at": "2026-09-27T14:38:29.316579+08:00",
+  "generated_at": "2026-09-28T14:59:13.352960+08:00",
   "status": "PASS",
   "sources": {
     "twse_ohlcv": "TWSE STOCK_DAY_ALL",
