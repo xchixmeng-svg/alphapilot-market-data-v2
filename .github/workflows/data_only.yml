@@ -13,6 +13,7 @@ on:
     # Avoid GitHub Actions' busiest :00 window and give the downloader two evening chances.
     - cron: "17 12 * * 1-5"  # 20:17 Taipei, weekdays
     - cron: "47 12 * * 1-5"  # 20:47 Taipei, weekdays
+    - cron: "17 15 * * 1-5"  # 23:17 Taipei, delayed-source recovery
     # Next-morning recovery run. If the prior evening schedule was delayed/dropped,
     # official market snapshots should still point to the prior completed trade day.
     - cron: "17 1 * * *"     # 09:17 Taipei, daily catch-up
