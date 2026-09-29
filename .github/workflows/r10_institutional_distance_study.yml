@@ -7,6 +7,7 @@ on:
       - r10-inst-cost-study-20260929
     paths:
       - scripts/r10_institutional_distance_study.py
+      - scripts/r10_institutional_episode_oos.py
       - .github/workflows/r10_institutional_distance_study.yml
 
 jobs:
@@ -65,6 +66,25 @@ jobs:
             --institutional data/history/2020-2025/institutional_2020_2025.parquet \
             --out-dir formal_run/inst_distance_study | tee formal_run/inst_distance_study/execution.log
 
+      - name: Run episode out-of-sample check
+        run: |
+          python -m py_compile scripts/r10_institutional_episode_oos.py
+          python scripts/r10_institutional_episode_oos.py \
+            --formal-dir formal_run \
+            --institutional data/history/2020-2025/institutional_2020_2025.parquet \
+            --out-dir formal_run/inst_episode_oos > formal_run/inst_episode_oos_execution.log
+          python - <<'PY'
+          import json, os
+          s=json.load(open('formal_run/inst_episode_oos/summary.json'))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n## Fixed-episode chronological OOS\n\n')
+              f.write('Training 2021–2023; untouched test 2024–2025. No R10 rule changed.\n\n')
+              f.write('| Flow | Available / 150 | OOS near n / avg | OOS far n / avg | Filter adequate? |\n|---|---:|---:|---:|---|\n')
+              for name,x in s['entities'].items():
+                  a,b=x['oos_near_or_normal'],x['oos_far']
+                  f.write(f"| {name} | {x['coverage_all']} | {a['n']} / {a.get('avg_return',float('nan')):.2%} | {b['n']} / {b.get('avg_return',float('nan')):.2%} | {x['sufficient_for_filter']} |\n")
+          PY
+
       - name: Publish concise study summary
         run: |
           python - <<'PY'
@@ -96,6 +116,9 @@ jobs:
             formal_run/inst_distance_study/institutional_distance_trade_features.csv
             formal_run/inst_distance_study/institutional_distance_summary.csv
             formal_run/inst_distance_study/institutional_distance_result.json
+            formal_run/inst_episode_oos_execution.log
+            formal_run/inst_episode_oos/trade_features.csv
+            formal_run/inst_episode_oos/summary.json
             formal_run/r10max_formal_summary.json
             formal_run/contract_audit.json
           if-no-files-found: error
