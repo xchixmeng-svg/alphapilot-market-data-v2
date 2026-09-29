@@ -229,5 +229,11 @@
   "formal_buy_count": 4,
   "formal_sell_count": 0,
   "message_buy": null,
-  "message_sell": "明日無 R10-MAX 賣出指令"
+  "message_sell": "明日無 R10-MAX 賣出指令",
+  "account": "PAPER_SIMULATION_NOT_BROKER",
+  "paper_fills": {
+    "filled": 0,
+    "unfilled_or_canceled": 0,
+    "corporate_events": 0
+  }
 }

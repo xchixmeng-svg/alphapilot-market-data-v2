@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "account": "PAPER_SIMULATION_NOT_BROKER",
+  "trade_date": "2026-09-29",
+  "cash": 1105834.13,
+  "hwm": 1342334.13,
+  "positions": {
+    "2884": {
+      "code": "2884",
+      "name": "玉山金",
+      "strategy": "R05",
+      "shares": 5000,
+      "entry_date": "2026-08-26",
+      "entry_raw_price": 38.8,
+      "entry_shares": 5000,
+      "corp_income": 0.0
+    }
+  },
+  "pending_orders": [
+    {
+      "side": "BUY",
+      "strategy": "R7",
+      "code": "2030",
+      "name": "彰源",
+      "shares": 8000,
+      "signal_date": "2026-09-29",
+      "scheduled_date": "2026-09-30",
+      "limit_price": 32.7,
+      "estimated_gross": 261600.00000000003,
+      "nav_pct": 0.19664232774363238,
+      "reason": "ENTRY",
+      "invalid_if": "T+1 low never touches fixed limit; cancel, no chase"
+    },
+    {
+      "side": "BUY",
+      "strategy": "R7",
+      "code": "3016",
+      "name": "嘉晶",
+      "shares": 1000,
+      "signal_date": "2026-09-29",
+      "scheduled_date": "2026-09-30",
+      "limit_price": 169.0,
+      "estimated_gross": 169000.0,
+      "nav_pct": 0.12703575454386035,
+      "reason": "ENTRY",
+      "invalid_if": "T+1 low never touches fixed limit; cancel, no chase"
+    },
+    {
+      "side": "BUY",
+      "strategy": "R7",
+      "code": "6168",
+      "name": "宏齊",
+      "shares": 6000,
+      "signal_date": "2026-09-29",
+      "scheduled_date": "2026-09-30",
+      "limit_price": 44.25,
+      "estimated_gross": 265500.0,
+      "nav_pct": 0.19957392207925992,
+      "reason": "ENTRY",
+      "invalid_if": "T+1 low never touches fixed limit; cancel, no chase"
+    },
+    {
+      "side": "BUY",
+      "strategy": "R7",
+      "code": "2254",
+      "name": "巨鎧精密-創",
+      "shares": 3000,
+      "signal_date": "2026-09-29",
+      "scheduled_date": "2026-09-30",
+      "limit_price": 89.9,
+      "estimated_gross": 269700.0,
+      "nav_pct": 0.2027310236714742,
+      "reason": "ENTRY",
+      "invalid_if": "T+1 low never touches fixed limit; cancel, no chase"
+    }
+  ],
+  "fills": [],
+  "seed": "confirmed model snapshot on 2026-09-29"
+}

@@ -9,3 +9,5 @@
 - BUY R7 3016 嘉晶 shares=1000 limit=169.0 reason=ENTRY
 - BUY R7 6168 宏齊 shares=6000 limit=44.25 reason=ENTRY
 - BUY R7 2254 巨鎧精密-創 shares=3000 limit=89.9 reason=ENTRY
+
+Paper simulation only; fills use locked backtest execution assumptions, not broker confirmations.
