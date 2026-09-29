@@ -1,0 +1,95 @@
+name: R10 institutional distance study
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - r10-inst-cost-study-20260929
+    paths:
+      - scripts/r10_institutional_distance_study.py
+      - .github/workflows/r10_institutional_distance_study.yml
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+
+      - name: Verify immutable market inputs
+        working-directory: data/history/2020-2025
+        run: sha256sum --check SHA256SUMS
+
+      - name: Verify locked R10 engine
+        run: |
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+
+      - name: Reproduce locked R10 baseline
+        run: |
+          mkdir formal_run
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do
+            ln -s "$f" "$GITHUB_WORKSPACE/formal_run/$(basename "$f")"
+          done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/formal_run/official_corporate_actions_2020_2025.csv"
+          cd formal_run
+          python ../scripts/r10_max_formal.py | tee execution.log
+
+      - name: Assert baseline unchanged
+        run: |
+          python - <<'PY'
+          import json
+          s=json.load(open("formal_run/r10max_formal_summary.json"))["strategy"]
+          assert abs(s["end_nav"]-2403427.0678222505)<1e-7, s
+          assert s["completed_trades"]==150, s
+          assert s["wins"]==71 and s["losses"]==79, s
+          assert abs(s["max_drawdown"]-(-0.19515438907459803))<1e-12, s
+          audit=json.load(open("formal_run/contract_audit.json"))
+          assert audit["all_pass"], audit
+          print("LOCKED_R10_BASELINE_PASS")
+          PY
+
+      - name: Run institutional distance overlay
+        run: |
+          python -m py_compile scripts/r10_institutional_distance_study.py
+          python scripts/r10_institutional_distance_study.py \
+            --formal-dir formal_run \
+            --institutional data/history/2020-2025/institutional_2020_2025.parquet \
+            --out-dir formal_run/inst_distance_study | tee formal_run/inst_distance_study/execution.log
+
+      - name: Publish concise study summary
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          s=pd.read_csv("formal_run/inst_distance_study/institutional_distance_summary.csv")
+          cols=["entity","window","segment","n","closest_q_win_rate","farthest_q_win_rate",
+                "win_rate_diff_closest_minus_farthest","closest_q_avg_return","farthest_q_avg_return",
+                "avg_return_diff_closest_minus_farthest","closest_q_pf","farthest_q_pf",
+                "spearman_abs_distance_vs_return","permutation_p_avg_return_diff"]
+          print(s[cols].to_string(index=False))
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as f:
+              f.write("## R10 institutional distance study\n\n")
+              f.write("- Locked R10 baseline reproduced unchanged: PASS\n")
+              f.write("- Study is research-only; no signal/portfolio rule changed.\n")
+              f.write("- Q1 = closest to positive-net-buy weighted accumulation center; Q4 = farthest.\n\n")
+              f.write(s[cols].to_markdown(index=False))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r10-institutional-distance-study
+          path: |
+            formal_run/inst_distance_study/execution.log
+            formal_run/inst_distance_study/institutional_distance_trade_features.csv
+            formal_run/inst_distance_study/institutional_distance_summary.csv
+            formal_run/inst_distance_study/institutional_distance_result.json
+            formal_run/r10max_formal_summary.json
+            formal_run/contract_audit.json
+          if-no-files-found: error
