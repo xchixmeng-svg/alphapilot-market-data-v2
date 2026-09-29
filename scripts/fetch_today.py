@@ -1,9 +1,10 @@
 import csv
+import io
 import json
 import re
 import time
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -24,6 +25,59 @@ TWSE_MI_INDEX = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
 TWSE_T86 = "https://www.twse.com.tw/rwd/zh/fund/T86"
 TPEX_OHLCV = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
 TPEX_INST = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"
+HOLIDAYS = "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule"
+TPEX_DAILY = "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes"
+TPEX_DAILY_INST = "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade"
+
+
+def expected_session():
+    """Last completed TWSE session at the scheduled evening run time."""
+    anchor = now.date() if now.hour >= 18 else now.date() - timedelta(days=1)
+    holidays = get_json("twse_holiday_schedule", HOLIDAYS)
+    if not isinstance(holidays, list) or not holidays:
+        raise RuntimeError("cannot verify official TWSE holiday calendar")
+    closed = {parse_date(row.get("Date")) for row in holidays
+              if "放假" in str(row.get("Description", "")) or "無交易" in str(row.get("Name", ""))}
+    for offset in range(14):
+        day = anchor - timedelta(days=offset)
+        if day.weekday() < 5 and day not in closed:
+            return day
+    raise RuntimeError("cannot find recent completed trading session")
+
+
+def roc_date(day):
+    return f"{day.year - 1911:03d}/{day.month:02d}/{day.day:02d}"
+
+
+def dated_payload(name, url, day, params):
+    payload = get_json(name, url, params)
+    reported = parse_date(payload.get("date"))
+    if payload.get("stat", "").lower() != "ok" or reported != day:
+        raise RuntimeError(f"{name}: requested {day}, received {reported}, stat={payload.get('stat')}")
+    return payload
+
+
+def tpex_dated_prices(day):
+    last_error = None
+    for attempt in range(6):
+        try:
+            response = session.get(TPEX_DAILY, params={"date": roc_date(day), "response": "csv"},
+                                   headers=HEADERS, timeout=(15, 60))
+            response.raise_for_status()
+            # The official CSV is CP950/Big5 although the JSON endpoints are UTF-8.
+            decoded = response.content.decode("cp950")
+            lines = decoded.splitlines()
+            if len(lines) < 4 or lines[1].strip() != f"資料日期:{roc_date(day)}":
+                raise RuntimeError("TPEx CSV date/header mismatch")
+            rows = list(csv.DictReader(io.StringIO("\n".join(lines[2:]))))
+            if len(rows) < 800:
+                raise RuntimeError(f"TPEx dated CSV too few rows: {len(rows)}")
+            return decoded, rows
+        except Exception as exc:
+            last_error = exc
+            if attempt < 5:
+                time.sleep(min(30, 2 ** attempt))
+    raise RuntimeError(f"TPEx dated CSV unavailable: {last_error}")
 
 
 def get_json(name, url, params=None):
@@ -321,16 +375,14 @@ def normalize_ohlcv(rows, market):
             "market": market,
             "stock_id": code,
             "name": pick(row, "Name", "CompanyName", "證券名稱", "名稱"),
-            "open": num(pick(row, "OpeningPrice", "Open", "開盤價")),
-            "high": num(pick(row, "HighestPrice", "High", "最高價")),
-            "low": num(pick(row, "LowestPrice", "Low", "最低價")),
-            "close": num(pick(row, "ClosingPrice", "Close", "收盤價")),
+            "open": num(pick(row, "OpeningPrice", "Open", "開盤價", "開盤")),
+            "high": num(pick(row, "HighestPrice", "High", "最高價", "最高")),
+            "low": num(pick(row, "LowestPrice", "Low", "最低價", "最低")),
+            "close": num(pick(row, "ClosingPrice", "Close", "收盤價", "收盤")),
             "volume": integer(
                 pick(row, "TradeVolume", "TradingShares", "成交股數", "成交量")
             ),
-            "trading_value": integer(
-                pick(row, "TradeValue", "TransactionAmount", "成交金額")
-            ),
+            "trading_value": integer(pick(row, "TradeValue", "TransactionAmount", "成交金額", "成交金額(元)")),
         })
     return output
 
@@ -381,63 +433,49 @@ def normalize_inst(rows, market):
     return output
 
 
-print("[fetch] tpex_ohlcv", flush=True)
-tpex_ohlcv_payload = get_json("tpex_ohlcv", TPEX_OHLCV)
+required_day = expected_session()
+print(f"[session] official latest completed trading day={required_day}", flush=True)
+print("[fetch] official dated TPEx reports", flush=True)
+tpex_ohlcv_csv, tpex_ohlcv_rows = tpex_dated_prices(required_day)
+tpex_ohlcv_payload = {"date": required_day.strftime("%Y%m%d"), "source": "TPEx dated CSV", "row_count": len(tpex_ohlcv_rows)}
+tpex_inst_payload = dated_payload("tpex_dated_institutional", TPEX_DAILY_INST, required_day,
+                                  {"type": "Daily", "sect": "EW", "date": roc_date(required_day),
+                                   "id": "", "response": "json"})
+flows = tpex_inst_payload.get("tables") or []
+if not tpex_ohlcv_rows or not flows or not flows[0].get("data"):
+    raise RuntimeError("dated TPEx source has no stock/flow table")
+# The institutional table repeats field names per institution. Preserve the
+# official column positions before normalization instead of using dict(zip()).
+tpex_inst_rows = []
+for values in flows[0]["data"]:
+    if isinstance(values, list) and len(values) >= 24:
+        tpex_inst_rows.append({"Code": values[0], "Name": values[1],
+                               "foreign_buy": values[8], "foreign_sell": values[9], "foreign_net": values[10],
+                               "trust_buy": values[11], "trust_sell": values[12], "trust_net": values[13],
+                               "dealer_buy": values[20], "dealer_sell": values[21], "dealer_net": values[22]})
+tpex_source = "TPEx dated dailyQuotes / dailyTrade"
 
-print("[fetch] tpex_institutional", flush=True)
-tpex_inst_payload = get_json("tpex_institutional", TPEX_INST)
-
-tpex_ohlcv_date = payload_date("tpex_ohlcv", tpex_ohlcv_payload)
-tpex_inst_date = payload_date("tpex_institutional", tpex_inst_payload)
-
-if tpex_ohlcv_date != tpex_inst_date:
-    raise RuntimeError(
-        "TPEx snapshot date mismatch: "
-        f"ohlcv={tpex_ohlcv_date} institutional={tpex_inst_date}"
-    )
-
-trade_day = tpex_ohlcv_date
+trade_day = required_day
 trade_date = trade_day.strftime("%Y-%m-%d")
 ymd = trade_day.strftime("%Y%m%d")
 
 print(f"[selected] target trade_date={trade_date}", flush=True)
 
-print("[fetch] twse_ohlcv_snapshot", flush=True)
-twse_snapshot_payload = get_json("twse_ohlcv_snapshot", TWSE_OPENAPI)
-twse_snapshot_date = payload_date("twse_ohlcv_snapshot", twse_snapshot_payload)
-
-twse_ohlcv_source = "TWSE STOCK_DAY_ALL"
-twse_ohlcv_payload = twse_snapshot_payload
-twse_ohlcv_rows = twse_snapshot_payload
-
-if twse_snapshot_date != trade_day:
-    print(
-        "[fallback] TWSE STOCK_DAY_ALL is not aligned; "
-        f"snapshot={twse_snapshot_date} target={trade_day}. "
-        "Fetching date-addressable MI_INDEX.",
-        flush=True,
-    )
-    twse_ohlcv_payload = get_json(
-        "twse_ohlcv_mi_index",
-        TWSE_MI_INDEX,
-        {
-            "date": ymd,
-            "type": "ALLBUT0999",
-            "response": "json",
-        },
-    )
-    fields, rows = find_table(
-        twse_ohlcv_payload,
-        ["證券代號", "開盤價", "最高價", "最低價", "收盤價"],
-        "twse_ohlcv_mi_index",
-    )
-    twse_ohlcv_rows = table_to_dicts(fields, rows)
-    twse_ohlcv_source = "TWSE MI_INDEX fallback"
+print("[fetch] official dated TWSE MI_INDEX", flush=True)
+twse_ohlcv_payload = dated_payload("twse_ohlcv_mi_index", TWSE_MI_INDEX, required_day,
+                                   {"date": ymd, "type": "ALLBUT0999", "response": "json"})
+fields, rows = find_table(twse_ohlcv_payload,
+                          ["證券代號", "開盤價", "最高價", "最低價", "收盤價"],
+                          "twse_ohlcv_mi_index")
+twse_ohlcv_rows = table_to_dicts(fields, rows)
+twse_snapshot_payload = {"source": "dated MI_INDEX", "date": ymd}
+twse_ohlcv_source = "TWSE dated MI_INDEX"
 
 print(f"[fetch] twse_institutional date={ymd}", flush=True)
-twse_inst_payload = get_json(
+twse_inst_payload = dated_payload(
     "twse_institutional",
     TWSE_T86,
+    required_day,
     {
         "date": ymd,
         "selectType": "ALLBUT0999",
@@ -461,6 +499,7 @@ normalized_dir.mkdir(parents=True, exist_ok=True)
     json.dumps(tpex_ohlcv_payload, ensure_ascii=False, indent=2),
     encoding="utf-8",
 )
+(raw_dir / "tpex_ohlcv.csv").write_text(tpex_ohlcv_csv, encoding="utf-8-sig")
 (raw_dir / "tpex_institutional.json").write_text(
     json.dumps(tpex_inst_payload, ensure_ascii=False, indent=2),
     encoding="utf-8",
@@ -479,9 +518,9 @@ normalized_dir.mkdir(parents=True, exist_ok=True)
 )
 
 twse_ohlcv = normalize_ohlcv(twse_ohlcv_rows, "TWSE")
-tpex_ohlcv = normalize_ohlcv(tpex_ohlcv_payload, "TPEX")
+tpex_ohlcv = normalize_ohlcv(tpex_ohlcv_rows, "TPEX")
 twse_inst = normalize_inst(twse_inst_rows, "TWSE")
-tpex_inst = normalize_inst(tpex_inst_payload, "TPEX")
+tpex_inst = normalize_inst(tpex_inst_rows, "TPEX")
 
 for name, rows in [
     ("twse_ohlcv", twse_ohlcv),
@@ -521,8 +560,8 @@ manifest = {
     "sources": {
         "twse_ohlcv": twse_ohlcv_source,
         "twse_institutional": "TWSE T86",
-        "tpex_ohlcv": "TPEx OpenAPI tpex_mainboard_daily_close_quotes",
-        "tpex_institutional": "TPEx OpenAPI tpex_3insti_daily_trading",
+        "tpex_ohlcv": tpex_source,
+        "tpex_institutional": tpex_source,
     },
     "source_dates": {
         "twse_ohlcv": trade_date,
