@@ -72,6 +72,8 @@ def main():
     repo=Path(a.repo).resolve()
     version=verify_version(repo)
     latest,manifest=latest_main_trade_date()
+    if not a.trade_date and latest!=latest_expected_session():
+        raise RuntimeError(f'DATA_GATE_FAIL latest main snapshot {latest} is stale; expected {latest_expected_session()}')
     trade=a.trade_date or latest
     if trade>latest: raise RuntimeError(f"DATA_GATE_FAIL requested {trade} newer than latest PASS {latest}")
     # Verify exact T manifest too.
