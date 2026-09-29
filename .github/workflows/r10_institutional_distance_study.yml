@@ -58,6 +58,7 @@ jobs:
 
       - name: Run institutional distance overlay
         run: |
+          mkdir -p formal_run/inst_distance_study
           python -m py_compile scripts/r10_institutional_distance_study.py
           python scripts/r10_institutional_distance_study.py \
             --formal-dir formal_run \
@@ -67,19 +68,24 @@ jobs:
       - name: Publish concise study summary
         run: |
           python - <<'PY'
-          import pandas as pd
+          import os, pandas as pd
           s=pd.read_csv("formal_run/inst_distance_study/institutional_distance_summary.csv")
           cols=["entity","window","segment","n","closest_q_win_rate","farthest_q_win_rate",
                 "win_rate_diff_closest_minus_farthest","closest_q_avg_return","farthest_q_avg_return",
                 "avg_return_diff_closest_minus_farthest","closest_q_pf","farthest_q_pf",
-                "spearman_abs_distance_vs_return","permutation_p_avg_return_diff"]
+                "spearman_abs_distance_vs_return","spearman_signed_distance_vs_return",
+                "permutation_p_avg_return_diff","avg_return_diff_lowest_minus_highest_signed",
+                "permutation_p_signed_return_diff","above_zone_avg_return","not_above_zone_avg_return"]
+          cols=[c for c in cols if c in s.columns]
           print(s[cols].to_string(index=False))
-          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as f:
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as f:
               f.write("## R10 institutional distance study\n\n")
               f.write("- Locked R10 baseline reproduced unchanged: PASS\n")
               f.write("- Study is research-only; no signal/portfolio rule changed.\n")
               f.write("- Q1 = closest to positive-net-buy weighted accumulation center; Q4 = farthest.\n\n")
-              f.write(s[cols].to_markdown(index=False))
+              f.write("\n```text\n")
+              f.write(s[cols].to_string(index=False))
+              f.write("\n```\n")
           PY
 
       - uses: actions/upload-artifact@v4
