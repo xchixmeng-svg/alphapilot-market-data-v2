@@ -113,7 +113,8 @@ def main():
     baseline=compute_live_state(state,feat,events,trade) if trade=="2026-09-29" else None
     paper=advance(repo,trade,feat,events,state,baseline,compute_live_state,next_weekday)
     live=paper_live(paper,feat,events,state,compute_live_state)
-    buys,sells,candidates,meta=formal_orders(feat,live,trade)
+    buys,sells,candidates,meta=formal_orders(feat,live,trade,paper.get("last_force_signal_date"))
+    if meta["force_triggered"]: paper["last_force_signal_date"]=trade
     store_orders(paper,buys,sells)
     meta.update({"regime":str(bm["regime"]),"breadth":float(bm["breadth"]),"advance10":float(bm["advance10"]),
                  "0050_close":float(bm["close"]),"0050_ma60":float(bm["mkt_ma60"]),"0050_ma120":float(bm["mkt_ma120"]),

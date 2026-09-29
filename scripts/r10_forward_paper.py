@@ -153,6 +153,7 @@ def advance(repo, trade_date, feat, events, confirmed, baseline,
     return {"schema_version": 1, "account": "PAPER_SIMULATION_NOT_BROKER",
             "trade_date": trade_date, "cash": cash, "hwm": hwm,
             "positions": positions, "pending_orders": [], "fills": fills,
+            "last_force_signal_date": prev.get("last_force_signal_date"),
             "previous_state": str(prev_path.relative_to(repo))}
 
 
