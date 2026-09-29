@@ -31,9 +31,29 @@ def dd_multiplier(dd):
     if dd<=-0.06:return 0.85
     return 1.0
 
+_official_closed_cache = None
+def official_closed_dates():
+    global _official_closed_cache
+    if _official_closed_cache is None:
+        r=requests.get('https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule',timeout=30)
+        r.raise_for_status(); rows=r.json()
+        if not isinstance(rows,list) or not rows:
+            raise RuntimeError('DATA_GATE_FAIL official TWSE calendar unavailable')
+        _official_closed_cache={date(int(x['Date'][:3])+1911,int(x['Date'][3:5]),int(x['Date'][5:]))
+                                for x in rows if '放假' in x.get('Description','') or '無交易' in x.get('Name','')}
+    return _official_closed_cache
+
 def next_weekday(ds):
     d=parse_date(ds)+timedelta(days=1)
-    while d.weekday()>=5:d+=timedelta(days=1)
+    closed=official_closed_dates()
+    while d.weekday()>=5 or d in closed:d+=timedelta(days=1)
+    return d.isoformat()
+
+def latest_expected_session():
+    now_tpe=datetime.now(ZoneInfo('Asia/Taipei'))
+    d=now_tpe.date() if now_tpe.hour>=18 else now_tpe.date()-timedelta(days=1)
+    closed=official_closed_dates()
+    while d.weekday()>=5 or d in closed:d-=timedelta(days=1)
     return d.isoformat()
 
 def load_state(repo):
