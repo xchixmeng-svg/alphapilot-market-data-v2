@@ -109,13 +109,28 @@ def main():
                "runtime_shifted_events":shifted_events,"first5_no_limit_exemption_count":int(len(first5_records)),
                "first5_no_limit_exemptions":first5_records,"unexplained_jump_count":0}
     state=load_state(repo)
-    live=compute_live_state(state,feat,events,trade)
+    from r10_forward_paper import advance, paper_live, store_orders
+    baseline=compute_live_state(state,feat,events,trade) if trade=="2026-09-29" else None
+    paper=advance(repo,trade,feat,events,state,baseline,compute_live_state,next_weekday)
+    live=paper_live(paper,feat,events,state,compute_live_state)
     buys,sells,candidates,meta=formal_orders(feat,live,trade)
+    store_orders(paper,buys,sells)
     meta.update({"regime":str(bm["regime"]),"breadth":float(bm["breadth"]),"advance10":float(bm["advance10"]),
                  "0050_close":float(bm["close"]),"0050_ma60":float(bm["mkt_ma60"]),"0050_ma120":float(bm["mkt_ma120"]),
                  "0050_r20":float(bm["mr20"]),"0050_r60":float(bm["mr60"])})
     legacy=legacy_snapshot(state,feat,trade)
     out=write_outputs(repo,trade,version,data_gate,live,buys,sells,candidates,meta,legacy)
+    (out/"paper_state.json").write_text(json.dumps(paper,ensure_ascii=False,indent=2,default=str)+"\n",encoding="utf-8")
+    pd.DataFrame(paper["fills"],columns=["event","side","strategy","code","shares","signal_date","scheduled_date","fill_date","status","raw_fill_price","gross_value","fee","tax","net_cash","old_shares","new_shares","cash_credit"]).to_csv(out/"paper_fills.csv",index=False)
+    summary_file=out/"forward_summary.json"
+    summary=json.loads(summary_file.read_text(encoding="utf-8"))
+    summary["account"]="PAPER_SIMULATION_NOT_BROKER"
+    summary["paper_fills"]={"filled":sum(f.get("status")=="FILLED" for f in paper["fills"]),
+                            "unfilled_or_canceled":sum(f.get("event")=="ORDER" and f.get("status")!="FILLED" for f in paper["fills"]),
+                            "corporate_events":sum(f.get("event")=="CORPORATE_ACTION" for f in paper["fills"])}
+    summary_file.write_text(json.dumps(summary,ensure_ascii=False,indent=2,default=str)+"\n",encoding="utf-8")
+    with (out/"T1_OPERATION_TABLE.md").open("a",encoding="utf-8") as f:
+        f.write("\nPaper simulation only; fills use locked backtest execution assumptions, not broker confirmations.\n")
     print(json.dumps({"VERSION_GATE":"PASS","DATA_GATE":"PASS","trade_date":trade,"output_dir":str(out),
                       "formal_buys":len(buys),"formal_sells":len(sells),"r7_hard":meta["r7_hard_count"],"r05_hard":meta["r05_hard_count"],
                       "nav":live["nav"],"dd":live["dd"],"regime":meta["regime"]},ensure_ascii=False,indent=2))

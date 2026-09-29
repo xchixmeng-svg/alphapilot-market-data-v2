@@ -12,6 +12,7 @@ on:
     paths:
       - 'scripts/r10_forward_live.py'
       - 'scripts/forward_parts/**'
+      - 'scripts/r10_forward_paper.py'
       - 'scripts/fetch_2026_corporate_actions.py'
       - 'scripts/build_2026_forward_window.py'
       - 'config/forward_state.json'
@@ -44,7 +45,7 @@ jobs:
         run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.5
       - name: Syntax gate
         run: |
-          python -m py_compile scripts/fetch_2026_corporate_actions.py scripts/build_2026_forward_window.py scripts/r10_forward_live.py
+          python -m py_compile scripts/fetch_2026_corporate_actions.py scripts/build_2026_forward_window.py scripts/r10_forward_live.py scripts/r10_forward_paper.py
           cat scripts/forward_parts/*.part > /tmp/r10_forward_live_generated.py
           python -m py_compile /tmp/r10_forward_live_generated.py
       - name: Version gate — immutable formal fingerprints
@@ -78,10 +79,11 @@ jobs:
           import json,os
           from pathlib import Path
           td=os.environ['TD']; p=Path('forward_runtime')/td
-          req=['forward_summary.json','forward_candidates.csv','forward_orders.csv','forward_positions.csv','legacy_positions.csv','T1_OPERATION_TABLE.md']
+          req=['forward_summary.json','forward_candidates.csv','forward_orders.csv','forward_positions.csv','legacy_positions.csv','T1_OPERATION_TABLE.md','paper_state.json','paper_fills.csv']
           assert all((p/f).exists() for f in req), [f for f in req if not (p/f).exists()]
           s=json.loads((p/'forward_summary.json').read_text())
           assert s['VERSION_GATE']['status']=='PASS' and s['DATA_GATE']['status']=='PASS' and s['trade_date']==td
+          assert s['account']=='PAPER_SIMULATION_NOT_BROKER'
           print(json.dumps(s,ensure_ascii=False,indent=2))
           PY
       - uses: actions/upload-artifact@v4
