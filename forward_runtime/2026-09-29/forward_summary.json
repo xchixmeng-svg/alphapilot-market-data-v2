@@ -217,6 +217,8 @@
     "r7_hard_count": 389,
     "r05_hard_count": 4,
     "dd_multiplier": 1.0,
+    "force_triggered": false,
+    "no_buy_active": false,
     "regime": "Strong Bull",
     "breadth": 0.6064757160647571,
     "advance10": 0.663760896637609,
