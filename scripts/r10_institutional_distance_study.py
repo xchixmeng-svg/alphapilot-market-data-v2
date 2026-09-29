@@ -166,6 +166,8 @@ def main():
                     'distance': distance, 'abs_distance': abs(distance),
                     'distance_to_zone': zone_distance, 'abs_distance_to_zone': abs(zone_distance),
                     'entry_inside_zone': bool(low <= entry_index <= high),
+                    'position_vs_zone': 'below' if entry_index < low else ('above' if entry_index > high else 'inside'),
+                    'overextension_above_zone': max(zone_distance, 0.0),
                 })
 
     feat = pd.DataFrame(feature_rows)
@@ -188,11 +190,17 @@ def main():
             if len(q) < 4:
                 continue
             q1, q4 = z[z['close_q'] == 1], z[z['close_q'] == 4]
+            s1, s4 = z[z['signed_q'] == 1], z[z['signed_q'] == 4]
+            above = z[z['position_vs_zone'] == 'above']
+            not_above = z[z['position_vs_zone'] != 'above']
             corr = z['abs_distance'].rank(method='average').corr(z['return'].rank(method='average'))
+            signed_corr = z['distance'].rank(method='average').corr(z['return'].rank(method='average'))
             p = permutation_pvalue(q1['return'], q4['return'], rng)
+            p_signed = permutation_pvalue(s1['return'], s4['return'], rng)
             row = {
                 'entity': entity, 'window': int(window), 'segment': segment, 'n': int(len(z)),
                 'spearman_abs_distance_vs_return': float(corr),
+                'spearman_signed_distance_vs_return': float(signed_corr),
                 'closest_q_n': int(len(q1)), 'farthest_q_n': int(len(q4)),
                 'closest_q_win_rate': float((q1['return'] > 0).mean()),
                 'farthest_q_win_rate': float((q4['return'] > 0).mean()),
@@ -204,6 +212,18 @@ def main():
                 'closest_q_avg_mfe': float(q1['mfe'].mean()), 'farthest_q_avg_mfe': float(q4['mfe'].mean()),
                 'closest_q_avg_mae': float(q1['mae'].mean()), 'farthest_q_avg_mae': float(q4['mae'].mean()),
                 'permutation_p_avg_return_diff': float(p),
+                'lowest_signed_q_n': int(len(s1)), 'highest_signed_q_n': int(len(s4)),
+                'lowest_signed_q_win_rate': float((s1['return'] > 0).mean()),
+                'highest_signed_q_win_rate': float((s4['return'] > 0).mean()),
+                'lowest_signed_q_avg_return': float(s1['return'].mean()),
+                'highest_signed_q_avg_return': float(s4['return'].mean()),
+                'avg_return_diff_lowest_minus_highest_signed': float(s1['return'].mean() - s4['return'].mean()),
+                'permutation_p_signed_return_diff': float(p_signed),
+                'above_zone_n': int(len(above)),
+                'above_zone_win_rate': float((above['return'] > 0).mean()) if len(above) else np.nan,
+                'not_above_zone_win_rate': float((not_above['return'] > 0).mean()) if len(not_above) else np.nan,
+                'above_zone_avg_return': float(above['return'].mean()) if len(above) else np.nan,
+                'not_above_zone_avg_return': float(not_above['return'].mean()) if len(not_above) else np.nan,
                 'inside_zone_n': int(z['entry_inside_zone'].sum()),
                 'inside_zone_win_rate': float((z.loc[z['entry_inside_zone'], 'return'] > 0).mean()) if z['entry_inside_zone'].any() else np.nan,
                 'outside_zone_win_rate': float((z.loc[~z['entry_inside_zone'], 'return'] > 0).mean()) if (~z['entry_inside_zone']).any() else np.nan,
@@ -219,12 +239,23 @@ def main():
     ranked['diagnostic_score'] = ranked['avg_return_diff_closest_minus_farthest'].fillna(0) + 0.25 * ranked['win_rate_diff_closest_minus_farthest'].fillna(0)
     best = ranked.sort_values('diagnostic_score', ascending=False).head(12)
 
+    coverage_by_entity = {}
+    for entity, z in feat.groupby('entity'):
+        coverage_by_entity[entity] = {
+            'unique_trades': int(z['trade_id'].nunique()),
+            'R7_unique_trades': int(z.loc[z['strategy']=='R7','trade_id'].nunique()),
+            'R05_unique_trades': int(z.loc[z['strategy']=='R05','trade_id'].nunique()),
+        }
+
     result = {
         'study': 'R10 MAX institutional accumulation distance overlay, research only',
         'formal_commit': '3728a0045ab77d65b1bd9c73fcbe942f6c0bc0d9',
         'completed_r10_trades': int(len(trades)),
         'matched_trades': int(merged['signal_date'].notna().sum()),
         'institutional_columns': available_inst,
+        'completed_trade_counts': trades['strategy'].value_counts().to_dict(),
+        'feature_trade_counts': feat.drop_duplicates('trade_id')['strategy'].value_counts().to_dict(),
+        'coverage_by_entity': coverage_by_entity,
         'method': {
             'causality': 'for each T+1 entry, accumulation features use institutional and price data only through signal day T',
             'cost_proxy': 'positive net-buy weighted causal-adjusted typical price; not actual institutional cost',
@@ -243,7 +274,9 @@ def main():
     show = summary[['entity','window','segment','n','closest_q_win_rate','farthest_q_win_rate',
                     'win_rate_diff_closest_minus_farthest','closest_q_avg_return','farthest_q_avg_return',
                     'avg_return_diff_closest_minus_farthest','closest_q_pf','farthest_q_pf',
-                    'spearman_abs_distance_vs_return','permutation_p_avg_return_diff']]
+                    'spearman_abs_distance_vs_return','spearman_signed_distance_vs_return',
+                    'permutation_p_avg_return_diff','avg_return_diff_lowest_minus_highest_signed',
+                    'permutation_p_signed_return_diff','above_zone_avg_return','not_above_zone_avg_return']]
     print(show.to_string(index=False))
 
 if __name__ == '__main__':
