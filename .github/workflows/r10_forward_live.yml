@@ -15,6 +15,7 @@ on:
       - 'scripts/r10_forward_paper.py'
       - 'scripts/fetch_2026_corporate_actions.py'
       - 'scripts/build_2026_forward_window.py'
+      - 'scripts/r10_forward_catchup.py'
       - 'config/forward_state.json'
       - 'data/reference/official_corporate_actions_2026.csv'
       - '.github/workflows/r10_forward_live.yml'
@@ -45,7 +46,7 @@ jobs:
         run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0 requests==2.32.5
       - name: Syntax gate
         run: |
-          python -m py_compile scripts/fetch_2026_corporate_actions.py scripts/build_2026_forward_window.py scripts/r10_forward_live.py scripts/r10_forward_paper.py
+          python -m py_compile scripts/fetch_2026_corporate_actions.py scripts/build_2026_forward_window.py scripts/r10_forward_live.py scripts/r10_forward_paper.py scripts/r10_forward_catchup.py
           cat scripts/forward_parts/*.part > /tmp/r10_forward_live_generated.py
           python -m py_compile /tmp/r10_forward_live_generated.py
       - name: Version gate — immutable formal fingerprints
@@ -63,39 +64,62 @@ jobs:
           test -n "$TD"
           echo "trade_date=$TD" >> "$GITHUB_OUTPUT"
           echo "T=$TD"
+      - name: Plan sequential PASS sessions
+        id: plan
+        env:
+          TD: ${{ steps.td.outputs.trade_date }}
+          REQUIRE_CURRENT: ${{ github.event_name == 'schedule' }}
+        run: |
+          if [ "$REQUIRE_CURRENT" = 'true' ]; then python scripts/r10_forward_catchup.py --target "$TD" --require-current; else python scripts/r10_forward_catchup.py --target "$TD"; fi
       - name: Build rolling 2026 Forward input window
+        if: steps.plan.outputs.dates != ''
         run: python scripts/build_2026_forward_window.py
       - name: Update persistent 2026 corporate-action ledger through T
+        if: steps.plan.outputs.dates != ''
         run: |
           TD='${{ steps.td.outputs.trade_date }}'; END="${TD//-/}"
           python scripts/fetch_2026_corporate_actions.py --end "$END" --out data/reference/official_corporate_actions_2026.csv
       - name: Run locked Forward engine
-        run: python scripts/r10_forward_live.py --trade-date '${{ steps.td.outputs.trade_date }}'
-      - name: Assert auditable outputs
+        if: steps.plan.outputs.dates != ''
         env:
-          TD: ${{ steps.td.outputs.trade_date }}
+          RUN_DATES: ${{ steps.plan.outputs.dates }}
+        run: |
+          IFS=',' read -ra days <<< "$RUN_DATES"
+          for day in "${days[@]}"; do python scripts/r10_forward_live.py --trade-date "$day"; done
+      - name: Assert auditable outputs
+        if: steps.plan.outputs.dates != ''
+        env:
+          RUN_DATES: ${{ steps.plan.outputs.dates }}
         run: |
           python - <<'PY'
           import json,os
           from pathlib import Path
-          td=os.environ['TD']; p=Path('forward_runtime')/td
-          req=['forward_summary.json','forward_candidates.csv','forward_orders.csv','forward_positions.csv','legacy_positions.csv','T1_OPERATION_TABLE.md','paper_state.json','paper_fills.csv']
-          assert all((p/f).exists() for f in req), [f for f in req if not (p/f).exists()]
-          s=json.loads((p/'forward_summary.json').read_text())
-          assert s['VERSION_GATE']['status']=='PASS' and s['DATA_GATE']['status']=='PASS' and s['trade_date']==td
-          assert s['account']=='PAPER_SIMULATION_NOT_BROKER'
-          print(json.dumps(s,ensure_ascii=False,indent=2))
+          for td in os.environ['RUN_DATES'].split(','):
+              p=Path('forward_runtime')/td
+              req=['forward_summary.json','forward_candidates.csv','forward_orders.csv','forward_positions.csv','legacy_positions.csv','T1_OPERATION_TABLE.md','paper_state.json','paper_fills.csv']
+              assert all((p/f).exists() for f in req), [f for f in req if not (p/f).exists()]
+              s=json.loads((p/'forward_summary.json').read_text())
+              ledger=json.loads((p/'paper_state.json').read_text())
+              assert s['VERSION_GATE']['status']=='PASS' and s['DATA_GATE']['status']=='PASS' and s['trade_date']==td
+              assert s['account']=='PAPER_SIMULATION_NOT_BROKER' and ledger['trade_date']==td and ledger['account']==s['account']
+              print(json.dumps({'date':td,'nav':s['portfolio']['nav'],'orders':s['formal_buy_count']+s['formal_sell_count'],'paper_fills':s['paper_fills']},ensure_ascii=False))
           PY
       - uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.dates != ''
         with:
           name: r10-forward-${{ steps.td.outputs.trade_date }}
-          path: forward_runtime/${{ steps.td.outputs.trade_date }}
+          path: forward_runtime/2026-??-??
           if-no-files-found: error
           retention-days: 30
       - name: Commit incremental ledger and auditable T+1 decision
+        if: steps.plan.outputs.dates != ''
+        env:
+          RUN_DATES: ${{ steps.plan.outputs.dates }}
         run: |
           TD='${{ steps.td.outputs.trade_date }}'
           git config user.name 'github-actions[bot]'; git config user.email '4189823+github-actions[bot]@users.noreply.github.com'
-          git add data/reference/official_corporate_actions_2026.csv data/reference/official_corporate_actions_2026.csv.meta.json "forward_runtime/$TD"
+          git add data/reference/official_corporate_actions_2026.csv data/reference/official_corporate_actions_2026.csv.meta.json
+          IFS=',' read -ra days <<< "$RUN_DATES"
+          for day in "${days[@]}"; do git add "forward_runtime/$day"; done
           if ! git diff --cached --quiet; then git commit -m "forward: ${TD} locked T+1 decision and corp-action increment" && git push origin HEAD:r10-forward-live-20260910; fi
 # trigger 2026-09-11

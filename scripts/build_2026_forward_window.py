@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import csv, io, json, re, time, zipfile, hashlib
+import csv, io, json, re, time, zipfile, hashlib, subprocess
 from datetime import datetime
 from pathlib import Path
 import requests
@@ -54,12 +54,56 @@ def write_csv(path,rows,fields=None):
 def week_no(name):
     m=re.search(r'weekly_2026_W(\d+)',name);return int(m.group(1)) if m else -1
 
+def main_file(path):
+    return subprocess.check_output(['git','show',f'origin/main:{path}'],text=True)
+
+def main_day(ds,kind):
+    """Use only exact-date, four-source PASS snapshots already audited on main."""
+    m=json.loads(main_file(f'data/{ds}/manifest.json'))
+    keys={f'{market}_{source}' for market in ('twse','tpex') for source in ('ohlcv','institutional')}
+    if m.get('status')!='PASS' or set(m.get('source_dates',{}))!=keys or any(v!=ds for v in m['source_dates'].values()):
+        raise RuntimeError(f'main daily snapshot not four-source PASS: {ds}')
+    rows=[]
+    for market in ('twse','tpex'):
+        path=f'data/{ds}/normalized/{market}_{kind}.csv'
+        raw=main_file(path)
+        data=list(csv.DictReader(io.StringIO(raw.lstrip('\ufeff'))))
+        if len(data)<(700 if market=='twse' else 400):
+            raise RuntimeError(f'main daily {path} too few rows: {len(data)}')
+        for r in data:
+            code=code4(r.get('stock_id'))
+            if not code or r.get('trade_date')!=ds:continue
+            if kind=='ohlcv':
+                rows.append({'date':ds,'code':code,'name':r.get('name',''),'volume':r.get('volume'),
+                             'open':r.get('open'),'high':r.get('high'),'low':r.get('low'),'close':r.get('close')})
+            else:
+                rows.append({'date':ds,'market':market.upper(),'code':code,'name':r.get('name',''),
+                             'foreign_net':r.get('foreign_net'),'trust_net':r.get('trust_net')})
+    if len(rows)<1100:raise RuntimeError(f'main daily {kind} insufficient rows: {ds} {len(rows)}')
+    return rows
+
 rel=get('https://api.github.com/repos/yukishirotsubasa/tw-stock-data-release/releases/tags/daily-close-csv').json()
 assets=[a for a in rel.get('assets',[]) if a['name'].startswith('weekly_2026_W') and a['name'].endswith('.zip') and week_no(a['name'])>=MIN_WEEK]
 if not assets:raise RuntimeError('no usable 2026 weekly assets')
 ohlcv={};used=[]
 for a in sorted(assets,key=lambda z:week_no(z['name'])):
-    blob=get(a['browser_download_url'],timeout=180).content
+    try:
+        blob=get(a['browser_download_url'],timeout=180).content
+    except Exception as original:
+        # A GitHub release binary can transiently return HTTP 500.  A missing
+        # week is safe only when every weekday has a separately audited official
+        # four-source daily snapshot on main; otherwise fail closed.
+        week=week_no(a['name'])
+        days=[datetime.fromisocalendar(2026,week,day).date().isoformat() for day in range(1,6)]
+        try:
+            replacement=[row for ds in days for row in main_day(ds,'ohlcv')]
+        except Exception as e:
+            raise RuntimeError(f'{a["name"]} unavailable and complete main daily fallback failed: {e}') from original
+        for row in replacement:ohlcv[(row['date'],row['code'])]=row
+        used.append({'asset':a['name'],'source':'five_exact_date_main_PASS_snapshots',
+                     'dates':days,'rows':len(replacement),'download_error':str(original)})
+        print('[OHLCV-MAIN-FALLBACK]',a['name'],days,len(ohlcv),flush=True)
+        continue
     digest=hashlib.sha256(blob).hexdigest(); exp=(a.get('digest') or '').replace('sha256:','')
     if exp and digest!=exp:raise RuntimeError(f"{a['name']} sha mismatch")
     with zipfile.ZipFile(io.BytesIO(blob)) as z:
@@ -109,10 +153,14 @@ def tpex(ds):
 
 inst=[];fail=[]
 for i,ds in enumerate(recent,1):
-    try:inst+=twse(ds)
-    except Exception as e:fail.append({'date':ds,'market':'TWSE','error':str(e)})
-    try:inst+=tpex(ds)
-    except Exception as e:fail.append({'date':ds,'market':'TPEX','error':str(e)})
+    try:
+        official=main_day(ds,'institutional')
+        inst+=official
+    except Exception as main_error:
+        try:inst+=twse(ds)
+        except Exception as e:fail.append({'date':ds,'market':'TWSE','error':str(e),'main_error':str(main_error)})
+        try:inst+=tpex(ds)
+        except Exception as e:fail.append({'date':ds,'market':'TPEX','error':str(e),'main_error':str(main_error)})
     print('[INST]',i,'/',len(recent),'rows',len(inst),'fail',len(fail),flush=True)
 if fail:raise RuntimeError('recent institutional gaps: '+json.dumps(fail,ensure_ascii=False))
 inst=sorted(inst,key=lambda r:(r['date'],r['market'],r['code']))
