@@ -1,0 +1,217 @@
+{
+  "scope": "2025 untouched OOS",
+  "baseline_source": "production v1.0 ATR buckets computed from 2020-2024",
+  "warning": "empirical_top5_per_day ranks by empirical edge because historical Claude final ranks do not exist; this is not a full Claude backtest.",
+  "rows": [
+    {
+      "threshold_pp": 0,
+      "mode": "all_qualifying",
+      "n": 42476,
+      "days": 212,
+      "hit_rate": 0.22344382710236368,
+      "hit_ci95": [
+        0.21950755265251737,
+        0.22743011958962778
+      ],
+      "mean_p": 0.23363796367331588,
+      "mean_atr_base": 0.19515588567661737,
+      "realized_lift_pp": 2.828794142574631,
+      "mean_predicted_edge_pp": 3.8482077996698507
+    },
+    {
+      "threshold_pp": 0,
+      "mode": "empirical_top5_per_day",
+      "n": 1060,
+      "days": 212,
+      "hit_rate": 0.19433962264150945,
+      "hit_ci95": [
+        0.17164023175723414,
+        0.21924645100249684
+      ],
+      "mean_p": 0.32015144853306965,
+      "mean_atr_base": 0.18090245283018866,
+      "realized_lift_pp": 1.3437169811320788,
+      "mean_predicted_edge_pp": 13.9248995702881
+    },
+    {
+      "threshold_pp": 2,
+      "mode": "all_qualifying",
+      "n": 24309,
+      "days": 212,
+      "hit_rate": 0.234933563700687,
+      "hit_ci95": [
+        0.22964619872725622,
+        0.24030469031929746
+      ],
+      "mean_p": 0.2520029513108642,
+      "mean_atr_base": 0.1919394709778271,
+      "realized_lift_pp": 4.299409272285989,
+      "mean_predicted_edge_pp": 6.00634803330371
+    },
+    {
+      "threshold_pp": 2,
+      "mode": "empirical_top5_per_day",
+      "n": 1060,
+      "days": 212,
+      "hit_rate": 0.19433962264150945,
+      "hit_ci95": [
+        0.17164023175723414,
+        0.21924645100249684
+      ],
+      "mean_p": 0.32015144853306965,
+      "mean_atr_base": 0.18090245283018866,
+      "realized_lift_pp": 1.3437169811320788,
+      "mean_predicted_edge_pp": 13.9248995702881
+    },
+    {
+      "threshold_pp": 3,
+      "mode": "all_qualifying",
+      "n": 18419,
+      "days": 212,
+      "hit_rate": 0.24387860361583147,
+      "hit_ci95": [
+        0.23773091234465726,
+        0.2501331057499779
+      ],
+      "mean_p": 0.26587191899872203,
+      "mean_atr_base": 0.1944993267821271,
+      "realized_lift_pp": 4.937927683370436,
+      "mean_predicted_edge_pp": 7.137259221659492
+    },
+    {
+      "threshold_pp": 3,
+      "mode": "empirical_top5_per_day",
+      "n": 1060,
+      "days": 212,
+      "hit_rate": 0.19433962264150945,
+      "hit_ci95": [
+        0.17164023175723414,
+        0.21924645100249684
+      ],
+      "mean_p": 0.32015144853306965,
+      "mean_atr_base": 0.18090245283018866,
+      "realized_lift_pp": 1.3437169811320788,
+      "mean_predicted_edge_pp": 13.9248995702881
+    },
+    {
+      "threshold_pp": 4,
+      "mode": "all_qualifying",
+      "n": 14246,
+      "days": 212,
+      "hit_rate": 0.2530534886985821,
+      "hit_ci95": [
+        0.24598146312325786,
+        0.26025865748912314
+      ],
+      "mean_p": 0.2801159582488146,
+      "mean_atr_base": 0.19800600870419766,
+      "realized_lift_pp": 5.504747999438441,
+      "mean_predicted_edge_pp": 8.210994954461693
+    },
+    {
+      "threshold_pp": 4,
+      "mode": "empirical_top5_per_day",
+      "n": 1060,
+      "days": 212,
+      "hit_rate": 0.19433962264150945,
+      "hit_ci95": [
+        0.17164023175723414,
+        0.21924645100249684
+      ],
+      "mean_p": 0.32015144853306965,
+      "mean_atr_base": 0.18090245283018866,
+      "realized_lift_pp": 1.3437169811320788,
+      "mean_predicted_edge_pp": 13.9248995702881
+    },
+    {
+      "threshold_pp": 5,
+      "mode": "all_qualifying",
+      "n": 11219,
+      "days": 212,
+      "hit_rate": 0.26722524289152333,
+      "hit_ci95": [
+        0.2591176092267757,
+        0.275492229184963
+      ],
+      "mean_p": 0.2954009997274065,
+      "mean_atr_base": 0.2032246991710491,
+      "realized_lift_pp": 6.400054372047423,
+      "mean_predicted_edge_pp": 9.217630055635743
+    },
+    {
+      "threshold_pp": 5,
+      "mode": "empirical_top5_per_day",
+      "n": 1060,
+      "days": 212,
+      "hit_rate": 0.19433962264150945,
+      "hit_ci95": [
+        0.17164023175723414,
+        0.21924645100249684
+      ],
+      "mean_p": 0.32015144853306965,
+      "mean_atr_base": 0.18090245283018866,
+      "realized_lift_pp": 1.3437169811320788,
+      "mean_predicted_edge_pp": 13.9248995702881
+    },
+    {
+      "threshold_pp": 6,
+      "mode": "all_qualifying",
+      "n": 8761,
+      "days": 212,
+      "hit_rate": 0.2812464330555873,
+      "hit_ci95": [
+        0.27192922077256926,
+        0.290755396170208
+      ],
+      "mean_p": 0.31399095536769495,
+      "mean_atr_base": 0.21131990640337858,
+      "realized_lift_pp": 6.992652665220869,
+      "mean_predicted_edge_pp": 10.267104896431636
+    },
+    {
+      "threshold_pp": 6,
+      "mode": "empirical_top5_per_day",
+      "n": 1059,
+      "days": 212,
+      "hit_rate": 0.1935788479697828,
+      "hit_ci95": [
+        0.17090726085753394,
+        0.21846544885957064
+      ],
+      "mean_p": 0.3200688618751129,
+      "mean_atr_base": 0.1807432483474976,
+      "realized_lift_pp": 1.2835599622285199,
+      "mean_predicted_edge_pp": 13.93256135276153
+    },
+    {
+      "threshold_pp": 8,
+      "mode": "all_qualifying",
+      "n": 5162,
+      "days": 212,
+      "hit_rate": 0.3179000387446726,
+      "hit_ci95": [
+        0.305336393923153,
+        0.3307345124361794
+      ],
+      "mean_p": 0.36495417036416605,
+      "mean_atr_base": 0.238919449825649,
+      "realized_lift_pp": 7.89805889190236,
+      "mean_predicted_edge_pp": 12.603472053851705
+    },
+    {
+      "threshold_pp": 8,
+      "mode": "empirical_top5_per_day",
+      "n": 1040,
+      "days": 212,
+      "hit_rate": 0.1971153846153846,
+      "hit_ci95": [
+        0.17407095582166368,
+        0.22238911512459078
+      ],
+      "mean_p": 0.32096832840905276,
+      "mean_atr_base": 0.1804868269230769,
+      "realized_lift_pp": 1.66285576923077,
+      "mean_predicted_edge_pp": 14.048150148597585
+    }
+  ]
+}
