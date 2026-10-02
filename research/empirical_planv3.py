@@ -265,7 +265,21 @@ def build_dataset(dates, ids, O, H, L, C, V, A, IF, IT, ID):
     eV = shift(V, 1)
     gap_cancel = entry >= (C + GAP_ATR * atr)
     locked = eL >= C * LIMIT_UP
-    valid = U & np.isfinite(entry) & (eV > 0) & ~gap_cancel & ~locked
+
+    # Match the production baserate safeguards:
+    # (a) do not label dates that do not yet have the full future horizon;
+    # (b) exclude paths containing >10.5% close-to-close jumps, which are usually
+    #     unadjusted corporate actions / par-value changes rather than tradable moves.
+    row_no = np.arange(C.shape[0])[:, None]
+    future_ok = row_no <= (C.shape[0] - HOLD - 2)
+    prev_close = D(C).shift(1).to_numpy()
+    jump = np.abs(C / prev_close - 1.0) > 0.105
+    future_bad = np.zeros(C.shape, dtype=bool)
+    jf = jump.astype(float)
+    for kk in range(1, HOLD + 1):
+        future_bad |= np.nan_to_num(shift(jf, kk), nan=0.0) > 0.5
+
+    valid = U & future_ok & ~future_bad & np.isfinite(entry) & (eV > 0) & ~gap_cancel & ~locked
 
     stop_pct = np.clip(STOP_ATR * atr / C, STOP_MIN, STOP_MAX)
     stop = entry * (1.0 - stop_pct)
@@ -356,6 +370,78 @@ def calc_metrics(y, p):
     return out
 
 
+# Frozen from the production v1.0 baserate computed on 2020-2024.
+# This is deliberately NOT recomputed from 2025 outcomes.
+ATR_BASE_EDGES = np.array([0.02446, 0.03323, 0.04176, 0.05321], dtype=float)
+ATR_BASE_P30 = np.array([0.0795, 0.1636, 0.2220, 0.2755, 0.3495], dtype=float)
+
+
+def atr_base_p30(atr_pct):
+    idx = np.searchsorted(ATR_BASE_EDGES, np.asarray(atr_pct, dtype=float), side="right")
+    return ATR_BASE_P30[idx]
+
+
+def wilson95(k, n):
+    if n <= 0:
+        return [None, None]
+    z = 1.959963984540054
+    p = k / n
+    den = 1 + z * z / n
+    cen = (p + z * z / (2 * n)) / den
+    half = z * np.sqrt((p * (1 - p) + z * z / (4 * n)) / n) / den
+    return [float(cen - half), float(cen + half)]
+
+
+def threshold_sweep_2025(y, p, X, day, years, executed):
+    atr = X[:, FEATURES.index("atr_pct")].astype(float)
+    base = atr_base_p30(atr)
+    edge = p - base
+    rows = []
+    for pp in [0, 2, 3, 4, 5, 6, 8]:
+        th = pp / 100.0
+        mask = executed & (years == 2025) & np.isfinite(edge) & (edge >= th)
+        idx = np.where(mask)[0]
+
+        def summarize(sel, mode):
+            n = int(len(sel))
+            if not n:
+                return {
+                    "threshold_pp": pp, "mode": mode, "n": 0, "days": 0,
+                    "hit_rate": None, "hit_ci95": [None, None], "mean_p": None,
+                    "mean_atr_base": None, "realized_lift_pp": None,
+                }
+            yy = y[sel].astype(float)
+            hit = float(yy.mean())
+            mb = float(base[sel].mean())
+            return {
+                "threshold_pp": pp,
+                "mode": mode,
+                "n": n,
+                "days": int(len(np.unique(day[sel]))),
+                "hit_rate": hit,
+                "hit_ci95": wilson95(int(yy.sum()), n),
+                "mean_p": float(p[sel].mean()),
+                "mean_atr_base": mb,
+                "realized_lift_pp": float((hit - mb) * 100.0),
+                "mean_predicted_edge_pp": float((p[sel].mean() - mb) * 100.0),
+            }
+
+        rows.append(summarize(idx, "all_qualifying"))
+
+        # Historical data does not contain Claude's final ranking, so this is an
+        # empirical-only capacity check: at most five candidates per decision day,
+        # ranked by empirical edge. It is NOT a backtest of the complete Claude system.
+        top = []
+        if len(idx):
+            dvals = day[idx]
+            for d0 in np.unique(dvals):
+                z = idx[dvals == d0]
+                order = np.argsort(-edge[z], kind="mergesort")
+                top.extend(z[order[:5]].tolist())
+        rows.append(summarize(np.asarray(top, dtype=int), "empirical_top5_per_day"))
+    return rows
+
+
 def score_candidates(model, cal, path: Path):
     obj = json.loads(path.read_text(encoding="utf-8"))
     X = np.asarray(
@@ -409,6 +495,12 @@ def main():
     cal = fit_platt(base.predict_proba(X[m2024])[:, 1], y[m2024])
     p25 = apply_platt(cal, base.predict_proba(X[m2025])[:, 1])
     val = calc_metrics(y[m2025], p25)
+
+    # Put the 2025 probabilities back into sample alignment for leakage-free
+    # threshold testing against the frozen 2020-2024 ATR-matched baseline.
+    p25_all = np.full(len(y), np.nan, dtype=float)
+    p25_all[m2025] = p25
+    sweep = threshold_sweep_2025(y, p25_all, X, day, years, executed)
     val.update(
         {
             "target": "plan-v3-hit15-h30",
@@ -438,6 +530,19 @@ def main():
 
     (outdir / "validation_2025.json").write_text(
         json.dumps(val, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (outdir / "threshold_sweep_2025.json").write_text(
+        json.dumps(
+            {
+                "scope": "2025 untouched OOS",
+                "baseline_source": "production v1.0 ATR buckets computed from 2020-2024",
+                "warning": "empirical_top5_per_day ranks by empirical edge because historical Claude final ranks do not exist; this is not a full Claude backtest.",
+                "rows": sweep,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )
     (outdir / "score_20261002.json").write_text(
         json.dumps(score_obj, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -470,6 +575,22 @@ def main():
         )
     lines += [
         "",
+        "## 2025 OOS empirical-edge threshold sweep",
+        "",
+        "| Edge gate | Mode | N | Days | Hit rate | Mean ATR base | Realized lift | Mean predicted edge |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for r in sweep:
+        if r["n"]:
+            lines.append(
+                f"| +{r['threshold_pp']}pp | {r['mode']} | {r['n']:,} | {r['days']} | "
+                f"{r['hit_rate']:.1%} | {r['mean_atr_base']:.1%} | "
+                f"{r['realized_lift_pp']:+.1f}pp | {r['mean_predicted_edge_pp']:+.1f}pp |"
+            )
+        else:
+            lines.append(f"| +{r['threshold_pp']}pp | {r['mode']} | 0 | 0 | — | — | — | — |")
+    lines += [
+        "",
         "## Notes",
         "",
         "- Claude/AI p is kept only for comparison; it is not a feature or gate.",
@@ -478,7 +599,7 @@ def main():
     ]
     (outdir / "report_20261002.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    print(json.dumps({"validation": val, "candidates": score_obj["candidates"]}, ensure_ascii=False, indent=2))
+    print(json.dumps({"validation": val, "threshold_sweep": sweep, "candidates": score_obj["candidates"]}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
