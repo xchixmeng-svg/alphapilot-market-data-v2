@@ -1,6 +1,15 @@
 name: Empirical Plan-v3 Research
 
 on:
+  pull_request:
+    branches:
+      - empirical-planv3-20261002
+    paths:
+      - research/empirical_planv3.py
+      - research/input/forward_20261002_candidates.json
+      - research/EMPIRICAL_PLANV3_PROTOCOL.md
+      - research/TRIGGER_THRESHOLD_SWEEP.md
+      - .github/workflows/empirical_planv3.yml
   push:
     branches:
       - empirical-planv3-20261002
