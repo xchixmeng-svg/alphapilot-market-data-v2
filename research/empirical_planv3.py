@@ -438,7 +438,18 @@ def threshold_sweep_2025(y, p, X, day, years, executed):
                 z = idx[dvals == d0]
                 order = np.argsort(-edge[z], kind="mergesort")
                 top.extend(z[order[:5]].tolist())
-        rows.append(summarize(np.asarray(top, dtype=int), "empirical_top5_per_day"))
+        rows.append(summarize(np.asarray(top, dtype=int), "empirical_top5_by_edge_per_day"))
+
+        # More natural production ordering: after passing the edge gate, rank the
+        # remaining names by absolute empirical success probability.
+        top_p = []
+        if len(idx):
+            dvals = day[idx]
+            for d0 in np.unique(dvals):
+                z = idx[dvals == d0]
+                order = np.argsort(-p[z], kind="mergesort")
+                top_p.extend(z[order[:5]].tolist())
+        rows.append(summarize(np.asarray(top_p, dtype=int), "empirical_top5_by_p_per_day"))
     return rows
 
 
