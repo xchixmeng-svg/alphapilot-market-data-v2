@@ -1,0 +1,4 @@
+event,side,strategy,code,shares,signal_date,scheduled_date,fill_date,status,raw_fill_price,gross_value,fee,tax,net_cash,old_shares,new_shares,cash_credit
+ORDER,BUY,R7,2030,8000,2026-09-30,2026-10-01,2026-10-01,UNFILLED_LIMIT_NOT_TOUCHED,,,,,,,,
+ORDER,BUY,R7,6168,6000,2026-09-30,2026-10-01,2026-10-01,UNFILLED_LIMIT_NOT_TOUCHED,,,,,,,,
+ORDER,BUY,R7,6533,896,2026-09-30,2026-10-01,2026-10-01,UNFILLED_LIMIT_NOT_TOUCHED,,,,,,,,

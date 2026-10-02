@@ -1,0 +1,4 @@
+side,strategy,code,name,shares,signal_date,scheduled_date,limit_price,estimated_gross,nav_pct,reason,invalid_if
+BUY,R7,6533,晶心科,815,2026-10-01,2026-10-02,359.0,292585.0,0.21975085637284641,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"
+BUY,R7,2030,彰源,7000,2026-10-01,2026-10-02,36.85,257950.0,0.19373766051361394,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"
+BUY,R7,2033,佳大,6000,2026-10-01,2026-10-02,45.6,273600.0,0.20549185468705086,ENTRY,"T+1 low never touches fixed limit; cancel, no chase"
