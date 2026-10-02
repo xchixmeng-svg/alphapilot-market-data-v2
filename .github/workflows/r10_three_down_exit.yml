@@ -39,10 +39,18 @@ jobs:
         run: (cd baseline && python ../scripts/r10_max_formal.py > execution.log)
       - name: Run three-down shadow engine
         run: (cd variant && python ../research/r10_three_down_variant.py > execution.log)
+      - name: Run three-day gentle decline shadow engine
+        run: |
+          mkdir gentle
+          for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do ln -s "$f" "$GITHUB_WORKSPACE/gentle/$(basename "$f")"; done
+          ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/gentle/official_corporate_actions_2020_2025.csv"
+          (cd gentle && python ../research/r10_three_gentle_down_variant.py > execution.log)
       - name: Compare and audit
         run: |
           python research/compare_three_down.py
+          python research/compare_three_gentle.py
           cat three_down_comparison.md >> "$GITHUB_STEP_SUMMARY"
+          cat three_gentle_comparison.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,6 +66,14 @@ jobs:
             variant/r10max_formal_summary.json
             variant/r10max_formal_nav.csv
             variant/r10max_formal_trades.csv
+            gentle/execution.log
+            gentle/contract_audit.json
+            gentle/r10max_formal_summary.json
+            gentle/r10max_formal_nav.csv
+            gentle/r10max_formal_trades.csv
+            three_gentle_comparison.json
+            three_gentle_comparison.md
+            three_gentle_paired_exits.csv
             three_down_comparison.json
             three_down_comparison.md
             three_down_paired_exits.csv
