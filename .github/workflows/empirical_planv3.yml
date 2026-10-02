@@ -1,0 +1,49 @@
+name: Empirical Plan-v3 Research
+
+on:
+  push:
+    branches:
+      - empirical-planv3-20261002
+    paths:
+      - research/empirical_planv3.py
+      - research/input/forward_20261002_candidates.json
+      - research/EMPIRICAL_PLANV3_PROTOCOL.md
+      - .github/workflows/empirical_planv3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-empirical:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          ref: empirical-planv3-20261002
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy pyarrow scikit-learn
+
+      - name: Run frozen plan-v3 empirical validation and 10/2 shadow scoring
+        run: python research/empirical_planv3.py --root .
+
+      - name: Commit research outputs to research branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/empirical_out/
+          if git diff --cached --quiet; then
+            echo "No output changes"
+          else
+            git commit -m "research: empirical plan-v3 2025 validation and 20261002 shadow"
+            git push origin HEAD:empirical-planv3-20261002
+          fi
