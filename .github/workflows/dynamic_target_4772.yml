@@ -48,5 +48,7 @@ jobs:
             echo "No output changes"
           else
             git commit -m "research: 4772 dynamic target prototype output"
+            git fetch origin empirical-planv3-20261002
+            git rebase origin/empirical-planv3-20261002
             git push origin HEAD:empirical-planv3-20261002
           fi
