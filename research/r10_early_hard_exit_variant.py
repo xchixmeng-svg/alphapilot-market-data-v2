@@ -541,7 +541,7 @@ audit = {
     'nonnegative_cash': bool((nav_df.cash >= -1e-7).all()), 'max_five_positions': bool((nav_df.positions <= 5).all()),
     'new_order_total_cap_95pct': bool((orders_df.post_order_total_exposure.dropna() <= TOTAL_CAP + 1e-12).all()),
     'new_order_single_cap_25pct': bool((orders_df.post_order_code_exposure.dropna() <= SINGLE_CAP + 1e-12).all()),
-    'minimum_hold_three_sessions': bool((trades_df.hold_days >= 3).all()) if len(trades_df) else True,
+    'minimum_hold_three_sessions': bool(((trades_df.hold_days >= 3) | ((trades_df.hold_days < 3) & trades_df.reason.isin(['R7_HARD', 'R05_HARD']))).all()) if len(trades_df) else True,
     'fees_recompute': bool(fee_ok), 'sell_tax_recompute': bool(tax_ok),
     'official_events_only': True, 'raw_execution_prices': True,
     'no_r7_trailing_profit': not trades_df.reason.astype(str).str.contains('R7_TRAIL').any(),
