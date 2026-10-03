@@ -165,13 +165,16 @@
       "mae30_median": -0.0574162679425837
     }
   ],
-  "prototype_core_target_pct": 0.25,
+  "prototype_decision": "NO_TRADE",
+  "prototype_core_target_pct": null,
+  "descriptive_highest_target_with_25pct_hit": 0.1,
   "prototype_stretch_target_pct": null,
   "price_examples_from_ref_close": {
     "reference_close": 281.5,
     "no_chase_above": 290.68,
     "stop_if_entry_at_ref": 267.43,
-    "core_if_entry_at_ref": 351.88,
+    "core_if_entry_at_ref": null,
+    "descriptive_feasible_if_entry_at_ref": 309.65,
     "stretch_if_entry_at_ref": null
   },
   "warning": "Prototype analogue study only. Actual prices must be recalculated from the real T+1 entry price; this does not alter production AlphaPilot."
