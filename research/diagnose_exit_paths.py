@@ -11,7 +11,7 @@ sub=px[px.code.isin(codes | {"0050"})].copy()
 market=sub[sub.code=="0050"].drop_duplicates("date").set_index("date")["aclose"]
 groups={code:frame.sort_values("date").set_index("date") for code,frame in sub[sub.code!="0050"].groupby("code")}
 rows=[]
-for t in trades.itertuples(index=False):
+for _, t in trades.iterrows():
     if t.code not in groups:continue
     path=groups[t.code].loc[t.entry_date:t.exit_date-1]
     if len(path)==0:continue
@@ -27,7 +27,7 @@ for t in trades.itertuples(index=False):
         recent=returns.tail(3)
         down3=(len(recent)==3 and recent.notna().all() and (recent<0).all())
         rows.append({"code":t.code,"strategy":t.strategy,"entry_date":t.entry_date,"exit_date":t.exit_date,
-            "final_return":t._asdict()["return"],"final_pnl":t.pnl,"original_reason":t.reason,
+            "final_return":t["return"],"final_pnl":t.pnl,"original_reason":t.reason,
             "day":day,"asof_date":int(row.name),"own_return":own,"relative_0050":own-mkt,
             "score_change":float(row.r7_score-start.r7_score) if t.strategy=="R7" and pd.notna(row.r7_score) and pd.notna(start.r7_score) else None,
             "three_lower_closes":bool(down3),"below_ma20":bool(row.aclose<row.ma20) if pd.notna(row.ma20) else None,
