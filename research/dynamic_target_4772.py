@@ -192,15 +192,26 @@ def main():
 
     sims=[simulate(case,rows,t) for t in TARGETS]
 
-    # Choose a descriptive "core" target: highest average-return target among choices
-    # with at least 25% historical target-hit rate and PF > 1. This is prototype logic.
-    eligible=[r for r in sims if r["target_hit_rate"] is not None and r["target_hit_rate"]>=.25 and (r["pf"] or 0)>1]
-    core=max(eligible,key=lambda r:r["avg_return"]) if eligible else max(sims,key=lambda r:r["avg_return"])
-    # Stretch target = next tested target above core with >=15% target-hit rate, if any.
+    # Fail closed. A dynamic target is actionable only if the analogue policy has
+    # positive gross expectancy and PF > 1; otherwise the prototype decision is NO_TRADE.
+    eligible=[
+        r for r in sims
+        if r["target_hit_rate"] is not None
+        and r["target_hit_rate"]>=.25
+        and (r["pf"] or 0)>1
+        and r["avg_return"]>0
+    ]
+    core=max(eligible,key=lambda r:r["avg_return"]) if eligible else None
+
+    # Descriptive only: highest tested target with >=25% target-hit probability.
+    feasible=[r for r in sims if r["target_hit_rate"] is not None and r["target_hit_rate"]>=.25]
+    feasible_target=max(feasible,key=lambda r:r["target_pct"]) if feasible else None
+
     stretch=None
-    for r in sims:
-        if r["target_pct"]>core["target_pct"] and r["target_hit_rate"]>=.15:
-            stretch=r
+    if core is not None:
+        for r in sims:
+            if r["target_pct"]>core["target_pct"] and r["target_hit_rate"]>=.15 and (r["pf"] or 0)>1:
+                stretch=r
 
     result={
       "schema":"AlphaPilot one-stock dynamic-target prototype v1",
@@ -216,13 +227,16 @@ def main():
       },
       "stop_pct":STOP_PCT,
       "simulations":sims,
-      "prototype_core_target_pct":core["target_pct"],
+      "prototype_decision":"TRADE" if core is not None else "NO_TRADE",
+      "prototype_core_target_pct":core["target_pct"] if core else None,
+      "descriptive_highest_target_with_25pct_hit":feasible_target["target_pct"] if feasible_target else None,
       "prototype_stretch_target_pct":stretch["target_pct"] if stretch else None,
       "price_examples_from_ref_close":{
         "reference_close":CAND["ref_close"],
         "no_chase_above":CAND["production_no_chase"],
         "stop_if_entry_at_ref":round(CAND["ref_close"]*(1-STOP_PCT),2),
-        "core_if_entry_at_ref":round(CAND["ref_close"]*(1+core["target_pct"]),2),
+        "core_if_entry_at_ref":round(CAND["ref_close"]*(1+core["target_pct"]),2) if core else None,
+        "descriptive_feasible_if_entry_at_ref":round(CAND["ref_close"]*(1+feasible_target["target_pct"]),2) if feasible_target else None,
         "stretch_if_entry_at_ref":round(CAND["ref_close"]*(1+stretch["target_pct"]),2) if stretch else None,
       },
       "warning":"Prototype analogue study only. Actual prices must be recalculated from the real T+1 entry price; this does not alter production AlphaPilot."
@@ -248,14 +262,21 @@ def main():
           f"{r['avg_return']:.2%} | {r['median_return']:.2%} | "
           f"{r['pf']:.2f} | {r['median_hit_day'] if r['median_hit_day'] is not None else '—'} |"
         )
-    lines += [
-      "",
-      f"**原型核心目標：買進價 +{core['target_pct']:.0%}**",
-      f"以 281.5 示意：約 {result['price_examples_from_ref_close']['core_if_entry_at_ref']}",
-      f"**原型延伸目標：** " + (f"買進價 +{stretch['target_pct']:.0%}，以281.5示意約 {result['price_examples_from_ref_close']['stretch_if_entry_at_ref']}" if stretch else "無"),
-      "",
-      "> 真正成交後，目標價與停損價都應以 T+1 實際成交價重算。",
-    ]
+    lines += ["", f"**原型結論：{result['prototype_decision']}**"]
+    if core is not None:
+        lines += [
+          f"**核心目標：買進價 +{core['target_pct']:.0%}**",
+          f"以 281.5 示意：約 {result['price_examples_from_ref_close']['core_if_entry_at_ref']}",
+          f"**延伸目標：** " + (f"買進價 +{stretch['target_pct']:.0%}" if stretch else "無"),
+        ]
+    else:
+        lines += [
+          "所有測試目標的歷史類比平均報酬都為負、PF 都小於 1，因此不產生正式目標價。",
+          (f"若只問『有至少25%機率碰到的最高測試目標』：+{feasible_target['target_pct']:.0%}，"
+           f"以281.5示意約 {result['price_examples_from_ref_close']['descriptive_feasible_if_entry_at_ref']}；"
+           "這不是買進建議。") if feasible_target else "沒有任何測試目標達25%命中率。",
+        ]
+    lines += ["", "> 真正成交後，目標價與停損價都應以 T+1 實際成交價重算。"]
     (out/"report.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
