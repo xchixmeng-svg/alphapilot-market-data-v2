@@ -1,6 +1,13 @@
 name: Dynamic Target 4772 Research
 
 on:
+  pull_request:
+    branches:
+      - empirical-planv3-20261002
+    paths:
+      - research/dynamic_target_4772.py
+      - research/TRIGGER_DYNAMIC_4772.md
+      - .github/workflows/dynamic_target_4772.yml
   push:
     branches:
       - empirical-planv3-20261002
