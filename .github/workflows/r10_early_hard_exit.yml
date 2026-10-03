@@ -1,0 +1,59 @@
+name: R10 early hard-stop research
+
+on:
+  push:
+    branches:
+      - r10-three-down-exit-research-20261003
+    paths:
+      - .github/workflows/r10_early_hard_exit.yml
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned runtime
+        run: python -m pip install pandas==2.2.3 numpy==2.3.5 pyarrow==18.1.0
+      - name: Verify locked inputs
+        run: |
+          (cd data/history/2020-2025 && sha256sum --check SHA256SUMS)
+          echo "2fef3ba99b7c83b5db21e29c5f1c2abd8b3df77583840a025e6df937ff81c0d0  scripts/r10_max_formal.py" | sha256sum --check -
+          echo "8aaca46ae7c6d2f0b4e1479878352901ffe90a8acaed122d3d2640c70ea817cc  data/reference/official_corporate_actions_2020_2025.csv" | sha256sum --check -
+      - name: Prepare identical input directories
+        run: |
+          for dir in baseline early; do
+            mkdir "$dir"
+            for f in "$GITHUB_WORKSPACE"/data/history/2020-2025/*.parquet; do
+              ln -s "$f" "$GITHUB_WORKSPACE/$dir/$(basename "$f")"
+            done
+            ln -s "$GITHUB_WORKSPACE/data/reference/official_corporate_actions_2020_2025.csv" "$GITHUB_WORKSPACE/$dir/official_corporate_actions_2020_2025.csv"
+          done
+      - name: Run locked baseline
+        run: (cd baseline && python ../scripts/r10_max_formal.py > execution.log)
+      - name: Run early hard-stop exception
+        run: (cd early && python ../research/r10_early_hard_exit_variant.py > execution.log)
+      - name: Compare results
+        run: |
+          python research/compare_early_hard.py
+          cat early_hard_comparison.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r10-early-hard-stop-comparison
+          path: |
+            baseline/execution.log
+            baseline/contract_audit.json
+            baseline/r10max_formal_summary.json
+            baseline/r10max_formal_trades.csv
+            early/execution.log
+            early/contract_audit.json
+            early/r10max_formal_summary.json
+            early/r10max_formal_trades.csv
+            early_hard_comparison.json
+            early_hard_comparison.md
+          if-no-files-found: warn
