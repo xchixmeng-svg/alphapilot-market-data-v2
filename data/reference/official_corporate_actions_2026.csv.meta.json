@@ -1,16 +1,16 @@
 {
   "status": "PASS",
-  "generated_at_utc": "2026-10-05T21:35:49.490958+00:00",
-  "last_checked_date": "20261005",
+  "generated_at_utc": "2026-10-06T19:46:17.094140+00:00",
+  "last_checked_date": "20261006",
   "increment_range": [
-    "20261003",
-    "20261005"
+    "20261006",
+    "20261006"
   ],
-  "rows": 1626,
+  "rows": 1628,
   "new_rows": 2,
   "families": {
     "TWSE_exright": {
-      "count": 0,
+      "count": 2,
       "stat": "OK",
       "tables": 1,
       "fields": [
@@ -34,24 +34,9 @@
       ]
     },
     "TWSE_reduction": {
-      "count": 1,
-      "stat": "OK",
-      "tables": 1,
-      "fields": [
-        [
-          "恢復買賣日期",
-          "股票代號",
-          "名稱",
-          "停止買賣前收盤價格",
-          "恢復買賣參考價",
-          "漲停價格",
-          "跌停價格",
-          "開盤競價基準",
-          "除權參考價",
-          "減資原因",
-          "詳細資料"
-        ]
-      ]
+      "count": 0,
+      "stat": "很抱歉，沒有符合條件的資料!",
+      "tables": 0
     },
     "TWSE_par_value": {
       "count": 0,
@@ -72,7 +57,7 @@
       ]
     },
     "TPEX_exright": {
-      "count": 1,
+      "count": 0,
       "stat": "ok",
       "tables": 1,
       "fields": [

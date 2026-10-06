@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "account": "PAPER_SIMULATION_NOT_BROKER",
+  "trade_date": "2026-10-06",
+  "cash": 141825.6068249999,
+  "hwm": 1342334.13,
+  "positions": {
+    "2884": {
+      "code": "2884",
+      "name": "玉山金",
+      "strategy": "R05",
+      "shares": 5000,
+      "entry_date": "2026-08-26",
+      "entry_raw_price": 38.8,
+      "entry_shares": 5000,
+      "corp_income": 0.0
+    },
+    "3016": {
+      "code": "3016",
+      "name": "嘉晶",
+      "strategy": "R7",
+      "shares": 1000,
+      "entry_shares": 1000,
+      "entry_date": "2026-09-30",
+      "entry_raw_price": 169.0,
+      "corp_income": 0.0
+    },
+    "6533": {
+      "code": "6533",
+      "name": "晶心科",
+      "strategy": "R7",
+      "shares": 815,
+      "entry_shares": 815,
+      "entry_date": "2026-10-02",
+      "entry_raw_price": 359.0,
+      "corp_income": 0.0
+    },
+    "2030": {
+      "code": "2030",
+      "name": "彰源",
+      "strategy": "R7",
+      "shares": 7000,
+      "entry_shares": 7000,
+      "entry_date": "2026-10-05",
+      "entry_raw_price": 37.6,
+      "corp_income": 0.0
+    },
+    "3701": {
+      "code": "3701",
+      "name": "大眾控",
+      "strategy": "R7",
+      "shares": 4000,
+      "entry_shares": 4000,
+      "entry_date": "2026-10-06",
+      "entry_raw_price": 59.6,
+      "corp_income": 0.0
+    }
+  },
+  "pending_orders": [],
+  "fills": [
+    {
+      "side": "BUY",
+      "strategy": "R7",
+      "code": "3701",
+      "name": "大眾控",
+      "shares": 4000,
+      "signal_date": "2026-10-05",
+      "scheduled_date": "2026-10-06",
+      "limit_price": 59.6,
+      "estimated_gross": 238400.0,
+      "nav_pct": 0.18087059222958918,
+      "reason": "ENTRY",
+      "invalid_if": "T+1 low never touches fixed limit; cancel, no chase",
+      "event": "ORDER",
+      "fill_date": "2026-10-06",
+      "status": "FILLED",
+      "raw_fill_price": 59.6,
+      "gross_value": 238400.0,
+      "fee": 203.832,
+      "tax": 0.0,
+      "net_cash": -238603.832
+    }
+  ],
+  "last_force_signal_date": null,
+  "previous_state": "forward_runtime/2026-10-05/paper_state.json"
+}

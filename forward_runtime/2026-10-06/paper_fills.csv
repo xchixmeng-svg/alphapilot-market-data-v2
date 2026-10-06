@@ -1,0 +1,2 @@
+event,side,strategy,code,shares,signal_date,scheduled_date,fill_date,status,raw_fill_price,gross_value,fee,tax,net_cash,old_shares,new_shares,cash_credit
+ORDER,BUY,R7,3701,4000,2026-10-05,2026-10-06,2026-10-06,FILLED,59.6,238400.0,203.832,0.0,-238603.832,,,
