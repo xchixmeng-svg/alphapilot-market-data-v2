@@ -1,16 +1,16 @@
 {
   "status": "PASS",
-  "generated_at_utc": "2026-10-07T20:06:30.555893+00:00",
-  "last_checked_date": "20261007",
+  "generated_at_utc": "2026-10-08T20:04:14.190301+00:00",
+  "last_checked_date": "20261008",
   "increment_range": [
-    "20261007",
-    "20261007"
+    "20261008",
+    "20261008"
   ],
   "rows": 1635,
-  "new_rows": 7,
+  "new_rows": 0,
   "families": {
     "TWSE_exright": {
-      "count": 3,
+      "count": 0,
       "stat": "OK",
       "tables": 1,
       "fields": [
@@ -57,7 +57,7 @@
       ]
     },
     "TPEX_exright": {
-      "count": 2,
+      "count": 0,
       "stat": "ok",
       "tables": 1,
       "fields": [
@@ -87,7 +87,7 @@
       ]
     },
     "TPEX_reduction": {
-      "count": 2,
+      "count": 0,
       "stat": "ok",
       "tables": 1,
       "fields": [
