@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Build the first Whale Radar tracking universe from public >10% shareholder data.
+"""Build a compact Whale Radar tracking universe from public >10% shareholder data.
 
 This is NOT a performance ranking.  It answers a narrower question first:
 "which named people/entities are worth monitoring for future public changes?"
 
-Inputs are produced by whale_radar_collect.py.  The script classifies holders,
-counts how many distinct listed companies each holder currently appears in, and
-creates a transparent tracking priority.  Strategic corporate cross-holdings
-and government holdings are deliberately separated from investment-style
-holders so they are not mislabeled as stock-picking skill.
+The full actor universe is preserved, but the core watchlist intentionally
+excludes ordinary operating-company cross-holdings and public-sector holdings.
+The watchlist focuses on asset managers, investment vehicles that appear across
+multiple companies, and repeated named individuals.  Historical skill is scored
+separately by whale_radar_history_score.py.
 """
 from __future__ import annotations
 
@@ -51,8 +51,7 @@ def priority(kind: str, n_companies: int) -> tuple[int, list[str]]:
     score = 20
     reasons: list[str] = []
     if n_companies >= 2:
-        add = 12 * min(n_companies - 1, 5)
-        score += add
+        score += 12 * min(n_companies - 1, 5)
         reasons.append(f"currently appears as >10% holder in {n_companies} companies")
     if kind == "asset_manager":
         score += 25
@@ -65,11 +64,19 @@ def priority(kind: str, n_companies: int) -> tuple[int, list[str]]:
         reasons.append("same named individual appears across multiple companies")
     elif kind == "operating_company":
         score -= 8
-        reasons.append("may be strategic/group cross-holding rather than trading alpha")
+        reasons.append("likely strategic/group cross-holding; excluded from core copy-trading watchlist")
     elif kind == "public_sector":
         score -= 35
-        reasons.append("public-sector holding; low value for copy-trading research")
+        reasons.append("public-sector holding; excluded from copy-trading research")
     return max(0, min(100, score)), reasons
+
+
+def is_core_watch(kind: str, n_companies: int) -> bool:
+    if kind == "asset_manager":
+        return True
+    if kind in {"investment_vehicle", "individual"} and n_companies >= 2:
+        return True
+    return False
 
 
 def build(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -87,9 +94,7 @@ def build(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         n = len(companies)
         score, reasons = priority(kind, n)
         ordered = sorted(companies.values())
-        watch = kind != "public_sector" and (
-            n >= 2 or kind in {"asset_manager", "investment_vehicle"}
-        )
+        watch = is_core_watch(kind, n)
         out.append({
             "actor": actor,
             "actor_kind": kind,
@@ -120,12 +125,15 @@ def self_test() -> None:
         {"公司代號": "2603", "公司名稱": "長榮", "大股東名稱": "張國華"},
         {"公司代號": "2211", "公司名稱": "長榮鋼", "大股東名稱": "張國華"},
         {"公司代號": "2002", "公司名稱": "中鋼", "大股東名稱": "經濟部"},
+        {"公司代號": "2397", "公司名稱": "友通", "大股東名稱": "佳世達科技股份有限公司"},
+        {"公司代號": "3380", "公司名稱": "明泰", "大股東名稱": "佳世達科技股份有限公司"},
     ]
     out = {x["actor"]: x for x in build(rows)}
     assert out["寶佳資產管理股份有限公司"]["actor_kind"] == "asset_manager"
     assert out["寶佳資產管理股份有限公司"]["watch"] is True
-    assert out["張國華"]["actor_kind"] == "individual"
+    assert out["張國華"]["actor_kind"] == "individual" and out["張國華"]["watch"] is True
     assert out["經濟部"]["watch"] is False
+    assert out["佳世達科技股份有限公司"]["watch"] is False
     print("actor-universe self-test: OK")
 
 
@@ -146,7 +154,7 @@ def main() -> int:
     (root / "latest" / "watchlist_actors.json").write_text(json.dumps(watch, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     write_csv(root / "latest" / "actor_universe.csv", rows)
     write_csv(root / "latest" / "watchlist_actors.csv", watch)
-    print(f"actor universe: {len(rows)} named holders; watchlist: {len(watch)}")
+    print(f"actor universe: {len(rows)} named holders; core watchlist: {len(watch)}")
     return 0
 
 
