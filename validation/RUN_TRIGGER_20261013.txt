@@ -1,0 +1,1 @@
+trigger structure-target validation
