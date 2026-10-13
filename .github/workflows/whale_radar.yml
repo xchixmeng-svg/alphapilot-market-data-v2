@@ -21,7 +21,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,13 +49,16 @@ jobs:
 
       - name: Backfill historical Article 43-1 disclosures
         run: |
-          python scripts/whale_radar_backfill_sec43.py --start-year 110 --allow-partial --sleep 0.35
+          # First research pass: 2024-present. The backfiller refuses to continue
+          # unless it can retrieve the known 4194 / 隆欣投資 positive control.
+          python scripts/whale_radar_backfill_sec43.py --start-year 113 --allow-partial --sleep 0.35
 
       - name: Build causal Person Alpha outputs
         run: |
           python scripts/whale_radar_history_score_combined.py
 
       - name: Upload run output
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: whale-radar-${{ github.run_id }}
@@ -63,10 +66,10 @@ jobs:
           retention-days: 14
 
       - name: Persist data to repository
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && success()
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "4189828+github-actions[bot]@users.noreply.github.com"
           git add data/whale_radar/
           if git diff --cached --quiet; then
             echo "No Whale Radar data changes."
