@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "scripts/whale_radar_backfill_sec43.py"
-      - "scripts/whale_radar_history_score*.py"
+      - "scripts/whale_radar_*.py"
       - ".github/workflows/whale_radar_research.yml"
 
 permissions:
@@ -26,15 +25,15 @@ jobs:
           python-version: "3.12"
       - name: Validate code
         run: |
-          python -m py_compile scripts/whale_radar_backfill_sec43.py scripts/whale_radar_history_score.py scripts/whale_radar_history_score_combined.py
+          python -m py_compile scripts/whale_radar_probe_announcement.py scripts/whale_radar_backfill_sec43.py scripts/whale_radar_history_score.py scripts/whale_radar_history_score_combined.py
           python scripts/whale_radar_backfill_sec43.py --self-test
+      - name: Probe correct MOPS announcement source
+        run: python scripts/whale_radar_probe_announcement.py
       - name: Positive-control-gated historical 43-1 backfill
-        run: |
-          python scripts/whale_radar_backfill_sec43.py --start-year 113 --allow-partial --sleep 0.10
+        run: python scripts/whale_radar_backfill_sec43.py --start-year 113 --allow-partial --sleep 0.10
       - name: Build Person Alpha if repository prices are sufficient
         if: success()
-        run: |
-          python scripts/whale_radar_history_score_combined.py
+        run: python scripts/whale_radar_history_score_combined.py
       - name: Upload research outputs
         if: always()
         uses: actions/upload-artifact@v4
