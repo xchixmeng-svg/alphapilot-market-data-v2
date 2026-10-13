@@ -1,0 +1,37 @@
+name: validate-institutional
+
+on:
+  push:
+    branches:
+      - validation/institutional-20261013
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy pyarrow tabulate
+      - name: Restore and verify exact uploaded scripts
+        shell: bash
+        run: |
+          cat validation_payload/inst_big_*.b64 | base64 -d | gzip -d > verify_bigmovers.py
+          cat validation_payload/verify_inst_*.b64 | base64 -d | gzip -d > verify_inst.py
+          echo '9240ca640b0c41abb582955666c00d32a75fc83c7131bb33facdc48c179863ca  verify_bigmovers.py' | sha256sum -c -
+          echo '97eb940f7c083129554da52d5d2d5ff17946dc62f9ac06a96b9acf280553804e  verify_inst.py' | sha256sum -c -
+          python -m py_compile verify_bigmovers.py verify_inst.py
+      - name: Run institutional validation
+        run: python verify_inst.py --hist data/history/2020-2025 --out inst_out
+      - name: Print report
+        run: cat inst_out/inst_report.md
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: institutional-validation
+          path: inst_out/
+          if-no-files-found: error
