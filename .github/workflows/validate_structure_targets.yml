@@ -1,0 +1,40 @@
+name: validate-structure-targets
+
+on:
+  push:
+    branches:
+      - validation/structure-target-20261013
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pandas numpy pyarrow tabulate
+      - name: Run structural target validation
+        run: |
+          python validation/verify_targets.py \
+            --hist data/history/2020-2025 \
+            --step 5 \
+            --top 500 \
+            --out validation_out
+      - name: Print report
+        if: always()
+        run: |
+          if [ -f validation_out/report.md ]; then
+            cat validation_out/report.md
+          fi
+      - name: Upload validation outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structure-target-validation
+          path: validation_out/
+          if-no-files-found: warn
