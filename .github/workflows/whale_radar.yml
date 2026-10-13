@@ -33,12 +33,13 @@ jobs:
 
       - name: Syntax and deterministic self-test
         run: |
-          python -m py_compile scripts/whale_radar_collect.py scripts/whale_radar_rank.py
+          python -m py_compile scripts/whale_radar_collect.py scripts/whale_radar_guard.py scripts/whale_radar_rank.py
           python scripts/whale_radar_collect.py --self-test
 
       - name: Collect official public disclosures
         run: |
           python scripts/whale_radar_collect.py --allow-partial
+          python scripts/whale_radar_guard.py
           python scripts/whale_radar_rank.py
 
       - name: Upload run output
