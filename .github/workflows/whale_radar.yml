@@ -21,7 +21,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,18 +33,27 @@ jobs:
 
       - name: Syntax and deterministic self-tests
         run: |
-          python -m py_compile scripts/whale_radar_collect.py scripts/whale_radar_guard.py scripts/whale_radar_rank.py scripts/whale_radar_actor_universe.py scripts/whale_radar_history_score.py
+          python -m py_compile scripts/whale_radar_collect.py scripts/whale_radar_guard.py scripts/whale_radar_rank.py scripts/whale_radar_actor_universe.py scripts/whale_radar_history_score.py scripts/whale_radar_backfill_sec43.py scripts/whale_radar_history_score_combined.py
           python scripts/whale_radar_collect.py --self-test
           python scripts/whale_radar_actor_universe.py --self-test
           python scripts/whale_radar_history_score.py --self-test
+          python scripts/whale_radar_backfill_sec43.py --self-test
+          python scripts/whale_radar_history_score_combined.py --self-test
 
-      - name: Collect and build Whale Radar outputs
+      - name: Collect live public disclosures
         run: |
           python scripts/whale_radar_collect.py --allow-partial
           python scripts/whale_radar_guard.py
           python scripts/whale_radar_rank.py
           python scripts/whale_radar_actor_universe.py
-          python scripts/whale_radar_history_score.py
+
+      - name: Backfill historical Article 43-1 disclosures
+        run: |
+          python scripts/whale_radar_backfill_sec43.py --start-year 110 --allow-partial --sleep 0.35
+
+      - name: Build causal Person Alpha outputs
+        run: |
+          python scripts/whale_radar_history_score_combined.py
 
       - name: Upload run output
         uses: actions/upload-artifact@v4
