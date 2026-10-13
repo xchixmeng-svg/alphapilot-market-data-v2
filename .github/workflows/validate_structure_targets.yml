@@ -35,5 +35,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: structure-target-validation
-          path: validation_out/
-          if-no-files-found: warn
+          path: |
+            validation_out/report.md
+            validation_out/samples.csv
+          if-no-files-found: error
