@@ -1,0 +1,62 @@
+name: Whale Radar v0
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 15:20 Taiwan time, weekdays. GitHub schedule uses UTC.
+    - cron: "20 7 * * 1-5"
+  pull_request:
+    paths:
+      - "scripts/whale_radar_*.py"
+      - "whale_radar/**"
+      - ".github/workflows/whale_radar.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: whale-radar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax and deterministic self-test
+        run: |
+          python -m py_compile scripts/whale_radar_collect.py scripts/whale_radar_rank.py
+          python scripts/whale_radar_collect.py --self-test
+
+      - name: Collect official public disclosures
+        run: |
+          python scripts/whale_radar_collect.py --allow-partial
+          python scripts/whale_radar_rank.py
+
+      - name: Upload run output
+        uses: actions/upload-artifact@v4
+        with:
+          name: whale-radar-${{ github.run_id }}
+          path: data/whale_radar/
+          retention-days: 14
+
+      - name: Persist data to repository
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/whale_radar/
+          if git diff --cached --quiet; then
+            echo "No Whale Radar data changes."
+            exit 0
+          fi
+          git commit -m "data: update Whale Radar public disclosures"
+          git push
