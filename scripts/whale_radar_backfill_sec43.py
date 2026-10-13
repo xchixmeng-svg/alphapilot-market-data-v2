@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Backfill historical Securities and Exchange Act 43-1 disclosures from MOPS.
 
-The goal is evidence collection, not inference.  We query MOPS' historical
-material-information keyword search by ROC year/month, retain only rows whose
-text explicitly contains an Article 43-1 spelling, and store a separate
-historical event ledger.  The live events.jsonl remains untouched.
-
-Coverage is deliberately recorded in a manifest.  If MOPS throttles or changes
-HTML, failed months are marked FAILED/PARTIAL rather than guessed.
+Design goals:
+- prove the source path with a known positive control before trusting any zero result
+- try multiple MOPS market selectors and both GET/POST styles
+- retain only explicit Article 43-1 disclosures
+- record source coverage and diagnostics instead of silently treating broken queries as no events
 """
 from __future__ import annotations
 
@@ -15,6 +13,7 @@ import argparse
 import calendar
 import hashlib
 import html
+import http.cookiejar
 import json
 import re
 import time
@@ -23,14 +22,27 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, Request, build_opener
 
-MOPS_ENDPOINTS = (
-    "https://mopsov.twse.com.tw/mops/web/ajax_t51sb10",
-    "https://mops.twse.com.tw/mops/web/ajax_t51sb10",
+HOSTS = (
+    "https://mopsov.twse.com.tw",
+    "https://mops.twse.com.tw",
 )
-PATTERNS = ("43條之1", "43 條之 1", "第四十三條之一", "43-1", "43之1")
-UA = "Mozilla/5.0 (compatible; AlphaPilot-WhaleRadar/1.0; +github-actions)"
+QUERY_PATH = "/mops/web/ajax_t51sb10"
+BOOTSTRAP_PATH = "/mops/web/t51sb10_q1"
+PATTERNS = ("43條之1", "43 條之 1", "第43條之1", "第四十三條之一", "43-1", "43之1")
+KEYWORDS = ("43條之1", "第43條之1", "第四十三條之一")
+# MOPS has changed selector values over time. Probe all plausible values and keep only variants
+# that actually return a known positive disclosure.
+KIND_CANDIDATES = ("", "L", "O", "R", "P", "S")
+TYPEK_CANDIDATES = ("", "sii", "otc", "rotc", "pub")
+UA = "Mozilla/5.0 (compatible; AlphaPilot-WhaleRadar/1.1; +github-actions)"
+POSITIVE_CONTROL = {
+    "roc_year": 115,
+    "month": 10,
+    "stock_code": "4194",
+    "subject_token": "隆欣投資",
+}
 
 
 class TableParser(HTMLParser):
@@ -88,9 +100,11 @@ def extract_actor(subject: str) -> str:
     return ""
 
 
-def parse_roc_date(text: str, fallback_year: int, fallback_month: int) -> str:
-    # Common MOPS form: 115/10/12; tolerate Gregorian as well.
-    for pat in (r"(?<!\d)(\d{2,3})[/-](\d{1,2})[/-](\d{1,2})(?!\d)", r"(?<!\d)(20\d{2})[/-](\d{1,2})[/-](\d{1,2})(?!\d)"):
+def parse_roc_date(text: str) -> str:
+    for pat in (
+        r"(?<!\d)(\d{2,3})[/-](\d{1,2})[/-](\d{1,2})(?!\d)",
+        r"(?<!\d)(20\d{2})[/-](\d{1,2})[/-](\d{1,2})(?!\d)",
+    ):
         m = re.search(pat, text)
         if not m:
             continue
@@ -101,7 +115,6 @@ def parse_roc_date(text: str, fallback_year: int, fallback_month: int) -> str:
             return date(y, mo, d).isoformat()
         except ValueError:
             pass
-    # Do not fabricate a day; empty means unusable for causal scoring.
     return ""
 
 
@@ -110,7 +123,7 @@ def event_id(stock_code: str, event_date: str, subject: str, actor: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
-def parse_rows(page: str, roc_year: int, month: int) -> list[dict[str, Any]]:
+def parse_rows(page: str) -> list[dict[str, Any]]:
     parser = TableParser()
     parser.feed(page)
     out: list[dict[str, Any]] = []
@@ -129,12 +142,11 @@ def parse_rows(page: str, roc_year: int, month: int) -> list[dict[str, Any]]:
             continue
         subject = next((c for c in cells if contains_43(c)), joined)
         actor = extract_actor(subject)
-        event_date = parse_roc_date(joined, roc_year, month)
+        event_date = parse_roc_date(joined)
         eid = event_id(code, event_date, subject, actor)
         if eid in seen:
             continue
         seen.add(eid)
-        # Company name is usually adjacent to code. Keep best-effort raw text as evidence.
         company_name = ""
         for i, cell in enumerate(cells):
             if code in cell and i + 1 < len(cells):
@@ -159,45 +171,111 @@ def parse_rows(page: str, roc_year: int, month: int) -> list[dict[str, Any]]:
     return out
 
 
-def fetch_month(roc_year: int, month: int, timeout: int = 35) -> tuple[str, str]:
-    last: Exception | None = None
-    params = {
+def make_params(roc_year: int, month: int, keyword: str, kind: str, typek: str) -> dict[str, str]:
+    return {
         "encodeURIComponent": "1",
         "firstin": "true",
         "id": "",
         "key": "",
-        "TYPEK": "",
+        "TYPEK": typek,
         "Stp": "4",
         "go": "false",
         "COMPANY_ID": "",
         "r1": "1",
-        "KIND": "",
+        "KIND": kind,
         "CODE": "",
-        "keyWord": "43條之1",
+        "keyWord": keyword,
         "year": str(roc_year),
         "month1": str(month),
         "begin_day": "1",
         "end_day": str(calendar.monthrange(roc_year + 1911, month)[1]),
         "PCount": "200",
     }
-    qs = urlencode(params)
-    for endpoint in MOPS_ENDPOINTS:
-        url = endpoint + "?" + qs
-        for attempt in range(1, 4):
-            try:
-                req = Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
-                with urlopen(req, timeout=timeout) as resp:
-                    raw = resp.read()
-                text = raw.decode("utf-8", errors="replace")
-                if "查詢過於頻繁" in text or "Service Unavailable" in text:
-                    raise RuntimeError("MOPS throttle")
-                if len(text) < 200:
-                    raise RuntimeError(f"unexpected short MOPS response: {len(text)} bytes")
-                return text, url
-            except Exception as exc:
-                last = exc
-                time.sleep(min(12.0, 1.5 * attempt))
-    raise RuntimeError(f"MOPS fetch failed for {roc_year}/{month}: {last}")
+
+
+def fetch_variant(host: str, params: dict[str, str], method: str, timeout: int = 35) -> str:
+    jar = http.cookiejar.CookieJar()
+    opener = build_opener(HTTPCookieProcessor(jar))
+    headers = {
+        "User-Agent": UA,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.7",
+        "Referer": host + BOOTSTRAP_PATH,
+    }
+    # Bootstrap once to establish any session cookie used by MOPS.
+    try:
+        opener.open(Request(host + BOOTSTRAP_PATH, headers=headers), timeout=min(timeout, 15)).read(4096)
+    except Exception:
+        pass
+    endpoint = host + QUERY_PATH
+    if method == "GET":
+        req = Request(endpoint + "?" + urlencode(params), headers=headers)
+    else:
+        body = urlencode(params).encode("utf-8")
+        req = Request(endpoint, data=body, headers={**headers, "Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+    with opener.open(req, timeout=timeout) as resp:
+        raw = resp.read()
+    text = raw.decode("utf-8", errors="replace")
+    if "查詢過於頻繁" in text or "Service Unavailable" in text:
+        raise RuntimeError("MOPS throttle")
+    if len(text) < 200:
+        raise RuntimeError(f"unexpected short MOPS response: {len(text)} bytes")
+    return text
+
+
+def probe_positive_control() -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    working: list[dict[str, str]] = []
+    diagnostics: list[dict[str, Any]] = []
+    c = POSITIVE_CONTROL
+    # Probe market selector first with the exact known subject spelling. Stop carrying a selector
+    # once it has proved it can surface the positive control.
+    for host in HOSTS:
+        for method in ("GET", "POST"):
+            for kind in KIND_CANDIDATES:
+                for typek in TYPEK_CANDIDATES:
+                    params = make_params(c["roc_year"], c["month"], "43條之1", kind, typek)
+                    try:
+                        page = fetch_variant(host, params, method)
+                        hit = c["stock_code"] in page and c["subject_token"] in page and contains_43(page)
+                        diagnostics.append({
+                            "host": host, "method": method, "kind": kind, "typek": typek,
+                            "bytes": len(page), "positive_control": hit,
+                        })
+                        if hit:
+                            working.append({"host": host, "method": method, "kind": kind, "typek": typek})
+                            # One proven route per host/method is enough.
+                            break
+                    except Exception as exc:
+                        diagnostics.append({
+                            "host": host, "method": method, "kind": kind, "typek": typek,
+                            "error": str(exc), "positive_control": False,
+                        })
+                if working and working[-1].get("host") == host and working[-1].get("method") == method:
+                    break
+            if working:
+                # Prefer the first proven route to minimize server load.
+                return working[:1], diagnostics
+    return [], diagnostics
+
+
+def fetch_month(roc_year: int, month: int, route: dict[str, str], timeout: int = 35) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    all_rows: dict[str, dict[str, Any]] = {}
+    attempts: list[dict[str, Any]] = []
+    for keyword in KEYWORDS:
+        params = make_params(roc_year, month, keyword, route["kind"], route["typek"])
+        try:
+            page = fetch_variant(route["host"], params, route["method"], timeout=timeout)
+            rows = parse_rows(page)
+            for row in rows:
+                all_rows[row["event_id"]] = row
+            attempts.append({"keyword": keyword, "bytes": len(page), "events": len(rows), "ok": True})
+        except Exception as exc:
+            attempts.append({"keyword": keyword, "events": 0, "ok": False, "error": str(exc)})
+    # A month is failed only if every keyword request failed at the transport/protocol layer.
+    if not any(x["ok"] for x in attempts):
+        raise RuntimeError("all keyword variants failed")
+    rows = sorted(all_rows.values(), key=lambda x: (x.get("event_date", ""), x.get("stock_code", ""), x.get("event_id", "")))
+    return rows, {"attempts": attempts}
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -213,7 +291,7 @@ def self_test() -> None:
     <tr><td>4194</td><td>禾生技</td><td>115/10/12 10:01</td>
     <td>代取得人隆欣投資(股)公司依證券交易法第43條之1第1項規定辦理公告</td></tr></table>
     """
-    rows = parse_rows(sample, 115, 10)
+    rows = parse_rows(sample)
     assert len(rows) == 1
     assert rows[0]["stock_code"] == "4194"
     assert rows[0]["event_date"] == "2026-10-12"
@@ -224,7 +302,7 @@ def self_test() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="data/whale_radar")
-    ap.add_argument("--start-year", type=int, default=110, help="ROC year, default 110 (2021)")
+    ap.add_argument("--start-year", type=int, default=113, help="ROC year; first research pass defaults to 113 (2024)")
     ap.add_argument("--end-year", type=int, default=datetime.now().year - 1911)
     ap.add_argument("--sleep", type=float, default=0.35)
     ap.add_argument("--self-test", action="store_true")
@@ -235,6 +313,31 @@ def main() -> int:
         return 0
 
     root = Path(args.root)
+    latest = root / "latest"
+    latest.mkdir(parents=True, exist_ok=True)
+
+    routes, probe = probe_positive_control()
+    (latest / "sec43_positive_control_probe.json").write_text(json.dumps({
+        "control": POSITIVE_CONTROL,
+        "working_routes": routes,
+        "diagnostics": probe,
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    if not routes:
+        manifest = {
+            "generated_at": datetime.now().astimezone().isoformat(),
+            "status": "BROKEN_SOURCE",
+            "reason": "known positive control 4194/隆欣投資/115-10 could not be retrieved",
+            "events": 0,
+            "named_actors": 0,
+            "positive_control": POSITIVE_CONTROL,
+        }
+        (latest / "sec43_backfill_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print("historical sec43: BROKEN_SOURCE; positive control not retrieved")
+        return 3
+
+    route = routes[0]
+    print(f"positive control OK via {route}")
     all_rows: dict[str, dict[str, Any]] = {}
     months: list[dict[str, Any]] = []
     failures = 0
@@ -244,11 +347,10 @@ def main() -> int:
         last_month = now.month if gy == now.year else 12
         for mo in range(1, last_month + 1):
             try:
-                page, url = fetch_month(ry, mo)
-                rows = parse_rows(page, ry, mo)
+                rows, diag = fetch_month(ry, mo, route)
                 for row in rows:
                     all_rows[row["event_id"]] = row
-                months.append({"roc_year": ry, "month": mo, "status": "OK", "events": len(rows), "url": url})
+                months.append({"roc_year": ry, "month": mo, "status": "OK", "events": len(rows), **diag})
                 print(f"MOPS {ry}/{mo:02d}: {len(rows)} events")
             except Exception as exc:
                 failures += 1
@@ -263,7 +365,7 @@ def main() -> int:
     manifest = {
         "generated_at": datetime.now().astimezone().isoformat(),
         "source": "MOPS historical material-information keyword search",
-        "query_keyword": "43條之1",
+        "route": route,
         "start_roc_year": args.start_year,
         "end_roc_year": args.end_year,
         "months_attempted": len(months),
@@ -271,10 +373,9 @@ def main() -> int:
         "status": "OK" if failures == 0 else "PARTIAL",
         "events": len(rows),
         "named_actors": len({x.get("actor") for x in rows if x.get("actor")}),
+        "positive_control": POSITIVE_CONTROL,
         "months": months,
     }
-    latest = root / "latest"
-    latest.mkdir(parents=True, exist_ok=True)
     (latest / "sec43_backfill_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (latest / "historical_sec43_events.json").write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"historical sec43: {len(rows)} events; named actors={manifest['named_actors']}; failures={failures}/{len(months)}")
