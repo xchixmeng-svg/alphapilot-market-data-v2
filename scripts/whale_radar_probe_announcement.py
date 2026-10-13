@@ -1,37 +1,45 @@
 #!/usr/bin/env python3
-"""Positive-control probe for MOPS Article 43-1 announcement search."""
+"""Positive-control probe for the official MOPS announcement-query form.
+
+The 43-1 disclosure is an *announcement* category, not the material-news subject
+search.  MOPS currently exposes that UI at t146sb10 and posts to ajax_t146sb10.
+We discover the category id (noticeKind) against the frozen 4194 control rather
+than silently trusting an undocumented numeric selector.
+"""
 import html, json, re, urllib.parse, urllib.request, http.cookiejar
 
-HOSTS=('https://mopsov.twse.com.tw','https://mops.twse.com.tw')
+HOST='https://mopsov.twse.com.tw'
 CONTROL={'stock_code':'4194','company':'禾生技','actor':'隆欣投資','roc_date':'115/10/12'}
-UA='Mozilla/5.0 (compatible; AlphaPilot-WhaleRadar/1.4)'
+UA='Mozilla/5.0 (compatible; AlphaPilot-WhaleRadar/1.5)'
 
 def clean(text): return re.sub(r'\s+','',html.unescape(re.sub(r'<[^>]+>',' ',text)))
-def req(opener,host,path,fields):
-    data=urllib.parse.urlencode(fields).encode('utf-8')
-    r=urllib.request.Request(host+path,data=data,headers={'User-Agent':UA,'Accept-Language':'zh-TW,zh;q=0.9','Content-Type':'application/x-www-form-urlencoded','Referer':host+'/mops/web/t51sb10_q1'},method='POST')
-    with opener.open(r,timeout=35) as x: return x.read().decode('utf-8','replace')
 def hit(text):
     c=clean(text)
     return '4194' in c and '隆欣投資' in c and ('43條之1' in c or '第四十三條之一' in c) and ('115/10/12' in c or '1151012' in c)
+def post(opener, fields):
+    data=urllib.parse.urlencode(fields).encode('utf-8')
+    req=urllib.request.Request(HOST+'/mops/web/ajax_t146sb10',data=data,headers={'User-Agent':UA,'Accept-Language':'zh-TW,zh;q=0.9','Content-Type':'application/x-www-form-urlencoded','Referer':HOST+'/mops/web/t146sb10'},method='POST')
+    with opener.open(req,timeout=30) as r: return r.read().decode('utf-8','replace')
 
 def main():
-  # MOPS 公告查詢 / 主旨全文檢索. Historical examples of this form use KIND=C,
-  # month1=0 (whole year), blank company selector, and Condition2/Orderby fields.
-  # Probe both the statutory phrase and the known actor to prove retrieval.
-  for host in HOSTS:
     jar=http.cookiejar.CookieJar(); opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    try: opener.open(urllib.request.Request(host+'/mops/web/t51sb10_q1',headers={'User-Agent':UA}),timeout=15).read(8192)
+    try: opener.open(urllib.request.Request(HOST+'/mops/web/t146sb10',headers={'User-Agent':UA}),timeout=15).read()
     except Exception: pass
-    for keyword in ('43條之1','隆欣投資','證券交易法第43條之1第1項'):
-      for kind in ('C','','R','P'):
-        for month1 in ('0','10'):
-          fields={'encodeURIComponent':'1','step':'1','firstin':'true','id':'','key':'','TYPEK':'','Stp':'4','go':'false','co_id':'','COMPANY_ID':'','r1':'1','KIND':kind,'CODE':'','keyWord':keyword,'Condition2':'2','keyWord2':'','year':'115','month1':month1,'begin_day':'1','end_day':'31','Orderby':'1'}
-          try:
-            text=req(opener,host,'/mops/web/ajax_t51sb10',fields); c=clean(text); ok=hit(text)
-            print(json.dumps({'host':host,'kind':kind,'month1':month1,'keyword':keyword,'bytes':len(text),'has4194':'4194' in c,'hasActor':'隆欣投資' in c,'has43':('43條之1' in c or '第四十三條之一' in c),'hasDate':('115/10/12' in c or '1151012' in c),'positive_control':ok},ensure_ascii=False))
-            if ok:
-              print('POSITIVE_CONTROL_OK',json.dumps({**CONTROL,'host':host,'kind':kind,'month1':month1,'keyword':keyword},ensure_ascii=False)); return 0
-          except Exception as e: print(json.dumps({'host':host,'kind':kind,'month1':month1,'keyword':keyword,'error':repr(e)},ensure_ascii=False))
-  print('POSITIVE_CONTROL_FAILED',json.dumps(CONTROL,ensure_ascii=False)); return 3
+    # Physically verified t146sb10 contract: TYPEK, co_id_1, noticeKind,
+    # noticeDate, yymmdd1/yymmdd2.  Probe bounded 2026-10-12 date encodings and
+    # noticeKind ids; stop immediately on the known positive control.
+    date_variants=(('1','20261012','20261012'),('2','20261012','20261012'),('1','1151012','1151012'),('2','1151012','1151012'))
+    for notice_kind in range(1,81):
+      for notice_date,d1,d2 in date_variants:
+        fields={'encodeURIComponent':'1','step':'1','firstin':'true','TYPEK':'pub','co_id_1':'4194','noticeKind':str(notice_kind),'noticeDate':notice_date,'yymmdd1':d1,'yymmdd2':d2,'order':'1'}
+        try:
+          text=post(opener,fields); c=clean(text); ok=hit(text)
+          if ok:
+            out={**CONTROL,'noticeKind':notice_kind,'noticeDate':notice_date,'yymmdd1':d1,'yymmdd2':d2,'bytes':len(text)}
+            print('POSITIVE_CONTROL_OK',json.dumps(out,ensure_ascii=False)); return 0
+          if notice_kind in (1,10,20,30,40,50,60,70,80):
+            print(json.dumps({'noticeKind':notice_kind,'noticeDate':notice_date,'bytes':len(text),'has4194':'4194' in c,'hasActor':'隆欣投資' in c},ensure_ascii=False))
+        except Exception as e:
+          print(json.dumps({'noticeKind':notice_kind,'noticeDate':notice_date,'error':repr(e)},ensure_ascii=False))
+    print('POSITIVE_CONTROL_FAILED',json.dumps(CONTROL,ensure_ascii=False)); return 3
 if __name__=='__main__': raise SystemExit(main())
