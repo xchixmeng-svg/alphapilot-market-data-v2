@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Backfill Article 43-1 disclosures from MOPS full-text announcement search (t51sb10)."""
 from __future__ import annotations
-import argparse, calendar, hashlib, html, json, re, time
+import argparse, calendar, hashlib, html, json, re, time, subprocess, tempfile, os
 from datetime import date, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
-URL='https://mops.twse.com.tw/mops/web/ajax_t51sb10'
-UA='Mozilla/5.0 (compatible; AlphaPilot-WhaleRadar/1.4)'
+HOSTS=('https://mops.twse.com.tw','https://mopsov.twse.com.tw')
+PATH='/mops/web/ajax_t51sb10'; PAGE='/mops/web/t51sb10'
+UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'
 POSITIVE_CONTROL={'roc_year':115,'month':10,'stock_code':'4194','subject_token':'隆欣投資','date':'2026-10-12'}
 KEYWORDS=('43條之1','第43條之1','第四十三條之一')
 PATTERNS=('43條之1','第43條之1','第四十三條之一','43 條之 1')
@@ -58,21 +58,34 @@ def params(ry,mo,kw):
  days=calendar.monthrange(ry+1911,mo)[1]
  return {'encodeURIComponent':'1','step':'1','firstin':'true','id':'','key':'','TYPEK':'','Stp':'4','go':'false','co_id':'','r1':'1','KIND':'C','CODE':'','keyWord':kw,'Condition2':'2','keyWord2':'','year':str(ry),'month1':str(mo),'begin_day':'1','end_day':str(days),'Orderby':'1'}
 def fetch(ry,mo,kw):
- body=urlencode(params(ry,mo,kw)).encode();req=Request(URL,data=body,headers={'User-Agent':UA,'Content-Type':'application/x-www-form-urlencoded','Referer':'https://mops.twse.com.tw/mops/web/t51sb10'},method='POST')
- with urlopen(req,timeout=35) as r:raw=r.read()
- text=raw.decode('utf-8','replace')
- if len(text)<200:raise RuntimeError(f'short response {len(text)}')
- if '查詢過於頻繁' in text or 'FOR SECURITY' in text:raise RuntimeError('MOPS throttle/security')
- return text
+ payload=params(ry,mo,kw); errors=[]
+ for host in HOSTS:
+  fd,jar=tempfile.mkstemp(prefix='whale-mops-',suffix='.cookie');os.close(fd)
+  try:
+   subprocess.run(['curl','-sS','-L','--http1.1','--compressed','--connect-timeout','10','--max-time','25','-A',UA,'-c',jar,'-b',jar,host+PAGE],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+   cmd=['curl','-sS','-L','--http1.1','--compressed','--connect-timeout','10','--max-time','35','-A',UA,'-c',jar,'-b',jar,'-H','Content-Type: application/x-www-form-urlencoded','-H','Origin: '+host,'-e',host+PAGE,'-w','\n__HTTP__%{http_code}']
+   for k,v in payload.items():cmd+=['--data-urlencode',f'{k}={v}']
+   cmd.append(host+PATH);p=subprocess.run(cmd,capture_output=True,text=True,timeout=45)
+   text=p.stdout; m=re.search(r'\n__HTTP__(\d{3})\s*$',text); status=int(m.group(1)) if m else 0; text=re.sub(r'\n__HTTP__\d{3}\s*$','',text)
+   if p.returncode:raise RuntimeError(f'curl rc={p.returncode}: {p.stderr[-180:]}')
+   if status!=200:raise RuntimeError(f'HTTP {status}, bytes={len(text)}')
+   if len(text)<200:raise RuntimeError(f'short response {len(text)}')
+   if '查詢過於頻繁' in text or 'FOR SECURITY' in text:raise RuntimeError('MOPS throttle/security')
+   return text,host
+  except Exception as e:errors.append(f'{host}: {e}')
+  finally:
+   try:os.unlink(jar)
+   except OSError:pass
+ raise RuntimeError(' | '.join(errors))
 
 def fetch_month(ry,mo):
  all={};diag=[]
  for kw in KEYWORDS:
   try:
-   page=fetch(ry,mo,kw);rows=parse(page);diag.append({'keyword':kw,'bytes':len(page),'events':len(rows),'ok':True})
+   page,host=fetch(ry,mo,kw);rows=parse(page);diag.append({'keyword':kw,'host':host,'bytes':len(page),'events':len(rows),'ok':True,'has4194':'4194' in page,'hasActor':'隆欣投資' in page,'has43':has43(page)})
    for r in rows:all[r['event_id']]=r
   except Exception as e:diag.append({'keyword':kw,'events':0,'ok':False,'error':str(e)})
- if not any(x['ok'] for x in diag):raise RuntimeError('all keyword requests failed')
+ if not any(x['ok'] for x in diag):raise RuntimeError('all keyword requests failed: '+json.dumps(diag,ensure_ascii=False))
  return list(all.values()),diag
 
 def self_test():
@@ -81,11 +94,14 @@ def main():
  ap=argparse.ArgumentParser();ap.add_argument('--root',default='data/whale_radar');ap.add_argument('--start-year',type=int,default=113);ap.add_argument('--end-year',type=int,default=datetime.now().year-1911);ap.add_argument('--sleep',type=float,default=.15);ap.add_argument('--self-test',action='store_true');ap.add_argument('--allow-partial',action='store_true');a=ap.parse_args()
  if a.self_test:self_test();return 0
  root=Path(a.root);latest=root/'latest';latest.mkdir(parents=True,exist_ok=True)
- rows,diag=fetch_month(115,10);c=POSITIVE_CONTROL;hit=any(x['stock_code']==c['stock_code'] and c['subject_token'] in x['subject'] and x['event_date']==c['date'] for x in rows)
+ try: rows,diag=fetch_month(115,10)
+ except Exception as e:
+  diag=[{'fatal':str(e)}];rows=[]
+ c=POSITIVE_CONTROL;hit=any(x['stock_code']==c['stock_code'] and c['subject_token'] in x['subject'] and x['event_date']==c['date'] for x in rows)
  (latest/'sec43_positive_control_probe.json').write_text(json.dumps({'control':c,'positive_control':hit,'diagnostics':diag},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
  if not hit:
-  (latest/'sec43_backfill_manifest.json').write_text(json.dumps({'status':'BROKEN_SOURCE','events':0,'named_actors':0,'positive_control':c},ensure_ascii=False,indent=2)+'\n',encoding='utf-8');print('historical sec43: BROKEN_SOURCE; positive control not retrieved');return 3
- print('positive control OK via ajax_t51sb10 KIND=C full-text search')
+  (latest/'sec43_backfill_manifest.json').write_text(json.dumps({'status':'BROKEN_SOURCE','events':0,'named_actors':0,'positive_control':c,'diagnostics':diag},ensure_ascii=False,indent=2)+'\n',encoding='utf-8');print('historical sec43: BROKEN_SOURCE; positive control not retrieved; '+json.dumps(diag,ensure_ascii=False));return 3
+ print('positive control OK via t51sb10 full-text search')
  all={};coverage=[];fails=0;now=date.today()
  for ry in range(a.start_year,a.end_year+1):
   last=now.month if ry+1911==now.year else 12
@@ -101,6 +117,6 @@ def main():
  out=sorted(all.values(),key=lambda x:(x['event_date'],x['stock_code']));root.mkdir(parents=True,exist_ok=True)
  with (root/'historical_sec43_events.jsonl').open('w',encoding='utf-8') as f:
   for x in out:f.write(json.dumps(x,ensure_ascii=False,sort_keys=True)+'\n')
- manifest={'generated_at':datetime.now().astimezone().isoformat(),'source':'MOPS ajax_t51sb10 full-text announcement search','start_roc_year':a.start_year,'end_roc_year':a.end_year,'months_attempted':len(coverage),'months_failed':fails,'status':'OK' if fails==0 else 'PARTIAL','events':len(out),'named_actors':len({x['actor'] for x in out if x['actor']}),'positive_control':c,'coverage':coverage}
+ manifest={'generated_at':datetime.now().astimezone().isoformat(),'source':'MOPS t51sb10 full-text announcement search','start_roc_year':a.start_year,'end_roc_year':a.end_year,'months_attempted':len(coverage),'months_failed':fails,'status':'OK' if fails==0 else 'PARTIAL','events':len(out),'named_actors':len({x['actor'] for x in out if x['actor']}),'positive_control':c,'coverage':coverage}
  (latest/'sec43_backfill_manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');(latest/'historical_sec43_events.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');print(f"historical sec43: {len(out)} events; named actors={manifest['named_actors']}; failures={fails}/{len(coverage)}");return 0
 if __name__=='__main__':raise SystemExit(main())
