@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Positive-control probe for the current MOPS JSON historical material-info API."""
+"""Positive-control probe for the current MOPS JSON material-info API.
+
+Try the exact date before broad historical queries.  MOPS currently truncates some
+company/year queries, so a broad `month=all` response is not a valid negative control.
+"""
 import json, urllib.request
 
 URL='https://mops.twse.com.tw/mops/api/t05st01'
@@ -12,17 +16,24 @@ def post(payload):
         return json.loads(r.read().decode('utf-8'))
 
 def main():
-    # Current SPA API expects month='all' for historical company queries; date-specific
-    # month/day payloads can return an empty result even when the announcement exists.
-    payload={'companyId':'4194','year':'115','month':'all','firstDay':'','lastDay':''}
-    try:
-        obj=post(payload)
-    except Exception as exc:
-        print('POSITIVE_CONTROL_TRANSPORT_FAILED',repr(exc)); return 3
-    rows=((obj.get('result') or {}).get('data') or [])
-    for row in rows:
-        text=' '.join(str(x) for x in row)
-        if '4194' in text and '隆欣投資' in text and ('43條之1' in text or '43 條之 1' in text):
-            print('POSITIVE_CONTROL_OK',json.dumps({'payload':payload,'row':row},ensure_ascii=False)); return 0
-    print('POSITIVE_CONTROL_FAILED',json.dumps({'payload':payload,'row_count':len(rows),'sample':rows[:3],'control':CONTROL},ensure_ascii=False)); return 3
+    variants=[
+      {'companyId':'4194','year':'115','month':'10','firstDay':'12','lastDay':'12'},
+      {'companyId':'4194','year':'115','month':'10','firstDay':'1','lastDay':'31'},
+      {'companyId':'4194','year':'115','month':'all','firstDay':'','lastDay':''},
+      {'companyId':'','year':'115','month':'10','firstDay':'12','lastDay':'12'},
+    ]
+    diagnostics=[]
+    for payload in variants:
+      try:
+        obj=post(payload); rows=((obj.get('result') or {}).get('data') or [])
+        hitrow=None
+        for row in rows:
+          text=' '.join(str(x) for x in row)
+          if '4194' in text and '隆欣投資' in text and ('43條之1' in text or '43 條之 1' in text): hitrow=row; break
+        diagnostics.append({'payload':payload,'row_count':len(rows),'hit':bool(hitrow),'sample':rows[:2]})
+        if hitrow:
+          print('POSITIVE_CONTROL_OK',json.dumps({'payload':payload,'row':hitrow,'diagnostics':diagnostics},ensure_ascii=False)); return 0
+      except Exception as exc:
+        diagnostics.append({'payload':payload,'error':repr(exc)})
+    print('POSITIVE_CONTROL_FAILED',json.dumps({'control':CONTROL,'diagnostics':diagnostics},ensure_ascii=False)); return 3
 if __name__=='__main__': raise SystemExit(main())
