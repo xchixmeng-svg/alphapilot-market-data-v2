@@ -1,0 +1,98 @@
+/* 成為股神 V2 alpha — 看盤駕訓班 */
+(function(){
+'use strict';
+var E=window.BSG,C=E.C,CT=window.BSG_CONTENT,BANK=JSON.parse(document.getElementById('bank-data').textContent),X=E.ix;
+var SAVE_KEY='bsg_save_v2_alpha',START_NAV=1000000,app=document.getElementById('app'),BYID={},DEC={};
+BANK.rounds.forEach(function(r){BYID[r.id]=r;});
+var TRAIN_IDS=BANK.rounds.filter(function(r){return r.slot==='primary'&&(r.pool==='A'||r.pool==='B');}).map(function(r){return r.id;});
+var EXAM_IDS=BANK.rounds.filter(function(r){return r.slot==='primary'&&r.pool==='C';}).map(function(r){return r.id;});
+var UI={screen:'home',params:{},chart:null,overlay:null};
+var FOOT='<div class="footer">歷史行情模擬訓練｜不是即時行情｜不構成投資建議</div>';
+
+function decodeRound(r){var f100=function(a){return a.map(function(x){return x/100;});},f4=function(a){return a?a.map(function(x){return x===null?null:x/10000;}):null;};return{o:f100(r.o),h:f100(r.h),l:f100(r.l),c:f100(r.c),v:r.v.slice(),atr:f4(r.atr),ma20:f4(r.m20),ma60:f4(r.m60),ic:r.ic?f4(r.ic):r.o.map(function(){return null;})};}
+function getR(id){if(DEC[id])return DEC[id];var m=BYID[id];if(!m)return null;var R=decodeRound(m),errs=E.validateRound(R);if(errs.length){console.error('invalid',id,errs);return null;}DEC[id]=R;return R;}
+function meta(id){return BYID[id];}
+function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function money(x){return Math.round(x).toLocaleString('en-US');}
+function nt(x){return 'NT$'+money(x);}
+function pct(x,sign){if(!E.isNum(x))return '—';var s=(x*100).toFixed(1)+'%';return sign&&x>0?'+'+s:s.replace('-', '−');}
+function px(x){return E.isNum(x)?x.toFixed(E.priceDecimals(x)):'—';}
+function toast(t){var n=document.createElement('div');n.className='toast';n.textContent=t;document.body.appendChild(n);setTimeout(function(){n.remove();},2100);}
+function avg(a,s,e){var n=0,t=0;for(var i=s;i<=e;i++){if(E.isNum(a[i])){t+=a[i];n++;}}return n?t/n:null;}
+function minA(a,s,e){var v=Infinity;for(var i=s;i<=e;i++)v=Math.min(v,a[i]);return v;}
+function maxA(a,s,e){var v=-Infinity;for(var i=s;i<=e;i++)v=Math.max(v,a[i]);return v;}
+function futureEnd(R){return E.futureDays(R);}
+
+function context(R){
+  var i=X(0),a=R.atr[i]||0,c=R.c[i],ma20=R.ma20[i],ma60=R.ma60[i];
+  var rlo=minA(R.l,Math.max(0,i-20),i-1),rhi=maxA(R.h,Math.max(0,i-20),i-1),hi60=maxA(R.h,Math.max(0,i-60),i-1),lo60=minA(R.l,Math.max(0,i-60),i-1);
+  var ma20old=R.ma20[Math.max(0,i-5)],up=E.isNum(ma20)&&E.isNum(ma60)&&c>ma20&&ma20>ma60&&ma20>ma20old,down=E.isNum(ma20)&&E.isNum(ma60)&&c<ma20&&ma20<ma60&&ma20<ma20old;
+  var v5=avg(R.v,i-4,i),v20=avg(R.v,i-19,i),vr=v20?v5/v20:null,dist=ma20?(c/ma20-1):null,breakout=c>rhi;
+  var support=rlo,resistance=rhi,nearSupport=a>0?(c-support)<=1.5*a:false;
+  return{close:c,atr:a,ma20:ma20,ma60:ma60,trend:up?'上升':down?'下降':'盤整／混合',support:support,resistance:resistance,hi60:hi60,lo60:lo60,volRatio:vr,ma20Dist:dist,breakout:breakout,nearSupport:nearSupport};
+}
+function zonesFor(kind,R){var q=context(R),a=q.atr||Math.max(.01,q.close*.02),out=[];function z(p,col,l){out.push({lo:Math.max(.01,p-a*.35),hi:p+a*.35,color:col,label:l,alpha:.12});}
+  if(['zones','entry','stop','exit','full'].indexOf(kind)>=0){z(q.support,'#25c77a','近期支撐區');z(q.resistance,'#ffad38','近期壓力區');}
+  if(kind==='avoid'&&E.isNum(q.ma20)&&q.close>q.ma20*1.05)out.push({lo:q.ma20,hi:q.ma20+a*.55,color:'#e7b84b',label:'近期平均成本帶',alpha:.09});
+  return out;
+}
+function markersFor(kind,R){var q=context(R),i=X(0),m=[];
+  if(kind==='candle')m.push({idx:i,price:R.h[i],label:'先讀這根 K',color:'#55a8ff'});
+  if(kind==='trend'){for(var k=i-25;k<=i;k++){if(k<2||k>=R.c.length-2)continue;if(R.h[k]>R.h[k-1]&&R.h[k]>R.h[k+1]&&R.h[k]>R.h[k-2]&&R.h[k]>R.h[k+2])m.push({idx:k,price:R.h[k],label:'高點',color:'#ffad38'});if(R.l[k]<R.l[k-1]&&R.l[k]<R.l[k+1]&&R.l[k]<R.l[k-2]&&R.l[k]<R.l[k+2])m.push({idx:k,price:R.l[k],label:'低點',color:'#25c77a'});}m=m.slice(-6);}
+  if(kind==='entry')m.push({idx:i,price:q.close,label:q.breakout?'接近突破':'先找位置',color:'#55a8ff'});
+  if(kind==='stop')m.push({idx:i,price:Math.max(.01,q.support-(q.atr||0)*.5),label:'失策應在支撐下方',color:'#ff5364'});
+  return m;
+}
+
+function newSave(){var cid='V2'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);return{version:'v2-alpha',id:cid,created:new Date().toISOString(),quiz:{},practiced:{},lessons_done:[],training_order:E.seededShuffle(TRAIN_IDS,C.SEED+'|TRAIN|'+cid),practice_idx:0,practice_results:[],exam_order:E.seededShuffle(EXAM_IDS,C.SEED+'|EXAM|'+cid),exam_idx:0,exam_results:[],lesson_used:{},current:null};}
+function load(){try{var x=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(x&&x.version==='v2-alpha')return x;}catch(e){}return newSave();}
+var S=load();function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(S));}
+function lessonDone(n){return S.lessons_done.indexOf(n)>=0;}
+function maybeCompleteLesson(n){if(S.quiz[n]&&S.practiced[n]&&!lessonDone(n)){S.lessons_done.push(n);S.lessons_done.sort(function(a,b){return a-b;});save();}}
+function lessonUnlocked(n){return n===1||lessonDone(n-1);}
+function demoId(n){var a=BANK.rounds.filter(function(r){return r.pool==='A'&&r.slot==='reserve'&&r.ch===n;});return a.length?a[0].id:null;}
+function lessonPracticeId(n){var a=BANK.rounds.filter(function(r){return r.pool==='A'&&r.slot==='reserve'&&r.ch===n;});if(!a.length)return null;var used=S.lesson_used[n]||0;return a[Math.min(a.length-1,1+(used%(Math.max(1,a.length-1))))].id;}
+
+function destroyChart(){if(UI.chart){UI.chart.destroy();UI.chart=null;}}
+function go(s,p){destroyChart();closeSheet();UI.screen=s;UI.params=p||{};render();window.scrollTo(0,0);}
+function top(title,back){return '<div class="topbar">'+(back?'<button class="iconbtn" data-act="'+back+'">‹</button>':'<span style="width:44px"></span>')+'<div class="title">'+esc(title)+'</div><button class="iconbtn" data-act="about">ⓘ</button></div>';}
+function render(){var f=SC[UI.screen]||SC.home;try{f();}catch(e){console.error(e);app.innerHTML='<div class="screen">'+top('錯誤','home')+'<div class="content"><div class="card bad"><div class="h2">畫面發生錯誤</div><div class="small">'+esc(e.message)+'</div></div></div>'+FOOT+'</div>';}}
+function openSheet(html){closeSheet();var bg=document.createElement('div'),sh=document.createElement('div');bg.className='sheet-bg';sh.className='sheet';sh.innerHTML=html;bg.addEventListener('click',closeSheet);document.body.appendChild(bg);document.body.appendChild(sh);UI.overlay={bg:bg,sh:sh};}
+function closeSheet(){if(UI.overlay){UI.overlay.bg.remove();UI.overlay.sh.remove();UI.overlay=null;}}
+
+document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var fn=ACT[el.dataset.act];if(fn)try{fn(el);}catch(err){console.error(err);toast('操作失敗：'+err.message);}});
+document.addEventListener('input',function(e){var el=e.target.closest('[data-in]');if(!el)return;var fn=INP[el.dataset.in];if(fn)fn(el);});
+
+var SC={};
+SC.home=function(){var done=S.lessons_done.length,p=S.practice_idx,examOK=done===10;app.innerHTML='<div class="screen">'+top('',null)+'<div class="content">'+
+'<div class="card hero"><div class="eyebrow">Stock Reading Driving School</div><div class="logo">成為<span>股神</span></div><div class="lead">不是叫你猜明天漲跌。先學會看 K 線、找位置、定義看錯，再用真實歷史行情證明你真的會。</div></div>'+
+'<div class="card"><div class="row between"><div><div class="h2">K 線駕訓課</div><div class="small muted">先教 → 圖上示範 → 小測驗 → 歷史題實作</div></div><div class="big">'+done+'/10</div></div><div class="progress" style="margin:12px 0"><i style="width:'+done*10+'%"></i></div><button class="btn primary block" data-act="academy">'+(done?'繼續學習':'從第一課開始')+'</button></div>'+
+'<div class="grid2"><div class="card"><div class="eyebrow">Random Practice</div><div class="h2">亂數實戰</div><div class="big">'+p+'<span class="small muted"> / 400</span></div><div class="small muted">2020–2023 訓練池，題型全部打亂，不告訴你考什麼。</div><button class="btn block" style="margin-top:12px" data-act="practice" '+(done<3?'disabled':'')+'>開始一題</button></div>'+
+'<div class="card"><div class="eyebrow">Blind Exam</div><div class="h2">盲測 100</div><div class="big">'+S.exam_idx+'<span class="small muted"> / 100</span></div><div class="small muted">2024–2025 永不出現在訓練。十課完成後才開放。</div><button class="btn block" style="margin-top:12px" data-act="exam" '+(!examOK?'disabled':'')+'>進入盲測</button></div></div>'+
+(S.current&&!S.current.applied?'<div class="card info"><div class="h2">有一題尚未完成</div><div class="small muted">離開不會讓你重抽題目，也不會重開進場窗口。</div><button class="btn blue block" style="margin-top:10px" data-act="resumeRound">繼續這一題</button></div>':'')+
+'<div class="card flat"><div class="row between"><span class="small muted">目前內嵌題庫視窗</span><span class="badge warn">D-'+BANK.history_days+' ～ D+'+BANK.future_days+'</span></div><div class="small" style="margin-top:8px">V2 圖表與交易引擎已改為「依題目實際視窗運作、沒有 D21 強制賣出」。240+120 題庫需要在原始 parquet 端重新生成後即可替換。</div></div>'+
+'</div>'+FOOT+'</div>';};
+
+SC.academy=function(){var h=CT.LESSONS.map(function(l){var d=lessonDone(l.n),u=lessonUnlocked(l.n);return '<div class="lesson '+(d?'done ':'')+(!u?'locked':'')+'" '+(u?'data-act="lesson" data-n="'+l.n+'"':'')+'><div class="n">'+(d?'✓':l.n)+'</div><div><div class="tt">'+esc(l.title)+'</div><div class="st">'+esc(l.sub)+'</div></div><div>'+(!u?'🔒':'›')+'</div></div>';}).join('');app.innerHTML='<div class="screen">'+top('K 線駕訓課','home')+'<div class="content"><div class="coach"><div class="avatar">教</div><div class="say"><strong>每課都先講清楚。</strong><br>你會先知道要看哪裡、什麼條件可以做、什麼條件不要做，之後才進真實歷史題。</div></div><div style="height:12px"></div>'+h+'</div>'+FOOT+'</div>';};
+
+SC.lesson=function(){var n=+UI.params.n,l=CT.LESSONS[n-1],id=demoId(n),R=getR(id),qok=!!S.quiz[n],pok=!!S.practiced[n];app.innerHTML='<div class="screen">'+top('第 '+n+' 課','academy')+'<div class="content">'+
+'<div class="eyebrow">LESSON '+n+'</div><div class="h1">'+esc(l.title)+'</div><div class="lead">'+esc(l.intro)+'</div>'+
+'<div class="chart-shell"><div class="chartwrap" id="lessonChart"></div><div class="chart-note">示範只使用 D0 當時可見資料；點一下 K 棒可讀 OHLC，'+(BANK.history_days>=240?'20D / 60D / 120D / 1Y':'20D / 60D / 120D')+' 可切換尺度。</div></div>'+
+'<div class="rulegrid"><div class="rulebox good"><div class="rt down">✓ 先看這些</div><ul>'+l.look.map(function(x){return'<li>'+esc(x)+'</li>';}).join('')+'</ul></div><div class="rulebox good"><div class="rt">✓ 可以怎麼做</div><ul>'+l.can.map(function(x){return'<li>'+esc(x)+'</li>';}).join('')+'</ul></div><div class="rulebox bad"><div class="rt up">× 不要這樣做</div><ul>'+l.avoid.map(function(x){return'<li>'+esc(x)+'</li>';}).join('')+'</ul></div></div>'+
+'<div class="card" style="margin-top:12px"><div class="eyebrow">CHECK</div><div class="h2">先確認你真的懂</div><div>'+esc(l.quiz.q)+'</div>'+l.quiz.o.map(function(o,i){var cls=qok&&i===l.quiz.a?' right':'';return'<button class="quizopt'+cls+'" data-act="quiz" data-n="'+n+'" data-i="'+i+'">'+esc(o)+'</button>';}).join('')+(qok?'<div class="coach" style="margin-top:10px"><div class="avatar">✓</div><div class="say">'+esc(l.quiz.e)+'</div></div>':'')+'</div>'+
+'<button class="btn '+(qok?'primary':'')+' block" data-act="lessonPractice" data-n="'+n+'" '+(!qok?'disabled':'')+'>'+(pok?'再練一題':'進入本課歷史題')+'</button>'+(lessonDone(n)&&n<10?'<button class="btn block" style="margin-top:8px" data-act="lesson" data-n="'+(n+1)+'">下一課</button>':'')+
+'</div>'+FOOT+'</div>';
+  UI.chart=BSGChart.create(document.getElementById('lessonChart'),{getData:function(){return{R:R,lastIdx:X(0),d0Idx:X(0),showMA:n>=5,zones:zonesFor(l.demo,R),markers:markersFor(l.demo,R),lines:[],labelFor:function(i){return 'D'+(i-X(0));}};}});
+};
+
+function startRound(mode,id,lesson){var R=getR(id);if(!R){toast('題目無法讀取');return;}var st=E.newTradeState(R,{roundId:id,mode:mode,level:8,nav:START_NAV,cash:START_NAV});st.phase='inspect';var q=context(R),stop=E.roundToTick(Math.max(.01,q.close-2*q.atr),'down'),target=E.roundToTick(q.close+4*q.atr,'up');S.current={mode:mode,id:id,lesson:lesson||null,st:st,stage:'inspect',decision:null,setup:null,openDay:1,entryClosed:false,draft:{stop:stop,target:target,maxGap:.02,riskPct:.01},started:Date.now(),applied:false};save();go('play');}
+function current(){return S.current;}
+function navNow(c){var R=getR(c.id),k=Math.max(0,Math.min(c.st.day,futureEnd(R)));return E.navAt(c.st,R.c[X(k)]);}
+function planObject(c){return{stop:c.draft.stop,target:c.draft.target,maxGap:c.draft.maxGap,maxHold:null,shares:0,sizing:'risk',riskPct:c.draft.riskPct,autoTP:false,trailMult:null};}
+
+SC.play=function(){var c=current();if(!c){go('home');return;}var R=getR(c.id),m=meta(c.id),st=c.st,q=context(R),held=E.sharesHeld(st),nav=navNow(c),pnl=nav-START_NAV;app.innerHTML='<div class="screen">'+top(c.mode==='lesson'?'歷史練習｜第 '+c.lesson+' 課':c.mode==='exam'?'盲測':'亂數實戰','leaveRound')+
+'<div class="hud"><div><div class="small muted">神秘標的 '+esc(m.lb)+'</div><div style="font-weight:850">'+(c.stage==='inspect'?'只能看到 D0 以前':c.stage==='open'?'進場窗口':held?'持倉中':'行情回放')+'</div></div><div class="right"><div class="small muted">D'+st.day+' / +'+futureEnd(R)+'</div><div class="pnl '+(pnl>0?'up':pnl<0?'down':'')+'">'+(pnl>0?'+':'')+nt(pnl)+'</div></div></div>'+
+'<div class="chart-shell" style="margin:0 8px"><div class="chartwrap" id="playChart"></div><div class="chart-note">'+playChartNote(c,R)+'</div></div><div class="daybar">'+dayBadges(c,R,q)+'</div><div class="content" style="padding-bottom:8px">'+playPanel(c,R,q)+'</div><div class="actiondock">'+playActions(c,R)+'</div>'+FOOT+'</div>';
+  UI.chart=BSGChart.create(document.getElementById('playChart'),{getData:function(){return playChartData(c,R);},onDragLine:function(id,v){if(c.stage!=='plan')return;v=E.roundToTick(v);if(id==='stop')c.draft.stop=Math.min(v,E.roundToTick(q.close*.999,'down'));if(id==='target')c.draft.target=Math.max(v,E.roundToTick(q.close*1.001,'up'));save();updatePlanFields();},onDragEnd:function(){save();}});
+};
+function playChartNote(c,R){if(c.stage==='inspect')return '先判斷結構與位置。此時沒有任何未來 K 棒。';if(c.stage==='plan')return '先寫下「哪裡買、跌到哪裡算看錯、上方哪裡開始有壓力」。';if(c.sta
