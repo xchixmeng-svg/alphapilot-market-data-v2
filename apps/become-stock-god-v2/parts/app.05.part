@@ -50,7 +50,7 @@
   function playChord(c){
     if(!bgmOn||!bgmBus)return;
     var chord=CHORDS[chordIndex%CHORDS.length],now=c.currentTime+.04;
-    chord.forEach(function(fr,i){padTone(c,fr,now,8.1,i===0?.022:.017);});
+    chord.forEach(function(fr,i){padTone(c,fr,now,8.1,i===0 ? .022 : .017);});
     softPluck(c,chord[1]*2,now+.8,.018);
     softPluck(c,chord[2]*2,now+2.55,.016);
     softPluck(c,chord[3]*2,now+4.35,.018);
