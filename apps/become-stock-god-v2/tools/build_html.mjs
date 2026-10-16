@@ -1,4 +1,4 @@
-// 成為股神 V2 — assemble one offline HTML from the local source tree.
+// 成為股神 V3 — assemble one self-contained product-test HTML.
 import fs from 'node:fs'
 import path from 'node:path'
 const root = process.cwd() + path.sep
@@ -10,10 +10,11 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
-<meta name="theme-color" content="#071019">
+<meta name="theme-color" content="#030814">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>成為股神 V2｜K線駕訓班</title>
+<meta name="apple-mobile-web-app-title" content="成為股神 V3">
+<title>成為股神 V3｜Neural Market Academy</title>
 <style>${read('src/style.css')}</style>
 </head>
 <body>
@@ -26,5 +27,6 @@ const html = `<!doctype html>
 </body>
 </html>`
 fs.mkdirSync(path.join(root, 'dist'), {recursive:true})
-fs.writeFileSync(path.join(root, 'dist/become-stock-god-v2-alpha.html'), html)
-console.log('dist/become-stock-god-v2-alpha.html', (Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB')
+fs.writeFileSync(path.join(root, 'dist/become-stock-god-v3.html'), html)
+fs.writeFileSync(path.join(root, 'dist/index.html'), html)
+console.log('dist/index.html', (Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB')
