@@ -1,0 +1,83 @@
+
+// V3.5 lesson visual contract — every mission shows only the evidence needed for that lesson.
+(function(){
+  'use strict';
+  if(!window.BSGChart||typeof window.BSGChart.create!=='function')return;
+  var originalCreate=window.BSGChart.create;
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function clampRange(a,s,e){return [Math.max(0,s),Math.min(a.length-1,e)];}
+  function minA(a,s,e){var r=clampRange(a,s,e),v=Infinity;for(var i=r[0];i<=r[1];i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
+  function maxA(a,s,e){var r=clampRange(a,s,e),v=-Infinity;for(var i=r[0];i<=r[1];i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function argExtreme(a,s,e,wantMax){var r=clampRange(a,s,e),best=r[0],v=wantMax?-Infinity:Infinity;for(var i=r[0];i<=r[1];i++){if(!Number.isFinite(a[i]))continue;if((wantMax&&a[i]>v)||(!wantMax&&a[i]<v)){v=a[i];best=i;}}return best;}
+  function lastAbove(a,s,e,level){var r=clampRange(a,s,e);for(var i=r[1];i>=r[0];i--)if(Number.isFinite(a[i])&&a[i]>level)return i;return r[1];}
+  function missionId(explicit){if(explicit)return +explicit;var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function transform(d,explicitMid){
+    if(!d||!d.R)return d;
+    var mid=missionId(explicitMid);if(!mid)return d;
+    var R=d.R,i=d.d0Idx,c=R.c[i],o=R.o[i],atr=(R.atr&&R.atr[i])||c*.02;
+    var sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),ma=R.ma20&&R.ma20[i],maOld=R.ma20&&R.ma20[i-5],ma60=R.ma60&&R.ma60[i];
+    var out=Object.assign({},d,{showMA:false,showVolume:false,zones:[],markers:[],lines:[],focusCandles:[],focusVolume:null});
+    function mark(idx,price,label,color,dx,dy){if(idx==null||!Number.isFinite(price))return;out.markers.push({idx:idx,price:price,label:label,color:color||'#39f5ff',dx:dx||0,dy:dy||0});}
+    function line(price,color,label,dash){if(Number.isFinite(price))out.lines.push({price:price,color:color||'#39f5ff',label:label||'',dash:!!dash});}
+    function zone(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones.push({lo:price-w,hi:price+w,color:color,label:label,alpha:.12});}
+    function support(label){zone(sup,'#24d79b',label||'支撐區');}
+    function resistance(price,label){zone(Number.isFinite(price)?price:res,'#ff9f43',label||'壓力區');}
+    switch(mid){
+      case 1:
+        out.focusCandles=[i];mark(i,R.h[i],'高','#ffd44a',8,-10);mark(i,Math.max(o,c),'開/收上緣','#39f5ff',34,8);mark(i,Math.min(o,c),'開/收下緣','#9876ff',34,22);mark(i,R.l[i],'低','#24d79b',8,18);break;
+      case 2:
+        out.focusCandles=[i];mark(i,o,'開盤','#9876ff',10,-12);mark(i,c,'收盤','#39f5ff',46,14);break;
+      case 3:
+        out.focusCandles=[i];mark(i,o,'開盤','#9876ff',10,-12);mark(i,c,'收盤','#39f5ff',46,14);break;
+      case 4:
+        out.focusCandles=[i];mark(i,R.h[i],'最高','#ffd44a',8,-12);mark(i,Math.max(o,c),'實體上緣','#39f5ff',36,8);mark(i,Math.min(o,c),'實體下緣','#9876ff',36,22);mark(i,R.l[i],'最低','#24d79b',8,18);break;
+      case 5:
+        out.focusCandles=[i-1,i];line(R.c[i-1],'#9876ff','昨收',true);mark(i-1,R.c[i-1],'昨收','#9876ff',8,-10);mark(i,c,'今收','#39f5ff',8,-10);break;
+      case 6:
+        out.focusCandles=[i-4,i-3,i-2,i-1,i];for(var s=i-4;s<=i;s++)mark(s,R.c[s],'D'+(s-i)+' 收',s===i?'#39f5ff':'#9876ff',2,(s-i)*2);break;
+      case 7:{var h7=argExtreme(R.h,i-20,i-1,true);mark(h7,R.h[h7],'近期高點','#ffd44a',8,-10);break;}
+      case 8:{var h81=argExtreme(R.h,i-24,i-13,true),h82=argExtreme(R.h,i-12,i,true);mark(h81,R.h[h81],'前段高','#9876ff',8,-10);mark(h82,R.h[h82],'後段高','#39f5ff',8,-10);break;}
+      case 9:{var l91=argExtreme(R.l,i-24,i-13,false),l92=argExtreme(R.l,i-12,i,false);mark(l91,R.l[l91],'前段低','#9876ff',8,18);mark(l92,R.l[l92],'後段低','#39f5ff',8,18);break;}
+      case 10:case 11:break;
+      case 12:{var h12=argExtreme(R.h,i-12,i-1,true),p12=R.h[h12];line(p12,'#ff9f43','前一重要高點',true);mark(h12,p12,'前高','#ff9f43',8,-10);mark(i,c,'D0 收盤','#39f5ff',8,-10);break;}
+      case 13:support('支撐候選');break;
+      case 14:resistance(res,'壓力候選');break;
+      case 15:support('區間下緣');resistance(res,'區間上緣');break;
+      case 16:resistance(res,'前 20 日壓力');line(res,'#ff9f43','突破基準',true);out.focusCandles=[i];break;
+      case 17:{var r17=maxA(R.h,i-22,i-3),b17=lastAbove(R.c,i-2,i-1,r17*1.002);resistance(r17,'原壓力');line(r17,'#ff9f43','假突破基準',true);mark(b17,R.c[b17],'曾收上','#ffd44a',8,-10);mark(i,c,'跌回區間','#39f5ff',8,18);out.focusCandles=[b17,i];break;}
+      case 18:{var r18=maxA(R.h,i-25,i-6),b18=lastAbove(R.c,i-5,i-1,r18*1.005);resistance(r18,'原壓力→回測');line(r18,'#ff9f43','回測基準',true);mark(b18,R.c[b18],'突破','#ffd44a',8,-10);mark(i,c,'回測','#39f5ff',8,18);out.focusCandles=[b18,i];break;}
+      case 19:out.showMA='ma20';mark(i,ma,'MA20','#ffd44a',8,-10);break;
+      case 20:out.showMA='ma20';mark(i,c,'收盤','#39f5ff',8,-10);mark(i,ma,'MA20','#ffd44a',46,18);break;
+      case 21:out.showMA='ma20';mark(i,c,'收盤','#39f5ff',8,-10);mark(i,ma,'MA20','#ffd44a',46,18);break;
+      case 22:out.showMA='ma20';mark(i-5,maOld,'5 天前 MA20','#9876ff',8,-10);mark(i,ma,'今天 MA20','#ffd44a',8,-10);break;
+      case 23:out.showMA='both';mark(i,c,'價格','#eefaff',8,-10);mark(i,ma,'MA20','#ffd44a',42,8);mark(i,ma60,'MA60','#27c8ff',42,22);break;
+      case 24:out.focusCandles=[i];break;
+      case 25:out.showVolume=true;out.focusVolume=i;break;
+      case 26:out.showVolume=true;out.focusVolume=i;out.focusCandles=[i];break;
+      case 27:out.showMA='ma20';support('回檔支撐');out.focusCandles=[i];break;
+      case 28:resistance(res,'突破壓力');line(res,'#ff9f43','突破基準',true);out.focusCandles=[i];break;
+      case 29:{var r29=maxA(R.h,i-25,i-6),b29=lastAbove(R.c,i-5,i-1,r29*1.005);resistance(r29,'原壓力→支撐');line(r29,'#ff9f43','回測基準',true);mark(b29,R.c[b29],'突破','#ffd44a',8,-10);mark(i,c,'守住回測','#39f5ff',8,18);out.focusCandles=[b29,i];break;}
+      case 30:out.showMA='ma20';resistance(res,'上方壓力');out.focusCandles=[i];break;
+      case 31:{var st31=Math.max(.01,sup-atr*.45);support('結構支撐');line(st31,'#ff465f','失策點',true);out.focusCandles=[i];break;}
+      case 32:{var tg32=res>c?res:maxA(R.h,i-60,i-1);line(tg32,'#ffd44a','第一壓力/目標');mark(i,c,'目前價格','#39f5ff',8,18);break;}
+      case 33:{var st33=Math.max(.01,sup-atr*.45),tg33=res>c?res:maxA(R.h,i-60,i-1);line(st33,'#ff465f','失策',true);line(tg33,'#ffd44a','目標');mark(i,c,'進場參考','#39f5ff',8,18);break;}
+      case 34:break;
+      case 35:{var st35=Math.max(.01,sup-atr*.45),d3=Math.min(i+3,R.c.length-1);out.lastIdx=d3;line(st35,'#ff465f','原失策',true);mark(i,c,'D0','#9876ff',8,-10);mark(d3,R.c[d3],'D+3','#39f5ff',8,-10);out.focusCandles=[i,d3];break;}
+      case 36:out.showMA='both';out.showVolume=true;support('支撐');resistance(res,'壓力');out.focusVolume=i;break;
+    }
+    var a=api(),hint=a&&a.ui?a.ui.hint:0;
+    if(hint>=2){
+      var hasSupport=out.zones.some(function(z){return /支撐|下緣/.test(z.label||'');});
+      var hasResistance=out.zones.some(function(z){return /壓力|上緣/.test(z.label||'');});
+      if(hasSupport&&!out.lines.some(function(x){return x.label==='支撐核心';}))line(sup,'#24d79b','支撐核心',true);
+      if(hasResistance&&!out.lines.some(function(x){return /基準/.test(x.label||'');}))line(mid===17?maxA(R.h,i-22,i-3):(mid===18||mid===29?maxA(R.h,i-25,i-6):res),'#ff9f43','壓力核心',true);
+    }
+    return out;
+  }
+  window.BSGChart.create=function(wrap,opt){
+    opt=opt||{};var getter=opt.getData,next=Object.assign({},opt);
+    next.getData=function(){return transform(getter?getter():null);};
+    return originalCreate(wrap,next);
+  };
+  window.BSG_V3_VISUALS={version:'lesson-contract-v2',transform:transform};
+})();
