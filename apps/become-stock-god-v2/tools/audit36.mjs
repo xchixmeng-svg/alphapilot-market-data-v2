@@ -101,7 +101,8 @@ try{
     assert(metrics.tag==='M'+String(mid).padStart(2,'0'),'M'+mid+' wrong rendered mission '+metrics.tag)
     assert(Math.abs(metrics.canvas.h-metrics.wrap.h)<=2.5,'M'+mid+' canvas height '+metrics.canvas.h+' != wrap '+metrics.wrap.h)
     assert(metrics.canvas.bottom<=metrics.wrap.bottom+2,'M'+mid+' canvas clips below wrap')
-    assert(metrics.frame.bottom<=metrics.dock.y+3,'M'+mid+' chart overlaps lesson dock')
+    // V3.6: in phone landscape the lesson dock sits beside the chart instead of below it; either is fine as long as they do not intersect
+    { const f=metrics.frame,d=metrics.dock,ix=Math.min(f.right,d.right)-Math.max(f.x,d.x),iy=Math.min(f.bottom,d.bottom)-Math.max(f.y,d.y); assert(!(ix>3&&iy>3),'M'+mid+' chart overlaps lesson dock') }
     assert(metrics.dock.bottom<=metrics.ih+2,'M'+mid+' lesson dock below viewport')
     assert(metrics.training.bottom<=metrics.ih+2,'M'+mid+' training below viewport')
     assert(metrics.main.right<=metrics.iw+2,'M'+mid+' main exceeds viewport width')

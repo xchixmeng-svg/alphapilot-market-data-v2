@@ -1,0 +1,55 @@
+
+/* ───────────── V3.6 layout fixes (loaded last; overrides earlier !important layers) ───────────── */
+
+/* 1. Safe areas. The page uses viewport-fit=cover + black-translucent, so the iPhone status bar and
+      the landscape notch sit on top of the page unless we pad for them. */
+.hudbar{padding-top:calc(6px + env(safe-area-inset-top,0px))!important;height:calc(58px + env(safe-area-inset-top,0px))!important;
+  padding-left:max(8px,env(safe-area-inset-left,0px))!important;padding-right:max(8px,env(safe-area-inset-right,0px))!important}
+@media(max-width:820px){.trainingHead{top:calc(58px + env(safe-area-inset-top,0px))!important}}
+.main,.homebody,.mastery{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+
+/* 2. Chart chrome: the legend shares the reserved bottom strip with the range buttons (renderer CTL strip),
+      so it no longer covers the top price label or the NOW tag. */
+.chartlegend{top:auto!important;bottom:6px!important;left:8px!important;right:auto!important;font-size:10px!important;padding:3px 6px!important;gap:6px!important}
+.chartctl.v3{right:6px!important;bottom:5px!important;gap:3px!important}
+.chartctl.v3 button{height:26px!important;min-width:34px!important;font-size:10px!important}
+
+/* 3. Phone portrait: chart + question + all three answers fit on one screen. */
+@media (orientation:portrait) and (max-width:940px){
+  .training{grid-template-rows:auto clamp(260px,48dvh,460px) auto!important}
+  .main:has(>.training) .chartArea{height:clamp(260px,48dvh,460px)!important;min-height:0!important}
+  .main:has(>.training) .chartArea,.main:has(>.training) .chartFrame,.main:has(>.training) .chartwrap{min-height:0!important}
+  .main:has(>.training) .chartFrame,.main:has(>.training) .chartwrap{height:100%!important}
+  .trainingHead{min-height:52px!important}
+  .prompt{padding:9px 11px!important}
+  .question{font-size:18px!important;line-height:1.35!important}
+  .explain{font-size:13px!important;line-height:1.4!important}
+  .answers{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;margin-top:8px}
+  .answer{min-height:58px!important;font-size:13px!important;line-height:1.3!important;padding:6px 5px!important}
+  .answerHelp{grid-column:1/-1!important;min-height:40px!important}
+  .answers:has(>.answer:only-of-type){grid-template-columns:1fr!important}
+}
+
+/* 4. Phone landscape: no mission list; chart takes the full height on the left, the lesson the right column.
+      (Previously the chart was ~120px tall and the newest candles sat under the range buttons.) */
+@media (orientation:landscape) and (max-height:520px){
+  .hudbar{height:calc(44px + env(safe-area-inset-top,0px))!important;min-height:0!important;padding-top:calc(4px + env(safe-area-inset-top,0px))!important}
+  .main:has(>.training){height:calc(var(--app-h,100dvh) - 44px - env(safe-area-inset-top,0px))!important;grid-template-columns:minmax(0,1fr)!important}
+  .main:has(>.training)>.sidebar{display:none!important}
+  .main:has(>.training)>.training{display:grid!important;height:100%!important;grid-template-columns:minmax(0,1fr) clamp(240px,36vw,320px)!important;grid-template-rows:36px minmax(0,1fr)!important}
+  .main:has(>.training) .trainingHead{grid-column:1/-1!important;grid-row:1!important}
+  .main:has(>.training) .chartArea{grid-column:1!important;grid-row:2!important;height:100%!important;min-height:0!important;padding:4px!important}
+  .main:has(>.training) .chartArea,.main:has(>.training) .chartFrame,.main:has(>.training) .chartwrap{min-height:0!important;height:100%!important}
+  .main:has(>.training) .lessonDock{grid-column:2!important;grid-row:2!important;height:100%!important;min-height:0!important;overflow-y:auto!important;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))!important;border-top:0!important;border-left:1px solid rgba(42,205,255,.25)!important}
+  .main:has(>.training) .dockGrid{display:flex!important;flex-direction:column!important;gap:6px!important;height:auto!important}
+  .main:has(>.training) .answers{grid-template-columns:1fr!important;gap:5px!important}
+  .main:has(>.training) .answer{min-height:38px!important;font-size:13px!important}
+  .main:has(>.training) .question{font-size:15px!important}
+}
+
+/* 5. Phone portrait header: the right-hand controls overflowed onto the brand name.
+      On lesson screens the back button already returns home, so the duplicate ⌂ is dropped. */
+@media (orientation:portrait) and (max-width:440px){
+  .brandname b{display:none!important}
+  .hudbar:has(.brand .iconbtn) .hudstats .iconbtn[data-act="home"]{display:none!important}
+}

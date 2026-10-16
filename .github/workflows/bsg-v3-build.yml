@@ -105,6 +105,8 @@ jobs:
           NODE
           node tools/audit36.mjs
           node tools/audit_portrait.mjs
+          # V3.6: geometry audit — 36 missions × 4 exercises × 5 phone viewports (labels, lanes, controls, fold)
+          node tools/audit_layout.mjs
       - name: Package artifact
         working-directory: apps/become-stock-god-v2
         run: |
@@ -125,6 +127,7 @@ jobs:
           cp apps/become-stock-god-v2/build/bank_report.json /tmp/bsg-v3-static/bank_report.json
           cp apps/become-stock-god-v2/audit/audit36.json /tmp/bsg-v3-static/audit36.json
           cp apps/become-stock-god-v2/audit/audit_portrait.json /tmp/bsg-v3-static/audit_portrait.json
+          cp apps/become-stock-god-v2/audit/audit_layout.json /tmp/bsg-v3-static/audit_layout.json
           sha256sum /tmp/bsg-v3-static/index.html | awk '{print $1}' > /tmp/bsg-v3-static/SHA256.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -134,7 +137,8 @@ jobs:
           cp /tmp/bsg-v3-static/bank_report.json ./bank_report.json
           cp /tmp/bsg-v3-static/audit36.json ./audit36.json
           cp /tmp/bsg-v3-static/audit_portrait.json ./audit_portrait.json
+          cp /tmp/bsg-v3-static/audit_layout.json ./audit_layout.json
           cp /tmp/bsg-v3-static/SHA256.txt ./SHA256.txt
-          git add index.html bank_report.json audit36.json audit_portrait.json SHA256.txt
+          git add index.html bank_report.json audit36.json audit_portrait.json audit_layout.json SHA256.txt
           git commit -m "release: verified Become Stock God V3"
           git push --force origin HEAD:bsg-v3-static

@@ -17,7 +17,7 @@
     var R=d.R,i=d.d0Idx,c=R.c[i],o=R.o[i],atr=(R.atr&&R.atr[i])||c*.02;
     var sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),ma=R.ma20&&R.ma20[i],maOld=R.ma20&&R.ma20[i-5],ma60=R.ma60&&R.ma60[i];
     var out=Object.assign({},d,{showMA:false,showVolume:false,zones:[],markers:[],lines:[],focusCandles:[],focusVolume:null});
-    function mark(idx,price,label,color,dx,dy){if(idx==null||!Number.isFinite(price))return;var nearRight=idx>=i-2,baseDx=dx||0,safeDx=nearRight?Math.min(baseDx,8)-40:baseDx;out.markers.push({idx:idx,price:price,label:label,color:color||'#39f5ff',dx:safeDx,dy:dy||0,align:nearRight?'right':'left'});}
+    function mark(idx,price,label,color,dx,dy){if(idx==null||!Number.isFinite(price))return;out.markers.push({idx:idx,price:price,label:label,color:color||'#39f5ff',prefer:(dy||0)<0?'above':(dy||0)>0?'below':'side'});}
     function line(price,color,label,dash){if(Number.isFinite(price))out.lines.push({price:price,color:color||'#39f5ff',label:label||'',dash:!!dash});}
     function zone(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones.push({lo:price-w,hi:price+w,color:color,label:label,alpha:.12});}
     function support(label){zone(sup,'#24d79b',label||'支撐區');}
@@ -32,9 +32,9 @@
       case 4:
         out.focusCandles=[i];mark(i,R.h[i],'最高','#ffd44a',8,-12);mark(i,Math.max(o,c),'實體上緣','#39f5ff',36,8);mark(i,Math.min(o,c),'實體下緣','#9876ff',36,22);mark(i,R.l[i],'最低','#24d79b',8,18);break;
       case 5:
-        out.focusCandles=[i-1,i];line(R.c[i-1],'#9876ff','昨收',true);mark(i-1,R.c[i-1],'昨收','#9876ff',8,-10);mark(i,c,'今收','#39f5ff',8,-10);break;
+        out.focusCandles=[i-1,i];line(R.c[i-1],'#9876ff','',true);mark(i-1,R.c[i-1],'昨收','#9876ff',8,-10);mark(i,c,'今收','#39f5ff',8,-10);break;
       case 6:
-        out.focusCandles=[i-4,i-3,i-2,i-1,i];for(var s=i-4;s<=i;s++)mark(s,R.c[s],'D'+(s-i)+' 收',s===i?'#39f5ff':'#9876ff',2,(s-i)*2);break;
+        out.focusCandles=[i-4,i-3,i-2,i-1,i];out.closePath=[i-4,i];for(var s=i-4;s<=i;s++)out.markers.push({idx:s,price:R.c[s],label:'D'+(s-i),color:s===i?'#39f5ff':'#9876ff',lane:true});break;
       case 7:{var h7=argExtreme(R.h,i-20,i-1,true);mark(h7,R.h[h7],'近期高點','#ffd44a',8,-10);break;}
       case 8:{var h81=argExtreme(R.h,i-24,i-13,true),h82=argExtreme(R.h,i-12,i,true);mark(h81,R.h[h81],'前段高','#9876ff',8,-10);mark(h82,R.h[h82],'後段高','#39f5ff',8,-10);break;}
       case 9:{var l91=argExtreme(R.l,i-24,i-13,false),l92=argExtreme(R.l,i-12,i,false);mark(l91,R.l[l91],'前段低','#9876ff',8,18);mark(l92,R.l[l92],'後段低','#39f5ff',8,18);break;}
