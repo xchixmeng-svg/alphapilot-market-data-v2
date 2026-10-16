@@ -8,6 +8,11 @@ on:
       - '.github/workflows/bsg-v3-build.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+automation: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,6 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: bsg-v3-product
+          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -64,3 +70,19 @@ jobs:
           name: become-stock-god-v3
           path: apps/become-stock-god-v2/release/
           retention-days: 30
+      - name: Publish exact verified build to static branch
+        run: |
+          mkdir -p /tmp/bsg-v3-static
+          cp apps/become-stock-god-v2/dist/index.html /tmp/bsg-v3-static/index.html
+          cp apps/become-stock-god-v2/build/bank_report.json /tmp/bsg-v3-static/bank_report.json
+          sha256sum /tmp/bsg-v3-static/index.html | awk '{print $1}' > /tmp/bsg-v3-static/SHA256.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan bsg-v3-static
+          git rm -rf .
+          cp /tmp/bsg-v3-static/index.html ./index.html
+          cp /tmp/bsg-v3-static/bank_report.json ./bank_report.json
+          cp /tmp/bsg-v3-static/SHA256.txt ./SHA256.txt
+          git add index.html bank_report.json SHA256.txt
+          git commit -m "release: verified Become Stock God V3"
+          git push --force origin HEAD:bsg-v3-static
