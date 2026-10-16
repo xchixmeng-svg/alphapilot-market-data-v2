@@ -22,7 +22,6 @@ const expected = {
 }
 
 function assert(cond,msg){if(!cond)throw new Error(msg)}
-function near(a,b,tol=1e-7){return Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=Math.max(tol,Math.abs(b)*1e-7)}
 
 const browser = await chromium.launch({headless:true})
 const page = await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2})
@@ -42,7 +41,6 @@ try{
   assert(report.audio.minHz>=220,'BGM minimum frequency below 220 Hz')
 
   const logic=await page.evaluate((expected)=>{
-    function minA(a,s,e){let v=Infinity;for(let i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)v=Math.min(v,a[i]);return v}
     function maxA(a,s,e){let v=-Infinity;for(let i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)v=Math.max(v,a[i]);return v}
     function arg(a,s,e,max){let bi=Math.max(0,s),bv=max?-Infinity:Infinity;for(let i=Math.max(0,s);i<=Math.min(a.length-1,e);i++){if((max&&a[i]>bv)||(!max&&a[i]<bv)){bv=a[i];bi=i}}return bi}
     function nz(x){return x===false?false:x||false}
@@ -52,7 +50,8 @@ try{
     for(let mid=1;mid<=36;mid++){
       const m=ct.MISSIONS[mid-1], exRows=[]
       for(let ex=1;ex<=3;ex++){
-        const rid=t.roundFor(mid,ex,'mission'),R=t.getR(rid),q=t.question(m,R,ex),qt=t.qtext(m,R,ex),c=t.criterion(mid,R)
+        t.setupMission(mid,ex,'mission')
+        const rid=t.ui.roundId,R=t.getR(rid),q=t.question(m,R,ex),qt=t.qtext(m,R,ex),c=t.criterion(mid,R)
         if(!R)throw new Error('M'+mid+' missing round')
         if(!t.suitable(mid,R))throw new Error('M'+mid+' ex'+ex+' roundFor returned unsuitable sample')
         if(!q||!Array.isArray(q.opts)||q.opts.length!==3||!Number.isInteger(q.correct)||q.correct<0||q.correct>2)throw new Error('M'+mid+' ex'+ex+' invalid question contract')
@@ -63,7 +62,8 @@ try{
         if(mid===32||mid===33){const st=Math.max(.01,c.sup-c.a*.45),tg=c.res>c.c?c.res:maxA(R.h,c.i-60,c.i-1);if(!(st<c.c&&tg>c.c*1.005))throw new Error('M'+mid+' invalid stop/target geometry')}
         exRows.push({ex,round:rid,correct:q.correct})
       }
-      const rid=t.roundFor(mid,1,'mission'),R=t.getR(rid),base=t.chartData(m,R),v=vis.transform(base,mid),c=t.criterion(mid,R),e=expected[mid]
+      t.setupMission(mid,1,'mission')
+      const rid=t.ui.roundId,R=t.getR(rid),base=t.chartData(m,R),v=vis.transform(base,mid),c=t.criterion(mid,R),e=expected[mid]
       if(nz(v.showMA)!==nz(e.ma))throw new Error('M'+mid+' showMA mismatch '+v.showMA+' vs '+e.ma)
       if(!!v.showVolume!==!!e.vol)throw new Error('M'+mid+' volume layer mismatch')
       if((v.zones||[]).length!==e.z)throw new Error('M'+mid+' zones '+(v.zones||[]).length+' vs '+e.z)
