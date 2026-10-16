@@ -1,0 +1,3 @@
+/* V3 hard reset of legacy mobile-shell limits */
+#app{max-width:none!important;margin:0!important;width:100%!important;height:100vh!important;height:100dvh!important;overflow:hidden!important}
+.screen{width:100%!important;max-width:none!important}
