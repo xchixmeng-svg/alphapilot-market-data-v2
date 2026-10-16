@@ -1,0 +1,12 @@
+{
+  "name": "become-stock-god-v2",
+  "private": true,
+  "version": "2.0.0-alpha.1",
+  "scripts": {
+    "build:web": "BSG_HISTORY_DIR=../../data/history/2020-2025 BSG_HISTORY_DAYS=240 BSG_FUTURE_DAYS=120 node tools/convert.mjs && node tools/build_bank.mjs && node tools/build_html.mjs && cp dist/become-stock-god-v2-alpha.html dist/index.html",
+    "test:v2": "node tests/v2.test.mjs && node tests/app-smoke.mjs"
+  },
+  "dependencies": {
+    "hyparquet": "1.31.4"
+  }
+}
