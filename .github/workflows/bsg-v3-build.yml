@@ -32,13 +32,25 @@ jobs:
         run: |
           node - <<'NODE'
           const fs=require('fs');
+          const vm=require('vm');
           const bank=JSON.parse(fs.readFileSync('build/bank.json','utf8'));
           const html=fs.readFileSync('dist/index.html','utf8');
           if(bank.history_days!==240) throw new Error('history_days != 240');
           if(bank.future_days!==120) throw new Error('future_days != 120');
-          if(!Array.isArray(bank.rounds)||bank.rounds.length<500) throw new Error('rounds < 500');
-          for(const s of ['成為股神 V3','LEARNING PROTOCOL','能力雷達','我卡住了']) if(!html.includes(s)) throw new Error('missing marker '+s);
-          console.log('VERIFY_OK', {rounds:bank.rounds.length, history:bank.history_days, future:bank.future_days, htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
+          if(!Array.isArray(bank.rounds)||bank.rounds.length!==620) throw new Error('rounds != 620');
+          const train=bank.rounds.filter(r=>r.slot==='primary'&&(r.pool==='A'||r.pool==='B')).length;
+          const exam=bank.rounds.filter(r=>r.slot==='primary'&&r.pool==='C').length;
+          if(train!==400) throw new Error('training primary != 400');
+          if(exam!==100) throw new Error('exam primary != 100');
+          const sandbox={window:{}}; vm.createContext(sandbox);
+          vm.runInContext(fs.readFileSync('src/content.js','utf8'),sandbox);
+          const CT=sandbox.window.BSG_CONTENT;
+          if(!CT||!Array.isArray(CT.MISSIONS)||CT.MISSIONS.length!==36) throw new Error('missions != 36');
+          if(!Array.isArray(CT.WORLDS)||CT.WORLDS.length!==6) throw new Error('worlds != 6');
+          if(CT.FREE_THROUGH!==6) throw new Error('FREE_THROUGH != 6');
+          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','Mastery','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測']) if(!html.includes(s)) throw new Error('missing marker '+s);
+          if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small');
+          console.log('VERIFY_OK', {rounds:bank.rounds.length,training:train,exam,missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,history:bank.history_days,future:bank.future_days,htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
           NODE
       - name: Package artifact
         working-directory: apps/become-stock-god-v2
