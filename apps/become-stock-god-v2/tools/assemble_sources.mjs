@@ -23,7 +23,7 @@ for (const [name, out] of Object.entries(specs)) {
     if (!source.includes(oldResize)) throw new Error('chart resize guard signature changed')
     source = source.replace(oldResize, newResize)
     const oldMarker = "ctx.fillText(m.label||'',Math.min(plotW-110,cx+8),py-10);"
-    const newMarker = "var lx=cx+8+(m.dx||0),ly=py-10+(m.dy||0);lx=Math.max(4,Math.min(plotW-4,lx));ctx.textAlign=m.align==='right'?'right':'left';ctx.fillText(m.label||'',lx,ly);ctx.textAlign='left';"
+    const newMarker = "var lx=cx+8+(m.dx||0),ly=py-10+(m.dy||0);lx=Math.max(4,Math.min(plotW-4,lx));ly=Math.max(padT+12,Math.min(priceH-5,ly));ctx.textAlign=m.align==='right'?'right':'left';ctx.fillText(m.label||'',lx,ly);ctx.textAlign='left';"
     if (!source.includes(oldMarker)) throw new Error('chart marker signature changed')
     source = source.replace(oldMarker, newMarker)
   }
