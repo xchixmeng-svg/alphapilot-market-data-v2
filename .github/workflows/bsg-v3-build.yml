@@ -52,9 +52,55 @@ jobs:
           if(!CT||!Array.isArray(CT.MISSIONS)||CT.MISSIONS.length!==36) throw new Error('missions != 36');
           if(!Array.isArray(CT.WORLDS)||CT.WORLDS.length!==6) throw new Error('worlds != 6');
           if(CT.FREE_THROUGH!==6) throw new Error('FREE_THROUGH != 6');
-          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','Mastery','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測']) if(!html.includes(s)) throw new Error('missing marker '+s);
+          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','Mastery','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測','BSG_AUDIO_MIXER']) if(!html.includes(s)) throw new Error('missing marker '+s);
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small');
           console.log('VERIFY_OK', {rounds:bank.rounds.length,training:train,exam,missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,history:bank.history_days,future:bank.future_days,htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
+          NODE
+      - name: Browser smoke test — mobile landscape + audio mixer
+        working-directory: apps/become-stock-god-v2
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4173 -d dist >/tmp/bsg-v3-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node - <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+            const errors=[];
+            page.on('pageerror',e=>errors.push('pageerror: '+String(e)));
+            page.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text())});
+            await page.goto('http://127.0.0.1:4173/',{waitUntil:'load',timeout:30000});
+            await page.waitForSelector('.hudstats',{timeout:15000});
+            await page.waitForSelector('.audioMixer',{timeout:10000});
+            const buttons=await page.locator('.audioMixer [data-audio]').count();
+            if(buttons!==3)throw new Error('audio mixer buttons != 3');
+            await page.locator('body').click({position:{x:420,y:180}});
+            await page.waitForTimeout(500);
+            let state=await page.evaluate(()=>window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state());
+            if(!state||!state.activated)throw new Error('audio mixer did not activate after user gesture');
+            const bgm=page.locator('[data-audio="bgm"]');
+            await bgm.click();
+            await page.waitForTimeout(150);
+            let offState=await page.evaluate(()=>window.BSG_AUDIO_MIXER.state());
+            if(offState.bgm)throw new Error('BGM toggle off failed');
+            await bgm.click();
+            await page.waitForTimeout(400);
+            let onState=await page.evaluate(()=>window.BSG_AUDIO_MIXER.state());
+            if(!onState.bgm)throw new Error('BGM toggle on failed');
+            await page.locator('[data-audio="sfx"]').click();
+            await page.locator('[data-audio="sfx"]').click();
+            await page.locator('[data-audio="voice"]').click();
+            await page.locator('[data-audio="voice"]').click();
+            await page.waitForTimeout(2200);
+            const alive=await page.evaluate(()=>({title:document.title,app:!!document.getElementById('app'),mixer:!!document.querySelector('.audioMixer')}));
+            if(!alive.app||!alive.mixer)throw new Error('page became unresponsive / mixer disappeared');
+            if(errors.length)throw new Error(errors.join('\n'));
+            console.log('BROWSER_SMOKE_OK', {state:onState,title:alive.title});
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
           NODE
       - name: Package artifact
         working-directory: apps/become-stock-god-v2
