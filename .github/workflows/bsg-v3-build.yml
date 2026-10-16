@@ -11,8 +11,6 @@ on:
 permissions:
   contents: write
 
-automation: {}
-
 jobs:
   build:
     runs-on: ubuntu-latest
