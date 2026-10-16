@@ -1,0 +1,219 @@
+d all scores. ctx: {R, st, ref, bench, level}
+  function scoreRound(R, st, ref) {
+    var L = st.level, U = unlocksFor(L);
+    var traded = st.fills.some(function (f) { return f.type === 'BUY'; });
+    var refOK = ref && ref.available;
+    var sel = refOK ? selectionScore(traded, ref.R) : null;
+    var cal = (refOK && U.confidence) ? calibrationScore(st.confidence / 100, ref.R) : null;
+    var rec = {
+      round_id: st.roundId, decision_buy: st.decision === 'buy', traded: traded,
+      confidence: U.confidence ? st.confidence : null,
+      selection_score: sel, calibration_score: cal,
+      risk_plan_score: null, entry_quality_score: null, discipline_score: null, round_skill_score: null
+    };
+    var fees = 0, tax = 0, gross = 0, buys = 0, sells = 0;
+    st.fills.forEach(function (f) {
+      fees += f.fee; tax += f.tax;
+      if (f.type === 'BUY') { gross -= f.price * f.shares; buys += buyTotal(f.price, f.shares); }
+      else { gross += f.price * f.shares; sells += f.price * f.shares - f.fee - f.tax; }
+    });
+    rec.gross_pnl = gross; rec.fees = fees; rec.tax = tax;
+    rec.net_pnl = traded ? sells - buys : 0;
+    rec.net_return = traded && st.navStart > 0 ? rec.net_pnl / st.navStart : 0;
+    if (traded) {
+      var fe = st.firstEntry;
+      Object.assign(rec, {
+        planned_max_gap: st.plan.maxGap, planned_stop: st.plan.stop, planned_target: st.plan.target,
+        planned_max_hold_days: st.plan.maxHold, actual_entry_day: fe.day, actual_entry_price: fe.price,
+        shares: fe.shares, position_pct: fe.positionPct, planned_account_risk: fe.accountRisk,
+        planned_loss: fe.plannedLoss, atr_stop_multiple: fe.atrMultiple, ma20_distance: fe.ma20Dist,
+        institution_distance: fe.instDist, entry_gap: fe.gap
+      });
+      var last = st.fills.filter(function (f) { return f.type === 'SELL'; }).slice(-1)[0];
+      rec.exit_day = last ? last.day : null; rec.exit_price = last ? last.price : null; rec.exit_reason = last ? last.reason : null;
+      rec.realized_R = isNum(fe.plannedLoss) && fe.plannedLoss > 0 ? rec.net_pnl / fe.plannedLoss : null;
+      // Risk plan
+      var rp = weighted([
+        [U.atr ? atrStopScore(fe.atrMultiple) : null, 0.35],
+        [U.riskPct ? accountRiskScore(fe.accountRisk) : null, 0.45],
+        [positionScore(fe.positionPct), 0.20]
+      ]);
+      rec.risk_plan_score = rp;
+      // Entry quality
+      var eq = weighted([
+        [U.gapMeter ? gapScore(fe.gap) : null, 0.35],
+        [U.ma20 ? ma20Score(fe.ma20Dist) : null, 0.25],
+        [U.institution ? instScore(fe.instDist) : null, 0.20],
+        [U.gapPlan ? (st.flags.chase_plan_violation ? 0 : 100) : null, 0.20]
+      ]);
+      rec.entry_quality_score = eq;
+      rec.discipline_score = L >= 2 ? disciplineScore(st.flags) : null;
+      rec.round_skill_score = weighted([[sel, 0.25], [cal, 0.15], [rp, 0.25], [eq, 0.15], [rec.discipline_score, 0.20]]);
+    } else {
+      // gap-plan adherence when the plan was held (no chase) is recorded, scoring per §37 skip weights
+      rec.round_skill_score = weighted([[sel, 0.65], [cal, 0.35]]);
+    }
+    Object.keys(st.flags).forEach(function (k) { rec[k] = st.flags[k]; });
+    rec.major_violations = majorViolations(rec);
+    rec.label = roundLabel(rec);
+    return rec;
+  }
+
+  function majorViolations(rec) {
+    if (!rec.traded) return [];
+    var v = [];
+    if (rec.no_stop) v.push('NO_STOP');
+    if (isNum(rec.planned_account_risk) && rec.planned_account_risk > 0.02) v.push('RISK_OVER_2');
+    if (rec.position_pct > 0.5) v.push('POSITION_OVER_50');
+    if (rec.stop_widen_count > 0) v.push('STOP_WIDEN');
+    if (rec.add_risk_violation) v.push('ADD_RISK_OVER_2');
+    if (rec.chase_plan_violation) v.push('GAP_CHASE');
+    return v;
+  }
+  // §38 / §39
+  function roundLabel(rec) {
+    if (!rec.traded) return null;
+    if (rec.net_pnl > 0) {
+      var bad = (isNum(rec.round_skill_score) && rec.round_skill_score < 60) || rec.major_violations.length > 0;
+      if (bad) return 'PROFIT_BAD_DECISION';
+    }
+    if (rec.net_pnl < 0 && isNum(rec.round_skill_score) && rec.round_skill_score >= 80) return 'GOOD_LOSS';
+    return null;
+  }
+
+  // ───────────────────────── §59 analysis cards ─────────────────────────
+  function pct1(x) { return (x * 100).toFixed(1); }
+  function money(x) { return Math.round(x).toLocaleString('en-US'); }
+  function analysisCards(rec, ctx) {
+    // ctx: {R, ref, level, postExitMax5 (number|null)}
+    var U = unlocksFor(rec.level || ctx.level), cards = [];
+    function add(p, tone, title, text) { cards.push({ p: p, tone: tone, title: title, text: text }); }
+    if (rec.traded) {
+      if (rec.no_stop && U.stopEdit) add(1, 'bad', '沒有停損', '你讓這筆交易沒有明確的「我錯了」位置。這次結果無論賺賠，都屬於高風險決策。');
+      if (rec.position_pct > 0.5) add(1, 'bad', '部位過重', '這筆交易用了 ' + pct1(rec.position_pct) + '% 的帳戶資金。單一判斷錯誤就可能大幅傷害整個帳戶。');
+      if (isNum(rec.planned_account_risk) && rec.planned_account_risk > 0.02 && U.riskPct) add(1, 'bad', '帳戶風險過高', '如果照原停損出場，這一筆原本就可能損失帳戶 ' + pct1(rec.planned_account_risk) + '%。這已經超過本遊戲的合理風險區。');
+      if (rec.stop_widen_count > 0) add(1, 'bad', '放寬停損', '你進場後把停損往更遠的位置移了 ' + rec.stop_widen_count + ' 次。這會把原本已知的小錯，變成未知的大錯。');
+      if (U.atr && isNum(rec.atr_stop_multiple)) {
+        var x = rec.atr_stop_multiple.toFixed(1);
+        var m = rec.atr_stop_multiple;
+        if (m < 0.8) add(2, 'warn', '停損太近', '你的停損只有 ' + x + ' ATR。對這檔股票目前的日常波動來說非常近，容易被正常震盪掃掉。');
+        else if (m < 1.2) add(2, 'warn', '停損偏緊', '停損偏緊：' + x + ' ATR。不是一定錯，但要知道它對正常波動的容忍度較低。');
+        else if (m <= 2.5) add(2, 'good', '停損距離合理', '停損距離 ' + x + ' ATR，落在本遊戲定義的合理波動區間。');
+        else if (m <= 3.5) add(2, 'warn', '停損較寬', '停損較寬：' + x + ' ATR。距離可以合理，但部位必須同步縮小。');
+        else add(2, 'bad', '停損過寬', '停損距離達 ' + x + ' ATR。如果股數沒有明顯縮小，單筆損失會快速放大。');
+      }
+      if (U.gapMeter && rec.entry_gap > 0.04) add(3, 'warn', '跳空追高', '今天直接跳空 ' + pct1(rec.entry_gap) + '%。你買到的不是昨天看到的價格，原本的賺賠空間已經明顯改變。');
+      if (rec.chase_plan_violation) add(3, 'bad', '改了自己的規則', '你原本說超過 ' + (rec.planned_max_gap === null ? '—' : pct1(rec.planned_max_gap)) + '% 就不買，但真正看到價格時還是追了。這一局最大的問題不是行情，而是你改了自己的規則。');
+    }
+    if (rec.locked_d1 || rec.locked_d2) add(3, 'info', '漲停鎖死', '今天開盤直接鎖漲停。看到漲停價不代表買得到；日線回測如果直接假設成交，會高估真實績效。');
+    if (rec.traded && U.ma20 && isNum(rec.ma20_distance)) {
+      if (rec.ma20_distance > 0.12) add(4, 'warn', '離 MA20 太遠', '進場前股價已經高於 20 日均線 ' + pct1(rec.ma20_distance) + '%。你不是不能買，但已經屬於明顯延伸位置。');
+      else if (rec.ma20_distance > 0.08) add(4, 'warn', '偏離 MA20', '股價離 MA20 已有 ' + pct1(rec.ma20_distance) + '% 距離，追價風險開始提高。');
+    }
+    if (rec.traded && U.institution) {
+      var d = rec.institution_distance;
+      if (!isNum(d)) add(5, 'info', '法人資料不足', '此題沒有足夠法人歷史資料，本項不計分，也不做推測。');
+      else if (d > 0.08) add(5, 'warn', '遠離法人估算成本', '股價已高於 20 日法人估算買進成本 ' + pct1(d) + '%。這代表你可能正在接近前面資金的獲利區。');
+      else if (d > 0.03) add(5, 'warn', '偏離法人估算成本', '股價離法人估算成本已有 ' + pct1(d) + '%，開始需要注意追高。');
+      else if (d < 0) add(5, 'info', '低於法人估算成本', '股價目前低於法人估算成本，但這不等於買進訊號。法人資料在這裡只用來排除過度延伸。');
+    }
+    if (rec.traded) {
+      var tc = rec.fees + rec.tax;
+      if (rec.gross_pnl > 0 && rec.net_pnl <= 0) add(6, 'warn', '方向對了，成本吃掉', '股價方向其實看對了，但扣掉手續費與證交稅後變成虧損。看對方向仍不一定賺得到錢。');
+      else if (rec.gross_pnl > 0 && tc / Math.abs(rec.gross_pnl) >= 0.30) add(6, 'warn', '交易成本', '你看起來賺了錢，但交易成本吃掉了毛利的 ' + pct1(tc / Math.abs(rec.gross_pnl)) + '%。頻繁進出時，這個數字會快速累積。');
+      if (isNum(rec.planned_loss) && rec.net_pnl < 0 && -rec.net_pnl >= rec.planned_loss * 1.5) add(7, 'bad', '跳空穿過停損', '你原本計畫最多虧 ' + money(rec.planned_loss) + '，實際卻虧了 ' + money(-rec.net_pnl) + '。停損不是保證價格，隔夜跳空可能直接穿過你的停損。');
+      if (rec.same_day_stop_breach) add(8, 'info', '買進當天跌破停損', '你買進當天就跌破停損，但因為沒有當沖資格，當天無法賣出。這也是為什麼部位大小必須先控制好。');
+      if (rec.net_pnl > 0 && isNum(ctx.postExitMax5) && ctx.postExitMax5 >= 0.05) add(9, 'info', '少賺不是虧損', '你賣掉之後它又漲了 ' + pct1(ctx.postExitMax5) + '%。這叫「少賺」，不是「虧損」。不能因為知道後面的答案，就說原本的獲利出場錯了。');
+    }
+    if (U.confidence && ctx.ref && ctx.ref.available && isNum(rec.confidence)) {
+      if (rec.confidence >= 80 && ctx.ref.R <= 0) add(10, 'warn', '過度自信', '你給了 ' + rec.confidence + '% 的信心，但結果沒有賺錢。單次可能只是運氣；真正重要的是你幾十次的信心是否和真實命中率接近。');
+      if (rec.confidence <= 20 && ctx.ref.R > 0) add(11, 'info', '信心不足', '這一局你幾乎不相信它，但 Reference Trade 最後是正報酬。持續出現這種情況，代表你的判斷可能過度保守。');
+    }
+    if (rec.label === 'GOOD_LOSS') add(12, 'good', '✓ 好的虧損', '這一局虧錢，但你的進場、部位與風險控制都合理。單筆交易本來就可能失敗，真正要觀察的是 50 局後的結果。');
+    if (rec.label === 'PROFIT_BAD_DECISION') add(13, 'bad', '⚠ 賺錢，但決定不好', '這筆錢是真的賺到了，但不能把結果倒過來證明決策正確。相同做法重複很多次，風險會開始出現。');
+    // keep label cards even if beyond top-5: they replace the lowest-priority card
+    cards.sort(function (a, b) { return a.p - b.p; });
+    var labelCard = cards.filter(function (c) { return c.p >= 12; });
+    var others = cards.filter(function (c) { return c.p < 12; });
+    var out = others.slice(0, 5 - labelCard.length).concat(labelCard);
+    return out.slice(0, 5);
+  }
+
+  // ───────────────────────── §40–§46 season / exam ─────────────────────────
+  function avg(arr) { var a = arr.filter(isNum); if (!a.length) return null; return a.reduce(function (s, x) { return s + x; }, 0) / a.length; }
+  function maxDrawdown(navs) {
+    var peak = -Infinity, mdd = 0;
+    for (var i = 0; i < navs.length; i++) { peak = Math.max(peak, navs[i]); var dd = navs[i] / peak - 1; if (dd < mdd) mdd = dd; }
+    return Math.abs(mdd);
+  }
+  function seasonScore(s) {
+    // s: {skill, playerRet, b0050Ret, botRet, mdd}
+    var marginPP = (s.playerRet - Math.max(s.b0050Ret, s.botRet)) * 100;
+    var bench = clamp(100 + 5 * marginPP, 0, 200);
+    var risk = clamp(200 * (1 - s.mdd / 0.40), 0, 200);
+    return { total: Math.round((s.skill || 0) * 6 + bench + risk), skill: (s.skill || 0) * 6, bench: bench, risk: risk };
+  }
+  function seasonTitle(s) {
+    // s: {endNav, bankrupt, playerRet, b0050Ret, botRet, mdd, skill, selection}
+    if (s.bankrupt) return '破產者';
+    var beat = s.playerRet > s.b0050Ret && s.playerRet > s.botRet;
+    var sk = isNum(s.skill) ? s.skill : 0, se = isNum(s.selection) ? s.selection : 0;
+    if (beat && s.mdd <= 0.20 && sk >= 80 && se >= 65) return '股神';
+    if (beat && s.mdd <= 0.20) return '市場勝者';
+    if (sk >= 80 && s.mdd <= 0.20) return '紀律交易者';
+    if (beat) return '高風險贏家';
+    return '生存者';
+  }
+  function examGrade(e) {
+    var sk = isNum(e.skill) ? e.skill : 0, se = isNum(e.selection) ? e.selection : 0;
+    var beat = e.playerRet > e.b0050Ret && e.playerRet > e.botRet;
+    if (e.bankrupt || sk < 60) return 'F';
+    if (sk >= 85 && se >= 70 && beat && e.mdd <= 0.15) return 'S';
+    if (sk >= 80 && se >= 65 && beat && e.mdd <= 0.20) return 'A';
+    if (sk >= 75 && e.mdd <= 0.20) return 'B';
+    return 'C';
+  }
+  // v1.0.1 §45
+  function examUnlocked(save) {
+    var ch = save.tutorial && save.tutorial.passed ? save.tutorial.passed.length : 0;
+    var done = (save.season_history || []).filter(function (s) { return s.complete; });
+    var qual = done.some(function (s) { return isNum(s.skill) && s.skill >= 80 && s.mdd <= 0.20; });
+    return ch >= 10 && done.length >= 2 && qual;
+  }
+  function isBankrupt(nav) { return nav < C.BANKRUPTCY_NAV; }
+
+  // ───────────────────────── §81 runtime validation ─────────────────────────
+  function validateRound(R) {
+    var errs = [];
+    var keys = ['o', 'h', 'l', 'c', 'v'];
+    keys.forEach(function (k) { if (!R[k] || R[k].length !== C.WINDOW_LEN) errs.push(k + ' length ' + (R[k] ? R[k].length : 'missing')); });
+    if (errs.length) return errs;
+    for (var i = 0; i < C.WINDOW_LEN; i++) {
+      var o = R.o[i], h = R.h[i], l = R.l[i], c = R.c[i];
+      if (![o, h, l, c].every(isNum)) { errs.push('NaN OHLC at ' + i); break; }
+      if (l > o || l > c || h < o || h < c || h < l) { errs.push('invalid OHLC at ' + i); break; }
+    }
+    for (var k = 0; k <= Math.min(21, C.FUTURE_DATA_DAYS); k++) if (!(R.v[ix(k)] > 0)) { errs.push('volume<=0 at D' + k); break; }
+    if (!isNum(R.atr[ix(0)])) errs.push('ATR missing at D0');
+    return errs;
+  }
+
+  var api = {
+    C: C, ix: ix, clamp: clamp, r2: r2, isNum: isNum, hash32: hash32, hashUnit: hashUnit, mulberry32: mulberry32, seededShuffle: seededShuffle,
+    tickSize: tickSize, priceDecimals: priceDecimals, limitUp: limitUp, limitDown: limitDown, roundToTick: roundToTick, isLockedLimitUp: isLockedLimitUp,
+    futureDays: futureDays,
+    buyFee: buyFee, sellFee: sellFee, sellTax: sellTax, buyTotal: buyTotal, sellNet: sellNet,
+    atrWilder: atrWilder, sma: sma, institutionCost20: institutionCost20,
+    riskPerShare: riskPerShare, maxSharesForRisk: maxSharesForRisk, affordableShares: affordableShares, planMetrics: planMetrics,
+    accountRiskGrade: accountRiskGrade, positionGrade: positionGrade, institutionGrade: institutionGrade,
+    dailyExit: dailyExit, bar: bar, prevClose: prevClose, atrAt: atrAt, simulateHold: simulateHold, referenceTrade: referenceTrade,
+    randomBotRound: randomBotRound, benchmark0050: benchmark0050, unlocksFor: unlocksFor,
+    newTradeState: newTradeState, sharesHeld: sharesHeld, avgPrice: avgPrice, navAt: navAt, liquidationValue: liquidationValue,
+    decideSkip: decideSkip, decideBuy: decideBuy, submitPlan: submitPlan, revealOpen: revealOpen, executeEntry: executeEntry,
+    advanceDay: advanceDay, setPendingExit: setPendingExit, setPendingTimeExit: setPendingTimeExit, extendTimeStop: extendTimeStop,
+    setPendingAdd: setPendingAdd, setPendingReentry: setPendingReentry, cancelPending: cancelPending, changeStop: changeStop,
+    endAfterExit: endAfterExit, liquidateAtClose: liquidateAtClose, currentR: currentR, costBasisTotal: costBasisTotal,
+    selectionScore: selectionScore, calibrationScore: calibrationScore, atrStopScore: atrStopScore, accountRiskScore: accountRiskScore,
+    positionScore: positionScore, gapScore: gapScore, ma20Score: ma20Score, instScore: instScore, disciplineScore: disciplineScore,
+    scoreRound: scoreRound, majorViolations: majorViolations, roundLabel: roundLabel, analysisCards: analysisCards,
+    avg: avg, maxDrawdown: maxDrawdown, seasonScore: seasonScore, se
