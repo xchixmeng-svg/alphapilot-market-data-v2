@@ -1,4 +1,4 @@
-// V3 coach rail integration — injected after the core app render.
+// V3 coach integration — home + training + immersive landscape support.
 (function(){
   var guide={
     OHLC:'先只認四個價格，不預測。把開、高、低、收的位置看懂。',
@@ -41,7 +41,7 @@
   function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
   function coachCopy(){
     var a=api(),ui=a&&a.ui,m=ui&&ui.mission;
-    if(!m)return {title:'AI 教練｜小芸',body:'我會陪你一步一步看圖，不需要猜。'};
+    if(!m)return {title:'AI 教練｜小芸',body:'準備好就從第一個任務開始，我會一直在右邊陪你。'};
     var fb=document.querySelector('.feedbackBox');
     if(fb&&fb.textContent.trim())return {title:'AI 教練｜小芸',body:fb.textContent.replace(/\s+/g,' ').trim()};
     var cl=document.querySelector('.coachLine');
@@ -49,49 +49,63 @@
     if(ui.exercise===0)return {title:'AI 教練｜'+m.title,body:(m.rule||guide[m.skill]||'先只看這一關指定的東西。')};
     return {title:'AI 教練｜小芸',body:guide[m.skill]||'先看圖，只回答這一題正在問的那一件事。'};
   }
-  function ensureHomeCoach(app){
-    var home=app.querySelector('.coachHomeFloat');
-    if(!home){
-      home=document.createElement('div');
-      home.className='coachHomeFloat';
-      home.innerHTML='<div class="coachHomeBubble"><b>AI 教練｜小芸</b><span>準備好就從第一個任務開始，我會在右邊陪你。</span></div><div class="coachHomePortrait"><div class="coachHomeTag">AI COACH｜小芸</div></div>';
-      app.appendChild(home);
-    }
+  function addFullscreenButton(){
+    var stats=document.querySelector('.hudstats');
+    if(!stats||stats.querySelector('[data-coach="fullscreen"]'))return;
+    var b=document.createElement('button');b.className='iconbtn fullscreenBtn';b.setAttribute('data-coach','fullscreen');b.setAttribute('aria-label','全螢幕');b.textContent='⛶';
+    stats.appendChild(b);
   }
-  function syncCoach(){
-    var app=document.getElementById('app'); if(!app)return;
-    var main=app.querySelector('.main'),training=main&&main.querySelector('.training');
-    if(!main||!training){ensureHomeCoach(app);return;}
-    var home=app.querySelector('.coachHomeFloat'); if(home)home.remove();
+  function syncViewport(){
+    var h=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+    document.documentElement.style.setProperty('--app-h',Math.round(h)+'px');
+    document.documentElement.classList.toggle('isLandscape',window.innerWidth>window.innerHeight);
+  }
+  function syncHomeCoach(){
+    var hero=document.querySelector('.homebody .heroGrid');if(!hero)return false;
+    var rail=hero.querySelector('.homeCoach');
+    if(!rail){
+      rail=document.createElement('aside');rail.className='homeCoach';
+      rail.innerHTML='<div class="homeCoachSpeech"><b>AI 教練｜小芸</b><span>準備好就從第一個任務開始，我會一直在右邊陪你。</span></div><div class="homeCoachPortrait"><div class="coachIdentity"><span>AI COACH</span><strong>小芸</strong></div></div>';
+      hero.appendChild(rail);
+    }
+    return true;
+  }
+  function syncTrainingCoach(){
+    var main=document.querySelector('.main'),training=main&&main.querySelector('.training');
+    if(!main||!training)return false;
     var rail=main.querySelector('.coachRail');
     if(!rail){
-      rail=document.createElement('aside');
-      rail.className='coachRail';
+      rail=document.createElement('aside');rail.className='coachRail';
       rail.innerHTML='<div class="coachSpeech"><div class="coachSpeechTitle"></div><div class="coachSpeechBody"></div></div><div class="coachPortrait" aria-label="AI 教練小芸"><div class="coachIdentity"><span>AI COACH</span><strong>小芸</strong></div></div><div class="coachQuick"><button data-coach="hint">？ 我卡住了</button><button data-coach="restart">↻ 重看教學</button><button data-coach="home">⌂ 返回基地</button></div>';
       main.appendChild(rail);
     }
     var c=coachCopy();
     rail.querySelector('.coachSpeechTitle').textContent=c.title;
     rail.querySelector('.coachSpeechBody').textContent=c.body;
-    var a=api(),ui=a&&a.ui;
-    rail.classList.toggle('examMode',!!(ui&&ui.mode==='exam'));
+    var a=api(),ui=a&&a.ui;rail.classList.toggle('examMode',!!(ui&&ui.mode==='exam'));
+    return true;
   }
-  var queued=false;
-  function queue(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;syncCoach();});}
+  function sync(){addFullscreenButton();syncViewport();syncHomeCoach();syncTrainingCoach();}
+  var queued=false;function queue(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;sync();});}
+  async function enterFullscreen(){
+    var el=document.documentElement;
+    try{
+      if(document.fullscreenElement){await document.exitFullscreen();return;}
+      if(el.requestFullscreen){await el.requestFullscreen({navigationUI:'hide'});return;}
+      if(el.webkitRequestFullscreen){el.webkitRequestFullscreen();return;}
+    }catch(e){}
+    document.documentElement.classList.toggle('immersiveFallback');syncViewport();
+  }
   document.addEventListener('click',function(e){
     var b=e.target.closest('[data-coach]');if(!b)return;
     var act=b.getAttribute('data-coach');
-    if(act==='hint'){
-      var h=document.querySelector('[data-act="hint"]');if(h&&!h.disabled)h.click();
-    }else if(act==='restart'){
-      var a=api(),m=a&&a.ui&&a.ui.mission;
-      var cur=m&&document.querySelector('.missionrow[data-act="mission"][data-id="'+m.id+'"]');
-      if(cur)cur.click();
-    }else if(act==='home'){
-      var home=document.querySelector('[data-act="home"]');if(home)home.click();
-    }
+    if(act==='hint'){var h=document.querySelector('[data-act="hint"]');if(h&&!h.disabled)h.click();}
+    else if(act==='restart'){var a=api(),m=a&&a.ui&&a.ui.mission;var cur=m&&document.querySelector('.missionrow[data-act="mission"][data-id="'+m.id+'"]');if(cur)cur.click();}
+    else if(act==='home'){var home=document.querySelector('[data-act="home"]');if(home)home.click();}
+    else if(act==='fullscreen'){enterFullscreen();}
   });
-  var root=document.getElementById('app');
-  if(root)new MutationObserver(queue).observe(root,{childList:true,subtree:true,characterData:true});
+  window.addEventListener('resize',queue,{passive:true});window.addEventListener('orientationchange',queue,{passive:true});
+  if(window.visualViewport)window.visualViewport.addEventListener('resize',queue,{passive:true});
+  var root=document.getElementById('app');if(root)new MutationObserver(queue).observe(root,{childList:true,subtree:true,characterData:true});
   queue();
 })();
