@@ -1,0 +1,6 @@
+
+/* V2.0.3 mobile usability pass */
+.ma-legend{position:absolute;z-index:6;right:66px;top:8px;display:flex;gap:8px;align-items:center;padding:5px 7px;border:1px solid rgba(38,57,76,.9);border-radius:9px;background:rgba(7,16,25,.88);font-size:11px;font-weight:850;pointer-events:none}
+.ma-legend span{display:flex;align-items:center;gap:4px;white-space:nowrap}.ma-legend i{display:block;width:17px;height:3px;border-radius:3px}.ma-legend .ma20{color:#ffd54a}.ma-legend .ma20 i{background:#ffd54a}.ma-legend .ma60{color:#63c7ff}.ma-legend .ma60 i{background:#63c7ff}
+.chartwrap{height:min(54dvh,500px);min-height:390px}.chart-note{font-size:13px;line-height:1.5;padding:8px 11px}.daybar{padding:6px 10px}.content{padding-left:12px;padding-right:12px}.actiondock{padding-left:12px;padding-right:12px}.decision3{gap:6px}.decision3 .btn{min-height:58px;padding:8px}.btn{min-height:48px}.card{padding:14px;border-radius:15px}.hud{padding-left:12px;padding-right:12px}
+@media(max-width:390px){.chartwrap{height:50dvh;min-height:360px}.ma-legend{right:62px;top:7px;gap:6px;font-size:10px}.ma-legend i{width:13px}.chartctl.v2 button{min-width:38px}.content{padding-left:10px;padding-right:10px}.actiondock{padding-left:10px;padding-right:10px}}
