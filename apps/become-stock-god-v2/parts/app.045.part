@@ -17,7 +17,7 @@
     var R=d.R,i=d.d0Idx,c=R.c[i],o=R.o[i],atr=(R.atr&&R.atr[i])||c*.02;
     var sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),ma=R.ma20&&R.ma20[i],maOld=R.ma20&&R.ma20[i-5],ma60=R.ma60&&R.ma60[i];
     var out=Object.assign({},d,{showMA:false,showVolume:false,zones:[],markers:[],lines:[],focusCandles:[],focusVolume:null});
-    function mark(idx,price,label,color,dx,dy){if(idx==null||!Number.isFinite(price))return;var nearRight=idx>=i-2;out.markers.push({idx:idx,price:price,label:label,color:color||'#39f5ff',dx:(dx||0)+(nearRight?-12:0),dy:dy||0,align:nearRight?'right':'left'});}
+    function mark(idx,price,label,color,dx,dy){if(idx==null||!Number.isFinite(price))return;var nearRight=idx>=i-2,baseDx=dx||0,safeDx=nearRight?Math.min(baseDx,8)-40:baseDx;out.markers.push({idx:idx,price:price,label:label,color:color||'#39f5ff',dx:safeDx,dy:dy||0,align:nearRight?'right':'left'});}
     function line(price,color,label,dash){if(Number.isFinite(price))out.lines.push({price:price,color:color||'#39f5ff',label:label||'',dash:!!dash});}
     function zone(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones.push({lo:price-w,hi:price+w,color:color,label:label,alpha:.12});}
     function support(label){zone(sup,'#24d79b',label||'支撐區');}
