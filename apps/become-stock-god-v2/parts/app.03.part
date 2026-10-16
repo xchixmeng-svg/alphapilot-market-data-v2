@@ -1,18 +1,51 @@
  2024–2025 盲測隔離。</li><li>K 線課程改為圖上教學，不再先丟一堆參數。</li></ul></div><div class="card flat"><div class="h2">時間軸狀態</div><div class="small">目前這份內嵌題庫每題是 D-'+BANK.history_days+'～D+'+BANK.future_days+'，因此成品不能憑空創造題庫沒有的歷史。V2 前端已改成依題目實際長度運作；下一個資料施工步驟是在 GitHub/Actions 讀原始 parquet，把題庫重建成 D-240～D+120。</div></div><button class="btn bad block" data-act="reset">清除 V2 進度重新開始</button></div>'+FOOT+'</div>';};
 
 var ACT={};
+
+/* V2.0.1 hotfix — lesson 1 must teach reading a candle, not guessing direction. */
+var BASE_PLAY_PANEL=playPanel,BASE_PLAY_ACTIONS=playActions;
+playPanel=function(c,R,q){
+  if(c.stage==='inspect'&&c.mode==='lesson'&&c.lesson===1){
+    var i=X(0),o=R.o[i],h=R.h[i],l=R.l[i],cl=R.c[i];
+    return '<div class="coach"><div class="avatar">教</div><div class="say"><strong>這題不是猜明天漲跌。</strong><br>你現在只練一件事：讀懂 D0 這一根 K 棒。比較「今天開盤」和「今天收盤」，判斷它是紅 K 還是綠 K。</div></div><div class="card flat" style="margin-top:12px"><div class="h2">先看，不要猜</div><div class="small muted">紅 K＝收盤高於開盤；綠 K＝收盤低於開盤。這和「今天相對昨天收盤是漲還跌」是不同問題。</div><div class="kv"><span class="k">開盤</span><span class="v">'+px(o)+'</span></div><div class="kv"><span class="k">最高</span><span class="v">'+px(h)+'</span></div><div class="kv"><span class="k">最低</span><span class="v">'+px(l)+'</span></div><div class="kv"><span class="k">收盤</span><span class="v">'+px(cl)+'</span></div></div>';
+  }
+  return BASE_PLAY_PANEL(c,R,q);
+};
+playActions=function(c,R){
+  if(c.stage==='inspect'&&c.mode==='lesson'&&c.lesson===1){
+    return '<div class="decision3"><button class="btn good" data-act="candleRead" data-v="red">紅 K<small>收盤 ≥ 開盤</small></button><button class="btn bad" data-act="candleRead" data-v="green">綠 K<small>收盤 ＜ 開盤</small></button><button class="btn" data-act="candleRead" data-v="help">我還不會<small>直接教我怎麼看</small></button></div>';
+  }
+  return BASE_PLAY_ACTIONS(c,R);
+};
+
 ACT.home=function(){S.current=null;save();go('home');};ACT.resumeRound=function(){go('play');};ACT.academy=function(){go('academy');};ACT.about=function(){go('about',{back:UI.screen==='play'?'resumeRound':'home'});};
 ACT.lesson=function(el){go('lesson',{n:+el.dataset.n});};
 ACT.quiz=function(el){var n=+el.dataset.n,i=+el.dataset.i,l=CT.LESSONS[n-1];if(i===l.quiz.a){S.quiz[n]=true;maybeCompleteLesson(n);save();toast('答對了');render();}else{toast('還不對。回到上面的「可以做／不要做」再看一次。');el.classList.add('wrong');}};
 ACT.lessonPractice=function(el){startRound('lesson',lessonPracticeId(+el.dataset.n),+el.dataset.n);};
 ACT.practice=function(){if(S.current&&!S.current.applied){go('play');return;}if(S.lessons_done.length<3){toast('先完成前三課');return;}if(S.practice_idx>=S.training_order.length){toast('400 題訓練池已完成');return;}startRound('practice',S.training_order[S.practice_idx],null);};
 ACT.exam=function(){if(S.current&&!S.current.applied){go('play');return;}if(S.lessons_done.length<10){toast('先完成十課');return;}if(S.exam_idx>=S.exam_order.length){toast('100 題盲測已完成');return;}startRound('exam',S.exam_order[S.exam_idx],null);};
-ACT.decision=function(el){var c=current(),v=el.dataset.v;c.decision=v;if(v==='buy'){c.stage='plan';c.st.phase='plan';}else{c.entryClosed=true;c.stage='playback';c.st.phase='playback';}save();render();};
+
+ACT.candleRead=function(el){
+  var c=current(),R=getR(c.id),i=X(0),isRed=R.c[i]>=R.o[i],v=el.dataset.v;
+  if(v==='help'){
+    openSheet('<div class="eyebrow">K 棒讀法</div><div class="h2">不用猜，看兩個數字就好</div><div class="small">今天開盤 <strong>'+px(R.o[i])+'</strong>，今天收盤 <strong>'+px(R.c[i])+'</strong>。</div><div class="hr"></div><div class="lead">所以這根是 <strong>'+(isRed?'紅 K':'綠 K')+'</strong>。</div><div class="small muted">判斷 K 棒顏色只比較「當天開盤 vs 當天收盤」。要判斷今天相對昨天到底漲或跌，還要再比較昨天收盤；那是後面的概念。</div><button class="btn primary block" style="margin-top:14px" data-act="closeSheet">我懂了，自己答一次</button>');
+    return;
+  }
+  var correct=(v==='red')===isRed;
+  if(!correct){toast('再看一次：開盤 '+px(R.o[i])+'，收盤 '+px(R.c[i])+'。');return;}
+  c.decision=isRed?'candle_red':'candle_green';c.st.done=true;c.stage='done';c.st.phase='done';save();go('result');
+};
+
+ACT.decision=function(el){
+  var c=current(),v=el.dataset.v;c.decision=v;
+  if(v==='buy'){c.stage='plan';c.st.phase='plan';save();render();return;}
+  c.entryClosed=true;c.st.done=true;c.stage='done';c.st.phase='done';save();go('result');
+};
 ACT.backInspect=function(){var c=current();c.stage='inspect';c.st.phase='inspect';c.setup=null;save();render();};
 ACT.setup=function(el){current().setup=el.dataset.v;save();render();};ACT.gap=function(el){current().draft.maxGap=+el.dataset.v;save();render();};ACT.risk=function(el){current().draft.riskPct=+el.dataset.v;save();render();};
 ACT.lockPlan=function(){var c=current();E.submitPlan(c.st,planObject(c));c.stage='open';c.openDay=1;save();render();};
 ACT.retryD2=function(){var c=current();c.st.flags.locked_d1=true;c.st.day=1;c.openDay=2;c.stage='open';save();render();};
-ACT.abandon=function(){var c=current();c.entryClosed=true;c.st.phase='playback';c.stage='playback';if(c.openDay===2)c.st.day=1;else c.st.day=0;save();render();};
+ACT.abandon=function(){var c=current();c.entryClosed=true;c.st.done=true;c.st.phase='done';c.stage='done';if(c.openDay===2)c.st.day=1;else c.st.day=0;save();go('result');};
 ACT.execute=function(){var c=current(),R=getR(c.id),k=c.openDay,res=E.executeEntry(c.st,R,k);if(!res.ok){toast('無法成交：'+res.why);return;}if(E.isBankrupt(E.navAt(c.st,R.o[X(k)]))){E.liquidateAtClose(c.st,R,k,'BANKRUPTCY');c.bankrupt=true;c.stage='done';save();go('result');return;}c.stage='holding';save();render();};
 ACT.nextDay=function(){if(finishNoTradeIfEnd())return;stepOne();};ACT.next5=function(){var c=current(),R=getR(c.id);for(var i=0;i<5&&!c.st.done;i++)E.advanceDay(c.st,R);if(c.st.done)c.stage='done';save();if(c.stage==='done')go('result');else render();};
 ACT.sellNext=function(){E.setPendingExit(current().st);save();render();};ACT.cancelExit=function(){E.cancelPending(current().st);save();render();};
