@@ -4,6 +4,8 @@ import path from 'node:path'
 const root = process.cwd() + path.sep
 const read = p => fs.readFileSync(path.join(root, p), 'utf8')
 const bank = read('build/bank.json')
+const coach = fs.readFileSync(path.join(root, 'assets/coach.webp')).toString('base64')
+const style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp;base64,' + coach)
 const safe = s => s.replace(/<\/script/gi, '<\\/script')
 const html = `<!doctype html>
 <html lang="zh-Hant">
@@ -15,7 +17,7 @@ const html = `<!doctype html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="成為股神 V3">
 <title>成為股神 V3｜Neural Market Academy</title>
-<style>${read('src/style.css')}</style>
+<style>${style}</style>
 </head>
 <body>
 <div id="app"></div>

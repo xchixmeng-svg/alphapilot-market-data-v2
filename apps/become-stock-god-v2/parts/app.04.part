@@ -1,0 +1,87 @@
+// V3 coach rail integration — injected after the core app render.
+(function(){
+  var guide={
+    OHLC:'先只認四個價格，不預測。把開、高、低、收的位置看懂。',
+    BODY:'先找開盤與收盤，兩者之間就是 K 棒實體。',
+    COLOR:'紅綠 K 只比較今天開盤與今天收盤，不要拿昨收混進來。',
+    WICK:'先看實體之外的上下延伸，哪邊更長就先注意哪邊。',
+    DAYCHANGE:'今天漲跌要拿今天收盤和昨天收盤比，跟紅綠 K 是不同問題。',
+    SEQUENCE:'別急著下結論，只看最近幾個收盤位置是在抬高還是降低。',
+    SWING_HIGH:'往左找近期最明顯的高點，不需要預測後面。',
+    HIGHER_HIGH:'先比較前後兩段高點，第二段高點有沒有抬高。',
+    HIGHER_LOW:'先比較前後兩段低點，第二段低點有沒有抬高。',
+    DOWNTREND:'高點和低點一起往下，才叫下降結構。',
+    RANGE:'如果高低點沒有一致方向，就先當盤整，不硬猜。',
+    STRUCTURE_SHIFT:'先看價格有沒有真正突破原本關鍵高點，不要因一根紅 K 就改判斷。',
+    SUPPORT:'往左看多次跌到附近又被拉回的位置，先找區域，不找神奇單點。',
+    RESISTANCE:'往左看多次漲到附近又被壓回的位置，先找區域。',
+    RANGE_EDGE:'先判斷現在靠近區間上緣、下緣，還是在中間。',
+    BREAKOUT:'突破不是碰到就算，要看收盤有沒有真正站上。',
+    FALSE_BREAKOUT:'突破後又掉回原區間，先把突破品質降級。',
+    RETEST:'突破後回到原壓力附近，看它能不能守住。',
+    MA20_ID:'黃色線是 MA20。這一關只要先認得它。',
+    MA20_SIDE:'先比較收盤和 MA20 的數字，判斷股價在線上還是線下。',
+    MA20_DISTANCE:'先算收盤和 MA20 相差幾％，再判斷近、中、遠。',
+    MA20_SLOPE:'不要只看今天，拿 MA20 和幾天前相比，看它往上、往下還是走平。',
+    MA_STACK:'一次只排順序：價格、MA20、MA60，誰在上誰在下。',
+    ATR:'ATR 是正常波動尺。先看 ATR 占股價幾％。',
+    VOLUME:'成交量要跟自己的近期平均比，不看絕對張數。',
+    PRICE_VOLUME:'先分開看價格漲跌，再看量是放大還縮小，最後才組合。',
+    PULLBACK:'先確認大方向，再看回檔位置是不是靠近合理支撐。',
+    BREAKOUT_SETUP:'看收盤是否站上壓力，再看是不是追太遠。',
+    RETEST_SETUP:'先確認之前真的突破過，再看回測有沒有守住。',
+    NO_CHASE:'強不等於適合買。先看價格是不是已經離合理位置太遠。',
+    INVALIDATION:'失策點要放在「跌到這裡代表原本看法錯了」的位置。',
+    TARGET:'先找上方真正壓力，不先許願固定 +15%。',
+    RR:'先算可能賠多少，再算上方空間，最後才看值不值得。',
+    POSITION:'風險固定時，停損越遠，部位就要越小。',
+    HOLD_EXIT:'不是持有幾天決定賣，而是原本理由有沒有失效。',
+    FULL_SCAN:'固定順序掃描：趨勢 → 位置 → 均線 → 量價 → 空間。最後可以選擇不做。'
+  };
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function coachCopy(){
+    var a=api(),ui=a&&a.ui,m=ui&&ui.mission;
+    if(!m)return {title:'AI 教練｜小芸',body:'我會陪你一步一步看圖，不需要猜。'};
+    var fb=document.querySelector('.feedbackBox');
+    if(fb&&fb.textContent.trim())return {title:'AI 教練｜小芸',body:fb.textContent.replace(/\s+/g,' ').trim()};
+    var cl=document.querySelector('.coachLine');
+    if(ui.hint&&cl&&cl.textContent.trim())return {title:'AI 教練｜提示模式',body:cl.textContent.replace(/^AI 教練｜/,'').replace(/\s+/g,' ').trim()};
+    if(ui.exercise===0)return {title:'AI 教練｜'+m.title,body:(m.rule||guide[m.skill]||'先只看這一關指定的東西。')};
+    return {title:'AI 教練｜小芸',body:guide[m.skill]||'先看圖，只回答這一題正在問的那一件事。'};
+  }
+  function syncCoach(){
+    var app=document.getElementById('app'); if(!app)return;
+    var main=app.querySelector('.main'),training=main&&main.querySelector('.training');
+    if(!main||!training)return;
+    var rail=main.querySelector('.coachRail');
+    if(!rail){
+      rail=document.createElement('aside');
+      rail.className='coachRail';
+      rail.innerHTML='<div class="coachSpeech"><div class="coachSpeechTitle"></div><div class="coachSpeechBody"></div></div><div class="coachPortrait" aria-label="AI 教練小芸"><div class="coachIdentity"><span>AI COACH</span><strong>小芸</strong></div></div><div class="coachQuick"><button data-coach="hint">？ 我卡住了</button><button data-coach="restart">↻ 重看教學</button><button data-coach="home">⌂ 返回基地</button></div>';
+      main.appendChild(rail);
+    }
+    var c=coachCopy();
+    rail.querySelector('.coachSpeechTitle').textContent=c.title;
+    rail.querySelector('.coachSpeechBody').textContent=c.body;
+    var a=api(),ui=a&&a.ui;
+    rail.classList.toggle('examMode',!!(ui&&ui.mode==='exam'));
+  }
+  var queued=false;
+  function queue(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;syncCoach();});}
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-coach]');if(!b)return;
+    var act=b.getAttribute('data-coach');
+    if(act==='hint'){
+      var h=document.querySelector('[data-act="hint"]');if(h&&!h.disabled)h.click();
+    }else if(act==='restart'){
+      var a=api(),m=a&&a.ui&&a.ui.mission;
+      var cur=m&&document.querySelector('.missionrow[data-act="mission"][data-id="'+m.id+'"]');
+      if(cur)cur.click();
+    }else if(act==='home'){
+      var home=document.querySelector('[data-act="home"]');if(home)home.click();
+    }
+  });
+  var root=document.getElementById('app');
+  if(root)new MutationObserver(queue).observe(root,{childList:true,subtree:true,characterData:true});
+  queue();
+})();

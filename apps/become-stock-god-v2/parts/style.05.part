@@ -1,0 +1,54 @@
+/* V3 product layout pass — game HUD + right-side AI coach */
+@media(min-width:941px){
+  .main:has(>.training){display:grid!important;grid-template-columns:300px minmax(0,1fr) 280px!important;align-items:stretch!important;overflow:hidden!important}
+  .main:has(>.training)>.sidebar{width:auto!important;min-width:0!important}
+  .main:has(>.training)>.training{min-width:0!important}
+  .training{grid-template-rows:54px minmax(0,1fr) auto!important}
+  .trainingHead{padding:7px 14px!important;background:linear-gradient(180deg,rgba(7,22,39,.98),rgba(4,13,25,.9))!important}
+  .chartArea{padding:10px 12px 0!important}
+  .chartFrame{border-radius:18px!important;border-color:rgba(57,245,255,.56)!important;box-shadow:0 0 0 1px rgba(57,245,255,.06) inset,0 0 34px rgba(0,190,255,.1)!important}
+  .lessonDock{min-height:218px!important;padding:10px 12px 12px!important;background:linear-gradient(180deg,rgba(5,16,29,.96),rgba(3,10,20,.99))!important}
+  .dockGrid{grid-template-columns:minmax(0,1.12fr) minmax(330px,.88fr)!important;gap:12px!important}
+  .prompt,.answers{min-width:0}
+  .prompt{padding:14px 16px!important;border-color:rgba(57,245,255,.46)!important;box-shadow:0 0 20px rgba(57,245,255,.06) inset!important}
+  .question{font-size:20px!important;line-height:1.38!important}
+  .answer{min-height:82px!important;font-size:15px!important;border-width:1px!important;box-shadow:inset 0 0 18px rgba(57,245,255,.025)!important}
+  .answer:hover{transform:translateY(-1px);box-shadow:0 0 20px rgba(57,245,255,.14),inset 0 0 18px rgba(57,245,255,.035)!important}
+  .sidebar{border-right-color:rgba(57,245,255,.32)!important;box-shadow:8px 0 32px rgba(0,0,0,.22)}
+  .sidehead{border-color:rgba(57,245,255,.38)!important;box-shadow:0 0 20px rgba(57,245,255,.07) inset!important}
+  .missionrow.current{box-shadow:inset 4px 0 0 var(--cyan),0 0 22px rgba(57,245,255,.13)!important}
+}
+.coachRail{min-width:0;position:relative;display:flex;flex-direction:column;gap:10px;padding:12px 10px 12px;border-left:1px solid rgba(57,245,255,.34);background:radial-gradient(circle at 50% 34%,rgba(34,108,172,.24),transparent 42%),linear-gradient(180deg,#061326 0,#020915 100%);overflow:hidden;box-shadow:-10px 0 34px rgba(0,0,0,.22)}
+.coachRail:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 0 49%,rgba(57,245,255,.035) 50%,transparent 51%) 0 0/36px 36px,radial-gradient(circle at 90% 8%,rgba(132,91,255,.18),transparent 24%)}
+.coachSpeech{position:relative;z-index:3;border:1px solid rgba(57,245,255,.58);border-radius:15px;padding:12px 13px 14px;background:linear-gradient(145deg,rgba(11,38,61,.96),rgba(5,19,35,.94));box-shadow:0 0 24px rgba(57,245,255,.12),inset 0 0 18px rgba(57,245,255,.035)}
+.coachSpeech:after{content:"";position:absolute;left:28px;bottom:-9px;width:16px;height:16px;background:#071a2d;border-right:1px solid rgba(57,245,255,.58);border-bottom:1px solid rgba(57,245,255,.58);transform:rotate(45deg)}
+.coachSpeechTitle{font:950 12px var(--mono);letter-spacing:.04em;color:var(--cyan);margin-bottom:7px;text-shadow:0 0 12px rgba(57,245,255,.28)}
+.coachSpeechBody{font-size:14px;line-height:1.58;color:#e7f7ff;font-weight:700}
+.coachPortrait{position:relative;z-index:2;flex:1;min-height:300px;border:1px solid rgba(57,245,255,.28);border-radius:18px;overflow:hidden;background-image:linear-gradient(to top,rgba(2,8,18,.98) 0,rgba(2,8,18,.08) 34%,transparent 58%),url("__COACH_ASSET__");background-size:cover;background-position:center 8%;box-shadow:0 0 28px rgba(57,245,255,.11),inset 0 0 30px rgba(57,245,255,.035)}
+.coachPortrait:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(57,245,255,.08),transparent 16%,transparent 84%,rgba(57,245,255,.08))}
+.coachIdentity{position:absolute;z-index:3;left:12px;right:12px;bottom:10px;display:flex;align-items:flex-end;justify-content:space-between;padding:8px 10px;border:1px solid rgba(57,245,255,.36);border-radius:11px;background:rgba(3,13,25,.8);backdrop-filter:blur(8px)}
+.coachIdentity span{font:800 9px var(--mono);letter-spacing:.13em;color:#6fb9d5}.coachIdentity strong{font-size:19px;color:#fff;text-shadow:0 0 12px rgba(57,245,255,.32)}
+.coachQuick{position:relative;z-index:3;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.coachQuick button{min-height:42px;border:1px solid rgba(68,176,226,.36);border-radius:11px;background:linear-gradient(180deg,#0b2740,#07192c);color:#d9f4ff;font-weight:900;font-size:11px;box-shadow:inset 0 0 14px rgba(57,245,255,.025)}
+.coachQuick button:first-child{grid-column:1/-1;min-height:48px;border-color:rgba(57,245,255,.7);font-size:13px;background:linear-gradient(180deg,rgba(20,73,111,.98),rgba(7,33,55,.98));box-shadow:0 0 18px rgba(57,245,255,.12)}
+.coachQuick button:hover,.coachQuick button:active{border-color:var(--cyan);box-shadow:0 0 18px rgba(57,245,255,.16)}
+.coachRail.examMode .coachQuick button:first-child{opacity:.3;pointer-events:none}
+.coachOrb{background-image:url("__COACH_ASSET__")!important;background-size:cover!important;background-position:center 7%!important;color:transparent!important;border-color:rgba(57,245,255,.72)!important}
+.debugBadge{display:none!important}
+@media(min-width:941px) and (max-width:1240px){
+  .main:has(>.training){grid-template-columns:225px minmax(0,1fr) 220px!important}
+  .coachRail{padding:9px 7px}.coachSpeech{padding:10px}.coachSpeechBody{font-size:12px}.coachPortrait{min-height:250px}.coachQuick button{font-size:10px;padding:5px}.dockGrid{grid-template-columns:1fr!important}.lessonDock{min-height:275px!important}.answers{grid-template-columns:repeat(3,1fr)!important}
+}
+@media(max-width:940px){
+  .coachRail{display:none!important}
+}
+@media(max-width:760px){
+  html,body{overflow:auto!important;height:auto!important;min-height:100%!important}
+  #app{height:auto!important;min-height:100dvh!important;overflow:visible!important}
+  .screen{height:auto!important;min-height:100dvh!important;overflow:visible!important}
+  .main{overflow:visible!important;display:block!important}
+  .training{height:auto!important;min-height:calc(100dvh - 56px)!important;grid-template-rows:48px minmax(360px,52dvh) auto!important;overflow:visible!important}
+  .chartArea{min-height:360px!important}.chartFrame,.chartwrap{min-height:360px!important}
+  .lessonDock{min-height:0!important;position:relative!important}.dockGrid{display:block!important}.prompt{margin-bottom:7px}.answers{grid-template-columns:1fr!important}.answer{min-height:56px!important}.answerHelp{grid-column:auto!important}
+  .coachOrb{width:48px!important;height:48px!important;left:10px!important;bottom:8px!important}
+}
