@@ -52,11 +52,11 @@ jobs:
           if(!CT||!Array.isArray(CT.MISSIONS)||CT.MISSIONS.length!==36) throw new Error('missions != 36');
           if(!Array.isArray(CT.WORLDS)||CT.WORLDS.length!==6) throw new Error('worlds != 6');
           if(CT.FREE_THROUGH!==6) throw new Error('FREE_THROUGH != 6');
-          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','Mastery','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測','BSG_AUDIO_MIXER']) if(!html.includes(s)) throw new Error('missing marker '+s);
+          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','Mastery','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測','BSG_AUDIO_MIXER','lesson-contract-v2','airy-piano-bell-v2']) if(!html.includes(s)) throw new Error('missing marker '+s);
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small');
           console.log('VERIFY_OK', {rounds:bank.rounds.length,training:train,exam,missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,history:bank.history_days,future:bank.future_days,htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
           NODE
-      - name: Browser smoke test — mobile landscape + audio mixer
+      - name: Browser smoke test + 36 mission visual/logic audit
         working-directory: apps/become-stock-god-v2
         run: |
           npm install --no-save playwright@1.56.1
@@ -81,6 +81,7 @@ jobs:
             await page.waitForTimeout(500);
             let state=await page.evaluate(()=>window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state());
             if(!state||!state.activated)throw new Error('audio mixer did not activate after user gesture');
+            if(state.music!=='airy-piano-bell-v2'||state.minHz<220)throw new Error('wrong BGM profile '+JSON.stringify(state));
             const bgm=page.locator('[data-audio="bgm"]');
             await bgm.click();
             await page.waitForTimeout(150);
@@ -94,7 +95,7 @@ jobs:
             await page.locator('[data-audio="sfx"]').click();
             await page.locator('[data-audio="voice"]').click();
             await page.locator('[data-audio="voice"]').click();
-            await page.waitForTimeout(2200);
+            await page.waitForTimeout(600);
             const alive=await page.evaluate(()=>({title:document.title,app:!!document.getElementById('app'),mixer:!!document.querySelector('.audioMixer')}));
             if(!alive.app||!alive.mixer)throw new Error('page became unresponsive / mixer disappeared');
             if(errors.length)throw new Error(errors.join('\n'));
@@ -102,13 +103,15 @@ jobs:
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
+          node tools/audit36.mjs
       - name: Package artifact
         working-directory: apps/become-stock-god-v2
         run: |
           mkdir -p release
           cp dist/index.html release/become-stock-god-v3.html
           cp build/bank_report.json release/bank_report.json
-          sha256sum release/* > release/SHA256SUMS.txt
+          cp -r audit release/audit
+          sha256sum release/become-stock-god-v3.html release/bank_report.json > release/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: become-stock-god-v3
@@ -119,6 +122,7 @@ jobs:
           mkdir -p /tmp/bsg-v3-static
           cp apps/become-stock-god-v2/dist/index.html /tmp/bsg-v3-static/index.html
           cp apps/become-stock-god-v2/build/bank_report.json /tmp/bsg-v3-static/bank_report.json
+          cp apps/become-stock-god-v2/audit/audit36.json /tmp/bsg-v3-static/audit36.json
           sha256sum /tmp/bsg-v3-static/index.html | awk '{print $1}' > /tmp/bsg-v3-static/SHA256.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -126,7 +130,8 @@ jobs:
           git rm -rf .
           cp /tmp/bsg-v3-static/index.html ./index.html
           cp /tmp/bsg-v3-static/bank_report.json ./bank_report.json
+          cp /tmp/bsg-v3-static/audit36.json ./audit36.json
           cp /tmp/bsg-v3-static/SHA256.txt ./SHA256.txt
-          git add index.html bank_report.json SHA256.txt
+          git add index.html bank_report.json audit36.json SHA256.txt
           git commit -m "release: verified Become Stock God V3"
           git push --force origin HEAD:bsg-v3-static
