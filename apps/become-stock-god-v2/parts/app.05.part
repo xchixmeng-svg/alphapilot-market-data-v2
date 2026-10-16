@@ -22,7 +22,7 @@
     if(!bgmOn||bgmStarted)return;var c=ac();if(!c)return;bgmStarted=true;
     var master=c.createGain();master.gain.value=.018;var filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.value=900;filter.Q.value=.8;master.connect(filter);filter.connect(c.destination);
     var freqs=[55,82.41,110];
-    freqs.forEach(function(fr,i){var o=c.createOscillator(),g=c.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=fr;g.gain.value=i===0?.42:.22;o.connect(g);g.connect(master);o.start();bgmNodes.push(o,g);});
+    freqs.forEach(function(fr,i){var o=c.createOscillator(),g=c.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=fr;g.gain.value=i===0 ? .42 : .22;o.connect(g);g.connect(master);o.start();bgmNodes.push(o,g);});
     var lfo=c.createOscillator(),lg=c.createGain();lfo.type='sine';lfo.frequency.value=.08;lg.gain.value=260;lfo.connect(lg);lg.connect(filter.frequency);lfo.start();bgmNodes.push(lfo,lg,master,filter);
     ambientBell(c);bellTimer=setInterval(function(){ambientBell(c);},9000);
   }
