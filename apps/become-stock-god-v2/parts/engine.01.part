@@ -1,0 +1,337 @@
+/* 成為股神 V2 alpha — core engine (pure logic, no DOM).
+   Shared by: tools/build_bank.mjs (Node), tests (Node), game page (browser). */
+(function (root) {
+  'use strict';
+
+  // ───────────────────────── V2 configurable window ─────────────────────────
+  var _hist = 120, _future = 40;
+  try {
+    if (typeof document !== 'undefined') {
+      var _bd = document.getElementById('bank-data');
+      if (_bd) { var _bc = JSON.parse(_bd.textContent); _hist = +(_bc.history_days || _hist); _future = +(_bc.future_days || _future); }
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      if (process.env.BSG_HISTORY_DAYS) _hist = +process.env.BSG_HISTORY_DAYS;
+      if (process.env.BSG_FUTURE_DAYS) _future = +process.env.BSG_FUTURE_DAYS;
+    }
+  } catch (_e) {}
+
+  var C = {
+    STARTING_NAV: 1000000,
+    BANKRUPTCY_NAV: 500000,
+    BUY_FEE_RATE: 0.001425,
+    SELL_FEE_RATE: 0.001425,
+    STOCK_TAX_RATE: 0.003,
+    VISIBLE_HISTORY_DAYS: _hist,
+    FUTURE_DATA_DAYS: _future,
+    MAX_HOLD_DAYS: _future,   // compatibility alias; player is NOT forced out here
+    FORCED_EXIT_DAY: null,
+    ATR_PERIOD: 14,
+    MA_SHORT: 20,
+    MA_LONG: 60,
+    DEFAULT_MAX_GAP: 0.02,
+    DEFAULT_MAX_HOLD: 10,
+    DEFAULT_TRAILING_ATR: 2.0,
+    REFERENCE_STOP_ATR: 2.0,
+    REFERENCE_HOLD_DAYS: 20,
+    TUTORIAL_ROUNDS: 50,
+    TRAINING_ROUNDS: 350,
+    EXAM_ROUNDS: 100,
+    ROUNDS_PER_SEASON: 50,
+    FREE_TRIAL_ROUNDS: 10,
+    FULL_GAME_PRICE_TWD: 49,
+    INITIAL_REVIVES: 5,
+    REVIVE_PACK_SMALL_QTY: 3,
+    REVIVE_PACK_SMALL_PRICE: 30,
+    REVIVE_PACK_LARGE_QTY: 10,
+    REVIVE_PACK_LARGE_PRICE: 70,
+    GOOD_SKILL_THRESHOLD: 80,
+    GOD_MAX_DRAWDOWN: 0.20,
+    GOD_SKILL_THRESHOLD: 80,
+    GOD_SELECTION_THRESHOLD: 65,
+    CORPORATE_ACTION_HARD_FILTER: 0.105,
+    INSTITUTION_MIN_VALID_DAYS: 15,
+    AUTOPLAY_MS_PER_DAY: 450,
+    SKIP_PLAYBACK_MS: 180,
+    SEED: 'BECOME_STOCK_GOD_V2',
+    D0: _hist,              // array index of D0 (index 0 = D-history_days)
+    WINDOW_LEN: _hist + _future + 1,
+    SELL_COST_RATE: 0.001425 + 0.003
+  };
+  var D0 = C.D0;
+  function ix(k) { return D0 + k; }
+
+  // ───────────────────────── helpers ─────────────────────────
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+  function r2(x) { return Math.round(x * 100) / 100; }
+  function isNum(x) { return typeof x === 'number' && isFinite(x); }
+
+  // FNV-1a 32-bit → deterministic hash; mulberry32 → deterministic PRNG.
+  function hash32(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function hashUnit(str) { return hash32(str) / 4294967296; }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function seededShuffle(arr, seedStr) {
+    var a = arr.slice(), rnd = mulberry32(hash32(seedStr));
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // ───────────────────────── §6 tick & price limits ─────────────────────────
+  function tickSize(p) {
+    if (p < 10) return 0.01;
+    if (p < 50) return 0.05;
+    if (p < 100) return 0.1;
+    if (p < 500) return 0.5;
+    if (p < 1000) return 1;
+    return 5;
+  }
+  function priceDecimals(p) { var t = tickSize(p); if (t < 0.1) return 2; if (t < 1) return 1; return 0; }
+  // Highest legal tick not above ref×1.10
+  function limitUp(ref) {
+    var raw = ref * 1.10, t = tickSize(raw);
+    return r2(Math.floor(raw / t + 1e-9) * t);
+  }
+  // Lowest legal tick not below ref×0.90
+  function limitDown(ref) {
+    var raw = ref * 0.90, t = tickSize(raw);
+    return r2(Math.ceil(raw / t - 1e-9) * t);
+  }
+  function roundToTick(p, mode) {
+    var t = tickSize(p);
+    var f = mode === 'up' ? Math.ceil : (mode === 'down' ? Math.floor : Math.round);
+    return r2(f(p / t - (mode === 'up' ? 1e-9 : (mode === 'down' ? -1e-9 : 0))) * t);
+  }
+  // §6: open == high == limit_up (± 0.5 tick) → locked, cannot buy
+  function isLockedLimitUp(open, high, prevClose) {
+    var lu = limitUp(prevClose), tol = 0.5 * tickSize(lu);
+    return Math.abs(open - lu) <= tol + 1e-9 && Math.abs(high - lu) <= tol + 1e-9;
+  }
+
+  // ───────────────────────── §7 fees & tax ─────────────────────────
+  function buyFee(px, sh) { return px * sh * C.BUY_FEE_RATE; }
+  function sellFee(px, sh) { return px * sh * C.SELL_FEE_RATE; }
+  function sellTax(px, sh) { return px * sh * C.STOCK_TAX_RATE; }
+  function buyTotal(px, sh) { return px * sh + buyFee(px, sh); }
+  function sellNet(px, sh) { return px * sh - sellFee(px, sh) - sellTax(px, sh); }
+
+  // ───────────────────────── §21 §22 indicators ─────────────────────────
+  // Wilder ATR14: TR from index 1 (needs prev close). First ATR at index 14 = mean(TR[1..14]).
+  function atrWilder(h, l, c, n) {
+    n = n || C.ATR_PERIOD;
+    var out = new Array(c.length).fill(null), sum = 0, prev = null;
+    for (var i = 1; i < c.length; i++) {
+      var tr = Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1]));
+      if (i <= n) { sum += tr; if (i === n) { prev = sum / n; out[i] = prev; } }
+      else { prev = (prev * (n - 1) + tr) / n; out[i] = prev; }
+    }
+    return out;
+  }
+  function sma(c, n) {
+    var out = new Array(c.length).fill(null), s = 0;
+    for (var i = 0; i < c.length; i++) {
+      s += c[i]; if (i >= n) s -= c[i - n];
+      if (i >= n - 1) out[i] = s / n;
+    }
+    return out;
+  }
+  // §23 20-day institutional estimated cost. inst[i] = [f,t,d] or null (missing / unavailable).
+  function institutionCost20(h, l, c, inst) {
+    var out = new Array(c.length).fill(null);
+    for (var i = 19; i < c.length; i++) {
+      var valid = 0, num = 0, den = 0;
+      for (var j = i - 19; j <= i; j++) {
+        var r = inst[j];
+        if (!r || !isNum(r[0]) || !isNum(r[1]) || !isNum(r[2])) continue;
+        valid++;
+        var typ = (h[j] + l[j] + c[j]) / 3;
+        for (var q = 0; q < 3; q++) { var w = Math.max(r[q], 0); num += typ * w; den += w; }
+      }
+      if (valid < C.INSTITUTION_MIN_VALID_DAYS || den <= 0) continue;
+      out[i] = num / den;
+    }
+    return out;
+  }
+
+  // ───────────────────────── §24 §25 §26 §27 sizing & plan metrics ─────────────────────────
+  function riskPerShare(entry, stop) { return entry * (1 + C.BUY_FEE_RATE) - stop * (1 - C.SELL_COST_RATE); }
+  function maxSharesForRisk(nav, cash, entry, stop, riskPct) {
+    var rps = riskPerShare(entry, stop);
+    var affordable = Math.floor(cash / (entry * (1 + C.BUY_FEE_RATE)));
+    if (!(rps > 0)) return Math.max(0, affordable);
+    var riskShares = Math.floor((nav * riskPct) / rps);
+    return Math.max(0, Math.min(riskShares, affordable));
+  }
+  function affordableShares(cash, entry) { return Math.max(0, Math.floor(cash / (entry * (1 + C.BUY_FEE_RATE)))); }
+  function planMetrics(p) {
+    // p: {entry, stop|null, target|null, shares, nav, atr}
+    var m = {};
+    m.buyTotal = buyTotal(p.entry, p.shares);
+    m.positionPct = p.nav > 0 ? m.buyTotal / p.nav : 0;
+    if (isNum(p.stop)) {
+      m.stopDistPct = 1 - p.stop / p.entry;
+      m.atrMultiple = p.atr > 0 ? (p.entry - p.stop) / p.atr : null;
+      m.stopSellNet = sellNet(p.stop, p.shares);
+      m.plannedLoss = m.buyTotal - m.stopSellNet;
+      m.accountRisk = p.nav > 0 ? m.plannedLoss / p.nav : null;
+    } else {
+      m.stopDistPct = null; m.atrMultiple = null; m.plannedLoss = null; m.accountRisk = null;
+    }
+    if (isNum(p.target) && isNum(p.stop)) {
+      var G = sellNet(p.target, p.shares) - m.buyTotal, L = m.plannedLoss;
+      m.G = G; m.L = L;
+      if (G <= 0) { m.rr = null; m.breakEven = null; m.noEdge = true; }
+      else if (L > 0) { m.rr = G / L; m.breakEven = L / (G + L); m.noEdge = false; }
+      else { m.rr = null; m.breakEven = 0; m.noEdge = false; }
+    }
+    return m;
+  }
+  function accountRiskGrade(r) {
+    if (!isNum(r)) return '無停損';
+    if (r <= 0.01) return '最佳';
+    if (r <= 0.015) return '合理';
+    if (r <= 0.02) return '偏高';
+    if (r <= 0.03) return '危險';
+    return '嚴重過度風險';
+  }
+  function positionGrade(p) {
+    if (p <= 0.35) return '正常';
+    if (p <= 0.50) return '偏重';
+    if (p <= 0.70) return '過重';
+    return '極端';
+  }
+  function institutionGrade(d) {
+    if (!isNum(d)) return null;
+    if (d < 0) return '位於估算成本以下';
+    if (d <= 0.03) return '接近成本區';
+    if (d <= 0.08) return '偏離';
+    return '明顯遠離';
+  }
+
+  // ───────────────────────── §9 §10 §16 daily exit rule (fixed priority, v1.0.1) ─────────────────────────
+  // Returns {price, reason} or null. Caller enforces T+1 (only sellable lots).
+  function dailyExit(bar, stop, target) {
+    var hasStop = isNum(stop), hasTP = isNum(target);
+    // A. open
+    if (hasStop && bar.o <= stop) return { price: bar.o, reason: 'STOP_GAP' };
+    if (hasTP && bar.o >= target) return { price: bar.o, reason: 'TAKE_PROFIT_GAP' };
+    // B. intraday (conservative: stop first)
+    var hitS = hasStop && bar.l <= stop, hitT = hasTP && bar.h >= target;
+    if (hitS) return { price: stop, reason: 'STOP_TOUCH' };
+    if (hitT) return { price: target, reason: 'TAKE_PROFIT_TOUCH' };
+    return null;
+  }
+
+  function bar(R, k) { var i = ix(k); return { o: R.o[i], h: R.h[i], l: R.l[i], c: R.c[i], v: R.v[i] }; }
+  function prevClose(R, k) { return R.c[ix(k) - 1]; }
+  function atrAt(R, k) { return R.atr[ix(k)]; }
+
+  // Generic exit simulator for Reference / 阿隨 / counterfactuals.
+  // Enters at open of entryDay; T+1; exits by stop/TP/trailing or at D21 open.
+  function futureDays(R) { return Math.max(0, R.o.length - C.D0 - 1); }
+
+  // Generic outcome simulator for benchmarks/counterfactuals.
+  // V2 has no arbitrary D21 forced sale. opts.horizon can standardize an analysis window;
+  // if no stop/target fires, the final available close is used only for evaluation.
+  function simulateHold(R, entryDay, entryPx, stop, opts) {
+    opts = opts || {};
+    var s = stop, hc = -Infinity;
+    var endDay = Math.min(futureDays(R), isNum(opts.horizon) ? opts.horizon : futureDays(R));
+    for (var k = entryDay; k <= endDay; k++) {
+      var b = bar(R, k);
+      if (k > entryDay) {
+        var ex = dailyExit(b, s, opts.target);
+        if (ex) return { exitDay: k, exitPx: ex.price, reason: ex.reason };
+      }
+      if (opts.trailMult) {
+        hc = Math.max(hc, b.c);
+        var a = atrAt(R, k);
+        if (isNum(a)) { var calc = hc - a * opts.trailMult; if (!isNum(s) || calc > s) s = calc; }
+      }
+    }
+    return { exitDay: endDay, exitPx: R.c[ix(endDay)], reason: 'OBSERVATION_END_MARK' };
+  }
+
+  // §30 §31 Reference Trade
+  function referenceTrade(R) {
+    var entryDay = null;
+    for (var k = 1; k <= 2; k++) {
+      var b = bar(R, k);
+      if (!isLockedLimitUp(b.o, b.h, prevClose(R, k))) { entryDay = k; break; }
+    }
+    if (entryDay === null) return { available: false };
+    var entry = R.o[ix(entryDay)];
+    var a = atrAt(R, entryDay - 1);
+    if (!isNum(a) || a <= 0) return { available: false };
+    var stop = entry - C.REFERENCE_STOP_ATR * a;
+    var sh = 1000;
+    var plannedLoss = buyTotal(entry, sh) - sellNet(stop, sh);
+    var ex = simulateHold(R, entryDay, entry, stop, { horizon: Math.min(20, futureDays(R)) });
+    var net = sellNet(ex.exitPx, sh) - buyTotal(entry, sh);
+    return {
+      available: true, entryDay: entryDay, entry: entry, stop: stop, exitDay: ex.exitDay, exitPx: ex.exitPx,
+      reason: ex.reason, plannedLoss: plannedLoss, netPnl: net, R: net / plannedLoss, ret: net / buyTotal(entry, sh)
+    };
+  }
+
+  // §42 阿隨 deterministic bot (returns NAV multiplier and trade info)
+  function randomBotRound(R, nav, seasonId, roundId) {
+    var u = hashUnit(C.SEED + '|' + seasonId + '|' + roundId);
+    var res = { buy: u >= 0.5, u: u, navAfter: nav, pnl: 0 };
+    if (!res.buy) return res;
+    var b1 = bar(R, 1);
+    if (isLockedLimitUp(b1.o, b1.h, prevClose(R, 1))) { res.buy = false; res.locked = true; return res; }
+    var entry = b1.o, a = atrAt(R, 0);
+    var sh = Math.floor((nav * 0.5) / (entry * (1 + C.BUY_FEE_RATE)));
+    if (sh <= 0) { res.buy = false; return res; }
+    var stop = isNum(a) ? entry - 2 * a : null;
+    var ex = simulateHold(R, 1, entry, stop, { horizon: Math.min(20, futureDays(R)) });
+    var pnl = sellNet(ex.exitPx, sh) - buyTotal(entry, sh);
+    res.shares = sh; res.exit = ex; res.pnl = pnl; res.navAfter = nav + pnl;
+    return res;
+  }
+
+  // §41 0050 same-round benchmark (b = {d1Open, d21Open} adjusted, or null when unavailable)
+  function benchmark0050(b) {
+    if (!b || !isNum(b.d1Open) || !isNum(b.d21Open)) return { available: false };
+    return { available: true, ret: b.d21Open / b.d1Open - 1 };
+  }
+
+  // ───────────────────────── live trade state machine ─────────────────────────
+  // Unlock level L: 1..10 tutorial chapter; 11 = all (season/exam/replay).
+  function unlocksFor(L) {
+    return {
+      stopEdit: L >= 2, atr: L >= 3, confidence: L >= 4, target: L >= 4, rr: L >= 4,
+      riskPct: L >= 5, gapPlan: L >= 6, ma20: L >= 6, gapMeter: L >= 6, institution: L >= 7,
+      trailing: L >= 8, timeStop: L >= 8, autoTP: false, add: L >= 9, reentry: L >= 9, autoStop: L === 1
+    };
+  }
+
+  function newTradeState(R, ctx) {
+    // ctx: {roundId, mode, level, nav, cash}
+    return {
+      v: 1, roundId: ctx.roundId, mode: ctx.mode, level: ctx.level,
+      navStart: ctx.nav, cashStart: ctx.cash, cash: ctx.cash,
+      phase: 'decide', day: 0, decision: null, confidence: 50,
+      plan: null, lots: [], stop: null, origStop: null, target: null, autoTP: false, trailMult: null,
+      timeStopDay: null, maxHold: null, observationEnd: futureDays(R), pending: null, entryDay: null, entryTry: 0,
+      fills: [], events: [], navHist: [], firstEntry: null, lastExit: null,
+      flags: {
+        same_day_stop_breach: false, chase_plan_violation: false, stop_widen_count: 0,
+        averaging_down_count: 0,
