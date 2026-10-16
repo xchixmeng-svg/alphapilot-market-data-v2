@@ -1,4 +1,4 @@
-// V3 coach integration — home + training + immersive landscape support.
+// V3 coach integration — home + training + immersive landscape + audio.
 (function(){
   var guide={
     OHLC:'先只認四個價格，不預測。把開、高、低、收的位置看懂。',
@@ -38,22 +38,41 @@
     HOLD_EXIT:'不是持有幾天決定賣，而是原本理由有沒有失效。',
     FULL_SCAN:'固定順序掃描：趨勢 → 位置 → 均線 → 量價 → 空間。最後可以選擇不做。'
   };
+  var soundOn=localStorage.getItem('bsg_sound')!=='0',audioCtx=null,lastResultSound='';
   function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
   function coachCopy(){
     var a=api(),ui=a&&a.ui,m=ui&&ui.mission;
-    if(!m)return {title:'AI 教練｜小芸',body:'準備好就從第一個任務開始，我會一直在右邊陪你。'};
+    if(!m)return {title:'AI 教練',body:'準備好就從第一個任務開始，我會一直在旁邊陪你。'};
     var fb=document.querySelector('.feedbackBox');
-    if(fb&&fb.textContent.trim())return {title:'AI 教練｜小芸',body:fb.textContent.replace(/\s+/g,' ').trim()};
+    if(fb&&fb.textContent.trim())return {title:'AI 教練',body:fb.textContent.replace(/\s+/g,' ').trim()};
     var cl=document.querySelector('.coachLine');
     if(ui.hint&&cl&&cl.textContent.trim())return {title:'AI 教練｜提示模式',body:cl.textContent.replace(/^AI 教練｜/,'').replace(/\s+/g,' ').trim()};
     if(ui.exercise===0)return {title:'AI 教練｜'+m.title,body:(m.rule||guide[m.skill]||'先只看這一關指定的東西。')};
-    return {title:'AI 教練｜小芸',body:guide[m.skill]||'先看圖，只回答這一題正在問的那一件事。'};
+    return {title:'AI 教練',body:guide[m.skill]||'先看圖，只回答這一題正在問的那一件事。'};
+  }
+  function unlockAudio(){
+    if(!soundOn)return null;
+    try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!audioCtx)audioCtx=new AC();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}catch(e){return null;}
+  }
+  function tone(freq,dur,type,gain,delay){
+    var c=unlockAudio();if(!c)return;var t=c.currentTime+(delay||0),o=c.createOscillator(),g=c.createGain();o.type=type||'sine';o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(gain||0.035,t+.012);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur+.03);
+  }
+  function sfx(kind){
+    if(!soundOn)return;
+    if(kind==='correct'){tone(660,.13,'sine',.045,0);tone(880,.18,'sine',.04,.10);}
+    else if(kind==='wrong'){tone(220,.18,'triangle',.04,0);tone(165,.22,'triangle',.035,.11);}
+    else if(kind==='level'){tone(523,.12,'sine',.04,0);tone(659,.12,'sine',.04,.09);tone(784,.22,'sine',.045,.18);}
+    else{tone(420,.06,'sine',.018,0);}
+  }
+  function speakCoach(){
+    if(!('speechSynthesis' in window))return;
+    var c=coachCopy(),text=c.body;if(!text)return;
+    try{window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=.94;u.pitch=1.02;u.volume=1;var vs=window.speechSynthesis.getVoices&&window.speechSynthesis.getVoices();if(vs&&vs.length){var v=vs.find(function(x){return /zh-TW/i.test(x.lang);})||vs.find(function(x){return /^zh/i.test(x.lang);});if(v)u.voice=v;}window.speechSynthesis.speak(u);}catch(e){}
   }
   function addFullscreenButton(){
-    var stats=document.querySelector('.hudstats');
-    if(!stats||stats.querySelector('[data-coach="fullscreen"]'))return;
-    var b=document.createElement('button');b.className='iconbtn fullscreenBtn';b.setAttribute('data-coach','fullscreen');b.setAttribute('aria-label','全螢幕');b.textContent='⛶';
-    stats.appendChild(b);
+    var stats=document.querySelector('.hudstats');if(!stats)return;
+    if(!stats.querySelector('[data-coach="sound"]')){var s=document.createElement('button');s.className='iconbtn soundBtn';s.setAttribute('data-coach','sound');s.setAttribute('aria-label','聲音');s.textContent=soundOn?'🔊':'🔇';stats.appendChild(s);}
+    if(!stats.querySelector('[data-coach="fullscreen"]')){var b=document.createElement('button');b.className='iconbtn fullscreenBtn';b.setAttribute('data-coach','fullscreen');b.setAttribute('aria-label','全螢幕');b.textContent='⛶';stats.appendChild(b);}
   }
   function syncViewport(){
     var h=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
@@ -65,7 +84,7 @@
     var rail=hero.querySelector('.homeCoach');
     if(!rail){
       rail=document.createElement('aside');rail.className='homeCoach';
-      rail.innerHTML='<div class="homeCoachSpeech"><b>AI 教練｜小芸</b><span>準備好就從第一個任務開始，我會一直在右邊陪你。</span></div><div class="homeCoachPortrait"><div class="coachIdentity"><span>AI COACH</span><strong>小芸</strong></div></div>';
+      rail.innerHTML='<div class="homeCoachSpeech"><b>AI 教練</b><span>準備好就從第一個任務開始，我會一直在旁邊陪你。</span><button class="coachSpeak" data-coach="speak">🔊 聽教練說</button></div><div class="homeCoachPortrait"><div class="coachIdentity"><span>AI COACH</span><strong>教練</strong></div></div>';
       hero.appendChild(rail);
     }
     return true;
@@ -76,7 +95,7 @@
     var rail=main.querySelector('.coachRail');
     if(!rail){
       rail=document.createElement('aside');rail.className='coachRail';
-      rail.innerHTML='<div class="coachSpeech"><div class="coachSpeechTitle"></div><div class="coachSpeechBody"></div></div><div class="coachPortrait" aria-label="AI 教練小芸"><div class="coachIdentity"><span>AI COACH</span><strong>小芸</strong></div></div><div class="coachQuick"><button data-coach="hint">？ 我卡住了</button><button data-coach="restart">↻ 重看教學</button><button data-coach="home">⌂ 返回基地</button></div>';
+      rail.innerHTML='<div class="coachSpeech"><div class="coachSpeechTitle"></div><div class="coachSpeechBody"></div></div><div class="coachPortrait" aria-label="AI 教練"><div class="coachIdentity"><span>AI COACH</span><strong>教練</strong></div></div><div class="coachQuick"><button data-coach="hint">？ 我卡住了</button><button data-coach="speak">🔊 聽教練</button><button data-coach="restart">↻ 重看教學</button><button data-coach="home">⌂ 返回基地</button></div>';
       main.appendChild(rail);
     }
     var c=coachCopy();
@@ -96,13 +115,24 @@
     }catch(e){}
     document.documentElement.classList.toggle('immersiveFallback');syncViewport();
   }
+  function playResultSound(){
+    setTimeout(function(){
+      var fb=document.querySelector('.feedbackBox');if(!fb)return;var txt=fb.textContent.replace(/\s+/g,' ').trim();if(!txt||txt===lastResultSound)return;lastResultSound=txt;
+      if(/SCAN LOCKED|答對|正確|很好|完成/.test(txt))sfx('correct');else if(/MISREAD|看錯|答錯|不對|錯誤/.test(txt))sfx('wrong');
+    },40);
+  }
+  document.addEventListener('pointerdown',function(){unlockAudio();},{passive:true,once:true});
   document.addEventListener('click',function(e){
+    if(soundOn&&e.target.closest('.answer,.missionrow,.nextBtn,.btn'))sfx('tap');
+    if(e.target.closest('.answer'))playResultSound();
     var b=e.target.closest('[data-coach]');if(!b)return;
     var act=b.getAttribute('data-coach');
     if(act==='hint'){var h=document.querySelector('[data-act="hint"]');if(h&&!h.disabled)h.click();}
     else if(act==='restart'){var a=api(),m=a&&a.ui&&a.ui.mission;var cur=m&&document.querySelector('.missionrow[data-act="mission"][data-id="'+m.id+'"]');if(cur)cur.click();}
     else if(act==='home'){var home=document.querySelector('[data-act="home"]');if(home)home.click();}
     else if(act==='fullscreen'){enterFullscreen();}
+    else if(act==='speak'){speakCoach();}
+    else if(act==='sound'){soundOn=!soundOn;localStorage.setItem('bsg_sound',soundOn?'1':'0');b.textContent=soundOn?'🔊':'🔇';if(soundOn){unlockAudio();sfx('correct');}else if('speechSynthesis' in window)window.speechSynthesis.cancel();}
   });
   window.addEventListener('resize',queue,{passive:true});window.addEventListener('orientationchange',queue,{passive:true});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',queue,{passive:true});
