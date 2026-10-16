@@ -1,0 +1,213 @@
+// 題庫 generator + validator + tags. Reads the working cache (converted read-only from
+// alphapilot-market-data-v2/data/history/2020-2025). Never writes to the source repo.
+import fs from 'node:fs'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
+const H = +(process.env.BSG_HISTORY_DAYS || 240)
+const F = +(process.env.BSG_FUTURE_DAYS || 120)
+process.env.BSG_HISTORY_DAYS = String(H)
+process.env.BSG_FUTURE_DAYS = String(F)
+const E = require('../src/engine.js')
+const C = E.C
+const ROOT = process.cwd() + '/'
+const CACHE = process.env.BSG_CACHE || (ROOT + 'cache/')
+const OUT = process.env.BSG_OUT || (ROOT + 'build/')
+fs.mkdirSync(OUT, { recursive: true })
+
+const t0 = Date.now()
+const ohlcv = JSON.parse(fs.readFileSync(CACHE + 'ohlcv.json'))
+const inst = JSON.parse(fs.readFileSync(CACHE + 'inst.json'))
+console.log('loaded', ohlcv.length, inst.length, (Date.now() - t0) / 1000 + 's')
+
+const calendar = [...new Set(ohlcv.map(r => r[0]))].sort((a, b) => a - b)
+const calIdx = new Map(calendar.map((d, i) => [d, i]))
+const ANOMALY_DATES = new Set()
+{
+  const cnt = new Map(); for (const r of ohlcv) cnt.set(r[0], (cnt.get(r[0]) || 0) + 1)
+  const vals = [...cnt.values()].sort((a, b) => a - b), med = vals[Math.floor(vals.length / 2)]
+  for (const [d, n] of cnt) if (n < 0.8 * med) ANOMALY_DATES.add(d)
+}
+
+const instMap = new Map(), mktByCodeDate = new Map(), mktCount = new Map()
+for (const [d, m, code, f, t, dl] of inst) {
+  if (!instMap.has(code)) instMap.set(code, new Map())
+  const ok = f !== null && t !== null && dl !== null && Number.isFinite(f) && Number.isFinite(t) && Number.isFinite(dl)
+  instMap.get(code).set(d, ok ? [f, t, dl] : null)
+  mktByCodeDate.set(code + '|' + d, m)
+  const k = code + '|' + m; mktCount.set(k, (mktCount.get(k) || 0) + 1)
+}
+function marketFor(code, date) {
+  const m = mktByCodeDate.get(code + '|' + date)
+  if (m) return m === 'TPEX' ? 'TPEx' : 'TWSE'
+  const a = mktCount.get(code + '|TWSE') || 0, b = mktCount.get(code + '|TPEX') || 0
+  if (!a && !b) return null
+  return a >= b ? 'TWSE' : 'TPEx'
+}
+
+const byCode = new Map()
+for (const r of ohlcv) { if (!byCode.has(r[1])) byCode.set(r[1], []); byCode.get(r[1]).push(r) }
+for (const a of byCode.values()) a.sort((x, y) => x[0] - y[0])
+const UNIVERSE_RE = /^[1-9]\d{3}$/
+const stats = { codes_total: byCode.size, codes_universe: 0, codes_no_market: 0, windows_checked: 0, excl_incomplete: 0, excl_corp_action: 0, excl_volume: 0, excl_atr: 0, excl_price_grid: 0, excl_anomaly_date: 0 }
+
+const e50 = new Map()
+for (const r of byCode.get('0050')) {
+  const div = r[0] <= 20250610 ? 4 : 1
+  e50.set(r[0], { o: r[4] / div, h: r[5] / div, l: r[6] / div, c: r[7] / div })
+}
+
+const stocks = []
+for (const [code, rows] of byCode) {
+  if (!UNIVERSE_RE.test(code)) continue
+  stats.codes_universe++
+  const n = rows.length
+  const d = rows.map(r => r[0]), cal = d.map(x => calIdx.get(x))
+  const o = rows.map(r => r[4]), h = rows.map(r => r[5]), l = rows.map(r => r[6]), c = rows.map(r => r[7]), v = rows.map(r => r[3])
+  const nm = rows[n - 1][2]
+  if (!marketFor(code, d[n - 1])) { stats.codes_no_market++; continue }
+  const im = instMap.get(code)
+  const instArr = d.map(x => { const mk = mktByCodeDate.get(code + '|' + x); if (mk === 'TPEX') return null; return im ? (im.get(x) ?? null) : null })
+  const atr = E.atrWilder(h, l, c), ma20 = E.sma(c, 20), ma60 = E.sma(c, 60)
+  const ic = E.institutionCost20(h, l, c, instArr)
+  const bad = new Uint8Array(n)
+  for (let i = 1; i < n; i++) {
+    if (Math.abs(c[i] / c[i - 1] - 1) > C.CORPORATE_ACTION_HARD_FILTER || Math.abs(o[i] / c[i - 1] - 1) > C.CORPORATE_ACTION_HARD_FILTER) bad[i] = 1
+  }
+  stocks.push({ code, name: nm, d, cal, o, h, l, c, v, atr, ma20, ma60, ic, bad, instArr })
+}
+console.log('stocks', stocks.length, (Date.now() - t0) / 1000 + 's')
+
+const RANGE = { A: [20200101, 20231231], B: [20200101, 20231231], C: [20240101, 20251231] }
+function candidates(range) {
+  const out = []
+  for (let si = 0; si < stocks.length; si++) {
+    const s = stocks[si], n = s.d.length
+    for (let p = H; p + F < n; p++) {
+      if (s.d[p - H] < range[0] || s.d[p + F] > range[1]) continue
+      stats.windows_checked++
+      if (s.cal[p + F] - s.cal[p - H] !== H + F) { stats.excl_incomplete++; continue }
+      let corp = false; for (let i = p - H + 1; i <= p + F; i++) if (s.bad[i]) { corp = true; break }
+      if (corp) { stats.excl_corp_action++; continue }
+      let vol = true; for (let i = p; i <= p + 21; i++) if (!(s.v[i] > 0)) { vol = false; break }
+      if (!vol) { stats.excl_volume++; continue }
+      if (!(s.atr[p - 1] > 0) || !(s.atr[p] > 0) || s.ma20[p] === null) { stats.excl_atr++; continue }
+      out.push(si * 2000 + p)
+    }
+  }
+  return out
+}
+function windowR(si, p) {
+  const s = stocks[si], a = p - H, b = p + F + 1
+  return { o: s.o.slice(a, b), h: s.h.slice(a, b), l: s.l.slice(a, b), c: s.c.slice(a, b), v: s.v.slice(a, b), atr: s.atr.slice(a, b), ma20: s.ma20.slice(a, b), ma60: s.ma60.slice(a, b), ic: s.ic.slice(a, b) }
+}
+function onPriceGrid(R) {
+  for (const k of ['o', 'h', 'l', 'c']) for (const x of R[k]) if (Math.abs(x * 100 - Math.round(x * 100)) > 1e-6) return false
+  return true
+}
+function tagsFor(R) {
+  const T = [], X = E.ix, ref = E.referenceTrade(R)
+  const c0 = R.c[X(0)], gap1 = R.o[X(1)] / c0 - 1
+  if (gap1 >= 0.02) T.push('HAS_GAP_UP')
+  for (let k = 2; k <= 21; k++) if (R.o[X(k)] / R.c[X(k) - 1] - 1 <= -0.03) { T.push('HAS_GAP_DOWN'); break }
+  if (E.isLockedLimitUp(R.o[X(1)], R.h[X(1)], c0)) T.push('HAS_LIMIT_UP')
+  if (ref.available && ref.reason === 'STOP_GAP') T.push('HAS_STOP_GAP')
+  const atrp = R.atr[X(0)] / c0
+  if (atrp >= 0.04) T.push('HIGH_ATR'); if (atrp <= 0.02) T.push('LOW_ATR')
+  if (c0 / R.ma20[X(0)] - 1 >= 0.08) T.push('FAR_FROM_MA20')
+  const ic0 = R.ic[X(0)]
+  if (ic0 !== null) { T.push('INSTITUTION_AVAILABLE'); if (c0 / ic0 - 1 > 0.08) T.push('INSTITUTION_EXTENDED') }
+  if (ref.available) {
+    let mx = -Infinity; for (let k = ref.exitDay + 1; k <= ref.exitDay + 5; k++) mx = Math.max(mx, R.h[X(k)])
+    if (mx >= ref.exitPx * 1.05) T.push('POST_EXIT_CONTINUATION')
+    if (Math.abs(R.c[X(10)] - ref.entry) <= 0.5 * (ref.entry - ref.stop)) T.push('TIME_STOP_CASE')
+    let mn = Infinity; for (let k = ref.entryDay; k <= 10; k++) mn = Math.min(mn, R.l[X(k)])
+    const aPrev = R.atr[X(ref.entryDay - 1)]
+    if (mn <= ref.entry - aPrev && (ref.reason === 'STOP_GAP' || ref.reason === 'STOP_TOUCH')) T.push('AVERAGING_DOWN_TRAP')
+  }
+  return { tags: T, ref }
+}
+
+const usedCodes = new Set(), chosen = []
+function pick(list, cursorObj, need, pool, meta) {
+  while (cursorObj.i < list.length) {
+    const key = list[cursorObj.i++]
+    const si = Math.floor(key / 2000), p = key % 2000, s = stocks[si]
+    if (usedCodes.has(s.code)) continue
+    const R = windowR(si, p)
+    if (!onPriceGrid(R)) { stats.excl_price_grid++; continue }
+    let anomaly = false; for (let i = p - H; i <= p + F; i++) if (ANOMALY_DATES.has(s.d[i])) { anomaly = true; break }
+    const { tags, ref } = tagsFor(R)
+    if (need && !tags.includes(need)) continue
+    if (!need && tags.includes('HAS_LIMIT_UP') && pool !== 'B' && pool !== 'C') continue
+    usedCodes.add(s.code)
+    const item = { si, p, R, tags, ref, pool, anomaly, ...meta }
+    chosen.push(item)
+    return item
+  }
+  return null
+}
+
+const candC = E.seededShuffle(candidates(RANGE.C), C.SEED + '|POOL_C'), nC = candC.length, curC = { i: 0 }
+for (let i = 0; i < 120; i++) {
+  const it = pick(candC, curC, null, 'C', { slot: i < 100 ? 'primary' : 'reserve', exam: i < 50 ? 'A' : (i < 100 ? 'B' : null) })
+  if (!it) { console.error('BLOCKER: Pool C insufficient'); process.exit(2) }
+}
+const candAB = candidates(RANGE.A), nAB = candAB.length, candA = E.seededShuffle(candAB, C.SEED + '|POOL_A')
+const SLOTS = {
+  1: [null, null, null, null, null], 2: ['HAS_STOP_GAP', 'HAS_GAP_DOWN', null, null, null],
+  3: ['HIGH_ATR', 'HIGH_ATR', 'LOW_ATR', 'LOW_ATR', null], 4: [null, null, null, null, null],
+  5: ['HIGH_ATR', null, null, null, null], 6: ['HAS_GAP_UP', 'HAS_GAP_UP', 'HAS_LIMIT_UP', 'FAR_FROM_MA20', 'FAR_FROM_MA20'],
+  7: ['INSTITUTION_EXTENDED', 'INSTITUTION_EXTENDED', 'INSTITUTION_AVAILABLE', 'INSTITUTION_AVAILABLE', 'INSTITUTION_AVAILABLE'],
+  8: ['POST_EXIT_CONTINUATION', 'POST_EXIT_CONTINUATION', 'TIME_STOP_CASE', 'TIME_STOP_CASE', null],
+  9: ['AVERAGING_DOWN_TRAP', 'AVERAGING_DOWN_TRAP', 'HAS_STOP_GAP', null, null], 10: [null, null, null, null, null]
+}
+for (let ch = 1; ch <= 10; ch++) for (let set = 0; set < 2; set++) SLOTS[ch].forEach((need, si) => {
+  const cur = { i: 0 }, it = pick(candA, cur, need, 'A', { slot: set === 0 ? 'primary' : 'reserve', chapter: ch, chapterSlot: si })
+  if (!it) { console.error('BLOCKER: Pool A chapter', ch, 'tag', need); process.exit(2) }
+})
+const candB = E.seededShuffle(candAB, C.SEED + '|POOL_B'), curB = { i: 0 }
+for (let i = 0; i < 400; i++) {
+  const it = pick(candB, curB, null, 'B', { slot: i < 350 ? 'primary' : 'reserve' })
+  if (!it) { console.error('BLOCKER: Pool B insufficient'); process.exit(2) }
+}
+
+const enc100 = x => Math.round(x * 100)
+const enc1e4 = x => (x === null || x === undefined || !Number.isFinite(x)) ? null : Math.round(x * 10000)
+function label(i) { const h = E.hash32(C.SEED + '|label|' + i); return String.fromCharCode(65 + (h % 26)) + String(100 + (Math.floor(h / 26) % 900)) }
+const rounds = chosen.map((it, n) => {
+  const s = stocks[it.si], R = it.R, X = E.ix, d0 = s.cal[it.p], date = k => calendar[d0 + k]
+  const b1 = e50.get(date(1)), b21 = e50.get(date(21)), bench = (b1 && b21) ? [enc1e4(b1.o), enc1e4(b21.o)] : null
+  const icAvail = R.ic[X(0)] !== null, mkt = marketFor(s.code, s.d[it.p])
+  return { id: 'R' + String(n + 1).padStart(4, '0'), lb: label(n), pool: it.pool, slot: it.slot, ch: it.chapter || null, cs: it.chapterSlot ?? null,
+    ex: it.exam || null, code: s.code, name: s.name, mkt, d0, yr: Math.floor(s.d[it.p] / 10000), tags: it.tags, ia: icAvail ? 1 : 0, an: it.anomaly ? 1 : 0,
+    o: R.o.map(enc100), h: R.h.map(enc100), l: R.l.map(enc100), c: R.c.map(enc100), v: R.v.map(x => Math.max(1, Math.round(x / 1000))),
+    atr: R.atr.map(enc1e4), m20: R.ma20.map(enc1e4), m60: R.ma60.map(enc1e4), ic: R.ic.some(x => x !== null) ? R.ic.map(enc1e4) : null, b: bench }
+})
+function decode(r) {
+  const f100 = a => a.map(x => x / 100), f4 = a => a ? a.map(x => x === null ? null : x / 10000) : null
+  return { o: f100(r.o), h: f100(r.h), l: f100(r.l), c: f100(r.c), v: r.v, atr: f4(r.atr), ma20: f4(r.m20), ma60: f4(r.m60), ic: r.ic ? f4(r.ic) : new Array(C.WINDOW_LEN).fill(null) }
+}
+const problems = []
+for (const r of rounds) {
+  const errs = E.validateRound(decode(r)); if (errs.length) problems.push([r.id, errs])
+  const first = calendar[r.d0 - H], last = calendar[r.d0 + F]
+  if (r.pool === 'C' && first < 20240101) problems.push([r.id, 'exam window starts before 2024'])
+  if (r.pool !== 'C' && last > 20231231) problems.push([r.id, 'training window leaks into 2024'])
+}
+if (problems.length) { console.error('VALIDATION FAILED', problems.slice(0, 10)); process.exit(3) }
+const bank = { version: 'v2-extended-bank', built: new Date().toISOString().slice(0, 10), history_days: H, future_days: F, calendar, rounds }
+fs.writeFileSync(OUT + 'bank.json', JSON.stringify(bank))
+const cnt = (arr, f) => arr.reduce((m, x) => { const k = f(x); m[k] = (m[k] || 0) + 1; return m }, {})
+const report = {
+  stats, candidates: { 'A/B (2020-2023 windows)': nAB, 'C (2024-2025 windows)': nC }, anomaly_dates: [...ANOMALY_DATES],
+  rounds_by_pool_slot: cnt(rounds, r => r.pool + '_' + r.slot), rounds_by_pool_market: cnt(rounds, r => r.pool + '_' + r.mkt),
+  rounds_by_pool_d0year: cnt(rounds, r => r.pool + '_' + r.yr), institution_available_by_pool: cnt(rounds.filter(r => r.ia), r => r.pool),
+  bench0050_unavailable: rounds.filter(r => !r.b).map(r => [r.id, r.pool, calendar[r.d0 + 1], calendar[r.d0 + 21]]),
+  tags_by_pool: Object.fromEntries(['A', 'B', 'C'].map(p => [p, cnt(rounds.filter(r => r.pool === p).flatMap(r => r.tags), t => t)])),
+  chapter_primary_tags: Object.fromEntries([...Array(10)].map((_, i) => [i + 1, rounds.filter(r => r.ch === i + 1 && r.slot === 'primary').map(r => r.tags.join('+') || '-')])),
+  reference_unavailable: rounds.filter(r => !E.referenceTrade(decode(r)).available).length, bytes: fs.statSync(OUT + 'bank.json').size,
+  windows_in_anomaly_dates: rounds.filter(r => r.an).length
+}
+fs.writeFileSync(OUT + 'bank_report.json', JSON.stringify(report, null, 1))
+console.log(JSON.stringify(report, null, 1))
+console.log('done', (Date.now() - t0) / 1000 + 's')
