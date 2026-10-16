@@ -45,7 +45,7 @@
       case 15:support('區間下緣');resistance(res,'區間上緣');break;
       case 16:resistance(res,'前 20 日壓力');line(res,'#ff9f43','突破基準',true);out.focusCandles=[i];break;
       case 17:{var r17=maxA(R.h,i-22,i-3),b17=lastAbove(R.c,i-2,i-1,r17*1.002);resistance(r17,'原壓力');line(r17,'#ff9f43','假突破基準',true);mark(b17,R.c[b17],'曾收上','#ffd44a',8,-10);mark(i,c,'跌回區間','#39f5ff',8,18);out.focusCandles=[b17,i];break;}
-      case 18:{var r18=maxA(R.h,i-25,i-6),b18=lastAbove(R.c,i-5,i-1,r18*1.005);resistance(r18,'原壓力→回測');line(r18,'#ff9f43','回測基準',true);mark(b18,R.c[b18],'突破','#ffd44a',8,-10);mark(i,c,'回測','#39f5ff',8,18);out.focusCandles=[b18,i];break;}
+      case 18:{var r18=maxA(R.h,i-25,i-6),b18=lastAbove(R.c,i-5,i-1,r18*1.005);resistance(r18,'原壓力→回測');line(r18,'#ff9f43','回測基準',true);mark(b18,R.c[b18],'突破','#ffd44a',-55,-10);mark(i,c,'回測','#39f5ff',8,18);out.focusCandles=[b18,i];break;}
       case 19:out.showMA='ma20';mark(i,ma,'MA20','#ffd44a',8,-10);break;
       case 20:out.showMA='ma20';mark(i,c,'收盤','#39f5ff',8,-10);mark(i,ma,'MA20','#ffd44a',46,18);break;
       case 21:out.showMA='ma20';mark(i,c,'收盤','#39f5ff',8,-10);mark(i,ma,'MA20','#ffd44a',46,18);break;
@@ -56,7 +56,7 @@
       case 26:out.showVolume=true;out.focusVolume=i;out.focusCandles=[i];break;
       case 27:out.showMA='ma20';support('回檔支撐');out.focusCandles=[i];break;
       case 28:resistance(res,'突破壓力');line(res,'#ff9f43','突破基準',true);out.focusCandles=[i];break;
-      case 29:{var r29=maxA(R.h,i-25,i-6),b29=lastAbove(R.c,i-5,i-1,r29*1.005);resistance(r29,'原壓力→支撐');line(r29,'#ff9f43','回測基準',true);mark(b29,R.c[b29],'突破','#ffd44a',8,-10);mark(i,c,'守住回測','#39f5ff',8,18);out.focusCandles=[b29,i];break;}
+      case 29:{var r29=maxA(R.h,i-25,i-6),b29=lastAbove(R.c,i-5,i-1,r29*1.005);resistance(r29,'原壓力→支撐');line(r29,'#ff9f43','回測基準',true);mark(b29,R.c[b29],'突破','#ffd44a',-55,-10);mark(i,c,'守住回測','#39f5ff',8,18);out.focusCandles=[b29,i];break;}
       case 30:out.showMA='ma20';resistance(res,'上方壓力');out.focusCandles=[i];break;
       case 31:{var st31=Math.max(.01,sup-atr*.45);support('結構支撐');line(st31,'#ff465f','失策點',true);out.focusCandles=[i];break;}
       case 32:{var tg32=res>c?res:maxA(R.h,i-60,i-1);line(tg32,'#ffd44a','第一壓力/目標');mark(i,c,'目前價格','#39f5ff',8,18);break;}
