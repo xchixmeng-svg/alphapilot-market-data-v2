@@ -1,0 +1,54 @@
+name: Build BSG V3
+
+on:
+  push:
+    branches: [bsg-v3-product]
+    paths:
+      - 'apps/become-stock-god-v2/**'
+      - '.github/workflows/bsg-v3-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bsg-v3-product
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/become-stock-god-v2/package.json
+      - name: Install
+        working-directory: apps/become-stock-god-v2
+        run: npm install
+      - name: Build complete V3
+        working-directory: apps/become-stock-god-v2
+        run: npm run build:web
+      - name: Verify product
+        working-directory: apps/become-stock-god-v2
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const bank=JSON.parse(fs.readFileSync('build/bank.json','utf8'));
+          const html=fs.readFileSync('dist/index.html','utf8');
+          if(bank.history_days!==240) throw new Error('history_days != 240');
+          if(bank.future_days!==120) throw new Error('future_days != 120');
+          if(!Array.isArray(bank.rounds)||bank.rounds.length<500) throw new Error('rounds < 500');
+          for(const s of ['成為股神 V3','LEARNING PROTOCOL','能力雷達','我卡住了']) if(!html.includes(s)) throw new Error('missing marker '+s);
+          console.log('VERIFY_OK', {rounds:bank.rounds.length, history:bank.history_days, future:bank.future_days, htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
+          NODE
+      - name: Package artifact
+        working-directory: apps/become-stock-god-v2
+        run: |
+          mkdir -p release
+          cp dist/index.html release/become-stock-god-v3.html
+          cp build/bank_report.json release/bank_report.json
+          sha256sum release/* > release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: become-stock-god-v3
+          path: apps/become-stock-god-v2/release/
+          retention-days: 30
