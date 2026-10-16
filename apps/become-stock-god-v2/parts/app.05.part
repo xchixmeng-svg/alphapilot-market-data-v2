@@ -1,37 +1,62 @@
 
 // V3.3 audio mixer — independent BGM / SFX / coach voice.
+// Runtime-safe on iOS/Safari: idempotent DOM sync + guarded storage/audio APIs.
 (function(){
-  var bgmOn=localStorage.getItem('bsg_bgm')!=='0';
-  var sfxOn=localStorage.getItem('bsg_sfx')!=='0';
-  var voiceOn=localStorage.getItem('bsg_voice')!=='0';
-  var ctx=null,bgmNodes=[],bellTimer=null,bgmStarted=false;
+  function storeGet(k,fallback){try{var v=localStorage.getItem(k);return v==null?fallback:v;}catch(e){return fallback;}}
+  function storeSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+  var bgmOn=storeGet('bsg_bgm','1')!=='0';
+  var sfxOn=storeGet('bsg_sfx','1')!=='0';
+  var voiceOn=storeGet('bsg_voice','1')!=='0';
+  var ctx=null,bgmNodes=[],bellTimer=null,bgmStarted=false,queued=false,userActivated=false;
+
   function ac(){
-    try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!ctx)ctx=new AC();if(ctx.state==='suspended')ctx.resume();return ctx;}catch(e){return null;}
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+      if(!ctx)ctx=new AC();
+      if(ctx.state==='suspended'){var p=ctx.resume();if(p&&p.catch)p.catch(function(){});}
+      return ctx;
+    }catch(e){return null;}
   }
   function stopBgm(){
     if(bellTimer){clearInterval(bellTimer);bellTimer=null;}
-    bgmNodes.forEach(function(n){try{if(n.stop)n.stop();if(n.disconnect)n.disconnect();}catch(e){}});bgmNodes=[];bgmStarted=false;
+    bgmNodes.forEach(function(n){try{if(n.stop)n.stop();}catch(e){}try{if(n.disconnect)n.disconnect();}catch(e){}});
+    bgmNodes=[];bgmStarted=false;
   }
   function ambientBell(c){
-    if(!bgmOn||!c)return;var now=c.currentTime,o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
-    o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.exponentialRampToValueAtTime(660,now+1.8);
-    f.type='lowpass';f.frequency.value=1600;g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.012,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+2.4);
-    o.connect(f);f.connect(g);g.connect(c.destination);o.start(now);o.stop(now+2.5);
+    if(!bgmOn||!c)return;
+    try{
+      var now=c.currentTime,o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
+      o.type='sine';o.frequency.setValueAtTime(440,now);o.frequency.exponentialRampToValueAtTime(660,now+1.8);
+      f.type='lowpass';f.frequency.value=1600;
+      g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.012,now+.03);g.gain.exponentialRampToValueAtTime(.0001,now+2.4);
+      o.connect(f);f.connect(g);g.connect(c.destination);o.start(now);o.stop(now+2.5);
+    }catch(e){}
   }
   function startBgm(){
-    if(!bgmOn||bgmStarted)return;var c=ac();if(!c)return;bgmStarted=true;
-    var master=c.createGain();master.gain.value=.018;var filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.value=900;filter.Q.value=.8;master.connect(filter);filter.connect(c.destination);
-    var freqs=[55,82.41,110];
-    freqs.forEach(function(fr,i){var o=c.createOscillator(),g=c.createGain();o.type=i===0?'triangle':'sine';o.frequency.value=fr;g.gain.value=i===0 ? .42 : .22;o.connect(g);g.connect(master);o.start();bgmNodes.push(o,g);});
-    var lfo=c.createOscillator(),lg=c.createGain();lfo.type='sine';lfo.frequency.value=.08;lg.gain.value=260;lfo.connect(lg);lg.connect(filter.frequency);lfo.start();bgmNodes.push(lfo,lg,master,filter);
-    ambientBell(c);bellTimer=setInterval(function(){ambientBell(c);},9000);
+    if(!bgmOn||bgmStarted||!userActivated)return;
+    var c=ac();if(!c)return;
+    try{
+      var master=c.createGain();master.gain.value=.018;
+      var filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.value=900;filter.Q.value=.8;
+      master.connect(filter);filter.connect(c.destination);
+      [55,82.41,110].forEach(function(fr,i){
+        var o=c.createOscillator(),g=c.createGain();
+        o.type=i===0?'triangle':'sine';o.frequency.value=fr;g.gain.value=i===0?.42:.22;
+        o.connect(g);g.connect(master);o.start();bgmNodes.push(o,g);
+      });
+      var lfo=c.createOscillator(),lg=c.createGain();
+      lfo.type='sine';lfo.frequency.value=.08;lg.gain.value=260;lfo.connect(lg);lg.connect(filter.frequency);lfo.start();
+      bgmNodes.push(lfo,lg,master,filter);bgmStarted=true;
+      ambientBell(c);bellTimer=setInterval(function(){ambientBell(c);},9000);
+    }catch(e){stopBgm();}
   }
+  function setTxt(el,txt){if(el&&el.textContent!==txt)el.textContent=txt;}
+  function setOff(el,off){if(el&&el.classList.contains('off')!==off)el.classList.toggle('off',off);}
   function syncLegacySfx(){
-    localStorage.setItem('bsg_sfx',sfxOn?'1':'0');
-    var old=document.querySelector('[data-coach="sound"]');
-    if(!old)return;
+    storeSet('bsg_sfx',sfxOn?'1':'0');
+    var old=document.querySelector('[data-coach="sound"]');if(!old)return;
     var oldOn=old.textContent!=='🔇';
-    if(oldOn!==sfxOn)old.click();
+    if(oldOn!==sfxOn){try{old.click();}catch(e){}}
   }
   function renderControls(){
     var stats=document.querySelector('.hudstats');if(!stats)return;
@@ -39,28 +64,47 @@
     if(!wrap){
       wrap=document.createElement('div');wrap.className='audioMixer';
       wrap.innerHTML='<button class="audioBtn" data-audio="bgm" aria-label="背景音樂"></button><button class="audioBtn" data-audio="sfx" aria-label="音效"></button><button class="audioBtn" data-audio="voice" aria-label="教練語音"></button>';
-      var fs=stats.querySelector('[data-coach="fullscreen"]');stats.insertBefore(wrap,fs||null);
+      var fs=stats.querySelector('[data-coach="fullscreen"]');
+      try{stats.insertBefore(wrap,fs&&fs.parentNode===stats?fs:null);}catch(e){stats.appendChild(wrap);}
     }
     var b=wrap.querySelector('[data-audio="bgm"]'),s=wrap.querySelector('[data-audio="sfx"]'),v=wrap.querySelector('[data-audio="voice"]');
-    if(b){b.textContent=bgmOn?'🎵':'🎵×';b.classList.toggle('off',!bgmOn)}
-    if(s){s.textContent=sfxOn?'🔔':'🔕';s.classList.toggle('off',!sfxOn)}
-    if(v){v.textContent=voiceOn?'🗣️':'🤐';v.classList.toggle('off',!voiceOn)}
+    setTxt(b,bgmOn?'🎵':'🎵×');setOff(b,!bgmOn);
+    setTxt(s,sfxOn?'🔔':'🔕');setOff(s,!sfxOn);
+    setTxt(v,voiceOn?'🗣️':'🤐');setOff(v,!voiceOn);
   }
-  document.addEventListener('pointerdown',function(){if(bgmOn)startBgm();},{once:true,passive:true});
+  function sync(){renderControls();syncLegacySfx();}
+  function queueSync(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;sync();});}
+  function closestFromTarget(t,sel){return t&&t.closest?t.closest(sel):null;}
+
+  document.addEventListener('pointerdown',function(){userActivated=true;if(bgmOn)startBgm();},{once:true,passive:true});
   document.addEventListener('click',function(e){
-    var ab=e.target.closest('[data-audio]');
+    var ab=closestFromTarget(e.target,'[data-audio]');
     if(ab){
+      userActivated=true;
       var k=ab.getAttribute('data-audio');
-      if(k==='bgm'){bgmOn=!bgmOn;localStorage.setItem('bsg_bgm',bgmOn?'1':'0');if(bgmOn)startBgm();else stopBgm();}
-      if(k==='sfx'){sfxOn=!sfxOn;syncLegacySfx();}
-      if(k==='voice'){voiceOn=!voiceOn;localStorage.setItem('bsg_voice',voiceOn?'1':'0');if(!voiceOn&&'speechSynthesis' in window)window.speechSynthesis.cancel();}
+      if(k==='bgm'){
+        bgmOn=!bgmOn;storeSet('bsg_bgm',bgmOn?'1':'0');
+        if(bgmOn)startBgm();else stopBgm();
+      }else if(k==='sfx'){
+        sfxOn=!sfxOn;syncLegacySfx();
+      }else if(k==='voice'){
+        voiceOn=!voiceOn;storeSet('bsg_voice',voiceOn?'1':'0');
+        if(!voiceOn&&'speechSynthesis' in window)try{window.speechSynthesis.cancel();}catch(x){}
+      }
       renderControls();return;
     }
   },true);
   document.addEventListener('click',function(e){
-    if(!voiceOn&&e.target.closest('[data-coach="speak"]')){e.preventDefault();e.stopImmediatePropagation();}
+    if(!voiceOn&&closestFromTarget(e.target,'[data-coach="speak"]')){e.preventDefault();e.stopImmediatePropagation();}
   },true);
-  function sync(){renderControls();syncLegacySfx();}
-  var root=document.getElementById('app');if(root)new MutationObserver(sync).observe(root,{childList:true,subtree:true});
-  window.addEventListener('pagehide',stopBgm);sync();
+
+  var root=document.getElementById('app');
+  if(root)new MutationObserver(queueSync).observe(root,{childList:true,subtree:true});
+  window.addEventListener('pagehide',stopBgm);
+  window.addEventListener('pageshow',function(){queueSync();});
+  window.BSG_AUDIO_MIXER={
+    state:function(){return {bgm:bgmOn,sfx:sfxOn,voice:voiceOn,started:bgmStarted,activated:userActivated};},
+    sync:queueSync
+  };
+  queueSync();
 })();
