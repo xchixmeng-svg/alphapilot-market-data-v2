@@ -1,0 +1,11 @@
+
+/* V3.3 coach cutout treatment + audio controls */
+.soundBtn{display:none!important}
+.audioMixer{display:flex;align-items:center;gap:5px}.audioBtn{width:38px;height:38px;border-radius:10px;border:1px solid rgba(57,245,255,.28);background:linear-gradient(180deg,rgba(8,30,48,.95),rgba(4,17,30,.96));color:#e8fbff;font-size:16px;display:grid;place-items:center;box-shadow:inset 0 0 14px rgba(57,245,255,.03)}.audioBtn.off{opacity:.45;filter:saturate(.45)}
+/* Visually remove the rectangular photo-card feel: dark pixels blend into the HUD and edges fade away. */
+.coachPortrait,.homeCoachPortrait{background:none!important;background-color:transparent!important;border-color:transparent!important;box-shadow:none!important;overflow:visible!important}
+.coachPortrait::before,.homeCoachPortrait::before{inset:-4% -8% -2%!important;background-size:contain!important;background-position:center bottom!important;mix-blend-mode:screen!important;-webkit-mask-image:radial-gradient(ellipse 56% 72% at 50% 48%,#000 0 55%,rgba(0,0,0,.92) 68%,rgba(0,0,0,.36) 84%,transparent 100%)!important;mask-image:radial-gradient(ellipse 56% 72% at 50% 48%,#000 0 55%,rgba(0,0,0,.92) 68%,rgba(0,0,0,.36) 84%,transparent 100%)!important;filter:contrast(1.08) saturate(1.06) drop-shadow(0 0 12px rgba(57,245,255,.22))!important}
+.coachPortrait::after,.homeCoachPortrait::after{background:radial-gradient(ellipse at 50% 62%,rgba(58,218,255,.10),transparent 52%)!important}
+.coachRail{overflow:visible!important}.homeCoach{overflow:visible!important}
+@media (orientation:portrait) and (max-width:940px){.audioMixer{gap:3px}.audioBtn{width:34px;height:34px;font-size:14px}.homeCoachPortrait::before,.coachRail .coachPortrait::before{background-size:contain!important;background-position:center bottom!important}.coachRail{overflow:visible!important}}
+@media (orientation:landscape) and (max-height:520px){.audioBtn{width:29px;height:29px;font-size:12px;border-radius:8px}.audioMixer{gap:2px}.coachPortrait::before,.homeCoachPortrait::before{background-size:contain!important;background-position:center bottom!important}}
