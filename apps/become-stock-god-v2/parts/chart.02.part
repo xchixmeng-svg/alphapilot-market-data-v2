@@ -1,0 +1,29 @@
+
+/* V2.0.3 usability hotfix: make MA20/MA60 impossible to miss. */
+(function(root){
+  'use strict';
+  if(!root.BSGChart||!root.BSGChart.create)return;
+  var baseCreate=root.BSGChart.create;
+  root.BSGChart.create=function(wrap,opt){
+    opt=opt||{};
+    var baseGet=opt.getData;
+    var next={};
+    Object.keys(opt).forEach(function(k){next[k]=opt[k];});
+    next.getData=function(){
+      var d=baseGet?baseGet():null;
+      if(!d||!d.R||!d.showMA)return d;
+      var i=Math.max(0,Math.min(d.lastIdx,d.R.c.length-1));
+      var lines=(d.lines||[]).slice();
+      var m20=d.R.ma20&&d.R.ma20[i],m60=d.R.ma60&&d.R.ma60[i];
+      if(m20!=null&&isFinite(m20))lines.push({id:'__ma20',price:m20,color:'#ffd54a',label:'MA20',dash:false});
+      if(m60!=null&&isFinite(m60))lines.push({id:'__ma60',price:m60,color:'#63c7ff',label:'MA60',dash:true});
+      var out={};Object.keys(d).forEach(function(k){out[k]=d[k];});out.lines=lines;return out;
+    };
+    var inst=baseCreate(wrap,next);
+    var legend=document.createElement('div');
+    legend.className='ma-legend';
+    legend.innerHTML='<span class="ma20"><i></i>MA20</span><span class="ma60"><i></i>MA60</span>';
+    wrap.appendChild(legend);
+    return inst;
+  };
+})(window);
