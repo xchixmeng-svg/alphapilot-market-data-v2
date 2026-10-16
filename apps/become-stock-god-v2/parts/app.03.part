@@ -1,0 +1,31 @@
+ 2024–2025 盲測隔離。</li><li>K 線課程改為圖上教學，不再先丟一堆參數。</li></ul></div><div class="card flat"><div class="h2">時間軸狀態</div><div class="small">目前這份內嵌題庫每題是 D-'+BANK.history_days+'～D+'+BANK.future_days+'，因此成品不能憑空創造題庫沒有的歷史。V2 前端已改成依題目實際長度運作；下一個資料施工步驟是在 GitHub/Actions 讀原始 parquet，把題庫重建成 D-240～D+120。</div></div><button class="btn bad block" data-act="reset">清除 V2 進度重新開始</button></div>'+FOOT+'</div>';};
+
+var ACT={};
+ACT.home=function(){S.current=null;save();go('home');};ACT.resumeRound=function(){go('play');};ACT.academy=function(){go('academy');};ACT.about=function(){go('about',{back:UI.screen==='play'?'resumeRound':'home'});};
+ACT.lesson=function(el){go('lesson',{n:+el.dataset.n});};
+ACT.quiz=function(el){var n=+el.dataset.n,i=+el.dataset.i,l=CT.LESSONS[n-1];if(i===l.quiz.a){S.quiz[n]=true;maybeCompleteLesson(n);save();toast('答對了');render();}else{toast('還不對。回到上面的「可以做／不要做」再看一次。');el.classList.add('wrong');}};
+ACT.lessonPractice=function(el){startRound('lesson',lessonPracticeId(+el.dataset.n),+el.dataset.n);};
+ACT.practice=function(){if(S.current&&!S.current.applied){go('play');return;}if(S.lessons_done.length<3){toast('先完成前三課');return;}if(S.practice_idx>=S.training_order.length){toast('400 題訓練池已完成');return;}startRound('practice',S.training_order[S.practice_idx],null);};
+ACT.exam=function(){if(S.current&&!S.current.applied){go('play');return;}if(S.lessons_done.length<10){toast('先完成十課');return;}if(S.exam_idx>=S.exam_order.length){toast('100 題盲測已完成');return;}startRound('exam',S.exam_order[S.exam_idx],null);};
+ACT.decision=function(el){var c=current(),v=el.dataset.v;c.decision=v;if(v==='buy'){c.stage='plan';c.st.phase='plan';}else{c.entryClosed=true;c.stage='playback';c.st.phase='playback';}save();render();};
+ACT.backInspect=function(){var c=current();c.stage='inspect';c.st.phase='inspect';c.setup=null;save();render();};
+ACT.setup=function(el){current().setup=el.dataset.v;save();render();};ACT.gap=function(el){current().draft.maxGap=+el.dataset.v;save();render();};ACT.risk=function(el){current().draft.riskPct=+el.dataset.v;save();render();};
+ACT.lockPlan=function(){var c=current();E.submitPlan(c.st,planObject(c));c.stage='open';c.openDay=1;save();render();};
+ACT.retryD2=function(){var c=current();c.st.flags.locked_d1=true;c.st.day=1;c.openDay=2;c.stage='open';save();render();};
+ACT.abandon=function(){var c=current();c.entryClosed=true;c.st.phase='playback';c.stage='playback';if(c.openDay===2)c.st.day=1;else c.st.day=0;save();render();};
+ACT.execute=function(){var c=current(),R=getR(c.id),k=c.openDay,res=E.executeEntry(c.st,R,k);if(!res.ok){toast('無法成交：'+res.why);return;}if(E.isBankrupt(E.navAt(c.st,R.o[X(k)]))){E.liquidateAtClose(c.st,R,k,'BANKRUPTCY');c.bankrupt=true;c.stage='done';save();go('result');return;}c.stage='holding';save();render();};
+ACT.nextDay=function(){if(finishNoTradeIfEnd())return;stepOne();};ACT.next5=function(){var c=current(),R=getR(c.id);for(var i=0;i<5&&!c.st.done;i++)E.advanceDay(c.st,R);if(c.st.done)c.stage='done';save();if(c.stage==='done')go('result');else render();};
+ACT.sellNext=function(){E.setPendingExit(current().st);save();render();};ACT.cancelExit=function(){E.cancelPending(current().st);save();render();};
+ACT.stopSheet=function(){var c=current();openSheet('<div class="eyebrow">STOP MANAGEMENT</div><div class="h2">管理停損</div><div class="small muted">停損最好只往上收緊。往下放寬會在復盤被記錄。</div><div class="stepper" style="margin:14px 0"><button class="btn" data-act="stopStep" data-d="-1">−</button><input id="liveStop" inputmode="decimal" value="'+px(c.st.stop)+'"><button class="btn" data-act="stopStep" data-d="1">＋</button></div><button class="btn primary block" data-act="saveStop">套用停損</button>');};
+ACT.stopStep=function(el){var i=document.getElementById('liveStop'),v=parseFloat(i.value),t=E.tickSize(v);i.value=px(E.roundToTick(v+(+el.dataset.d)*t));};ACT.saveStop=function(){var v=parseFloat(document.getElementById('liveStop').value);if(!E.isNum(v)||v<=0)return;E.changeStop(current().st,E.roundToTick(v));save();closeSheet();render();};
+ACT.result=function(){go('result');};
+ACT.nextPractice=function(){S.current=null;save();ACT.practice();};
+ACT.nextExam=function(){S.current=null;save();ACT.exam();};
+ACT.leaveRound=function(){openSheet('<div class="h2">離開這一題？</div><div class="small muted">目前這題尚未完成。回首頁會保留進度，下次可以繼續。</div><button class="btn primary block" style="margin-top:14px" data-act="resumeHome">保留並回首頁</button><button class="btn block" style="margin-top:8px" data-act="closeSheet">繼續這題</button>');};ACT.resumeHome=function(){closeSheet();go('home');};ACT.closeSheet=function(){closeSheet();};
+ACT.reset=function(){localStorage.removeItem(SAVE_KEY);S=newSave();save();toast('V2 進度已重設');go('home');};
+
+var INP={};
+
+// Resume unfinished round from home by tapping the status card is intentionally simple: auto-resume on app load.
+if(S.current&&!S.current.applied){UI.screen='play';}render();
+})();
