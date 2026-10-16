@@ -1,0 +1,6 @@
+asonTitle: seasonTitle, examGrade: examGrade, examUnlocked: examUnlocked,
+    isBankrupt: isBankrupt, validateRound: validateRound
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.BSG = api;
+})(typeof window !== 'undefined' ? window : globalThis);
