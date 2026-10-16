@@ -1,0 +1,31 @@
+
+/* V3.2 mobile readability + living coach */
+.coachPortrait,.homeCoachPortrait{position:relative!important;isolation:isolate!important;overflow:hidden!important;background-image:linear-gradient(to top,rgba(2,8,18,.98) 0,rgba(2,8,18,.22) 30%,transparent 64%)!important;background-color:#04101d!important}
+.coachPortrait::before,.homeCoachPortrait::before{content:"";position:absolute;z-index:1;inset:-1%;background-image:url("__COACH_ASSET__");background-repeat:no-repeat;background-position:center 18%;background-size:cover;transform-origin:50% 80%;animation:coachIdle 5.2s ease-in-out infinite;will-change:transform,filter}
+.coachPortrait::after,.homeCoachPortrait::after{content:"";position:absolute;z-index:2;inset:0;pointer-events:none;background:radial-gradient(circle at 52% 42%,rgba(57,245,255,.08),transparent 48%),linear-gradient(to top,rgba(2,8,18,.72),transparent 45%);animation:coachGlow 3.8s ease-in-out infinite}
+.coachIdentity,.homeCoachSpeech{z-index:4!important}
+@keyframes coachIdle{0%,100%{transform:translate3d(0,0,0) scale(1.005);filter:brightness(1)}50%{transform:translate3d(0,-4px,0) scale(1.018);filter:brightness(1.045)}}
+@keyframes coachGlow{0%,100%{opacity:.74}50%{opacity:1}}
+.coachSpeak{margin-top:7px;min-height:34px;border:1px solid rgba(57,245,255,.45);border-radius:9px;background:rgba(10,47,72,.72);color:#dffaff;font-weight:900;font-size:12px;padding:6px 10px}
+.soundBtn{font-size:17px!important}
+@media(prefers-reduced-motion:reduce){.coachPortrait::before,.homeCoachPortrait::before,.coachPortrait::after,.homeCoachPortrait::after{animation:none!important}}
+
+/* portrait phone: bigger type and preserve coach proportions */
+@media (orientation:portrait) and (max-width:940px){
+ html,body{font-size:17px!important;line-height:1.58!important}
+ .hudbar{height:62px!important;min-height:62px!important}.brandname{font-size:16px!important}.brandname b{font-size:19px!important}.hudpill{font-size:12px!important}.iconbtn{font-size:17px!important}
+ .homebody{padding:14px 12px 30px!important}.heroPanel{padding:24px 20px!important}.kicker{font-size:13px!important}.heroTitle{font-size:46px!important;line-height:1.03!important}.heroLead{font-size:17px!important;line-height:1.72!important}.ctaRow .btn{font-size:16px!important;min-height:54px!important;padding:11px 15px!important}
+ .statLabel{font-size:12px!important}.statValue{font-size:30px!important}.statBox{padding:15px!important}.worldCard .wc{font-size:11px!important}.worldCard .wt{font-size:21px!important}.worldCard .ws{font-size:15px!important;line-height:1.55!important}
+ .homeCoach{min-height:330px!important;padding:10px!important}.homeCoachSpeech{padding:12px!important}.homeCoachSpeech b{font-size:14px!important}.homeCoachSpeech span{font-size:16px!important;line-height:1.6!important}.homeCoachPortrait{min-height:245px!important;aspect-ratio:16/10!important}.homeCoachPortrait::before{background-size:cover!important;background-position:center 16%!important;transform-origin:center 55%!important}
+ .trainingHead{min-height:58px!important}.trainTitle strong{font-size:17px!important}.trainTitle span{font-size:13px!important}.missionTag{font-size:12px!important}
+ .question{font-size:20px!important;line-height:1.58!important}.qtag{font-size:13px!important}.explain,.coachLine{font-size:15px!important;line-height:1.58!important}.answer{font-size:17px!important;line-height:1.5!important;min-height:70px!important}.answerHelp,.feedbackBox{font-size:15px!important;line-height:1.55!important}.btn{font-size:16px!important}
+ .coachRail{width:136px!important;height:202px!important}.coachRail .coachPortrait::before{background-size:cover!important;background-position:center 12%!important}
+ .coachRail .coachIdentity strong{font-size:13px!important}
+}
+
+/* short landscape: readable without turning the coach into a stretched card */
+@media (orientation:landscape) and (max-height:520px){
+ .coachPortrait::before{background-size:cover!important;background-position:center 15%!important;transform-origin:center 58%!important}
+ .coachSpeechBody{font-size:9px!important}.coachSpeechTitle{font-size:9px!important}.coachQuick button{font-size:8px!important}.coachQuick button:first-child{font-size:9px!important}
+ .question{font-size:12px!important}.answer{font-size:10px!important}.missionrow .tt{font-size:10px!important}
+}
