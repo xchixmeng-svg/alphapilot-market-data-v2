@@ -1,0 +1,272 @@
+n_count: 0, add_risk_violation: false, reentry_count: 0, chasing_reentry: false,
+        time_plan_break: 0, no_stop: false, gap_plan_exceeded: false, held_plan_no_chase: false,
+        locked_d1: false, locked_d2: false, cancelled_at_open: false
+      },
+      pauseSeen: {}, done: false, endReason: null
+    };
+  }
+
+  function sharesHeld(st) { var s = 0; for (var i = 0; i < st.lots.length; i++) s += st.lots[i].shares; return s; }
+  function costBasisTotal(st) { var s = 0; for (var i = 0; i < st.lots.length; i++) s += buyTotal(st.lots[i].price, st.lots[i].shares); return s; }
+  function avgPrice(st) { var sh = sharesHeld(st); if (!sh) return null; var s = 0; for (var i = 0; i < st.lots.length; i++) s += st.lots[i].price * st.lots[i].shares; return s / sh; }
+  function liquidationValue(st, px) { return sharesHeld(st) * px * (1 - C.SELL_COST_RATE); }
+  function navAt(st, px) { return st.cash + liquidationValue(st, px); }
+
+  function doBuy(st, k, px, shares, kind) {
+    var fee = buyFee(px, shares);
+    st.cash -= px * shares + fee;
+    st.lots.push({ shares: shares, price: px, day: k, fee: fee });
+    st.fills.push({ type: 'BUY', day: k, price: px, shares: shares, fee: fee, tax: 0, reason: kind || 'ENTRY' });
+  }
+  function doSellSellable(st, k, px, reason) {
+    var sold = 0, keep = [];
+    for (var i = 0; i < st.lots.length; i++) {
+      var lot = st.lots[i];
+      if (lot.day < k) sold += lot.shares; else keep.push(lot);
+    }
+    if (sold <= 0) return 0;
+    var fee = sellFee(px, sold), tax = sellTax(px, sold);
+    st.cash += px * sold - fee - tax;
+    st.lots = keep;
+    st.fills.push({ type: 'SELL', day: k, price: px, shares: sold, fee: fee, tax: tax, reason: reason });
+    st.lastExit = { day: k, price: px, reason: reason };
+    return sold;
+  }
+  function hasUnsellable(st, k) { for (var i = 0; i < st.lots.length; i++) if (st.lots[i].day >= k) return true; return false; }
+
+  // Decision helpers ------------------------------------------------------
+  function decideSkip(st, confidence) { st.decision = 'skip'; st.confidence = confidence; st.phase = 'playback'; }
+  function decideBuy(st, confidence) { st.decision = 'buy'; st.confidence = confidence; st.phase = 'plan'; }
+
+  // plan: {stop|null, target|null, maxGap|null(unlimited), maxHold, shares, sizing:'shares'|'risk', riskPct, autoTP, trailMult}
+  function submitPlan(st, plan) { st.plan = plan; st.flags.no_stop = !isNum(plan.stop); st.phase = 'open'; st.entryTry = 1; }
+
+  // Reveal open of day k (1 or 2) for the pending entry
+  function revealOpen(st, R, k) {
+    var b = bar(R, k), pc = prevClose(R, k);
+    var dailyGap = b.o / pc - 1;
+    var d0Close = R.c[ix(0)];
+    var planGap = b.o / d0Close - 1;
+    var locked = isLockedLimitUp(b.o, b.h, pc);
+    var maxGap = st.plan.maxGap; // null = unlimited
+    var exceeds = maxGap !== null && maxGap !== undefined && planGap > maxGap + 1e-12;
+    return { day: k, gap: planGap, dailyGap: dailyGap, planGap: planGap, locked: locked, exceeds: exceeds, open: b.o, prevClose: pc, limitUp: limitUp(pc) };
+  }
+
+  function finalShares(st, R, k, nav) {
+    var px = R.o[ix(k)], p = st.plan;
+    var aff = affordableShares(st.cash, px);
+    if (p.sizing === 'risk' && isNum(p.stop) && p.riskPct > 0) return maxSharesForRisk(nav, st.cash, px, p.stop, p.riskPct);
+    return Math.max(0, Math.min(p.shares, aff));
+  }
+
+  // Execute initial entry at open of day k. Returns false if cannot.
+  function executeEntry(st, R, k, opts) {
+    opts = opts || {};
+    if (k < 1 || k > 2) return { ok: false, why: 'ENTRY_WINDOW_CLOSED' };
+    if (k === 2 && !st.flags.locked_d1) return { ok: false, why: 'ENTRY_WINDOW_CLOSED' };
+    var b = bar(R, k), pc = prevClose(R, k);
+    if (isLockedLimitUp(b.o, b.h, pc)) return { ok: false, why: 'LOCKED' };
+    var navBefore = st.cash; // no position before entry
+    var sh = finalShares(st, R, k, navBefore);
+    if (sh <= 0) return { ok: false, why: 'NO_SHARES' };
+    if (isNum(st.plan.stop) && b.o <= st.plan.stop) return { ok: false, why: 'OPEN_BELOW_STOP' };
+    if (isNum(st.plan.target) && b.o >= st.plan.target) return { ok: false, why: 'OPEN_AT_OR_ABOVE_TARGET' };
+    if (opts.chase) st.flags.chase_plan_violation = true;
+    doBuy(st, k, b.o, sh, 'ENTRY');
+    st.entryDay = k; st.day = k;
+    st.stop = isNum(st.plan.stop) ? st.plan.stop : null; st.origStop = st.stop;
+    st.target = isNum(st.plan.target) ? st.plan.target : null;
+    st.autoTP = false; st.trailMult = st.plan.trailMult || null;
+    st.maxHold = st.plan.maxHold || null;
+    st.timeStopDay = st.maxHold ? Math.min(st.observationEnd, k + st.maxHold - 1) : null;
+    var a = atrAt(R, k - 1), ma = R.ma20[ix(0)], icost = R.ic ? R.ic[ix(0)] : null;
+    var pl = isNum(st.stop) ? buyTotal(b.o, sh) - sellNet(st.stop, sh) : null;
+    st.firstEntry = {
+      day: k, price: b.o, shares: sh, navBefore: navBefore, gap: b.o / R.c[ix(0)] - 1, dailyGap: b.o / pc - 1,
+      buyTotal: buyTotal(b.o, sh), positionPct: buyTotal(b.o, sh) / navBefore,
+      plannedLoss: pl, accountRisk: pl !== null ? pl / navBefore : null,
+      atrMultiple: (isNum(st.stop) && isNum(a) && a > 0) ? (b.o - st.stop) / a : null,
+      atr: a, ma20Dist: isNum(ma) ? R.c[ix(0)] / ma - 1 : null,
+      instDist: isNum(icost) ? R.c[ix(0)] / icost - 1 : null
+    };
+    st.phase = 'holding';
+    // same-day (T+1) stop breach information on entry day
+    if (isNum(st.stop) && b.l <= st.stop) { st.flags.same_day_stop_breach = true; st.events.push({ day: k, type: 'SAME_DAY_STOP_BREACH' }); }
+    closeOfDay(st, R, k);
+    return { ok: true, shares: sh };
+  }
+
+  // Close-of-day bookkeeping: trailing stop, NAV history, events
+  function closeOfDay(st, R, k) {
+    var b = bar(R, k);
+    if (st.trailMult && sharesHeld(st) > 0) {
+      var hc = -Infinity;
+      for (var j = st.entryDay; j <= k; j++) hc = Math.max(hc, R.c[ix(j)]);
+      var a = atrAt(R, k);
+      if (isNum(a)) {
+        var calc = roundToTick(hc - a * st.trailMult, 'down');
+        if (!isNum(st.stop) || calc > st.stop) { st.stop = calc; st.events.push({ day: k, type: 'TRAIL_RAISE', stop: calc }); }
+      }
+    }
+    var nav = navAt(st, b.c);
+    st.navHist.push({ day: k, nav: nav });
+  }
+
+  function currentR(st, R, k) {
+    if (!st.firstEntry || !isNum(st.firstEntry.plannedLoss) || st.firstEntry.plannedLoss <= 0) return null;
+    var nav = navAt(st, R.c[ix(k)]);
+    return (nav - st.navStart) / st.firstEntry.plannedLoss;
+  }
+
+  // Player actions at close of day `st.day`
+  function setPendingExit(st) { st.pending = { type: 'EXIT', reason: 'MANUAL_EXIT' }; }
+  function setPendingTimeExit(st) { st.pending = { type: 'EXIT', reason: 'TIME_EXIT' }; }
+  function extendTimeStop(st) {
+    st.flags.time_plan_break += 1;
+    st.timeStopDay = Math.min(st.observationEnd, st.timeStopDay + 5);
+  }
+  function setPendingAdd(st, shares) { st.pending = { type: 'ADD', shares: shares }; }
+  function setPendingReentry(st, shares, stop) { st.pending = { type: 'REENTRY', shares: shares, stop: stop }; }
+  function cancelPending(st) { st.pending = null; }
+  function changeStop(st, newStop) {
+    if (!isNum(newStop)) return;
+    if (isNum(st.stop) && newStop < st.stop - 1e-9) {
+      st.flags.stop_widen_count += 1;
+      st.events.push({ day: st.day, type: 'STOP_WIDEN', from: st.stop, to: newStop });
+    }
+    st.stop = r2(newStop);
+  }
+
+  // Advance one trading day. Returns array of event objects for this day.
+  function advanceDay(st, R) {
+    var k = st.day + 1, b = bar(R, k), ev = [];
+    st.day = k;
+    var holding = sharesHeld(st) > 0;
+    // 1) pending orders at open
+    if (st.pending) {
+      var p = st.pending; st.pending = null;
+      if (p.type === 'EXIT' && holding) {
+        doSellSellable(st, k, b.o, p.reason); ev.push({ type: 'SELL', reason: p.reason, price: b.o });
+      } else if (p.type === 'ADD' && holding) {
+        if (isLockedLimitUp(b.o, b.h, prevClose(R, k))) ev.push({ type: 'ADD_LOCKED' });
+        else {
+          var aff = affordableShares(st.cash, b.o), sh = Math.min(p.shares, aff);
+          if (sh > 0) {
+            var avg = avgPrice(st);
+            if (b.o < avg) { st.flags.averaging_down_count += 1; ev.push({ type: 'AVERAGING_DOWN' }); }
+            doBuy(st, k, b.o, sh, 'ADD');
+            var navNow = navAt(st, b.o);
+            var risk = isNum(st.stop) ? (costBasisTotal(st) - sellNet(st.stop, sharesHeld(st))) / navNow : 1;
+            if (risk > 0.02) { st.flags.add_risk_violation = true; ev.push({ type: 'ADD_RISK_OVER_2' }); }
+            ev.push({ type: 'ADD', price: b.o, shares: sh });
+          }
+        }
+      } else if (p.type === 'REENTRY' && !holding) {
+        if (isLockedLimitUp(b.o, b.h, prevClose(R, k))) ev.push({ type: 'REENTRY_LOCKED' });
+        else {
+          var sh2 = Math.min(p.shares, affordableShares(st.cash, b.o));
+          if (sh2 > 0) {
+            st.flags.reentry_count += 1;
+            if (st.lastExit && b.o >= st.lastExit.price * 1.03) st.flags.chasing_reentry = true;
+            doBuy(st, k, b.o, sh2, 'REENTRY');
+            st.stop = isNum(p.stop) ? p.stop : null;
+            if (!isNum(st.stop)) st.flags.no_stop = true;
+            st.timeStopDay = Math.max(st.timeStopDay || k, Math.min(st.observationEnd, k + (st.maxHold || 20) - 1));
+            st.phase = 'holding';
+            ev.push({ type: 'REENTRY', price: b.o, shares: sh2 });
+          }
+        }
+      }
+    }
+    holding = sharesHeld(st) > 0;
+    // 2) stop / take-profit with T+1. In V2 a defined target is an active target.
+    if (holding) {
+      var tp = st.target;
+      var ex = dailyExit(b, st.stop, tp);
+      if (ex) {
+        var sold = doSellSellable(st, k, ex.price, ex.reason);
+        if (sold > 0) ev.push({ type: 'SELL', reason: ex.reason, price: ex.price });
+        if (hasUnsellable(st, k) && isNum(st.stop) && b.l <= st.stop) { st.flags.same_day_stop_breach = true; ev.push({ type: 'SAME_DAY_STOP_BREACH' }); }
+      }
+    }
+    holding = sharesHeld(st) > 0;
+    // 4) close bookkeeping
+    closeOfDay(st, R, k);
+    var dayRet = b.c / prevClose(R, k) - 1;
+    if (Math.abs(dayRet) >= 0.06) ev.push({ type: 'BIG_MOVE', ret: dayRet });
+    var rNow = currentR(st, R, k);
+    if (holding && rNow !== null) {
+      if (rNow >= 1 && !st.pauseSeen.r1) { st.pauseSeen.r1 = 1; ev.push({ type: 'R_PLUS_1' }); }
+      if (rNow >= 2 && !st.pauseSeen.r2) { st.pauseSeen.r2 = 1; ev.push({ type: 'R_PLUS_2' }); }
+      if (rNow <= -0.5 && !st.pauseSeen.rm) { st.pauseSeen.rm = 1; ev.push({ type: 'R_MINUS_HALF' }); }
+    }
+    if (holding && unlocksFor(st.level).timeStop && st.timeStopDay !== null && k >= st.timeStopDay && k < st.observationEnd) ev.push({ type: 'TIME_STOP_DAY' });
+    if (k >= st.observationEnd) ev.push({ type: 'OBSERVATION_END' });
+    if (!holding && st.fills.length && st.phase === 'holding') {
+      // position fully closed this day
+      var canRe = unlocksFor(st.level).reentry && st.flags.reentry_count === 0 && k < st.observationEnd && st.mode !== 'skipview';
+      st.phase = canRe ? 'exited' : 'done';
+      if (!canRe) { st.done = true; st.endReason = st.lastExit ? st.lastExit.reason : 'EXIT'; }
+    }
+    if (k >= st.observationEnd) { st.phase = 'done'; st.done = true; st.endReason = sharesHeld(st) > 0 ? 'OBSERVATION_END' : (st.lastExit ? st.lastExit.reason : 'NO_TRADE'); }
+    st.events = st.events.concat(ev.map(function (e) { e.day = k; return e; }));
+    return ev;
+  }
+
+  function endAfterExit(st) { st.phase = 'done'; st.done = true; st.endReason = st.lastExit ? st.lastExit.reason : 'EXIT'; }
+
+  // Liquidate everything at close of day k (bankruptcy)
+  function liquidateAtClose(st, R, k, reason) {
+    var b = bar(R, k), sh = sharesHeld(st);
+    if (sh > 0) {
+      var fee = sellFee(b.c, sh), tax = sellTax(b.c, sh);
+      st.cash += b.c * sh - fee - tax; st.lots = [];
+      st.fills.push({ type: 'SELL', day: k, price: b.c, shares: sh, fee: fee, tax: tax, reason: reason });
+      st.lastExit = { day: k, price: b.c, reason: reason };
+    }
+    st.phase = 'done'; st.done = true; st.endReason = reason;
+  }
+
+  // ───────────────────────── §32–§37 scoring ─────────────────────────
+  function selectionScore(boughtActually, refR) {
+    var s = clamp(refR / 2, -1, 1);
+    return clamp(boughtActually ? 50 + 50 * s : 50 - 50 * s, 0, 100);
+  }
+  function calibrationScore(p, refR) { var y = refR > 0 ? 1 : 0; return 100 * (1 - Math.pow(p - y, 2)); }
+  function atrStopScore(m) {
+    if (!isNum(m)) return 0;
+    if (m >= 1.2 && m <= 2.5) return 100;
+    if ((m >= 0.8 && m < 1.2) || (m > 2.5 && m <= 3.5)) return 70;
+    if ((m >= 0.5 && m < 0.8) || (m > 3.5 && m <= 4.5)) return 30;
+    return 0;
+  }
+  function accountRiskScore(r) {
+    if (!isNum(r)) return 0;
+    if (r <= 0.01) return 100; if (r <= 0.015) return 80; if (r <= 0.02) return 50; if (r <= 0.03) return 20; return 0;
+  }
+  function positionScore(p) { if (p <= 0.35) return 100; if (p <= 0.5) return 70; if (p <= 0.7) return 20; return 0; }
+  function gapScore(g) { if (g <= 0.01) return 100; if (g <= 0.025) return 80; if (g <= 0.04) return 40; return 0; }
+  function ma20Score(d) { if (!isNum(d)) return null; if (d <= 0.05) return 100; if (d <= 0.08) return 70; if (d <= 0.12) return 30; return 0; }
+  function instScore(d) { if (!isNum(d)) return null; if (d <= 0.03) return 100; if (d <= 0.08) return 60; return 0; }
+
+  function weighted(parts) {
+    var w = 0, s = 0;
+    for (var i = 0; i < parts.length; i++) { if (parts[i][0] === null || parts[i][0] === undefined) continue; w += parts[i][1]; s += parts[i][0] * parts[i][1]; }
+    return w > 0 ? s / w : null;
+  }
+
+  function disciplineScore(f) {
+    var d = 100;
+    if (f.no_stop) d -= 50;
+    d -= Math.min(50, 25 * f.stop_widen_count);
+    d -= Math.min(40, 20 * f.averaging_down_count);
+    if (f.add_risk_violation) d -= 30;
+    if (f.chase_plan_violation) d -= 25;
+    if (f.reentry_count > 0) d -= 15;
+    if (f.chasing_reentry) d -= 15;
+    d -= Math.min(30, 15 * f.time_plan_break);
+    return Math.max(0, d);
+  }
+
+  // Build the per-round record (§75) an
