@@ -4,7 +4,9 @@ import path from 'node:path'
 const root = process.cwd() + path.sep
 const read = p => fs.readFileSync(path.join(root, p), 'utf8')
 const bank = read('build/bank.json')
-const coach = fs.readFileSync(path.join(root, 'assets/coach.webp')).toString('base64')
+// Store the coach as text-base64 so GitHub/CI never corrupts the binary asset.
+const coach = read('assets/coach.b64').replace(/\s+/g,'')
+if (!coach.startsWith('UklGR')) throw new Error('coach asset is not valid WebP base64')
 const style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp;base64,' + coach)
 const safe = s => s.replace(/<\/script/gi, '<\\/script')
 const html = `<!doctype html>
