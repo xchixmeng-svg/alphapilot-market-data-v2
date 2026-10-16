@@ -41,7 +41,7 @@
       master.connect(filter);filter.connect(c.destination);
       [55,82.41,110].forEach(function(fr,i){
         var o=c.createOscillator(),g=c.createGain();
-        o.type=i===0?'triangle':'sine';o.frequency.value=fr;g.gain.value=i===0?.42:.22;
+        o.type=i===0?'triangle':'sine';o.frequency.value=fr;g.gain.value=i===0 ? .42 : .22;
         o.connect(g);g.connect(master);o.start();bgmNodes.push(o,g);
       });
       var lfo=c.createOscillator(),lg=c.createGain();
