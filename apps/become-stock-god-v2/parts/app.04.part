@@ -49,10 +49,20 @@
     if(ui.exercise===0)return {title:'AI 教練｜'+m.title,body:(m.rule||guide[m.skill]||'先只看這一關指定的東西。')};
     return {title:'AI 教練｜小芸',body:guide[m.skill]||'先看圖，只回答這一題正在問的那一件事。'};
   }
+  function ensureHomeCoach(app){
+    var home=app.querySelector('.coachHomeFloat');
+    if(!home){
+      home=document.createElement('div');
+      home.className='coachHomeFloat';
+      home.innerHTML='<div class="coachHomeBubble"><b>AI 教練｜小芸</b><span>準備好就從第一個任務開始，我會在右邊陪你。</span></div><div class="coachHomePortrait"><div class="coachHomeTag">AI COACH｜小芸</div></div>';
+      app.appendChild(home);
+    }
+  }
   function syncCoach(){
     var app=document.getElementById('app'); if(!app)return;
     var main=app.querySelector('.main'),training=main&&main.querySelector('.training');
-    if(!main||!training)return;
+    if(!main||!training){ensureHomeCoach(app);return;}
+    var home=app.querySelector('.coachHomeFloat'); if(home)home.remove();
     var rail=main.querySelector('.coachRail');
     if(!rail){
       rail=document.createElement('aside');
