@@ -34,13 +34,31 @@
 .coachQuick button:hover,.coachQuick button:active{border-color:var(--cyan);box-shadow:0 0 18px rgba(57,245,255,.16)}
 .coachRail.examMode .coachQuick button:first-child{opacity:.3;pointer-events:none}
 .coachOrb{background-image:url("__COACH_ASSET__")!important;background-size:cover!important;background-position:center 7%!important;color:transparent!important;border-color:rgba(57,245,255,.72)!important}
+.coachHomeFloat{position:fixed;right:14px;bottom:12px;z-index:90;width:min(280px,24vw);height:min(520px,70vh);pointer-events:none;filter:drop-shadow(0 0 30px rgba(57,245,255,.18))}
+.coachHomePortrait{position:absolute;inset:82px 0 0;background-image:linear-gradient(to top,rgba(2,8,18,.96) 0,rgba(2,8,18,.08) 30%,transparent 56%),url("__COACH_ASSET__");background-size:cover;background-position:center top;border:1px solid rgba(57,245,255,.38);border-radius:22px;overflow:hidden;box-shadow:0 0 30px rgba(57,245,255,.14)}
+.coachHomeBubble{position:absolute;z-index:3;right:8px;top:0;width:240px;padding:11px 13px;border:1px solid rgba(57,245,255,.66);border-radius:14px;background:linear-gradient(145deg,rgba(8,34,56,.97),rgba(4,17,31,.97));box-shadow:0 0 22px rgba(57,245,255,.15)}
+.coachHomeBubble b{display:block;color:var(--cyan);font-size:12px;margin-bottom:5px}.coachHomeBubble span{display:block;color:#e8f8ff;font-size:12px;line-height:1.45;font-weight:800}
+.coachHomeTag{position:absolute;left:12px;right:12px;bottom:12px;padding:8px 10px;border:1px solid rgba(57,245,255,.38);border-radius:10px;background:rgba(3,13,25,.82);color:#fff;text-align:center;font-weight:950;font-size:12px;letter-spacing:.04em}
 .debugBadge{display:none!important}
 @media(min-width:941px) and (max-width:1240px){
   .main:has(>.training){grid-template-columns:225px minmax(0,1fr) 220px!important}
   .coachRail{padding:9px 7px}.coachSpeech{padding:10px}.coachSpeechBody{font-size:12px}.coachPortrait{min-height:250px}.coachQuick button{font-size:10px;padding:5px}.dockGrid{grid-template-columns:1fr!important}.lessonDock{min-height:275px!important}.answers{grid-template-columns:repeat(3,1fr)!important}
 }
-@media(max-width:940px){
-  .coachRail{display:none!important}
+@media (orientation:landscape) and (min-width:700px) and (max-width:940px){
+  html,body,#app,.screen{height:100%!important;overflow:hidden!important}
+  .main:has(>.training){display:grid!important;grid-template-columns:170px minmax(0,1fr) 190px!important;align-items:stretch!important;overflow:hidden!important}
+  .main:has(>.training)>.sidebar{display:block!important;width:auto!important;min-width:0!important}
+  .main:has(>.training)>.training{min-width:0!important;height:100%!important}
+  .training{grid-template-rows:42px minmax(0,1fr) 170px!important;overflow:hidden!important}
+  .trainingHead{padding:4px 8px!important}.chartArea{padding:5px 6px 0!important}.lessonDock{padding:6px!important;min-height:0!important}
+  .dockGrid{grid-template-columns:minmax(0,1fr) minmax(240px,.8fr)!important;gap:6px!important}.prompt{padding:8px 10px!important}.question{font-size:14px!important;line-height:1.3!important}.answer{min-height:46px!important;font-size:11px!important;padding:5px!important}.answers{gap:5px!important}
+  .coachRail{display:flex!important;padding:6px 5px;gap:6px}.coachSpeech{padding:7px 8px}.coachSpeechTitle{font-size:9px;margin-bottom:3px}.coachSpeechBody{font-size:10px;line-height:1.35}.coachPortrait{min-height:150px;border-radius:12px;background-position:center 5%}.coachIdentity{left:6px;right:6px;bottom:6px;padding:5px 6px}.coachIdentity strong{font-size:14px}.coachQuick{gap:4px}.coachQuick button{min-height:30px;font-size:8px;padding:3px}.coachQuick button:first-child{min-height:34px;font-size:9px}
+  .coachHomeFloat{width:200px;height:340px;right:6px;bottom:4px}.coachHomePortrait{inset:62px 0 0}.coachHomeBubble{width:180px;padding:7px 8px}.coachHomeBubble span{font-size:9px}.coachHomeBubble b{font-size:9px}
+}
+@media (orientation:portrait) and (max-width:940px){
+  .coachRail{position:fixed!important;right:8px;bottom:8px;z-index:95!important;width:122px!important;height:188px!important;display:block!important;padding:0!important;border:1px solid rgba(57,245,255,.55)!important;border-radius:18px!important;overflow:hidden!important;background:#04111e!important;box-shadow:0 0 28px rgba(57,245,255,.2)!important}
+  .coachRail .coachSpeech,.coachRail .coachQuick{display:none!important}.coachRail .coachPortrait{display:block!important;position:absolute!important;inset:0!important;min-height:0!important;border:0!important;border-radius:0!important;background-position:center top!important}.coachRail .coachIdentity{left:6px!important;right:6px!important;bottom:6px!important;padding:5px!important}.coachRail .coachIdentity span{display:none}.coachRail .coachIdentity strong{font-size:12px!important}.coachRail .coachIdentity strong:before{content:'↻ 橫向完整模式 · ';color:var(--cyan);font-size:8px}
+  .coachHomeFloat{display:block!important;width:128px;height:220px;right:8px;bottom:8px}.coachHomePortrait{inset:0;border-radius:18px;background-position:center top}.coachHomeBubble{display:none}.coachHomeTag{left:6px;right:6px;bottom:6px;padding:5px;font-size:9px}.coachHomeTag:before{content:'↻ 橫向完整模式  ';color:var(--cyan)}
 }
 @media(max-width:760px){
   html,body{overflow:auto!important;height:auto!important;min-height:100%!important}
