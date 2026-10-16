@@ -42,13 +42,13 @@
   function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
   function coachCopy(){
     var a=api(),ui=a&&a.ui,m=ui&&ui.mission;
-    if(!m)return {title:'AI 教練',body:'準備好就從第一個任務開始，我會一直在旁邊陪你。'};
+    if(!m)return {title:'AI 教練',body:'準備好，就從第一個任務開始。我會一直在旁邊陪你。'};
     var fb=document.querySelector('.feedbackBox');
     if(fb&&fb.textContent.trim())return {title:'AI 教練',body:fb.textContent.replace(/\s+/g,' ').trim()};
     var cl=document.querySelector('.coachLine');
     if(ui.hint&&cl&&cl.textContent.trim())return {title:'AI 教練｜提示模式',body:cl.textContent.replace(/^AI 教練｜/,'').replace(/\s+/g,' ').trim()};
     if(ui.exercise===0)return {title:'AI 教練｜'+m.title,body:(m.rule||guide[m.skill]||'先只看這一關指定的東西。')};
-    return {title:'AI 教練',body:guide[m.skill]||'先看圖，只回答這一題正在問的那一件事。'};
+    return {title:'AI 教練',body:guide[m.skill]||'先看圖。只回答這一題正在問的那一件事。'};
   }
   function unlockAudio(){
     if(!soundOn)return null;
@@ -64,10 +64,43 @@
     else if(kind==='level'){tone(523,.12,'sine',.04,0);tone(659,.12,'sine',.04,.09);tone(784,.22,'sine',.045,.18);}
     else{tone(420,.06,'sine',.018,0);}
   }
+  function voiceScore(v){
+    if(!v)return -999;
+    var name=(v.name||'').toLowerCase(),lang=(v.lang||'').toLowerCase(),s=0;
+    if(lang==='zh-tw'||lang.indexOf('zh-tw')===0)s+=100;
+    else if(lang.indexOf('zh')===0)s+=45;
+    if(/mei[- ]?jia|meijia|ting[- ]?ting|siri|美佳|婷婷/.test(name))s+=45;
+    if(/premium|enhanced|natural/.test(name))s+=30;
+    if(v.localService)s+=8;
+    if(/compact|eloquence|espeak|festival/.test(name))s-=80;
+    if(/male|男/.test(name))s-=12;
+    return s;
+  }
+  function pickCoachVoice(){
+    try{
+      var vs=window.speechSynthesis&&window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[];
+      if(!vs||!vs.length)return null;
+      return vs.slice().sort(function(a,b){return voiceScore(b)-voiceScore(a);})[0]||null;
+    }catch(e){return null;}
+  }
+  function humanizeSpeech(text){
+    return String(text||'')
+      .replace(/\s+/g,' ')
+      .replace(/：/g,'： ')
+      .replace(/；/g,'； ')
+      .replace(/，/g,'， ')
+      .replace(/。/g,'。 ')
+      .trim();
+  }
   function speakCoach(){
     if(!('speechSynthesis' in window))return;
-    var c=coachCopy(),text=c.body;if(!text)return;
-    try{window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=.94;u.pitch=1.02;u.volume=1;var vs=window.speechSynthesis.getVoices&&window.speechSynthesis.getVoices();if(vs&&vs.length){var v=vs.find(function(x){return /zh-TW/i.test(x.lang);})||vs.find(function(x){return /^zh/i.test(x.lang);});if(v)u.voice=v;}window.speechSynthesis.speak(u);}catch(e){}
+    var c=coachCopy(),text=humanizeSpeech(c.body);if(!text)return;
+    try{
+      window.speechSynthesis.cancel();
+      var u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=.86;u.pitch=1.0;u.volume=.95;
+      var v=pickCoachVoice();if(v)u.voice=v;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
   }
   function addFullscreenButton(){
     var stats=document.querySelector('.hudstats');if(!stats)return;
@@ -136,6 +169,7 @@
   });
   window.addEventListener('resize',queue,{passive:true});window.addEventListener('orientationchange',queue,{passive:true});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',queue,{passive:true});
+  if('speechSynthesis' in window&&window.speechSynthesis.addEventListener)window.speechSynthesis.addEventListener('voiceschanged',function(){});
   var root=document.getElementById('app');if(root)new MutationObserver(queue).observe(root,{childList:true,subtree:true,characterData:true});
   queue();
 })();
