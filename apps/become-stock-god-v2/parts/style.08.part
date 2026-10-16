@@ -1,0 +1,26 @@
+
+/* V3 final layout — remove coach artwork/rail so the chart owns the viewport. */
+.coachRail,.homeCoach,.coachPortrait,.homeCoachPortrait{display:none!important}
+
+/* Desktop/tablet: reclaim the former coach column for the chart. */
+@media (min-width:941px){
+  .main:has(>.training){grid-template-columns:300px minmax(0,1fr)!important}
+  .heroGrid:has(>.homeCoach){grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr)!important}
+}
+@media (min-width:941px) and (max-width:1240px){
+  .main:has(>.training){grid-template-columns:225px minmax(0,1fr)!important}
+  .heroGrid:has(>.homeCoach){grid-template-columns:minmax(0,1fr) 240px!important}
+}
+
+/* Phone landscape: two columns only — mission list + maximum chart/training width. */
+@media (orientation:landscape) and (max-height:520px){
+  .main:has(>.training){grid-template-columns:150px minmax(0,1fr)!important}
+  .heroGrid:has(>.homeCoach){grid-template-columns:minmax(0,1fr) 210px!important}
+}
+
+/* Phone portrait: never float artwork over chart, questions, or controls. */
+@media (orientation:portrait) and (max-width:940px){
+  .coachRail,.homeCoach,.coachPortrait,.homeCoachPortrait{display:none!important;position:static!important;width:0!important;height:0!important;min-height:0!important}
+  .heroGrid:has(>.homeCoach){grid-template-columns:1fr!important}
+  .training{width:100%!important}
+}
