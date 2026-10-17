@@ -47,6 +47,7 @@
     if(fb&&fb.textContent.trim())return {title:'AI 教練',body:fb.textContent.replace(/\s+/g,' ').trim()};
     var cl=document.querySelector('.coachLine');
     if(ui.hint&&cl&&cl.textContent.trim())return {title:'AI 教練｜提示模式',body:cl.textContent.replace(/^AI 教練｜/,'').replace(/\s+/g,' ').trim()};
+    if(ui.mode==='practice'||ui.mode==='exam')return {title:'AI 教練',body:'先自己判斷這題在問什麼，再照順序掃描：趨勢、位置、均線、量價、空間。'};
     if(ui.exercise===0)return {title:'AI 教練｜'+m.title,body:(m.rule||guide[m.skill]||'先只看這一關指定的東西。')};
     return {title:'AI 教練',body:guide[m.skill]||'先看圖。只回答這一題正在問的那一件事。'};
   }
