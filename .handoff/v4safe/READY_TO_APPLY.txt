@@ -1,0 +1,1 @@
+V4 handoff chunks are being staged from the verified Claude package. Baseline: 09fe999a9f94eb6f5a54e3f89c4a73a882b98bf1
