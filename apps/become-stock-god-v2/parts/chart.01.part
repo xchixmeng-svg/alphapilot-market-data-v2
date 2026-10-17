@@ -1,4 +1,4 @@
-/* 成為股神 V3 — neon training chart */
+/* 從菜雞到股神 (V3 engine) — neon training chart */
 (function(root){
 'use strict';
 var COL={bg:'#050b17',grid:'rgba(70,118,155,.16)',up:'#ff465f',down:'#24d79b',text:'#eefaff',muted:'#7190a8',ma20:'#ffd44a',ma60:'#27c8ff',cyan:'#39f5ff',violet:'#9876ff'};
@@ -33,11 +33,10 @@ function create(wrap,opt){
   var pad=(hi-lo)*.085||Math.max(1,hi*.02);lo-=pad;hi+=pad;function y(p){return padT+(hi-p)/(hi-lo)*(priceH-padT);}function yi(py){return hi-(py-padT)/(priceH-padT)*(hi-lo);}function x(ii){return blank+(ii-first+.5)*bw;}geo={y:y,yi:yi,x:x,bw:bw,first:first,last:last,plotW:plotW,priceH:priceH};
   var layout={W:W,H:H,plot:{x0:0,y0:padT,x1:plotW,y1:priceH},reserved:{top:[0,padT],ctl:[bottom,H],lane:laneOn?[laneTop,bottom]:null},bw:bw,labels:[],dots:[],lane:[],badges:[]};
   ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.font='600 11px ui-monospace,Menlo,monospace';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.textBaseline='middle';for(var gy=0;gy<=4;gy++){var py=padT+gy*(priceH-padT)/4,pv=yi(py);ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(plotW,Math.round(py)+.5);ctx.stroke();ctx.fillText(fmt(pv),plotW+7,py);}for(var gx=1;gx<5;gx++){var xx=plotW*gx/5;ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,laneTop);ctx.stroke();}if(showVol){ctx.beginPath();ctx.moveTo(0,volTop-6);ctx.lineTo(W,volTop-6);ctx.stroke();}
-  var taken=[];// occupied text/dot boxes, in canvas px
+  var taken=[];
   ctx.font=LABEL_FONT;
   (d.zones||[]).forEach(function(z){var yt=y(z.hi),yb=y(z.lo),col=z.color||COL.cyan;ctx.save();ctx.globalAlpha=z.alpha||.13;var zg=ctx.createLinearGradient(0,yt,0,yb);zg.addColorStop(0,col);zg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=zg;ctx.fillRect(0,yt,plotW,Math.max(2,yb-yt));ctx.globalAlpha=.85;ctx.strokeStyle=col;ctx.setLineDash([5,5]);ctx.strokeRect(.5,yt+.5,plotW-1,Math.max(2,yb-yt));ctx.setLineDash([]);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6;ctx.font=LABEL_FONT;var ly=Math.max(padT+7,yt+11);ctx.fillText(z.label||'',8,ly);var zw=ctx.measureText(z.label||'').width;taken.push({x0:6,y0:ly-7,x1:10+zw,y1:ly+7,t:z.label});ctx.restore();});
   if(d.d0Idx>=first&&d.d0Idx<=last){var xd=x(d.d0Idx)+bw/2;ctx.save();ctx.setLineDash([3,5]);ctx.strokeStyle='rgba(80,230,255,.45)';ctx.beginPath();ctx.moveTo(xd,padT-4);ctx.lineTo(xd,laneTop);ctx.stroke();ctx.restore();ctx.fillStyle=COL.cyan;ctx.font='800 10px ui-monospace';ctx.textAlign='right';ctx.fillText('NOW',Math.max(28,Math.min(plotW-2,xd-3)),padT/2+2);ctx.textAlign='left';}
-  // one band per run of consecutive focus candles (per-candle rectangles striped on narrow screens)
   var fset={},fl=(d.focusCandles||[]).filter(function(z){return z>=first&&z<=last;}).sort(function(a,b){return a-b;}),runs=[];fl.forEach(function(z){fset[z]=1;var r=runs[runs.length-1];if(r&&z<=r[1]+1)r[1]=z;else runs.push([z,z]);});
   runs.forEach(function(r){var x0=x(r[0])-bw*.5+1,x1=x(r[1])+bw*.5-1,wv=Math.max(14,x1-x0),cxm=(x0+x1)/2;ctx.save();ctx.globalAlpha=.12;ctx.fillStyle=COL.cyan;ctx.shadowColor=COL.cyan;ctx.shadowBlur=18;ctx.fillRect(cxm-wv/2,padT,wv,priceH-padT);ctx.restore();});
   for(var k=first;k<=last;k++){var o=R.o[k],h=R.h[k],l=R.l[k],c=R.c[k],up=c>=o,col=up?COL.up:COL.down,cx=x(k),body=Math.max(3,Math.min(bw*.78,22));
@@ -46,25 +45,21 @@ function create(wrap,opt){
   var mode=d.showMA===true?'both':d.showMA;if(mode==='ma20'||mode==='both')drawGlowLine(R.ma20,COL.ma20,first,last,x,y,2.1);if(mode==='ma60'||mode==='both')drawGlowLine(R.ma60,COL.ma60,first,last,x,y,2.1);
   var leg=[];function badge(arr,col,name){if(!arr)return;var idx=Math.min(last,d.lastIdx),v=arr[idx];if(v==null)return;leg.push('<span style="color:'+col+'"><i style="background:'+col+'"></i>'+name+' '+fmt(v)+'</span>');}
   if(mode==='ma20'||mode==='both')badge(R.ma20,COL.ma20,'MA20');if(mode==='ma60'||mode==='both')badge(R.ma60,COL.ma60,'MA60');legend.innerHTML=leg.join('');legend.style.display=leg.length?'flex':'none';
-  // reference lines: the price tag lives in the axis gutter; tags are spread so they never stack (mockup: MA20 / MA60 badges)
   var lns=(d.lines||[]).filter(function(ln){return ln.price>0;}).map(function(ln){return {ln:ln,py:y(ln.price),by:y(ln.price)};}).sort(function(a,b){return a.py-b.py;});
   for(var q=1;q<lns.length;q++)if(lns[q].by<lns[q-1].by+21)lns[q].by=lns[q-1].by+21;
   if(lns.length&&lns[lns.length-1].by>priceH-10){var sh=lns[lns.length-1].by-(priceH-10);lns.forEach(function(L){L.by-=sh;});for(q=lns.length-2;q>=0;q--)if(lns[q].by>lns[q+1].by-21)lns[q].by=lns[q+1].by-21;}
   lns.forEach(function(L){var ln=L.ln,py=L.py,by=L.by,col=ln.color||COL.cyan;ctx.save();ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=7;ctx.lineWidth=1.5;if(ln.dash)ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(plotW,py);if(Math.abs(by-py)>1)ctx.lineTo(plotW+3,by);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0;ctx.fillStyle=col;rr(ctx,plotW+1,by-10,axis-2,20,8);ctx.fill();ctx.fillStyle='#041019';ctx.font='800 10px ui-monospace,Menlo,monospace';ctx.fillText(fmt(ln.price),plotW+6,by+.5);layout.badges.push({t:ln.label||'',y0:by-10,y1:by+10,py:py});
     if(ln.label){ctx.font=LABEL_FONT;var tw=ctx.measureText(ln.label).width,cands=[{x1:plotW-5,yc:py-10},{x1:plotW-5,yc:py+11}],best=null;for(var cc=0;cc<cands.length;cc++){var b={x0:cands[cc].x1-tw,x1:cands[cc].x1,y0:cands[cc].yc-7,y1:cands[cc].yc+7};if(b.y0<padT||b.y1>priceH)continue;if(!taken.some(function(t){return overlap(t,b);})){best=b;break;}if(!best)best=b;}if(!best)best={x0:plotW-5-tw,x1:plotW-5,y0:py-17,y1:py-3};ctx.fillStyle=col;ctx.textAlign='right';ctx.fillText(ln.label,best.x1,(best.y0+best.y1)/2);ctx.textAlign='left';best.t=ln.label;taken.push(best);layout.labels.push({t:ln.label,box:best,kind:'line'});}
     ctx.restore();});
-  // markers: dots first (every dot is an obstacle for every label), then labels
   var vis=markers.filter(function(m){return m.idx>=first&&m.idx<=last&&isFinite(m.price);});
   vis.forEach(function(m){m._x=x(m.idx);m._y=y(m.price);taken.push({x0:m._x-6,y0:m._y-6,x1:m._x+6,y1:m._y+6,dot:true});});
   var path=vis.filter(function(m){return m.lane;}).sort(function(a,b){return a.idx-b.idx;});
   if(path.length>1){ctx.save();ctx.strokeStyle='rgba(152,118,255,.85)';ctx.shadowColor=COL.violet;ctx.shadowBlur=6;ctx.lineWidth=1.8;ctx.beginPath();path.forEach(function(m,j){if(j)ctx.lineTo(m._x,m._y);else ctx.moveTo(m._x,m._y);});ctx.stroke();ctx.restore();}
   vis.forEach(function(m){var col=m.color||COL.cyan;ctx.save();ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(m._x,m._y,4.5,0,Math.PI*2);ctx.fill();ctx.restore();layout.dots.push({t:m.label,x:m._x,y:m._y,idx:m.idx});});
   ctx.font=LABEL_FONT;ctx.textBaseline='middle';
-  // lane labels (M06): one label per candle column, centred under its own candle; endpoints first, crowded ones skipped
   if(path.length){ctx.font='800 10px -apple-system,"PingFang TC",sans-serif';var order=[path[path.length-1],path[0]].concat(path.slice(1,-1)),laneBoxes=[],yc=laneTop+LANE/2;
     order.forEach(function(m){var tw=ctx.measureText(m.label).width,b={x0:m._x-tw/2-1,x1:m._x+tw/2+1,y0:yc-7,y1:yc+7};if(b.x0<0||b.x1>W-2)return;if(laneBoxes.some(function(t){return overlap(t,b);}))return;laneBoxes.push(b);m._lane=b;});
     path.forEach(function(m){if(!m._lane)return;var col=m.color||COL.cyan;ctx.save();ctx.strokeStyle=col;ctx.globalAlpha=.32;ctx.setLineDash([2,3]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(m._x,m._y+6);ctx.lineTo(m._x,laneTop+1);ctx.stroke();ctx.restore();ctx.fillStyle=col;ctx.textAlign='center';ctx.fillText(m.label,m._x,yc);ctx.textAlign='left';layout.lane.push({t:m.label,box:m._lane,dot:{x:m._x,y:m._y}});});ctx.font=LABEL_FONT;}
-  // free labels: try positions around the dot, keep the first that is inside the plot and touches nothing
   vis.filter(function(m){return !m.lane;}).forEach(function(m){var tw=ctx.measureText(m.label||'').width,th=14,cx=m._x,cy=m._y;
     function bx(kind){switch(kind){case'R':return{x0:cx+8,y0:cy-th/2};case'L':return{x0:cx-8-tw,y0:cy-th/2};case'RU':return{x0:cx+5,y0:cy-th-6};case'LU':return{x0:cx-5-tw,y0:cy-th-6};case'RD':return{x0:cx+5,y0:cy+6};case'LD':return{x0:cx-5-tw,y0:cy+6};case'U':return{x0:cx-tw/2,y0:cy-th-8};case'D':return{x0:cx-tw/2,y0:cy+8};}}
     var seq=m.prefer==='above'?['RU','LU','U','R','L','RD','LD','D']:m.prefer==='below'?['RD','LD','D','R','L','RU','LU','U']:['R','L','RU','LU','RD','LD','U','D'];
@@ -73,7 +68,6 @@ function create(wrap,opt){
     var best=null,bestCost=Infinity;seq.forEach(function(kind,rank){var p=at(kind),b={x0:p.x0-2,y0:p.y0,x1:p.x0+tw+2,y1:p.y0+th,leader:!!p.leader};var inb=b.x0>=2&&b.x1<=plotW-2&&b.y0>=padT&&b.y1<=priceH;var ov=0;taken.forEach(function(t){if(t.dot&&Math.abs(t.x0+6-cx)<.1&&Math.abs(t.y0+6-cy)<.1)return;ov+=area(t,b);});var mxc=(b.x0+b.x1)/2,myc=(b.y0+b.y1)/2,own=Math.hypot(mxc-cx,myc-cy),gOwn=Math.hypot(Math.max(0,b.x0-cx,cx-b.x1),Math.max(0,b.y0-cy,cy-b.y1)),mis=0;if(!b.leader)vis.forEach(function(o){if(o===m)return;var gO=Math.hypot(Math.max(0,b.x0-o._x,o._x-b.x1),Math.max(0,b.y0-o._y,o._y-b.y1));if(Math.hypot(mxc-o._x,myc-o._y)+2<own&&gO<gOwn)mis++;});var cost=(inb?0:1e6)+ov*100+mis*5000+rank;if(cost<bestCost){bestCost=cost;best=b;}});
     var col=m.color||COL.cyan;ctx.save();if(best.leader){var ex=best.x0>cx?best.x0:best.x1,ey=(best.y0+best.y1)/2;ctx.strokeStyle=col;ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx+(ex>cx?5:-5),cy);ctx.lineTo(ex+(ex>cx?-3:3),cy);ctx.lineTo(ex,ey);ctx.stroke();ctx.globalAlpha=1;}ctx.fillStyle='rgba(4,12,24,.72)';rr(ctx,best.x0,best.y0,best.x1-best.x0,best.y1-best.y0,4);ctx.fill();ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=5;ctx.fillText(m.label||'',best.x0+2,(best.y0+best.y1)/2+.5);ctx.restore();best.t=m.label;taken.push(best);layout.labels.push({t:m.label,box:best,kind:'marker',dot:{x:cx,y:cy},leader:!!best.leader});});
   if(view.cross!==null&&view.cross>=first&&view.cross<=last){var ci=view.cross,cxp=x(ci);ctx.save();ctx.setLineDash([2,3]);ctx.strokeStyle='rgba(110,230,255,.55)';ctx.beginPath();ctx.moveTo(cxp,padT);ctx.lineTo(cxp,laneTop);ctx.stroke();ctx.restore();tip.style.display='block';tip.textContent=(d.labelFor?d.labelFor(ci):ci)+'  開 '+fmt(R.o[ci])+'  高 '+fmt(R.h[ci])+'  低 '+fmt(R.l[ci])+'  收 '+fmt(R.c[ci])+'  量 '+Math.round(R.v[ci]||0).toLocaleString('en-US');}else tip.style.display='none';
-  // candle geometry for audits
   layout.candles=[];for(k=first;k<=last;k++)layout.candles.push({idx:k,x:x(k),yh:y(R.h[k]),yl:y(R.l[k])});
   wrap.__bsgLayout=layout;
  }

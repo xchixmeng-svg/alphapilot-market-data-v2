@@ -1,4 +1,4 @@
-/* 成為股神 V3 — complete learning map */
+/* 從菜雞到股神 (V3 engine) — complete learning map */
 (function(root){
 'use strict';
 var WORLDS=[

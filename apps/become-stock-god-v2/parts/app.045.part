@@ -65,7 +65,16 @@
       case 35:{var st35=Math.max(.01,sup-atr*.45),d3=Math.min(i+3,R.c.length-1);out.lastIdx=d3;line(st35,'#ff465f','原失策',true);mark(i,c,'D0','#9876ff',8,-10);mark(d3,R.c[d3],'D+3','#39f5ff',8,-10);out.focusCandles=[i,d3];break;}
       case 36:out.showMA='both';out.showVolume=true;support('支撐');resistance(res,'壓力');out.focusVolume=i;break;
     }
-    var a=api(),hint=a&&a.ui?a.ui.hint:0;
+    var a=api(),hint=a&&a.ui?a.ui.hint:0,scanMode=!!(a&&a.ui&&(a.ui.mode==='practice'||a.ui.mode==='exam'));
+    if(scanMode){
+      // mixed practice / blind exam: support/resistance zones and the M31/M32 stop/target lines are what the player must find;
+      // verdict labels (假突破 / 回測 / 跌回區間 …) would give the answer away. Positions and given trade lines stay.
+      var NEUTRAL=/^(D0|D-?\d|D\+3|收盤|開盤|昨收|今收|價格|目前價格|進場參考|最高|最低|高|低|實體上緣|實體下緣|開\/收上緣|開\/收下緣|前段高|後段高|前段低|後段低|近期高點|前高|D0 收盤|MA20|MA60|今天 MA20|5 天前 MA20)$/;
+      out.zones=[];if(mid===31||mid===32)out.lines=[];
+      out.markers=out.markers.filter(function(k){return NEUTRAL.test(k.label||'');});
+      out.lines=out.lines.map(function(l){return Object.assign({},l,{label:/(失策|目標|前高|昨收)/.test(l.label||'')?l.label:'參考價'});});
+      return out;
+    }
     if(hint>=2){
       var hasSupport=out.zones.some(function(z){return /支撐|下緣/.test(z.label||'');});
       var hasResistance=out.zones.some(function(z){return /壓力|上緣/.test(z.label||'');});

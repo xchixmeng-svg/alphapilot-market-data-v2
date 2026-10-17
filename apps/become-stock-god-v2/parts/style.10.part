@@ -1,0 +1,154 @@
+
+/* ───────────── 從菜雞到股神 — brand layer (V4) ─────────────
+   Same night-market terminal palette as the game (deep navy, cyan glow, gold for rewards/CTA, red/green candles),
+   plus the chick mascot. The mascot lives on home / map / results / hints — never inside the K-line plot. */
+:root{--ck-ink:#04101c;--ck-card:rgba(9,25,43,.86);--ck-card2:rgba(13,33,56,.9);--ck-line:rgba(73,201,255,.28);--ck-cyan:#39f5ff;--ck-gold:#ffcf3f;--ck-gold2:#ff9d1c;--ck-violet:#8e7bff;--ck-txt:#effaff;--ck-muted:#89a6bd}
+.ckSrOnly{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* mascot art */
+.ckChick{display:inline-block;flex:none;background-size:cover;background-position:center;border-radius:50%;border:2px solid rgba(255,207,63,.75);box-shadow:0 0 18px rgba(255,190,40,.28);background-color:#0b1d31}
+.ckChick.ck-rookie{background-image:url(__CHICK_ROOKIE_ASSET__)}
+.ckChick.ck-scholar{background-image:url(__CHICK_SCHOLAR_ASSET__)}
+.ckChick.ck-god{background-image:url(__CHICK_GOD_ASSET__)}
+.hudbar .ckChick.crown{width:38px!important;height:38px!important;border-radius:50%!important;font-size:0!important;background-size:cover!important;background-color:#0b1d31!important}
+.brandname{font-weight:950!important;letter-spacing:.02em!important}
+.brandname b{color:var(--ck-gold);text-shadow:0 0 14px rgba(255,190,40,.35)}
+
+/* buttons */
+.ckBtn{appearance:none;border:1px solid var(--ck-line);border-radius:14px;min-height:50px;padding:10px 14px;font:900 15px/1.2 var(--font);color:var(--ck-txt);display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:transform 120ms,filter 120ms;background:linear-gradient(180deg,#123251,#0a1d33)}
+.ckBtn:active{transform:scale(.98)}
+.ckBtn:focus-visible,.ckTile:focus-visible,.ckFeat:focus-visible,.ckMod:focus-visible,.ckNavBtn:focus-visible{outline:2px solid var(--ck-cyan);outline-offset:2px}
+.ckBtn[disabled]{opacity:.4;cursor:not-allowed}
+.ckGold{background:linear-gradient(180deg,#ffe27a,var(--ck-gold) 45%,var(--ck-gold2));border-color:#ffe69a;color:#2a1700;box-shadow:0 0 0 2px rgba(255,207,63,.25),0 8px 28px rgba(255,160,20,.35)}
+.ckCyan{border-color:rgba(57,245,255,.7);box-shadow:0 0 18px rgba(57,245,255,.18),inset 0 0 18px rgba(57,245,255,.08)}
+.ckViolet{border-color:rgba(142,123,255,.75);background:linear-gradient(180deg,#2a2160,#15123a);box-shadow:0 0 18px rgba(142,123,255,.22)}
+.ckBtn em{display:block;font:700 10px/1.2 var(--font);font-style:normal;color:var(--ck-muted);margin-top:2px}
+.ckSoftLock{flex-direction:column;gap:0}
+.ckSmall{min-height:40px;font-size:13px;padding:8px 12px}
+.ckIc{font-size:17px;line-height:1}
+.ckLink{background:none;border:0;color:var(--ck-cyan);font:800 13px var(--font);padding:6px 2px;cursor:pointer}
+.ckMuted{color:var(--ck-muted)}
+
+/* pages */
+.ckHome,.ckPage{max-width:640px;margin:0 auto;padding:0 max(14px,env(safe-area-inset-right,0px)) calc(96px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px))!important;display:flex;flex-direction:column;gap:14px;height:auto!important;overflow:visible!important}
+.ckHome .legal{display:block!important;text-align:center;color:#5f8197;font-size:11px;margin:4px 0 0}
+.ckCard{background:var(--ck-card);border:1px solid var(--ck-line);border-radius:18px;padding:14px;box-shadow:inset 0 0 30px rgba(57,245,255,.04)}
+
+/* hero */
+.ckHero{position:relative;margin:0 calc(-1 * max(14px,env(safe-area-inset-left,0px)));}
+.ckHeroArt{width:100%;aspect-ratio:720/880;max-height:min(70vh,640px);background:url(__HERO_ASSET__) center top/cover no-repeat;-webkit-mask-image:linear-gradient(180deg,#000 78%,transparent);mask-image:linear-gradient(180deg,#000 78%,transparent)}
+.ckHeroCta{position:relative;margin-top:-64px;padding:0 max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px}
+.ckStart{min-height:62px;font-size:19px;border-radius:18px;width:100%}
+.ckStart span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ckCtaRow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ckCtaRow .ckBtn{min-height:56px}
+
+/* profile */
+.ckProfile{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 12px;align-items:center}
+.ckAvatar{width:64px;height:64px}
+.ckAvatar.sm{width:44px;height:44px}
+.ckRank{font:900 17px/1.2 var(--font);color:var(--ck-txt)}
+.ckLvRow{display:flex;justify-content:space-between;align-items:baseline;margin:4px 0}
+.ckLv{font:900 15px var(--mono);color:var(--ck-gold)}
+.ckXpTxt{font:700 11px var(--mono);color:var(--ck-muted)}
+.ckXp{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.ckXp i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#26b9ff,var(--ck-cyan));box-shadow:0 0 10px rgba(57,245,255,.5)}
+.ckXp.gold i{background:linear-gradient(90deg,var(--ck-gold2),var(--ck-gold))}
+.ckStats{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--ck-line);padding-top:10px}
+.ckStats div{text-align:center;display:flex;flex-direction:column;gap:2px}
+.ckStats div+div{border-left:1px solid rgba(73,201,255,.16)}
+.ckStats b{font:900 20px var(--mono);color:var(--ck-txt)}
+.ckStats b small{font-size:12px;color:var(--ck-muted)}
+.ckStats span{font-size:11px;color:var(--ck-muted)}
+
+/* feature cards */
+.ckFeatures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ckFeat{appearance:none;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:16px;border:1px solid var(--ck-line);background:linear-gradient(180deg,var(--ck-card2),rgba(6,17,31,.95));color:var(--ck-txt);min-width:0}
+.ckFeat b{font:900 15px var(--font)}
+.ckFeat small{font-size:11px;line-height:1.35;color:var(--ck-muted)}
+.ckFeatArt{width:100%;height:auto;aspect-ratio:1;border-radius:12px!important;margin-bottom:4px}
+
+/* sections */
+.ckSection{display:flex;flex-direction:column;gap:8px}
+.ckSecHead{display:flex;justify-content:space-between;align-items:center}
+.ckSecHead h2,.ckModHead h2{margin:0;font:900 17px var(--font);color:var(--ck-txt)}
+.ckStrip{display:grid;grid-template-columns:1fr;gap:8px}
+.ckMods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ckMod{appearance:none;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:14px;border:1px solid var(--ck-line);background:var(--ck-card);color:var(--ck-txt);min-width:0}
+.ckMod b{font:900 14px var(--font)}
+.ckMod small{font:700 11px var(--mono);color:var(--ck-muted)}
+.ckModCode{font:900 10px var(--mono);letter-spacing:.12em;color:var(--ck-cyan)}
+.ckMiniBar{display:block;height:5px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}
+.ckMiniBar i{display:block;height:100%;background:linear-gradient(90deg,#26b9ff,var(--ck-cyan))}
+.ckPremium{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.ckPremium b{display:block;color:var(--ck-gold)}
+.ckPremium small{color:var(--ck-muted);font-size:12px}
+
+/* mission tiles (overview + home strip) */
+.ckTile{appearance:none;width:100%;cursor:pointer;display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;padding:10px 12px;border-radius:14px;border:1px solid var(--ck-line);background:var(--ck-card);color:var(--ck-txt);min-height:60px}
+.ckTileNum{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font:900 15px var(--mono);background:#0b2236;border:1px solid var(--ck-line);color:var(--ck-cyan)}
+.ckTileTxt{min-width:0;display:flex;flex-direction:column}
+.ckTileTxt b{font:900 15px var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ckTileTxt small{font-size:12px;color:var(--ck-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ckTileState{font:800 11px var(--font);padding:4px 8px;border-radius:99px;white-space:nowrap;border:1px solid var(--ck-line);color:var(--ck-muted)}
+.ckTile.done .ckTileNum{background:rgba(36,215,155,.14);border-color:rgba(36,215,155,.55);color:#24d79b}
+.ckTile.done .ckTileState{color:#24d79b;border-color:rgba(36,215,155,.45)}
+.ckTile.next{border-color:rgba(255,207,63,.75);box-shadow:0 0 18px rgba(255,190,40,.18)}
+.ckTile.next .ckTileNum{background:rgba(255,207,63,.14);border-color:rgba(255,207,63,.7);color:var(--ck-gold)}
+.ckTile.next .ckTileState{color:#2a1700;background:var(--ck-gold);border-color:var(--ck-gold)}
+.ckTile.locked{opacity:.5;cursor:not-allowed}
+
+/* overview */
+.ckPageTitle{margin:14px 0 0;font:950 24px/1.2 var(--font);color:var(--ck-txt)}
+.ckPageSub{margin:-6px 0 0;font-size:13px}
+.ckOvTop{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.ckOvTop .ckXp{margin:6px 0}
+.ckModule{display:flex;flex-direction:column;gap:8px;scroll-margin-top:80px}
+.ckModHead{display:flex;align-items:baseline;gap:8px}
+.ckModHead h2{flex:1}
+.ckModProg{font:800 12px var(--mono);color:var(--ck-muted)}
+.ckTiles{display:grid;grid-template-columns:1fr;gap:8px}
+
+/* arena (random practice / blind exam) */
+.ckArenaHead{display:flex;gap:12px;align-items:center;margin-top:10px}
+.ckArenaHead .ckPageTitle{margin:0}
+.ckArenaHead p{margin:4px 0 0;font-size:13px}
+.ckArenaCard{display:flex;flex-direction:column;gap:10px}
+.ckArenaCard header{display:flex;justify-content:space-between;align-items:center}
+.ckArenaCard header b{font:900 17px var(--font)}
+.ckArenaCard p{margin:0;font-size:12px}
+.ckTag{font:800 11px var(--font);padding:3px 9px;border-radius:99px;border:1px solid rgba(57,245,255,.5);color:var(--ck-cyan)}
+.ckTag.gold{border-color:rgba(255,207,63,.6);color:var(--ck-gold)}
+.ckArenaStats{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:12px;color:var(--ck-muted)}
+.ckArenaStats b{color:var(--ck-txt);font-family:var(--mono)}
+.ckNotice{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--ck-muted)}
+.ckNotice>span:not(.ckChick){flex:1}
+
+/* result page mascot */
+.ckMasteryChick{width:112px;height:112px;margin:0 auto 8px;display:block;border-width:3px}
+
+/* bottom nav (home / overview / arena only — lessons stay immersive) */
+.ckNav{position:fixed;z-index:70;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(3,10,22,.96);border-top:1px solid var(--ck-line);padding:4px max(6px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.ckNavBtn{appearance:none;background:none;border:0;color:var(--ck-muted);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;justify-content:center;font:800 11px var(--font);cursor:pointer;border-radius:12px}
+.ckNavIc{font-size:20px;line-height:1}
+.ckNavBtn.on{color:var(--ck-cyan);background:rgba(57,245,255,.08)}
+
+/* mixed sessions: no mission list column */
+.main.scanMain>.sidebar{display:none!important}
+@media(min-width:941px){.main.scanMain:has(>.training){grid-template-columns:minmax(0,1fr)!important}}
+
+/* home in phone landscape: the old landscape rules lock the page height; let the new pages scroll */
+@media (orientation:landscape) and (max-height:520px){
+  .ckHome,.ckPage{height:calc(var(--app-h,100dvh) - 44px - env(safe-area-inset-top,0px))!important;overflow-y:auto!important;padding-bottom:84px!important}
+  .ckHeroArt{max-height:300px;background-size:contain}
+  .ckHeroCta{margin-top:-20px}
+}
+@media (min-width:700px){.ckFeatures{gap:12px}.ckStrip{grid-template-columns:repeat(3,minmax(0,1fr))}.ckMods{grid-template-columns:repeat(3,minmax(0,1fr))}.ckTiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:370px){.ckFeat small{display:none}.ckStats b{font-size:17px}.ckStart{font-size:17px}}
+@media (prefers-reduced-motion:reduce){.ckBtn{transition:none}}
+
+/* header: on screens without a back button (home) the ⌂ duplicates the bottom nav and crowded the brand */
+.hudbar:not(:has(.brand .iconbtn)) .hudstats .iconbtn[data-act="home"]{display:none!important}
+/* hint button: the rookie chick asks for help (hint area is an allowed mascot spot; the chart is not) */
+.answerHelp{display:flex!important;align-items:center;justify-content:center;gap:8px}
+.answerHelp::before{content:"";width:26px;height:26px;flex:none;border-radius:50%;background:url(__CHICK_ROOKIE_ASSET__) center/cover;border:1px solid rgba(255,207,63,.6)}
