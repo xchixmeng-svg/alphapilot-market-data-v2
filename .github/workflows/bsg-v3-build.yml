@@ -52,8 +52,9 @@ jobs:
           if(!CT||!Array.isArray(CT.MISSIONS)||CT.MISSIONS.length!==36) throw new Error('missions != 36');
           if(!Array.isArray(CT.WORLDS)||CT.WORLDS.length!==6) throw new Error('worlds != 6');
           if(CT.FREE_THROUGH!==6) throw new Error('FREE_THROUGH != 6');
-          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','Mastery','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測','BSG_AUDIO_MIXER','lesson-contract-v2','airy-piano-bell-v2']) if(!html.includes(s)) throw new Error('missing marker '+s);
+          for(const s of ['從菜雞到股神','新手也能學會看 K 線與結構','36 關總覽','bsg_v3_product','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測','BSG_AUDIO_MIXER','lesson-contract-v2','airy-piano-bell-v2']) if(!html.includes(s)) throw new Error('missing marker '+s);
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small');
+          for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','V3 PRODUCT TEST']) if(html.includes(s)) throw new Error('old brand still visible: '+s);
           console.log('VERIFY_OK', {rounds:bank.rounds.length,training:train,exam,missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,history:bank.history_days,future:bank.future_days,htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
           NODE
       - name: Browser smoke test + 36 mission visual/logic audit
@@ -107,6 +108,8 @@ jobs:
           node tools/audit_portrait.mjs
           # V3.6: geometry audit — 36 missions × 4 exercises × 5 phone viewports (labels, lanes, controls, fold)
           node tools/audit_layout.mjs
+          # V4: save compatibility, brand, 36-mission overview, mixed-skill practice / blind exam
+          node tools/audit_product.mjs
       - name: Package artifact
         working-directory: apps/become-stock-god-v2
         run: |
@@ -128,6 +131,7 @@ jobs:
           cp apps/become-stock-god-v2/audit/audit36.json /tmp/bsg-v3-static/audit36.json
           cp apps/become-stock-god-v2/audit/audit_portrait.json /tmp/bsg-v3-static/audit_portrait.json
           cp apps/become-stock-god-v2/audit/audit_layout.json /tmp/bsg-v3-static/audit_layout.json
+          cp apps/become-stock-god-v2/audit/audit_product.json /tmp/bsg-v3-static/audit_product.json
           sha256sum /tmp/bsg-v3-static/index.html | awk '{print $1}' > /tmp/bsg-v3-static/SHA256.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -138,7 +142,8 @@ jobs:
           cp /tmp/bsg-v3-static/audit36.json ./audit36.json
           cp /tmp/bsg-v3-static/audit_portrait.json ./audit_portrait.json
           cp /tmp/bsg-v3-static/audit_layout.json ./audit_layout.json
+          cp /tmp/bsg-v3-static/audit_product.json ./audit_product.json
           cp /tmp/bsg-v3-static/SHA256.txt ./SHA256.txt
-          git add index.html bank_report.json audit36.json audit_portrait.json audit_layout.json SHA256.txt
-          git commit -m "release: verified Become Stock God V3"
+          git add index.html bank_report.json audit36.json audit_portrait.json audit_layout.json audit_product.json SHA256.txt
+          git commit -m "release: verified 從菜雞到股神 (V3 engine)"
           git push --force origin HEAD:bsg-v3-static
