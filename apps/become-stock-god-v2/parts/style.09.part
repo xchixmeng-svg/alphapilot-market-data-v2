@@ -14,10 +14,11 @@
 .chartctl.v3{right:6px!important;bottom:5px!important;gap:3px!important}
 .chartctl.v3 button{height:26px!important;min-width:34px!important;font-size:10px!important}
 
-/* 3. Phone portrait: chart + question + all three answers fit on one screen. */
+/* 3. Phone portrait is the primary layout (V4): the K-line frame keeps real height (≈410–540px);
+      the question and answers sit below it and the page scrolls. Never squash the chart to fit the fold. */
 @media (orientation:portrait) and (max-width:940px){
-  .training{grid-template-rows:auto clamp(260px,48dvh,460px) auto!important}
-  .main:has(>.training) .chartArea{height:clamp(260px,48dvh,460px)!important;min-height:0!important}
+  .training{grid-template-rows:auto clamp(410px,60dvh,540px) auto!important}
+  .main:has(>.training) .chartArea{height:clamp(410px,60dvh,540px)!important;min-height:0!important}
   .main:has(>.training) .chartArea,.main:has(>.training) .chartFrame,.main:has(>.training) .chartwrap{min-height:0!important}
   .main:has(>.training) .chartFrame,.main:has(>.training) .chartwrap{height:100%!important}
   .trainingHead{min-height:52px!important}
@@ -50,6 +51,7 @@
 /* 5. Phone portrait header: the right-hand controls overflowed onto the brand name.
       On lesson screens the back button already returns home, so the duplicate ⌂ is dropped. */
 @media (orientation:portrait) and (max-width:440px){
-  .brandname b{display:none!important}
+  .brandsub{display:none!important}
+  .brandname{font-size:15px!important}
   .hudbar:has(.brand .iconbtn) .hudstats .iconbtn[data-act="home"]{display:none!important}
 }
