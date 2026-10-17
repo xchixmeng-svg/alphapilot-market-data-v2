@@ -1,4 +1,4 @@
-// 成為股神 V3 — assemble one self-contained product-test HTML.
+// 從菜雞到股神 (V3 engine) — assemble one self-contained product-test HTML.
 import fs from 'node:fs'
 import path from 'node:path'
 const root = process.cwd() + path.sep
@@ -7,7 +7,15 @@ const bank = read('build/bank.json')
 // Store the coach as text-base64 so GitHub/CI never corrupts the binary asset.
 const coach = read('assets/coach.b64').replace(/\s+/g,'')
 if (!coach.startsWith('UklGR')) throw new Error('coach asset is not valid WebP base64')
-const style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp;base64,' + coach)
+// Brand art (from MAIN_VISUAL_SOURCE_941x1672.png) is stored as base64 text, like the coach asset.
+const art = {}
+for (const name of ['hero', 'chick_rookie', 'chick_scholar', 'chick_god']) {
+  art[name] = read('assets/' + name + '.b64').replace(/\s+/g, '')
+  if (!art[name].startsWith('UklGR')) throw new Error(name + ' asset is not valid WebP base64')
+}
+let style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp;base64,' + coach)
+for (const [name, b64] of Object.entries(art)) style = style.replaceAll('__' + name.toUpperCase() + '_ASSET__', 'data:image/webp;base64,' + b64)
+if (/__[A-Z_]+_ASSET__/.test(style)) throw new Error('unresolved asset placeholder in style.css')
 const safe = s => s.replace(/<\/script/gi, '<\\/script')
 const html = `<!doctype html>
 <html lang="zh-Hant">
@@ -17,8 +25,9 @@ const html = `<!doctype html>
 <meta name="theme-color" content="#030814">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="成為股神 V3">
-<title>成為股神 V3｜Neural Market Academy</title>
+<meta name="apple-mobile-web-app-title" content="從菜雞到股神">
+<meta name="description" content="新手也能學會看 K 線與結構：用真實台股歷史行情，36 關一步一步學會讀 K 線、結構、位置與風險。">
+<title>從菜雞到股神</title>
 <style>${style}</style>
 </head>
 <body>
