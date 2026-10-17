@@ -1,4 +1,5 @@
-// V3.6 layout audit — geometry assertions for every mission, every exercise, every phone viewport.
+// Layout audit (V3.6 → V4 portrait-first) — geometry assertions for every mission, every exercise, every phone viewport.
+// Portrait is the primary layout: the chart keeps real height and the question may scroll below it.
 // Reads the renderer's own layout record (wrap.__bsgLayout) instead of judging screenshots, so a
 // label that sits next to the wrong candle or a candle hidden under a button fails the build.
 import fs from 'node:fs'
@@ -8,9 +9,9 @@ import { chromium } from 'playwright'
 const url = process.env.BSG_AUDIT_URL || 'http://127.0.0.1:4173/'
 const outDir = path.resolve('audit')
 fs.mkdirSync(outDir, { recursive: true })
-const VIEWS = (process.env.BSG_AUDIT_VIEWS || '360x780,390x844,430x932,844x390,932x430').split(',').map(v => v.split('x').map(Number))
+const VIEWS = (process.env.BSG_AUDIT_VIEWS || '360x780,375x812,390x844,393x852,430x932,844x390').split(',').map(v => v.split('x').map(Number))
 const MISSIONS = (process.env.BSG_AUDIT_MISSIONS || Array.from({ length: 36 }, (_, i) => i + 1).join(',')).split(',').map(Number)
-const SHOTS = new Set(['390x844:1', '390x844:2', '390x844:3', '390x844:4', '390x844:5', '390x844:6', '390x844:7', '390x844:8', '390x844:9', '844x390:6', '360x780:6'])
+const SHOTS = new Set(['390x844:1', '390x844:4', '390x844:6', '390x844:10', '390x844:18', '390x844:29', '390x844:36', '360x780:6', '430x932:6', '844x390:6'])
 const saveAll = { version: 3, created: new Date().toISOString(), completed: Array.from({ length: 36 }, (_, i) => i + 1), xp: 0, coins: 0, streak: 0, premium: true, missionStats: {}, practice: { idx: 0, correct: 0, total: 0 }, exam: { idx: 0, correct: 0, total: 0 }, lastMission: 1 }
 
 const failures = [], rows = []
@@ -44,19 +45,28 @@ try {
         }
         await page.waitForSelector('#v3Chart canvas'); await page.waitForTimeout(160)
         const r = await page.evaluate(() => {
+          scrollTo(0, 0) // sticky HUD / lesson header are measured in their resting position
           const T = window.BSGV3._test, u = T.ui, wrap = document.getElementById('v3Chart'), L = wrap.__bsgLayout, cv = wrap.querySelector('canvas').getBoundingClientRect()
           const rel = el => { if (!el || getComputedStyle(el).display === 'none') return null; const b = el.getBoundingClientRect(); return { x0: b.left - cv.left, y0: b.top - cv.top, x1: b.right - cv.left, y1: b.bottom - cv.top } }
           const ans = [...document.querySelectorAll('[data-act="answer"]')].map(b => b.getBoundingClientRect().bottom)
+          const box = el => { if (!el) return null; const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden') return null; const q = el.getBoundingClientRect(); return q.width && q.height ? { x0: q.left, y0: q.top + scrollY, x1: q.right, y1: q.bottom + scrollY } : null }
+          const frame = box(document.querySelector('.chartFrame')), hudB = box(document.querySelector('.hudbar')), headB = box(document.querySelector('.trainingHead')), promptB = box(document.querySelector('.prompt')), answersB = box(document.querySelector('.answers'))
+          const mascots = [...document.querySelectorAll('.ckChick,.coachPortrait,.coachOrb,.homeCoachPortrait,img')].map(box).filter(Boolean)
           const R = T.getR(u.roundId), X = window.BSG.ix, i = X(0)
           return { mission: u.mission.id, ex: u.exercise, round: u.roundId, L, ctl: rel(wrap.querySelector('.chartctl')), legend: rel(wrap.querySelector('.chartlegend')), canvasH: cv.height,
-            iw: innerWidth, ih: innerHeight, scrollW: document.documentElement.scrollWidth, answersBottom: ans.length ? Math.max(...ans) : null, scrollY: scrollY,
+            iw: innerWidth, ih: innerHeight, scrollW: document.documentElement.scrollWidth, answersBottom: ans.length ? Math.max(...ans) : null, scrollY: scrollY, frame, hudB, headB, promptB, answersB, mascots,
             closes: [R.c[i - 4], R.c[i - 3], R.c[i - 2], R.c[i - 1], R.c[i]] }
         })
         if (r.mission !== mid || r.ex !== ex) { fail(tag, 'navigation landed on M' + r.mission + ' ex' + r.ex); continue }
         const L = r.L
         if (r.scrollW > r.iw + 1) fail(tag, 'horizontal overflow ' + r.scrollW)
         if (!portrait && r.canvasH < 200) fail(tag, 'landscape chart too short: ' + Math.round(r.canvasH) + 'px')
-        if (portrait && ex >= 1 && r.answersBottom !== null && r.answersBottom > r.ih + 1) fail(tag, 'answers below the fold: bottom ' + Math.round(r.answersBottom) + ' > ' + r.ih)
+        // V4: portrait never squashes the chart to fit the fold — the question may scroll below it
+        if (portrait && r.canvasH < 400) fail(tag, 'portrait chart squashed: ' + Math.round(r.canvasH) + 'px tall')
+        if (portrait && r.frame && r.frame.y1 - r.frame.y0 < (r.frame.x1 - r.frame.x0) * 1.05) fail(tag, 'portrait chart frame flatter than tall: ' + Math.round(r.frame.x1 - r.frame.x0) + '×' + Math.round(r.frame.y1 - r.frame.y0))
+        const ovr = (a, b) => a && b && Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 2 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 2
+        if (portrait) for (const [nm, other] of [['HUD', r.hudB], ['lesson header', r.headB], ['question', r.promptB], ['answers', r.answersB]]) if (ovr(r.frame, other)) fail(tag, 'chart overlaps ' + nm)
+        for (const mm of r.mascots) if (ovr(r.frame, mm)) fail(tag, 'mascot/coach artwork inside the chart frame')
         const P = L.plot
         // nothing the lesson needs may sit under the controls or legend
         for (const box of [r.ctl, r.legend].filter(Boolean)) if (box.y0 < P.y1 - .5 && box.x0 < P.x1) fail(tag, 'chart control/legend intrudes into plot area')
