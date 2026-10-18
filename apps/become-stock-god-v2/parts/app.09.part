@@ -1,0 +1,15 @@
+
+// V4.1 modal normalization — backdrop still closes the sheet, close action has one unique UI target.
+(function(){
+  'use strict';
+  function normalize(){
+    var shade=document.querySelector('.ckUiShade[data-ui="close"]');
+    if(shade&&!shade.dataset.bound){
+      shade.dataset.bound='1';
+      shade.removeAttribute('data-ui');
+      shade.addEventListener('click',function(){var b=document.querySelector('#ckUiModal .ckUiClose');if(b)b.click();});
+    }
+  }
+  normalize();
+  new MutationObserver(normalize).observe(document.body,{childList:true,subtree:true});
+})();
