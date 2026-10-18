@@ -59,6 +59,7 @@ jobs:
           for(const s of ['從菜雞到股神','新手也能學會看 K 線與結構','36 關總覽','bsg_v3_product','我卡住了｜系統幫我拆小一步','SCAN LOCKED｜你看對地方了','MISREAD｜你看錯觀察點','400 題實戰','100 題盲測','BSG_AUDIO_MIXER','lesson-contract-v2','airy-piano-bell-v2','ckLanding','遊戲說明','BSG_SOUND_API']) if(!html.includes(s)) throw new Error('missing marker '+s);
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small');
           for(const s of ['成為股神 V3','NEURAL MARKET ACADEMY','V3 PRODUCT TEST','SpeechSynthesisUtterance','speechSynthesis']) if(html.includes(s)) throw new Error('old/voice marker still visible: '+s);
+          if(!fs.existsSync('dist/app-icon.webp')||fs.statSync('dist/app-icon.webp').size<1000) throw new Error('app icon missing');
           console.log('VERIFY_OK', {rounds:bank.rounds.length,training:train,exam,missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,history:bank.history_days,future:bank.future_days,htmlMB:(Buffer.byteLength(html)/1024/1024).toFixed(2)});
           NODE
       - name: Browser smoke test + 36 mission visual/logic audit
@@ -133,9 +134,10 @@ jobs:
         run: |
           mkdir -p release
           cp dist/index.html release/from-chick-to-stock-god.html
+          cp dist/app-icon.webp release/app-icon.webp
           cp build/bank_report.json release/bank_report.json
           cp -r audit release/audit
-          sha256sum release/from-chick-to-stock-god.html release/bank_report.json > release/SHA256SUMS.txt
+          sha256sum release/from-chick-to-stock-god.html release/app-icon.webp release/bank_report.json > release/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: from-chick-to-stock-god
@@ -145,6 +147,7 @@ jobs:
         run: |
           mkdir -p /tmp/bsg-static
           cp apps/become-stock-god-v2/dist/index.html /tmp/bsg-static/index.html
+          cp apps/become-stock-god-v2/dist/app-icon.webp /tmp/bsg-static/app-icon.webp
           cp apps/become-stock-god-v2/build/bank_report.json /tmp/bsg-static/bank_report.json
           cp apps/become-stock-god-v2/audit/audit36.json /tmp/bsg-static/audit36.json
           cp apps/become-stock-god-v2/audit/audit_portrait.json /tmp/bsg-static/audit_portrait.json
@@ -156,12 +159,13 @@ jobs:
           git checkout --orphan bsg-v3-static
           git rm -rf .
           cp /tmp/bsg-static/index.html ./index.html
+          cp /tmp/bsg-static/app-icon.webp ./app-icon.webp
           cp /tmp/bsg-static/bank_report.json ./bank_report.json
           cp /tmp/bsg-static/audit36.json ./audit36.json
           cp /tmp/bsg-static/audit_portrait.json ./audit_portrait.json
           cp /tmp/bsg-static/audit_layout.json ./audit_layout.json
           cp /tmp/bsg-static/audit_product.json ./audit_product.json
           cp /tmp/bsg-static/SHA256.txt ./SHA256.txt
-          git add index.html bank_report.json audit36.json audit_portrait.json audit_layout.json audit_product.json SHA256.txt
+          git add index.html app-icon.webp bank_report.json audit36.json audit_portrait.json audit_layout.json audit_product.json SHA256.txt
           git commit -m "release: verified 從菜雞到股神"
           git push --force origin HEAD:bsg-v3-static
