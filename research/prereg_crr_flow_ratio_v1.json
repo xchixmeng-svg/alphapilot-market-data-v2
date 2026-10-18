@@ -1,0 +1,40 @@
+{
+  "study": "capital_rotation_flow_ratio_validation",
+  "version": "crr-flow-ratio-v1",
+  "locked_at": "2026-10-19T00:00:00+08:00",
+  "rule": "Definitions below are fixed before looking at any flow-ratio outcome. Any change requires a new version and preservation of this file.",
+  "data": {
+    "source": "data/history/2020-2025 parquet archive in alphapilot-market-data-v2",
+    "market": "TWSE common stocks with institutional data",
+    "universe": "daily top 500 by trailing 20-day average turnover",
+    "development": "2021-01-01..2024-12-31",
+    "holdout": "2025-01-01..2025-12-31",
+    "stress": "2020-01-01..2020-12-31"
+  },
+  "timing": "All features use information available by T close. Outcomes enter at T+1 open and use T+k close.",
+  "primary_flow": "foreign_net + trust_net; dealer excluded from the primary test because historical dealer data are not split into proprietary versus hedging",
+  "definitions": {
+    "inst_amount": "net shares * same-day close, same approximation as CRR v0",
+    "industry_net5": "5-trading-day sum of primary institutional amount within industry",
+    "industry_turnover5": "5-trading-day sum of turnover within industry",
+    "positive_pool_share5": "max(industry_net5,0) / sum(max(industry_net5,0)) across industries on T",
+    "turnover_share5": "industry_turnover5 / sum(industry_turnover5) across industries on T",
+    "overalloc5": "positive_pool_share5 / turnover_share5",
+    "baseline60": "mean of overalloc5 over the prior 60 trading days, shifted by one day, minimum 20 observations",
+    "flow_ratio60": "overalloc5 / baseline60",
+    "outflow_pool_share5": "abs(min(industry_net5,0)) / sum(abs(min(industry_net5,0))) across industries on T",
+    "outflow_overalloc5": "outflow_pool_share5 / turnover_share5"
+  },
+  "outcome": {
+    "industry_return_k": "median constituent return from T+1 open to T+k close for k in {5,10,20}; median is used to reduce corporate-action outlier sensitivity",
+    "market_return_k": "median return of the same daily top-500 universe",
+    "industry_excess_k": "industry_return_k - market_return_k"
+  },
+  "tests": {
+    "primary": "Each day rank industries with valid flow_ratio60 into quintiles. Compare Q5 versus all valid industries and report excess_5/10/20, sample days, and Newey-West t on daily cross-sectional means.",
+    "monotonicity": "Report Q1..Q5 forward excess and daily cross-sectional Spearman(flow_ratio60, excess_k).",
+    "secondary": "Repeat descriptive quintiles for overalloc5, foreign-only flow ratio, trust-only flow ratio, and outflow_overalloc5. Secondary tests cannot define PASS for v1."
+  },
+  "pass_bar": "Primary PASS only if development Q5 excess_20 > +1.0 percentage point with Newey-West t >= 2.0, and Q5 excess_20 is positive in both 2025 holdout and 2020 stress period. Also report monotonicity but do not use it to rescue a failed primary test.",
+  "anti_overfit": "Do not alter 5-day flow window, 60-day baseline, quintile cut, universe, primary institution definition, or pass bar after seeing results. No threshold search in v1."
+}
