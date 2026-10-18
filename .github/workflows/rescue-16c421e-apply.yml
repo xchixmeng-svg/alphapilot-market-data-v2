@@ -1,0 +1,49 @@
+name: Apply BSG rescue 16c421e
+
+on:
+  push:
+    branches:
+      - bsg-rescue-16c421e-apply
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout rescue staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: bsg-rescue-16c421e-apply
+          fetch-depth: 0
+
+      - name: Reconstruct and verify Claude patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .rescue16c421e/patch.b64.* | tr -d '\r\n' | base64 -d > /tmp/rescue.patch.gz
+          echo "0ff708d99bcdb147eebba8dcbf2328313676ce6961022e6261cab5ca0486c50b  /tmp/rescue.patch.gz" | sha256sum -c -
+          gzip -dc /tmp/rescue.patch.gz > /tmp/rescue.patch
+          git apply --check /tmp/rescue.patch
+
+      - name: Refuse if product branch moved
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin bsg-v3-product
+          test "$(git rev-parse origin/bsg-v3-product)" = "81587c53a6e17e863a67baaa4365a2a86ba3410e"
+
+      - name: Apply Claude rescue commit and push product branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B bsg-v3-product origin/bsg-v3-product
+          git am /tmp/rescue.patch
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin HEAD:bsg-v3-product
