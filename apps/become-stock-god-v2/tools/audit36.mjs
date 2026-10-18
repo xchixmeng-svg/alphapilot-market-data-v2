@@ -33,7 +33,11 @@ const report={generatedAt:new Date().toISOString(),viewport:'844x390',logic:[],v
 try{
   await page.goto(url,{waitUntil:'load',timeout:30000})
   await page.waitForSelector('.hudstats',{timeout:15000})
-  await page.locator('body').click({position:{x:420,y:180}})
+  const enter=page.locator('[data-ui="enter"]')
+  if(await enter.count()){
+    await enter.click()
+    await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000})
+  }
   await page.waitForTimeout(180)
   report.audio=await page.evaluate(()=>window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state())
   assert(report.audio,'audio mixer missing')
@@ -101,7 +105,6 @@ try{
     assert(metrics.tag==='M'+String(mid).padStart(2,'0'),'M'+mid+' wrong rendered mission '+metrics.tag)
     assert(Math.abs(metrics.canvas.h-metrics.wrap.h)<=2.5,'M'+mid+' canvas height '+metrics.canvas.h+' != wrap '+metrics.wrap.h)
     assert(metrics.canvas.bottom<=metrics.wrap.bottom+2,'M'+mid+' canvas clips below wrap')
-    // V3.6: in phone landscape the lesson dock sits beside the chart instead of below it; either is fine as long as they do not intersect
     { const f=metrics.frame,d=metrics.dock,ix=Math.min(f.right,d.right)-Math.max(f.x,d.x),iy=Math.min(f.bottom,d.bottom)-Math.max(f.y,d.y); assert(!(ix>3&&iy>3),'M'+mid+' chart overlaps lesson dock') }
     assert(metrics.dock.bottom<=metrics.ih+2,'M'+mid+' lesson dock below viewport')
     assert(metrics.training.bottom<=metrics.ih+2,'M'+mid+' training below viewport')
