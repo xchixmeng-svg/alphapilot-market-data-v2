@@ -1,0 +1,13 @@
+
+/* V4.1 dashboard action strip: keep real CTAs for navigation/audits, never repeat the giant cover art. */
+.ckHome .ckHero{display:block!important;order:3!important;margin:0!important;position:relative!important}
+.ckHome .ckHeroArt,.ckHome .ckHero>h1,.ckHome .ckHero>p{display:none!important}
+.ckHome .ckHeroCta{margin:0!important;padding:0!important;display:grid!important;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)!important;gap:8px!important}
+.ckHome .ckHeroCta>.ckStart{min-height:54px!important;border-radius:15px!important;font-size:14px!important;padding:9px 12px!important}
+.ckHome .ckCtaRow{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+.ckHome .ckCtaRow .ckBtn{min-height:54px!important;padding:7px 8px!important;font-size:11px!important;border-radius:15px!important}
+.ckHome .ckCtaRow .ckBtn em{font-size:8px!important}
+@media(max-width:390px){
+ .ckHome .ckHeroCta{grid-template-columns:1fr!important}
+ .ckHome .ckCtaRow .ckBtn{min-height:48px!important}
+}
