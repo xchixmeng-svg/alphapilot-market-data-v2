@@ -1,4 +1,4 @@
-// 從菜雞到股神 (V3 engine) — assemble one self-contained product-test HTML.
+// 從菜雞到股神 — assemble one self-contained product HTML.
 import fs from 'node:fs'
 import path from 'node:path'
 const root = process.cwd() + path.sep
@@ -17,16 +17,20 @@ let style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp
 for (const [name, b64] of Object.entries(art)) style = style.replaceAll('__' + name.toUpperCase() + '_ASSET__', 'data:image/webp;base64,' + b64)
 if (/__[A-Z_]+_ASSET__/.test(style)) throw new Error('unresolved asset placeholder in style.css')
 const safe = s => s.replace(/<\/script/gi, '<\\/script')
+const appIcon = 'data:image/webp;base64,' + art.chick_god
 const html = `<!doctype html>
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
 <meta name="theme-color" content="#030814">
+<meta name="application-name" content="從菜雞到股神">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="從菜雞到股神">
 <meta name="description" content="新手也能學會看 K 線與結構：用真實台股歷史行情，36 關一步一步學會讀 K 線、結構、位置與風險。">
+<link rel="icon" type="image/webp" href="${appIcon}">
+<link rel="apple-touch-icon" href="${appIcon}">
 <title>從菜雞到股神</title>
 <style>${style}</style>
 </head>
@@ -40,6 +44,6 @@ const html = `<!doctype html>
 </body>
 </html>`
 fs.mkdirSync(path.join(root, 'dist'), {recursive:true})
-fs.writeFileSync(path.join(root, 'dist/become-stock-god-v3.html'), html)
+fs.writeFileSync(path.join(root, 'dist/from-chick-to-stock-god.html'), html)
 fs.writeFileSync(path.join(root, 'dist/index.html'), html)
 console.log('dist/index.html', (Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB')
