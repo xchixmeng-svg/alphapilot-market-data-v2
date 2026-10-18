@@ -1,20 +1,21 @@
-// 從菜雞到股神 — assemble one self-contained product HTML.
+// 從菜雞到股神 — assemble product HTML + verified visual assets.
 import fs from 'node:fs'
 import path from 'node:path'
 const root = process.cwd() + path.sep
 const read = p => fs.readFileSync(path.join(root, p), 'utf8')
 const bank = read('build/bank.json')
-// Store the coach as text-base64 so GitHub/CI never corrupts the binary asset.
 const coach = read('assets/coach.b64').replace(/\s+/g,'')
 if (!coach.startsWith('UklGR')) throw new Error('coach asset is not valid WebP base64')
-// Brand art is stored as base64 text, like the coach asset.
 const art = {}
 for (const name of ['hero', 'chick_rookie', 'chick_scholar', 'chick_god', 'landing']) {
   art[name] = read('assets/' + name + '.b64').replace(/\s+/g, '')
   if (!art[name].startsWith('UklGR')) throw new Error(name + ' asset is not valid WebP base64')
 }
 let style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp;base64,' + coach)
-for (const [name, b64] of Object.entries(art)) style = style.replaceAll('__' + name.toUpperCase() + '_ASSET__', 'data:image/webp;base64,' + b64)
+for (const [name, b64] of Object.entries(art)) {
+  const asset = name === 'landing' ? './landing.webp' : 'data:image/webp;base64,' + b64
+  style = style.replaceAll('__' + name.toUpperCase() + '_ASSET__', asset)
+}
 if (/__[A-Z_]+_ASSET__/.test(style)) throw new Error('unresolved asset placeholder in style.css')
 const safe = s => s.replace(/<\/script/gi, '<\\/script')
 const html = `<!doctype html>
@@ -44,6 +45,7 @@ const html = `<!doctype html>
 </html>`
 fs.mkdirSync(path.join(root, 'dist'), {recursive:true})
 fs.writeFileSync(path.join(root, 'dist/app-icon.webp'), Buffer.from(art.chick_god, 'base64'))
+fs.writeFileSync(path.join(root, 'dist/landing.webp'), Buffer.from(art.landing, 'base64'))
 fs.writeFileSync(path.join(root, 'dist/from-chick-to-stock-god.html'), html)
 fs.writeFileSync(path.join(root, 'dist/index.html'), html)
 console.log('dist/index.html', (Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB')
