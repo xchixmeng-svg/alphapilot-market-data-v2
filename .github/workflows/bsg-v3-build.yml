@@ -77,7 +77,8 @@ jobs:
             const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
             const errors=[];
             page.on('pageerror',e=>errors.push('pageerror: '+String(e)));
-            page.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text())});
+            page.on('requestfailed',r=>errors.push('requestfailed: '+r.url()+' :: '+((r.failure()&&r.failure().errorText)||'')));
+            page.on('console',m=>{if(m.type()==='error'){const loc=m.location();errors.push('console: '+m.text()+' @ '+(loc.url||'')+':'+(loc.lineNumber||0)+':'+(loc.columnNumber||0));}});
             await page.goto('http://127.0.0.1:4173/',{waitUntil:'load',timeout:30000});
             await page.waitForSelector('.hudstats',{timeout:15000});
             await page.waitForSelector('#ckLanding',{state:'visible',timeout:10000});
