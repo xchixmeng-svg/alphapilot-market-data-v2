@@ -32,7 +32,6 @@ def norm_date(s: pd.Series) -> pd.Series:
     if pd.api.types.is_datetime64_any_dtype(s):
         return s.dt.strftime("%Y%m%d").astype(int)
     x = s.astype(str).str.replace(r"[^0-9]", "", regex=True)
-    # ROC yyyMMdd -> Gregorian yyyyMMdd when needed
     def one(v: str):
         if len(v) == 8:
             return int(v)
@@ -125,7 +124,6 @@ def fetch_industry_map() -> dict[str, str]:
         except Exception as e:
             print(f"[WARN] ISIN mode={mode} failed: {e}", flush=True)
     if len(out) < 300:
-        # Fallback to FinMind stock info; token is not required for this endpoint in normal use.
         try:
             r = requests.get(
                 "https://api.finmindtrade.com/api/v4/data",
@@ -162,7 +160,6 @@ def nw_t(x, lag=20):
 
 
 def flow_feature(ind_daily: pd.DataFrame, col: str, kind="in") -> pd.DataFrame:
-    # input index date x industry; values daily institutional amount
     net5 = ind_daily[col].unstack("industry").sort_index().rolling(5, min_periods=5).sum()
     turn5 = ind_daily["turnover"].unstack("industry").sort_index().rolling(5, min_periods=5).sum()
     turn_share = turn5.div(turn5.sum(axis=1), axis=0)
@@ -213,7 +210,6 @@ def summarise(panel: pd.DataFrame, feature: str, label: str) -> list[dict]:
                 daily = g.groupby("date")[c].mean()
                 rec[f"ex{k}_t"] = float(nw_t(daily.values, lag=k))
             rows.append(rec)
-        # continuous daily cross-sectional Spearman
         for k in (5, 10, 20):
             vals = []
             for _, d in p[[feature, f"ex{k}", "date"]].dropna().groupby("date"):
@@ -243,12 +239,10 @@ def main():
     d["ft_amt"] = d["foreign_amt"] + d["trust_amt"]
     d = d.sort_values(["code", "date"]).reset_index(drop=True)
 
-    # T+1 open entry / T+k close outcome at stock level.
     g = d.groupby("code", sort=False)
     d["entry"] = g["open"].shift(-1)
     for k in (5, 10, 20):
         d[f"ret{k}"] = g["close"].shift(-k) / d["entry"] - 1
-        # impossible corporate-action-like jumps are not dropped here; industry median outcome limits their influence.
 
     d["avg_turn20"] = g["turnover"].transform(lambda s: s.rolling(20, min_periods=20).mean())
     valid = d["foreign_net"].notna() & d["trust_net"].notna() & d["avg_turn20"].notna() & d["industry"].notna()
@@ -256,7 +250,6 @@ def main():
     u = d[valid & (d["turn_rank"] <= 500)].copy()
     print("[UNIVERSE] rows", len(u), "days", u.date.nunique(), "mapped share", round(len(u)/max(1, valid.sum()),4), flush=True)
 
-    # Market and industry outcome: median constituent return, to make stock splits/dividend discontinuities non-dominant.
     market = u.groupby("date")[[f"ret{k}" for k in (5,10,20)]].median().rename(columns={f"ret{k}": f"mkt{k}" for k in (5,10,20)})
     iout = u.groupby(["date", "industry"])[[f"ret{k}" for k in (5,10,20)]].median()
     icount = u.groupby(["date", "industry"])["code"].nunique().rename("constituents")
@@ -272,9 +265,9 @@ def main():
     for c in ["ft_amt", "foreign_amt", "trust_amt"]:
         f = flow_feature(daily, c, "in")
         for field in ["overalloc", "flow_ratio60"]:
-            feats[f"{c}_{field}"] = f[field].stack(dropna=False).rename(f"{c}_{field}")
+            feats[f"{c}_{field}"] = f[field].stack().rename(f"{c}_{field}")
     outf = flow_feature(daily, "ft_amt", "out")
-    feats["ft_outflow_overalloc"] = outf["overalloc"].stack(dropna=False).rename("ft_outflow_overalloc")
+    feats["ft_outflow_overalloc"] = outf["overalloc"].stack().rename("ft_outflow_overalloc")
 
     panel = iout.set_index(["date", "industry"])
     for s in feats.values():
@@ -282,7 +275,6 @@ def main():
     panel = panel.reset_index()
     panel["period"] = panel["date"].map(period_name)
     panel = panel[panel["period"].notna()].copy()
-    # Require at least 3 current-universe constituents for an industry outcome.
     panel = panel[panel["constituents"] >= 3]
 
     tests = [
