@@ -7,9 +7,9 @@ const bank = read('build/bank.json')
 // Store the coach as text-base64 so GitHub/CI never corrupts the binary asset.
 const coach = read('assets/coach.b64').replace(/\s+/g,'')
 if (!coach.startsWith('UklGR')) throw new Error('coach asset is not valid WebP base64')
-// Brand art (from MAIN_VISUAL_SOURCE_941x1672.png) is stored as base64 text, like the coach asset.
+// Brand art is stored as base64 text, like the coach asset.
 const art = {}
-for (const name of ['hero', 'chick_rookie', 'chick_scholar', 'chick_god']) {
+for (const name of ['hero', 'chick_rookie', 'chick_scholar', 'chick_god', 'landing']) {
   art[name] = read('assets/' + name + '.b64').replace(/\s+/g, '')
   if (!art[name].startsWith('UklGR')) throw new Error(name + ' asset is not valid WebP base64')
 }
