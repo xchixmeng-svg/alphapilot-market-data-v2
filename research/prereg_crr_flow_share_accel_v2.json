@@ -1,0 +1,35 @@
+{
+  "study": "capital_rotation_flow_share_acceleration",
+  "version": "crr-flow-share-accel-v2",
+  "locked_at": "2026-10-19T00:20:00+08:00",
+  "rule": "Definitions are fixed before inspecting v2 outcomes. Any post-result change requires a new version.",
+  "data": {
+    "source": "same immutable 2020-2025 archive used by CRR Flow-Ratio v1",
+    "universe": "daily top 500 by trailing 20-day average turnover; industries require >=3 current constituents",
+    "development": "2021-01-01..2024-12-31",
+    "holdout": "2025-01-01..2025-12-31",
+    "stress": "2020-01-01..2020-12-31"
+  },
+  "timing": "Features use information available by T close only. Outcome entry is T+1 open and exits at T+k close.",
+  "flow": "foreign_net + trust_net, converted to approximate amount by same-day close; dealer excluded as in v1 primary test",
+  "definitions": {
+    "share_w": "For w in {1,5,20}, sum industry institutional net amount over w trading days, clip negative industry sums to zero, then divide by the sum of all positive industry sums on T.",
+    "primary_accel": "share_5 - share_20. Positive means the industry's share of the market's positive institutional flow pool has expanded recently versus its 20-day state.",
+    "secondary_1_5": "share_1 - share_5",
+    "secondary_1_20": "share_1 - share_20",
+    "secondary_ratio_5_20": "share_5 / share_20, only where share_20 > 0",
+    "secondary_ratio_1_5": "share_1 / share_5, only where share_5 > 0"
+  },
+  "outcome": {
+    "industry_return_k": "median constituent return from T+1 open to T+k close, k in {5,10,20}",
+    "market_return_k": "median return of the same daily top-500 universe",
+    "industry_excess_k": "industry_return_k - market_return_k"
+  },
+  "tests": {
+    "primary": "Rank primary_accel cross-sectionally into daily quintiles. Compare Q1..Q5 and report 5/10/20-day excess returns and Newey-West t on daily bucket means.",
+    "monotonicity": "Daily cross-sectional Spearman(primary_accel, industry_excess_k), averaged through time.",
+    "secondary": "Repeat descriptive quintile tests for secondary_1_5, secondary_1_20, secondary_ratio_5_20, secondary_ratio_1_5. Secondary tests cannot rescue the primary result."
+  },
+  "pass_bar": "Primary PASS only if development Q5 excess_20 > +1.0 percentage point with Newey-West t >= 2.0, and Q5 excess_20 is positive in both 2025 holdout and 2020 stress. No secondary metric can rescue a failed primary test.",
+  "anti_overfit": "No changing 1/5/20 windows, Q5 definition, universe, institution mix, outcome horizon, or pass bar after results are visible. Q3/Q4 patterns from v1 are not used to define v2."
+}
