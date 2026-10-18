@@ -1,9 +1,8 @@
 
-// V4.1 product shell — premium dashboard, one-time landing, real settings/help, no coach TTS.
+// 從菜雞到股神 — premium dashboard, one-time landing, real settings/help, text coaching only.
 (function(){
   'use strict';
   try{localStorage.setItem('bsg_voice','0');}catch(e){}
-  try{if('speechSynthesis' in window)window.speechSynthesis.cancel();}catch(e){}
 
   function state(){try{return window.BSGV3&&window.BSGV3.state?window.BSGV3.state():null;}catch(e){return null;}}
   function mixer(){try{return window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state?window.BSG_AUDIO_MIXER.state():{bgm:true,sfx:true};}catch(e){return{bgm:true,sfx:true};}}
@@ -29,7 +28,6 @@
       toggleRow('bgm','背景音樂','柔和 piano / bell / airy pad',!!a.bgm)+
       toggleRow('sfx','操作音效','按鍵、答對、答錯與過關提示音',!!a.sfx)+
       '<button class="ckSetRow" data-coach="fullscreen"><span class="ckSetIcon">⛶</span><span><b>全螢幕</b><small>支援的瀏覽器會隱藏部分瀏覽器介面</small></span><i>開啟</i></button>'+
-      '<div class="ckSetRow static"><span class="ckSetIcon">◌</span><span><b>教練語音</b><small>已移除人聲，只保留文字提示、BGM 與音效</small></span><i>關閉</i></div>'+
       '</div><div class="ckSetActions"><button class="ckBtn ckCyan" data-ui="cover">回到遊戲封面</button><button class="ckDanger" data-ui="reset">重置本機進度</button></div><p class="ckFine">遊戲進度目前儲存在這台裝置的瀏覽器中。清除網站資料也會清除進度。</p>');
   }
   function help(){
@@ -64,29 +62,22 @@
   }
   function enhanceHud(){
     var hud=document.querySelector('.hudbar');if(!hud)return;
-    var s=state()||{},done=(s.completed||[]).length;
-    var onHome=!!document.querySelector('.ckHome');
+    var s=state()||{},done=(s.completed||[]).length,onHome=!!document.querySelector('.ckHome');
     hud.classList.toggle('ckDashHud',onHome);
     var stats=hud.querySelector('.hudstats');if(!stats)return;
     var old=stats.querySelector('.ckTopActions');
-    if(!old){
-      old=document.createElement('div');old.className='ckTopActions';
-      old.innerHTML='<button class="ckTopBtn" data-ui="settings" aria-label="設定">⚙</button><button class="ckTopBtn" data-ui="help" aria-label="說明">ⓘ</button>';
-      stats.appendChild(old);
-    }
+    if(!old){old=document.createElement('div');old.className='ckTopActions';old.innerHTML='<button class="ckTopBtn" data-ui="settings" aria-label="設定">⚙</button><button class="ckTopBtn" data-ui="help" aria-label="說明">ⓘ</button>';stats.appendChild(old);}
     if(onHome){
       var brand=hud.querySelector('.brand');if(brand){brand.setAttribute('data-ui','profile');brand.classList.add('ckBrandProfile');var nm=brand.querySelector('.brandname'),sub=brand.querySelector('.brandsub');if(nm)nm.innerHTML=esc(rank(s));if(sub)sub.textContent='Lv.'+level(s)+' · '+done+' / 36 關';}
-      var xp=hud.querySelector('.xpbox');if(xp){xp.innerHTML='<span class="lv">EXP</span><div class="xpbar"><i style="width:'+(xpIn(s)/6)+'%"></i></div><span class="lv">'+xpIn(s)+' / 600</span>';}
+      var xp=hud.querySelector('.xpbox');if(xp)xp.innerHTML='<span class="lv">EXP</span><div class="xpbar"><i style="width:'+(xpIn(s)/6)+'%"></i></div><span class="lv">'+xpIn(s)+' / 600</span>';
       var gold=stats.querySelector('.hudpill.gold');if(gold)gold.textContent='◆ '+(s.coins||0);
       var fire=stats.querySelector('.hudpill.fire');if(fire)fire.textContent='連勝 '+(s.streak||0);
     }
   }
-  function sync(){enhanceHome();enhanceHud();try{if('speechSynthesis' in window)window.speechSynthesis.cancel();}catch(e){};}
+  function sync(){enhanceHome();enhanceHud();}
   var queued=false;function queue(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;sync();});}
-
   document.addEventListener('click',function(e){
-    var t=e.target&&e.target.closest?e.target.closest('[data-ui]'):null;if(!t)return;
-    var k=t.getAttribute('data-ui');
+    var t=e.target&&e.target.closest?e.target.closest('[data-ui]'):null;if(!t)return;var k=t.getAttribute('data-ui');
     if(k==='settings'){e.preventDefault();settings();}
     else if(k==='help'){e.preventDefault();help();}
     else if(k==='profile'){e.preventDefault();profile();}
@@ -97,7 +88,6 @@
   },true);
   document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-audio]'))setTimeout(refreshSettings,20);},false);
   document.addEventListener('keydown',function(e){var t=e.target;if((e.key==='Enter'||e.key===' ')&&t&&t.matches&&t.matches('[data-ui="profile"]')){e.preventDefault();profile();}if(e.key==='Escape')closeModal();});
-
   var root=document.getElementById('app');if(root)new MutationObserver(queue).observe(root,{childList:true,subtree:true});
   queue();showLanding(false);
 })();
