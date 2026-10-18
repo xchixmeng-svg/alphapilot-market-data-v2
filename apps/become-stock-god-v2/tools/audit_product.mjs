@@ -49,7 +49,7 @@ try {
   const title = await page.title()
   check('document title is the new brand', title === '從菜雞到股神', title)
   let txt = await visibleText()
-  check('home shows 從菜雞到股神', txt.includes('從菜雞到') && txt.includes('股神'))
+  check('home is the real dashboard after cover', !!(await page.$('.ckHome.ckDashboard')) && !(await page.$('#ckLanding')))
   check('home has the three CTAs', (await page.$('.ckHero [data-act="mission"]')) && (await page.$('.ckHero [data-act="overview"]')) && (await page.$('.ckHero [data-act="practiceHome"]')))
   check('home rank uses chick naming', txt.includes('K 線小雞'), txt.slice(0, 200))
   const oldBrand = /成為股神|NEURAL MARKET ACADEMY|V3 PRODUCT TEST/
