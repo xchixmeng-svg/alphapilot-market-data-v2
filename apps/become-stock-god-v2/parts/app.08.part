@@ -1,21 +1,12 @@
 
-// V4.1 guard — landing is once per tab session; coach voice is hard-disabled.
+// Product guard — keep the UI text/BGM/SFX-only and remove obsolete voice controls if old markup appears.
 (function(){
   'use strict';
   function harden(){
-    try{
-      if(document.getElementById('ckLanding'))sessionStorage.setItem('bsg_landing_entered','1');
-      localStorage.setItem('bsg_voice','0');
-      if('speechSynthesis' in window)window.speechSynthesis.cancel();
-      var mx=window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state?window.BSG_AUDIO_MIXER.state():null;
-      if(mx&&mx.voice){
-        var old=document.querySelector('.audioMixer [data-audio="voice"]');
-        if(old)old.click();
-      }
-    }catch(e){}
+    try{localStorage.setItem('bsg_voice','0');}catch(e){}
+    document.querySelectorAll('[data-audio="voice"],[data-coach="speak"]').forEach(function(n){n.remove();});
   }
   harden();
-  setTimeout(harden,60);
   var root=document.getElementById('app');
-  if(root)new MutationObserver(function(){harden();}).observe(document.body,{childList:true,subtree:true});
+  if(root)new MutationObserver(harden).observe(root,{childList:true,subtree:true});
 })();
