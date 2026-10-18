@@ -1,13 +1,12 @@
 
-// V3.5 audio mixer — independent BGM / SFX / coach voice.
-// BGM fundamentals are deliberately >= 220 Hz; a 205 Hz high-pass removes low-frequency hum.
+// 從菜雞到股神 — BGM / SFX only. No voice controls or synthesized speech.
 (function(){
+  'use strict';
   function storeGet(k,fallback){try{var v=localStorage.getItem(k);return v==null?fallback:v;}catch(e){return fallback;}}
   function storeSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
   var bgmOn=storeGet('bsg_bgm','1')!=='0';
   var sfxOn=storeGet('bsg_sfx','1')!=='0';
-  var voiceOn=storeGet('bsg_voice','1')!=='0';
-  var ctx=null,bgmStarted=false,queued=false,userActivated=false,musicTimer=null,bgmBus=null,chordIndex=0;
+  var ctx=null,bgmStarted=false,userActivated=false,musicTimer=null,bgmBus=null,chordIndex=0;
   var CHORDS=[
     [261.63,329.63,392.00,493.88],
     [220.00,277.18,329.63,440.00],
@@ -15,7 +14,6 @@
     [293.66,349.23,440.00,523.25]
   ];
   var MIN_BGM_HZ=220;
-
   function ac(){
     try{
       var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
@@ -78,68 +76,27 @@
     try{
       var master=c.createGain(),highpass=c.createBiquadFilter(),lowpass=c.createBiquadFilter(),comp=c.createDynamicsCompressor();
       master.gain.value=.62;
-      highpass.type='highpass';highpass.frequency.value=205;highpass.Q.value=.7;
+      highpass.type='highpass';highpass.frequency.value=215;highpass.Q.value=.7;
       lowpass.type='lowpass';lowpass.frequency.value=3200;lowpass.Q.value=.35;
       comp.threshold.value=-24;comp.knee.value=20;comp.ratio.value=2;comp.attack.value=.025;comp.release.value=.75;
       master.connect(highpass);highpass.connect(lowpass);lowpass.connect(comp);comp.connect(c.destination);bgmBus=master;
       bgmStarted=true;playChord(c);musicTimer=setInterval(function(){if(bgmOn&&bgmBus)playChord(c);},8000);
     }catch(e){stopBgm();}
   }
-  function setTxt(el,txt){if(el&&el.textContent!==txt)el.textContent=txt;}
-  function setOff(el,off){if(el&&el.classList.contains('off')!==off)el.classList.toggle('off',off);}
-  function syncLegacySfx(){
-    storeSet('bsg_sfx',sfxOn?'1':'0');
-    var old=document.querySelector('[data-coach="sound"]');if(!old)return;
-    var oldOn=old.textContent!=='🔇';
-    if(oldOn!==sfxOn){try{old.click();}catch(e){}}
-  }
-  function renderControls(){
-    var stats=document.querySelector('.hudstats');if(!stats)return;
-    var wrap=stats.querySelector('.audioMixer');
-    if(!wrap){
-      wrap=document.createElement('div');wrap.className='audioMixer';
-      wrap.innerHTML='<button class="audioBtn" data-audio="bgm" aria-label="背景音樂"></button><button class="audioBtn" data-audio="sfx" aria-label="音效"></button><button class="audioBtn" data-audio="voice" aria-label="教練語音"></button>';
-      var fs=stats.querySelector('[data-coach="fullscreen"]');
-      try{stats.insertBefore(wrap,fs&&fs.parentNode===stats?fs:null);}catch(e){stats.appendChild(wrap);}
-    }
-    var b=wrap.querySelector('[data-audio="bgm"]'),s=wrap.querySelector('[data-audio="sfx"]'),v=wrap.querySelector('[data-audio="voice"]');
-    setTxt(b,bgmOn?'🎵':'🎵×');setOff(b,!bgmOn);
-    setTxt(s,sfxOn?'🔔':'🔕');setOff(s,!sfxOn);
-    setTxt(v,voiceOn?'🗣️':'🤐');setOff(v,!voiceOn);
-  }
-  function sync(){renderControls();syncLegacySfx();}
-  function queueSync(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;sync();});}
-  function closestFromTarget(t,sel){return t&&t.closest?t.closest(sel):null;}
-
-  document.addEventListener('pointerdown',function(){userActivated=true;if(bgmOn)startBgm();},{once:true,passive:true});
+  function syncSfx(){storeSet('bsg_sfx',sfxOn?'1':'0');try{if(window.BSG_SOUND_API&&window.BSG_SOUND_API.set)window.BSG_SOUND_API.set(sfxOn);}catch(e){}}
+  function setBgm(on){bgmOn=!!on;storeSet('bsg_bgm',bgmOn?'1':'0');if(bgmOn)startBgm();else stopBgm();}
+  function setSfx(on){sfxOn=!!on;syncSfx();}
+  document.addEventListener('pointerdown',function(){userActivated=true;syncSfx();if(bgmOn)startBgm();},{once:true,passive:true});
   document.addEventListener('click',function(e){
-    var ab=closestFromTarget(e.target,'[data-audio]');
-    if(ab){
-      userActivated=true;
-      var k=ab.getAttribute('data-audio');
-      if(k==='bgm'){
-        bgmOn=!bgmOn;storeSet('bsg_bgm',bgmOn?'1':'0');
-        if(bgmOn)startBgm();else stopBgm();
-      }else if(k==='sfx'){
-        sfxOn=!sfxOn;syncLegacySfx();
-      }else if(k==='voice'){
-        voiceOn=!voiceOn;storeSet('bsg_voice',voiceOn?'1':'0');
-        if(!voiceOn&&'speechSynthesis' in window)try{window.speechSynthesis.cancel();}catch(x){}
-      }
-      renderControls();return;
-    }
+    var b=e.target&&e.target.closest?e.target.closest('[data-audio]'):null;if(!b)return;
+    userActivated=true;var k=b.getAttribute('data-audio');
+    if(k==='bgm')setBgm(!bgmOn);
+    else if(k==='sfx')setSfx(!sfxOn);
   },true);
-  document.addEventListener('click',function(e){
-    if(!voiceOn&&closestFromTarget(e.target,'[data-coach="speak"]')){e.preventDefault();e.stopImmediatePropagation();}
-  },true);
-
-  var root=document.getElementById('app');
-  if(root)new MutationObserver(queueSync).observe(root,{childList:true,subtree:true});
   window.addEventListener('pagehide',stopBgm);
-  window.addEventListener('pageshow',function(){queueSync();});
+  window.addEventListener('pageshow',function(){if(userActivated&&bgmOn)startBgm();});
   window.BSG_AUDIO_MIXER={
-    state:function(){return {bgm:bgmOn,sfx:sfxOn,voice:voiceOn,started:bgmStarted,activated:userActivated,music:'airy-piano-bell-v2',minHz:MIN_BGM_HZ};},
-    sync:queueSync
+    state:function(){return {bgm:bgmOn,sfx:sfxOn,started:bgmStarted,activated:userActivated,music:'airy-piano-bell-v2',minHz:MIN_BGM_HZ};},
+    setBgm:setBgm,setSfx:setSfx,sync:function(){syncSfx();}
   };
-  queueSync();
 })();
