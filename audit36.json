@@ -1,0 +1,2968 @@
+{
+  "generatedAt": "2026-10-18T01:36:32.498Z",
+  "viewport": "844x390",
+  "logic": [
+    {
+      "mission": 1,
+      "skill": "OHLC",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0545",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0463",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0491",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 4
+      }
+    },
+    {
+      "mission": 2,
+      "skill": "BODY",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0545",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0370",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0461",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 3,
+      "skill": "COLOR",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0470",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0337",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0243",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 4,
+      "skill": "WICK",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0343",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0267",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0319",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 4
+      }
+    },
+    {
+      "mission": 5,
+      "skill": "DAYCHANGE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0295",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0426",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0185",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 1,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 6,
+      "skill": "SEQUENCE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0460",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0541",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0436",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 5
+      }
+    },
+    {
+      "mission": 7,
+      "skill": "SWING_HIGH",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0249",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0124",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0223",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 1
+      }
+    },
+    {
+      "mission": 8,
+      "skill": "HIGHER_HIGH",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0408",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0441",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0306",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 9,
+      "skill": "HIGHER_LOW",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0376",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0361",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0557",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 10,
+      "skill": "DOWNTREND",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0570",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0185",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0523",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 11,
+      "skill": "RANGE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0203",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0378",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0257",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 12,
+      "skill": "STRUCTURE_SHIFT",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0438",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0484",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0421",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 1,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 13,
+      "skill": "SUPPORT",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0143",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0237",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0241",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 14,
+      "skill": "RESISTANCE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0323",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0556",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0320",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 15,
+      "skill": "RANGE_EDGE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0505",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0534",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0228",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 2,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 16,
+      "skill": "BREAKOUT",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0266",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0535",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0328",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 1,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 17,
+      "skill": "FALSE_BREAKOUT",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0487",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0181",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0234",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 1,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 18,
+      "skill": "RETEST",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0532",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0487",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0518",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 1,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 19,
+      "skill": "MA20_ID",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0338",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0371",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0185",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": "ma20",
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 1
+      }
+    },
+    {
+      "mission": 20,
+      "skill": "MA20_SIDE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0175",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0398",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0401",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": "ma20",
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 21,
+      "skill": "MA20_DISTANCE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0385",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0400",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0467",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": "ma20",
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 22,
+      "skill": "MA20_SLOPE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0215",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0273",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0349",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": "ma20",
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 23,
+      "skill": "MA_STACK",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0333",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0287",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0151",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": "both",
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 3
+      }
+    },
+    {
+      "mission": 24,
+      "skill": "ATR",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0451",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0373",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0344",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 25,
+      "skill": "VOLUME",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0557",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0427",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0498",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": true,
+        "zones": 0,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 26,
+      "skill": "PRICE_VOLUME",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0517",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0521",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0507",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": true,
+        "zones": 0,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 27,
+      "skill": "PULLBACK",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0278",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0545",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0276",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": "ma20",
+        "volume": false,
+        "zones": 1,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 28,
+      "skill": "BREAKOUT_SETUP",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0334",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0517",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0396",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 1,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 29,
+      "skill": "RETEST_SETUP",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0294",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0317",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0441",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 1,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 30,
+      "skill": "NO_CHASE",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0333",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0328",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0284",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": "ma20",
+        "volume": false,
+        "zones": 1,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 31,
+      "skill": "INVALIDATION",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0396",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0212",
+          "correct": 2
+        },
+        {
+          "ex": 3,
+          "round": "R0440",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 1,
+        "lines": 1,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 32,
+      "skill": "TARGET",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0562",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0453",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0556",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 1,
+        "markers": 1
+      }
+    },
+    {
+      "mission": 33,
+      "skill": "RR",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0519",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0263",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0202",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 2,
+        "markers": 1
+      }
+    },
+    {
+      "mission": 34,
+      "skill": "POSITION",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0477",
+          "correct": 0
+        },
+        {
+          "ex": 2,
+          "round": "R0335",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0123",
+          "correct": 0
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 0,
+        "markers": 0
+      }
+    },
+    {
+      "mission": 35,
+      "skill": "HOLD_EXIT",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0211",
+          "correct": 2
+        },
+        {
+          "ex": 2,
+          "round": "R0411",
+          "correct": 1
+        },
+        {
+          "ex": 3,
+          "round": "R0366",
+          "correct": 1
+        }
+      ],
+      "layers": {
+        "ma": false,
+        "volume": false,
+        "zones": 0,
+        "lines": 1,
+        "markers": 2
+      }
+    },
+    {
+      "mission": 36,
+      "skill": "FULL_SCAN",
+      "exercises": [
+        {
+          "ex": 1,
+          "round": "R0480",
+          "correct": 1
+        },
+        {
+          "ex": 2,
+          "round": "R0511",
+          "correct": 0
+        },
+        {
+          "ex": 3,
+          "round": "R0514",
+          "correct": 2
+        }
+      ],
+      "layers": {
+        "ma": "both",
+        "volume": true,
+        "zones": 2,
+        "lines": 0,
+        "markers": 0
+      }
+    }
+  ],
+  "visual": [
+    {
+      "mission": 1,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M01"
+    },
+    {
+      "mission": 2,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M02"
+    },
+    {
+      "mission": 3,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M03"
+    },
+    {
+      "mission": 4,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M04"
+    },
+    {
+      "mission": 5,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M05"
+    },
+    {
+      "mission": 6,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M06"
+    },
+    {
+      "mission": 7,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M07"
+    },
+    {
+      "mission": 8,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M08"
+    },
+    {
+      "mission": 9,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M09"
+    },
+    {
+      "mission": 10,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M10"
+    },
+    {
+      "mission": 11,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M11"
+    },
+    {
+      "mission": 12,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M12"
+    },
+    {
+      "mission": 13,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M13"
+    },
+    {
+      "mission": 14,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M14"
+    },
+    {
+      "mission": 15,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M15"
+    },
+    {
+      "mission": 16,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M16"
+    },
+    {
+      "mission": 17,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M17"
+    },
+    {
+      "mission": 18,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M18"
+    },
+    {
+      "mission": 19,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M19"
+    },
+    {
+      "mission": 20,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M20"
+    },
+    {
+      "mission": 21,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M21"
+    },
+    {
+      "mission": 22,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M22"
+    },
+    {
+      "mission": 23,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M23"
+    },
+    {
+      "mission": 24,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M24"
+    },
+    {
+      "mission": 25,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M25"
+    },
+    {
+      "mission": 26,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M26"
+    },
+    {
+      "mission": 27,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M27"
+    },
+    {
+      "mission": 28,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M28"
+    },
+    {
+      "mission": 29,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M29"
+    },
+    {
+      "mission": 30,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M30"
+    },
+    {
+      "mission": 31,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M31"
+    },
+    {
+      "mission": 32,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M32"
+    },
+    {
+      "mission": 33,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M33"
+    },
+    {
+      "mission": 34,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M34"
+    },
+    {
+      "mission": 35,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M35"
+    },
+    {
+      "mission": 36,
+      "iw": 844,
+      "ih": 390,
+      "wrap": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "canvas": {
+        "x": 24,
+        "y": 100,
+        "w": 492.171875,
+        "h": 268,
+        "right": 516.171875,
+        "bottom": 368
+      },
+      "frame": {
+        "x": 23,
+        "y": 99,
+        "w": 494.171875,
+        "h": 270,
+        "right": 517.171875,
+        "bottom": 369
+      },
+      "dock": {
+        "x": 521.171875,
+        "y": 95,
+        "w": 303.828125,
+        "h": 278,
+        "right": 825,
+        "bottom": 373
+      },
+      "training": {
+        "x": 18,
+        "y": 58,
+        "w": 808,
+        "h": 316,
+        "right": 826,
+        "bottom": 374
+      },
+      "main": {
+        "x": 0,
+        "y": 44,
+        "w": 844,
+        "h": 346,
+        "right": 844,
+        "bottom": 390
+      },
+      "tag": "M36"
+    }
+  ],
+  "audio": {
+    "bgm": true,
+    "sfx": true,
+    "started": true,
+    "activated": true,
+    "music": "airy-piano-bell-v2",
+    "minHz": 220
+  }
+}

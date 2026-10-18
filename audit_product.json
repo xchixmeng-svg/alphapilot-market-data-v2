@@ -1,0 +1,297 @@
+{
+ "generatedAt": "2026-10-18T01:39:51.899Z",
+ "viewport": "390x844",
+ "checks": [
+  {
+   "name": "save key unchanged and old progress kept",
+   "ok": true,
+   "detail": {
+    "version": 3,
+    "created": "2026-10-01T00:00:00.000Z",
+    "completed": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "xp": 1115,
+    "coins": 727,
+    "streak": 3,
+    "premium": true,
+    "missionStats": {
+     "3": {
+      "wrong": 2,
+      "hints": 1,
+      "complete": true
+     }
+    },
+    "practice": {
+     "idx": 12,
+     "correct": 9,
+     "total": 12,
+     "round": 1
+    },
+    "exam": {
+     "idx": 4,
+     "correct": 3,
+     "total": 4
+    },
+    "lastMission": 10,
+    "seed": "mvd5r0dmd7kte7"
+   }
+  },
+  {
+   "name": "practice/exam history kept",
+   "ok": true,
+   "detail": {
+    "practice": {
+     "idx": 12,
+     "correct": 9,
+     "total": 12,
+     "round": 1
+    },
+    "exam": {
+     "idx": 4,
+     "correct": 3,
+     "total": 4
+    }
+   }
+  },
+  {
+   "name": "migration adds seed and practice round",
+   "ok": true,
+   "detail": {
+    "seed": "mvd5r0dmd7kte7",
+    "round": 1
+   }
+  },
+  {
+   "name": "mission stats kept",
+   "ok": true
+  },
+  {
+   "name": "document title is the new brand",
+   "ok": true,
+   "detail": "從菜雞到股神"
+  },
+  {
+   "name": "home is the real dashboard after cover",
+   "ok": true
+  },
+  {
+   "name": "home has the three CTAs",
+   "ok": true
+  },
+  {
+   "name": "home rank uses chick naming",
+   "ok": true,
+   "detail": "K 線小雞\nLv.2 · 9 / 36 關\nEXP\n515 / 600\n⚙\nⓘ\n繼續進度｜M10 下降結構\n›\n☰\n36 關總覽\n⤨\n隨機實戰\n完成 36 關解鎖\nK 線小雞\nLv.2\n515 / 600 EXP\n9/36\n關卡進度\n3\n連勝\n9\n實戰答對\n情境教學\n從一根 K 到完整掃描，一次只學一件事\n互動練習\n真實歷史 K 線，看圖作答\n挑戰關卡\n400 題混合實戰、100 題盲測\n熱門課程"
+  },
+  {
+   "name": "no old brand on home",
+   "ok": true
+  },
+  {
+   "name": "overview lists all 36 missions",
+   "ok": true,
+   "detail": 36
+  },
+  {
+   "name": "done + next missions are enabled",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "future missions are locked",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "exactly one next mission (M10)",
+   "ok": true
+  },
+  {
+   "name": "no old brand on overview",
+   "ok": true
+  },
+  {
+   "name": "skipping to a locked mission is refused",
+   "ok": true
+  },
+  {
+   "name": "replay opens the completed mission",
+   "ok": true
+  },
+  {
+   "name": "replay does not re-award first-completion XP / coins",
+   "ok": true,
+   "detail": {
+    "before": [
+     1115,
+     727
+    ],
+    "after": [
+     1115,
+     727
+    ]
+   }
+  },
+  {
+   "name": "replay does not change completed list",
+   "ok": true
+  },
+  {
+   "name": "result page uses new brand",
+   "ok": true
+  },
+  {
+   "name": "result page shows the mascot",
+   "ok": true
+  },
+  {
+   "name": "practice plan has 400 questions",
+   "ok": true
+  },
+  {
+   "name": "practice first 100 cover >= 24 skills",
+   "ok": true,
+   "detail": 36
+  },
+  {
+   "name": "practice 400 cover all 36 skills",
+   "ok": true
+  },
+  {
+   "name": "practice is not fixed to M36",
+   "ok": true,
+   "detail": 11
+  },
+  {
+   "name": "practice never repeats a skill back-to-back",
+   "ok": true
+  },
+  {
+   "name": "new practice round is reshuffled",
+   "ok": true
+  },
+  {
+   "name": "exam plan has 100 questions",
+   "ok": true
+  },
+  {
+   "name": "exam covers >= 18 skills",
+   "ok": true,
+   "detail": 36
+  },
+  {
+   "name": "exam not all FULL_SCAN",
+   "ok": true
+  },
+  {
+   "name": "exam never repeats a skill back-to-back",
+   "ok": true
+  },
+  {
+   "name": "practice draws many different skills (40 questions)",
+   "ok": true,
+   "detail": 36
+  },
+  {
+   "name": "practice uses only the 2020-2023 pool",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "practice does not reveal the mission name",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "practice chart shows no verdict labels",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "practice progress saved",
+   "ok": true,
+   "detail": {
+    "idx": 40,
+    "correct": 40,
+    "total": 40,
+    "round": 1
+   }
+  },
+  {
+   "name": "after 400 questions a new round starts",
+   "ok": true,
+   "detail": {
+    "idx": 0,
+    "correct": 41,
+    "total": 41,
+    "round": 2
+   }
+  },
+  {
+   "name": "exam draws many different skills (30 questions)",
+   "ok": true,
+   "detail": 26
+  },
+  {
+   "name": "exam uses only the isolated 2024-2025 pool",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "exam shows no hint button or hint text",
+   "ok": true,
+   "detail": 0
+  },
+  {
+   "name": "exam does not reveal the mission name",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "exam chart shows no verdict labels",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "name": "exam score recorded",
+   "ok": true,
+   "detail": {
+    "idx": 30,
+    "correct": 30,
+    "total": 30
+   }
+  },
+  {
+   "name": "training pool decision dates are 2020-2023",
+   "ok": true,
+   "detail": [
+    2020,
+    2021,
+    2022,
+    2023
+   ]
+  },
+  {
+   "name": "exam pool decision dates are 2024-2025",
+   "ok": true,
+   "detail": [
+    2024,
+    2025
+   ]
+  },
+  {
+   "name": "no runtime errors",
+   "ok": true
+  }
+ ],
+ "failures": []
+}
