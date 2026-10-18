@@ -1,0 +1,103 @@
+
+// V4.1 product shell — premium dashboard, one-time landing, real settings/help, no coach TTS.
+(function(){
+  'use strict';
+  try{localStorage.setItem('bsg_voice','0');}catch(e){}
+  try{if('speechSynthesis' in window)window.speechSynthesis.cancel();}catch(e){}
+
+  function state(){try{return window.BSGV3&&window.BSGV3.state?window.BSGV3.state():null;}catch(e){return null;}}
+  function mixer(){try{return window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state?window.BSG_AUDIO_MIXER.state():{bgm:true,sfx:true};}catch(e){return{bgm:true,sfx:true};}}
+  function level(s){return s?Math.floor((s.xp||0)/600)+1:1;}
+  function xpIn(s){return s?(s.xp||0)%600:0;}
+  function rank(s){
+    var n=s&&Array.isArray(s.completed)?s.completed.length:0;
+    if(n>=36)return '股神候補';
+    return ['菜雞學徒','K 線小雞','結構雞','位置獵雞','量價分析雞','風控指揮雞'][Math.min(5,Math.floor(n/6))];
+  }
+  function esc(x){return String(x==null?'':x).replace(/[&<>\"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]||c;});}
+  function closeModal(){var n=document.getElementById('ckUiModal');if(n)n.remove();}
+  function modal(title,body){
+    closeModal();
+    var wrap=document.createElement('div');wrap.id='ckUiModal';wrap.className='ckUiModal';
+    wrap.innerHTML='<div class="ckUiShade" data-ui="close"></div><section class="ckUiSheet" role="dialog" aria-modal="true"><header><div><span class="ckUiEyebrow">從菜雞到股神</span><h2>'+esc(title)+'</h2></div><button class="ckUiClose" data-ui="close" aria-label="關閉">×</button></header><div class="ckUiBody">'+body+'</div></section>';
+    document.body.appendChild(wrap);
+  }
+  function toggleRow(key,label,sub,on){return '<button class="ckSetRow" data-audio="'+key+'"><span class="ckSetIcon">'+(key==='bgm'?'♫':'✦')+'</span><span><b>'+label+'</b><small>'+sub+'</small></span><i data-setting-state="'+key+'" class="'+(on?'on':'')+'">'+(on?'開':'關')+'</i></button>';}
+  function settings(){
+    var a=mixer();
+    modal('設定','<div class="ckSetList">'+
+      toggleRow('bgm','背景音樂','柔和 piano / bell / airy pad',!!a.bgm)+
+      toggleRow('sfx','操作音效','按鍵、答對、答錯與過關提示音',!!a.sfx)+
+      '<button class="ckSetRow" data-coach="fullscreen"><span class="ckSetIcon">⛶</span><span><b>全螢幕</b><small>支援的瀏覽器會隱藏部分瀏覽器介面</small></span><i>開啟</i></button>'+
+      '<div class="ckSetRow static"><span class="ckSetIcon">◌</span><span><b>教練語音</b><small>已移除人聲，只保留文字提示、BGM 與音效</small></span><i>關閉</i></div>'+
+      '</div><div class="ckSetActions"><button class="ckBtn ckCyan" data-ui="cover">回到遊戲封面</button><button class="ckDanger" data-ui="reset">重置本機進度</button></div><p class="ckFine">遊戲進度目前儲存在這台裝置的瀏覽器中。清除網站資料也會清除進度。</p>');
+  }
+  function help(){
+    modal('遊戲說明','<div class="ckHelpHero"><b>不是背答案，是把看盤拆成 36 個能力。</b><span>每一關只多一件事，完成後再進混合實戰。</span></div><div class="ckHelpGrid">'+
+      '<article><strong>01</strong><div><b>36 關能力鏈</b><p>從單根 K 線、結構、支撐壓力，到均線、量價、風險與完整掃描。</p></div></article>'+
+      '<article><strong>02</strong><div><b>400 題隨機實戰</b><p>使用 2020–2023 歷史題池，36 種技能混抽，可以使用提示。</p></div></article>'+
+      '<article><strong>03</strong><div><b>100 題盲測</b><p>使用隔離的 2024–2025 題池，不提示題型，也不提供提示。</p></div></article>'+
+      '<article><strong>04</strong><div><b>看不懂就回關卡</b><p>已完成與已解鎖關卡都能回去重玩，後面的關卡仍按順序解鎖。</p></div></article>'+
+      '</div><div class="ckInfoBox"><b>資料與用途</b><p>使用真實歷史行情做學習題。不是即時行情，也不是投資建議；遊戲中的價格與判斷只用於教育練習。</p></div>');
+  }
+  function profile(){
+    var s=state()||{},done=(s.completed||[]).length,pr=s.practice||{},ex=s.exam||{},rate=pr.total?Math.round(pr.correct/pr.total*100):0;
+    modal('學習紀錄','<div class="ckProfileHero"><span class="ckChick ck-'+(done>=36?'god':done>=12?'scholar':'rookie')+' ckProfileBig"></span><div><span class="ckUiEyebrow">CURRENT RANK</span><h3>'+esc(rank(s))+'</h3><b>Lv.'+level(s)+'</b><small>'+xpIn(s)+' / 600 EXP</small></div></div><div class="ckRecordGrid">'+
+      '<div><b>'+done+' / 36</b><span>完成關卡</span></div><div><b>'+((s.coins||0).toLocaleString())+'</b><span>金幣</span></div><div><b>'+(s.streak||0)+'</b><span>目前連勝</span></div><div><b>'+rate+'%</b><span>實戰正確率</span></div><div><b>'+((pr.idx||0))+' / 400</b><span>本輪實戰</span></div><div><b>'+Math.min(100,ex.idx||0)+' / 100</b><span>盲測進度</span></div></div>');
+  }
+  function refreshSettings(){
+    var a=mixer();['bgm','sfx'].forEach(function(k){var el=document.querySelector('[data-setting-state="'+k+'"]');if(el){var on=!!a[k];el.textContent=on?'開':'關';el.classList.toggle('on',on);}});
+  }
+  function showLanding(force){
+    if(!force){try{if(sessionStorage.getItem('bsg_landing_entered')==='1')return;}catch(e){}}
+    var old=document.getElementById('ckLanding');if(old)old.remove();
+    var n=document.createElement('div');n.id='ckLanding';n.className='ckLanding';
+    n.innerHTML='<div class="ckLandingFrame"><div class="ckLandingArt" role="img" aria-label="從菜雞到股神遊戲封面"></div><button class="ckLandingStart" data-ui="enter" aria-label="開始遊戲"></button></div></div>';
+    document.body.appendChild(n);
+  }
+  function enterApp(){try{sessionStorage.setItem('bsg_landing_entered','1');}catch(e){}var n=document.getElementById('ckLanding');if(n){n.classList.add('out');setTimeout(function(){if(n.parentNode)n.remove();},220);}}
+  function enhanceHome(){
+    var home=document.querySelector('.ckHome');if(!home)return;
+    home.classList.add('ckDashboard');
+    var prof=home.querySelector('.ckProfile');if(prof&&!prof.dataset.profileReady){prof.dataset.profileReady='1';prof.setAttribute('data-ui','profile');prof.setAttribute('role','button');prof.setAttribute('tabindex','0');}
+    var sec=home.querySelector('.ckSection');if(sec){var h=sec.querySelector('.ckSecHead h2');if(h&&h.textContent.indexOf('熱門課程')<0)h.textContent='熱門課程';}
+  }
+  function enhanceHud(){
+    var hud=document.querySelector('.hudbar');if(!hud)return;
+    var s=state()||{},done=(s.completed||[]).length;
+    var onHome=!!document.querySelector('.ckHome');
+    hud.classList.toggle('ckDashHud',onHome);
+    var stats=hud.querySelector('.hudstats');if(!stats)return;
+    var old=stats.querySelector('.ckTopActions');
+    if(!old){
+      old=document.createElement('div');old.className='ckTopActions';
+      old.innerHTML='<button class="ckTopBtn" data-ui="settings" aria-label="設定">⚙</button><button class="ckTopBtn" data-ui="help" aria-label="說明">ⓘ</button>';
+      stats.appendChild(old);
+    }
+    if(onHome){
+      var brand=hud.querySelector('.brand');if(brand){brand.setAttribute('data-ui','profile');brand.classList.add('ckBrandProfile');var nm=brand.querySelector('.brandname'),sub=brand.querySelector('.brandsub');if(nm)nm.innerHTML=esc(rank(s));if(sub)sub.textContent='Lv.'+level(s)+' · '+done+' / 36 關';}
+      var xp=hud.querySelector('.xpbox');if(xp){xp.innerHTML='<span class="lv">EXP</span><div class="xpbar"><i style="width:'+(xpIn(s)/6)+'%"></i></div><span class="lv">'+xpIn(s)+' / 600</span>';}
+      var gold=stats.querySelector('.hudpill.gold');if(gold)gold.textContent='◆ '+(s.coins||0);
+      var fire=stats.querySelector('.hudpill.fire');if(fire)fire.textContent='連勝 '+(s.streak||0);
+    }
+  }
+  function sync(){enhanceHome();enhanceHud();try{if('speechSynthesis' in window)window.speechSynthesis.cancel();}catch(e){};}
+  var queued=false;function queue(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;sync();});}
+
+  document.addEventListener('click',function(e){
+    var t=e.target&&e.target.closest?e.target.closest('[data-ui]'):null;if(!t)return;
+    var k=t.getAttribute('data-ui');
+    if(k==='settings'){e.preventDefault();settings();}
+    else if(k==='help'){e.preventDefault();help();}
+    else if(k==='profile'){e.preventDefault();profile();}
+    else if(k==='close'){e.preventDefault();closeModal();}
+    else if(k==='enter'){e.preventDefault();enterApp();}
+    else if(k==='cover'){e.preventDefault();closeModal();try{sessionStorage.removeItem('bsg_landing_entered');}catch(x){}showLanding(true);}
+    else if(k==='reset'){e.preventDefault();if(confirm('確定要清除這台裝置上的遊戲進度？這個動作不能復原。')){closeModal();if(window.BSGV3&&window.BSGV3.reset)window.BSGV3.reset();}}
+  },true);
+  document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-audio]'))setTimeout(refreshSettings,20);},false);
+  document.addEventListener('keydown',function(e){var t=e.target;if((e.key==='Enter'||e.key===' ')&&t&&t.matches&&t.matches('[data-ui="profile"]')){e.preventDefault();profile();}if(e.key==='Escape')closeModal();});
+
+  var root=document.getElementById('app');if(root)new MutationObserver(queue).observe(root,{childList:true,subtree:true});
+  queue();showLanding(false);
+})();
