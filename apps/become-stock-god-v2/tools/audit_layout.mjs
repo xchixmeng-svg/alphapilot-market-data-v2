@@ -31,6 +31,11 @@ try {
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}' })
     await page.evaluate(s => localStorage.setItem('bsg_v3_product', JSON.stringify(s)), saveAll)
     await page.reload({ waitUntil: 'load' }); await page.waitForSelector('.hudstats', { timeout: 15000 })
+    const enter=page.locator('[data-ui="enter"]')
+    if(await enter.count()){
+      await enter.click()
+      await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000})
+    }
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}' })
     for (const mid of MISSIONS) {
       await page.evaluate(mid => { const b = document.createElement('button'); b.setAttribute('data-act', 'mission'); b.dataset.id = mid; b.hidden = true; document.getElementById('app').appendChild(b); b.click() }, mid)
@@ -40,14 +45,13 @@ try {
         const tag = `[${view} M${String(mid).padStart(2, '0')} ex${ex}]`
         if (ex === 1) await page.evaluate(() => document.querySelector('[data-act="beginQuestions"]')?.click())
         if (ex >= 2) {
-          // answer the previous exercise correctly through the real handlers; DOM click avoids animation timing noise
           const ci = await page.evaluate(() => { const T = window.BSGV3._test, u = T.ui; return T.question(u.mission, T.getR(u.roundId), u.exercise).correct })
           await page.evaluate(ci => document.querySelector(`[data-act="answer"][data-i="${ci}"]`)?.click(), ci)
           await page.evaluate(() => document.querySelector('[data-act="afterFeedback"]')?.click())
         }
         await page.waitForSelector('#v3Chart canvas'); await page.waitForTimeout(160)
         const r = await page.evaluate(() => {
-          scrollTo(0, 0) // sticky HUD / lesson header are measured in their resting position
+          scrollTo(0, 0)
           const T = window.BSGV3._test, u = T.ui, wrap = document.getElementById('v3Chart'), L = wrap.__bsgLayout, cv = wrap.querySelector('canvas').getBoundingClientRect()
           const rel = el => { if (!el || getComputedStyle(el).display === 'none') return null; const b = el.getBoundingClientRect(); return { x0: b.left - cv.left, y0: b.top - cv.top, x1: b.right - cv.left, y1: b.bottom - cv.top } }
           const ans = [...document.querySelectorAll('[data-act="answer"]')].map(b => b.getBoundingClientRect().bottom)
@@ -63,14 +67,12 @@ try {
         const L = r.L
         if (r.scrollW > r.iw + 1) fail(tag, 'horizontal overflow ' + r.scrollW)
         if (!portrait && r.canvasH < 200) fail(tag, 'landscape chart too short: ' + Math.round(r.canvasH) + 'px')
-        // V4: portrait never squashes the chart to fit the fold — the question may scroll below it
         if (portrait && r.canvasH < 400) fail(tag, 'portrait chart squashed: ' + Math.round(r.canvasH) + 'px tall')
         if (portrait && r.frame && r.frame.y1 - r.frame.y0 < (r.frame.x1 - r.frame.x0) * 1.05) fail(tag, 'portrait chart frame flatter than tall: ' + Math.round(r.frame.x1 - r.frame.x0) + '×' + Math.round(r.frame.y1 - r.frame.y0))
         const ovr = (a, b) => a && b && Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 2 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 2
         if (portrait) for (const [nm, other] of [['HUD', r.hudB], ['lesson header', r.headB], ['question', r.promptB], ['answers', r.answersB]]) if (ovr(r.frame, other)) fail(tag, 'chart overlaps ' + nm)
         for (const mm of r.mascots) if (ovr(r.frame, mm)) fail(tag, 'mascot/coach artwork inside the chart frame')
         const P = L.plot
-        // nothing the lesson needs may sit under the controls or legend
         for (const box of [r.ctl, r.legend].filter(Boolean)) if (box.y0 < P.y1 - .5 && box.x0 < P.x1) fail(tag, 'chart control/legend intrudes into plot area')
         for (const dd of L.dots) if (dd.x < P.x0 || dd.x > P.x1 || dd.y < P.y0 - .5 || dd.y > P.y1 + .5) fail(tag, `dot ${dd.t} outside plot`)
         const texts = L.labels.map(l => ({ t: l.t, ...l.box, kind: l.kind, dot: l.dot, leader: l.leader })).concat(L.lane.map(l => ({ t: l.t, ...l.box, kind: 'lane', dot: l.dot })))
