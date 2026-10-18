@@ -19,6 +19,12 @@ page.on('console',m=>{if(m.type()==='error')errors.push('console: '+m.text())})
 try{
   await page.goto(url,{waitUntil:'load',timeout:30000})
   await page.waitForSelector('.hudstats',{timeout:15000})
+  const enter=page.locator('[data-ui="enter"]')
+  if(await enter.count()){
+    await enter.click()
+    await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000})
+  }
+  await page.waitForSelector('.ckHome.ckDashboard',{timeout:10000})
   const home = await page.evaluate(()=>{
     const el=document.querySelector('.homeCoach')
     const cs=el?getComputedStyle(el):null
