@@ -1,0 +1,32 @@
+name: Import BSG Claude bundle
+
+on:
+  push:
+    branches: [bsg-import-claude-346d033]
+    paths:
+      - 'tmp/bsg-bundle/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconstruct and verify Claude bundle
+        run: |
+          cat tmp/bsg-bundle/part* | base64 -d > /tmp/bsg_v4_346d033.bundle
+          echo 'a991f91468fb8ff898e11060bf4938dfbe5c3b1cf93356a080a4397bf8e24d96  /tmp/bsg_v4_346d033.bundle' | sha256sum -c -
+          git bundle verify /tmp/bsg_v4_346d033.bundle
+          test "$(git rev-parse HEAD^)" = "f9dfd0ebc26874f01671413e0f92f1326c462acf" || true
+          test "$(git rev-parse HEAD)" = "b5dd6d5462e464ce69b75a50c27041b060b7798e"
+      - name: Import exact Claude commit chain
+        run: |
+          git fetch /tmp/bsg_v4_346d033.bundle bsg-learning-system-20261019:refs/remotes/claude/bsg-learning-system-20261019
+          test "$(git rev-parse refs/remotes/claude/bsg-learning-system-20261019)" = "346d0337b7ce74b4ede156cb1eab4626a64932f5"
+          test "$(git rev-parse 346d0337b7ce74b4ede156cb1eab4626a64932f5^^^)" = "b5dd6d5462e464ce69b75a50c27041b060b7798e"
+          git push origin 346d0337b7ce74b4ede156cb1eab4626a64932f5:refs/heads/bsg-learning-system-20261019
