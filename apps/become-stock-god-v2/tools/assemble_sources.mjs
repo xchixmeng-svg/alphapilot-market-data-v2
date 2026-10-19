@@ -57,6 +57,17 @@ for (const [name, out] of Object.entries(specs)) {
     )
   }
 
+  // Raw lesson candles must themselves be valid Taiwan-stock prices. The old check only required
+  // two decimal places, which still allowed impossible values such as 68.04 or 125.30.
+  if (name === 'build_bank') {
+    source = replaceOne(
+      source,
+      "function onPriceGrid(R) {\n  for (const k of ['o', 'h', 'l', 'c']) for (const x of R[k]) if (Math.abs(x * 100 - Math.round(x * 100)) > 1e-6) return false\n  return true\n}",
+      "function onPriceGrid(R) {\n  for (const k of ['o', 'h', 'l', 'c']) for (const x of R[k]) {\n    if (!Number.isFinite(x) || x <= 0) return false\n    const legal = E.roundToTick(x)\n    if (Math.abs(x - legal) > 1e-6) return false\n  }\n  return true\n}",
+      'bank legal Taiwan tick grid'
+    )
+  }
+
   // V3.6: the former build-time chart patches (resize guard, candle body/wick width, marker
   // placement) now live directly in parts/chart.01.part, so the renderer can be read in one place.
   fs.mkdirSync(path.dirname(path.join(root, out)), {recursive:true})
