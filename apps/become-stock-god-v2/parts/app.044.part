@@ -9,18 +9,19 @@
   function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
   function minA(a,s,e){var v=Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
   function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function argExtreme(a,s,e,wantMax){var lo=Math.max(0,s),hi=Math.min(a.length-1,e),best=lo,v=wantMax?-Infinity:Infinity;for(var i=lo;i<=hi;i++){if(!Number.isFinite(a[i]))continue;if((wantMax&&a[i]>v)||(!wantMax&&a[i]<v)){v=a[i];best=i;}}return best;}
   function uniquePrices(a){var seen={},out=[];a.forEach(function(p){if(!Number.isFinite(p)||p<=0)return;var k=String(Math.round(p*10000));if(seen[k])return;seen[k]=1;out.push(p);});return out;}
   function missionId(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
   function enforce(d){
     if(!d||!d.R)return d;
     var a=api(),ui=a&&a.ui,mid=missionId(),R=d.R,i=d.d0Idx,c=R.c[i],o=R.o[i],atr=(R.atr&&R.atr[i])||c*.02;
     var sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),out=Object.assign({},d);
-    var top=Math.max(o,c),bottom=Math.min(o,c),pc=R.c[i-1];
+    var top=Math.max(o,c),bottom=Math.min(o,c),pc=R.c[i-1],q=a&&a.criterion?a.criterion(mid,R):null;
     out.priceGuides=uniquePrices(out.priceGuides||[]);
 
-    // First module: no tap-to-reveal. The demo names the parts; practice keeps only the evidence
-    // needed to reason, never a semantic label that literally states the answer.
-    if(mid>=1&&mid<=6)out.allowCross=false;
+    // Beginner + structure modules: tapping a candle cannot bypass the lesson by opening a full
+    // OHLC tooltip. The chart itself supplies only the evidence the current concept needs.
+    if(mid>=1&&mid<=12)out.allowCross=false;
 
     // M01 — identify OHLC.
     if(mid===1){
@@ -35,8 +36,7 @@
       ];
     }
 
-    // M02 — body = open-to-close. Four neutral price guides let the learner distinguish body
-    // edges from the full high-low range without the axis inventing rounded values.
+    // M02 — body = open-to-close.
     if(mid===2){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([R.h[i],top,bottom,R.l[i]]);
       out.markers=quiz?[]:[
@@ -54,7 +54,7 @@
       ];
     }
 
-    // M04 — explicitly separate wick from body during teaching; remove names during practice.
+    // M04 — wick vs body.
     if(mid===4){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([R.h[i],top,bottom,R.l[i]]);
       out.markers=quiz?[]:[
@@ -65,7 +65,7 @@
       ];
     }
 
-    // M05 — these labels are evidence, not the verdict. The learner must compare the values.
+    // M05 — K colour vs day change. Labels are evidence, not the verdict.
     if(mid===5){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([pc,o,c]);
       out.markers=[
@@ -75,18 +75,58 @@
       ];
     }
 
-    // M06 — preserve the five-close path and day labels; never annotate the direction itself.
+    // M06 — five-close path. Never annotate the direction itself.
     if(mid===6){
       out.priceGuides=[];
-      if(quiz){
-        out.markers=(out.markers||[]).filter(function(m){return /^D-?\d+$/.test(m.label||'')||m.label==='D0';});
-      }
+      if(quiz)out.markers=(out.markers||[]).filter(function(m){return /^D-?\d+$/.test(m.label||'')||m.label==='D0';});
     }
 
-    // Whenever the answer choices contain exact prices, those prices must be directly readable
-    // from the chart. During the quiz, semantic labels/zones that would literally reveal the
-    // answer are removed; only neutral numeric guide lines remain.
-    if(quiz&&mid===7){out.markers=[];out.priceGuides=uniquePrices([res,sup,c]);}
+    // M07 — demonstrate the true local high, then remove its name during practice. The exact
+    // candidate prices remain readable because this lesson asks for a price level.
+    if(mid===7){
+      if(quiz){out.markers=[];out.priceGuides=uniquePrices([res,sup,c]);}
+      else out.priceGuides=uniquePrices([res,c]);
+    }
+
+    // M08/M09 — labels identify the two observations; the learner still has to compare them.
+    if(mid===8||mid===9){
+      out.priceGuides=[];
+    }
+
+    // M10 — show the two highs and two lows explicitly. These are evidence labels, not the
+    // classification. The learner must decide whether both sequences are moving lower.
+    if(mid===10){
+      var h1=argExtreme(R.h,i-24,i-13,true),h2=argExtreme(R.h,i-12,i,true),l1=argExtreme(R.l,i-24,i-13,false),l2=argExtreme(R.l,i-12,i,false);
+      out.markers=[
+        {idx:h1,price:R.h[h1],label:'前段高',color:'#ffd44a',prefer:'above'},
+        {idx:h2,price:R.h[h2],label:'後段高',color:'#ff9f43',prefer:'above'},
+        {idx:l1,price:R.l[l1],label:'前段低',color:'#9876ff',prefer:'below'},
+        {idx:l2,price:R.l[l2],label:'後段低',color:'#39f5ff',prefer:'below'}
+      ];
+    }
+
+    // M11 — demo names the range boundaries; practice removes them so the learner must detect
+    // overlap instead of reading the word "盤整" from the chart.
+    if(mid===11){
+      if(quiz){out.lines=[];out.zones=[];out.markers=[];}
+      else out.lines=[
+        {price:res,color:'#ff9f43',label:'重疊區上緣',dash:true},
+        {price:sup,color:'#24d79b',label:'重疊區下緣',dash:true}
+      ];
+    }
+
+    // M12 — the prior high is a legitimate reference level. The demo explains it; practice keeps
+    // a neutral reference label so the answer still requires comparing D0 with that level.
+    if(mid===12){
+      var ph=maxA(R.h,i-12,i-1),phi=argExtreme(R.h,i-12,i-1,true);
+      out.lines=[{price:ph,color:'#ff9f43',label:quiz?'前高基準':'前一重要高點',dash:true}];
+      out.markers=[
+        {idx:phi,price:ph,label:'前高',color:'#ff9f43',prefer:'above'},
+        {idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'side'}
+      ];
+    }
+
+    // Exact-price lessons later in the course.
     if(quiz&&(mid===13||mid===14)){out.zones=[];out.markers=[];out.priceGuides=uniquePrices([sup,res,c]);}
     if(mid===31){
       var st31=window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down');
@@ -108,5 +148,5 @@
     next.getData=function(){return enforce(getter?getter():null);};
     return baseCreate(wrap,next);
   };
-  window.BSG_V4_FOUNDATION={version:'learning-foundation-v2',transform:enforce,uniquePrices:uniquePrices};
+  window.BSG_V4_FOUNDATION={version:'learning-foundation-v3',transform:enforce,uniquePrices:uniquePrices};
 })();
