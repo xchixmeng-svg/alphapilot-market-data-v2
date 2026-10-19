@@ -85,14 +85,12 @@ for (const [name, out] of Object.entries(specs)) {
       source,
       "function fmt(p){if(!isFinite(p))return '—';var d=p<50?2:(p<1000?1:0);return p.toFixed(d);}",
       "function fmt(p){if(!isFinite(p))return '—';var e=window.BSG,d=e&&e.priceDecimals?e.priceDecimals(p):(p<50?2:(p<1000?1:0));return p.toFixed(d);}",
-      'legal price formatter'
-    )
+      'legal price formatter')
     source = replaceOne(
       source,
       "ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.font='600 11px ui-monospace,Menlo,monospace';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.textBaseline='middle';for(var gy=0;gy<=4;gy++){var py=padT+gy*(priceH-padT)/4,pv=yi(py);ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(plotW,Math.round(py)+.5);ctx.stroke();ctx.fillText(fmt(pv),plotW+7,py);}",
       "ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.font='600 11px ui-monospace,Menlo,monospace';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.textBaseline='middle';var axisSeen={};for(var gy=0;gy<=4;gy++){var rawPy=padT+gy*(priceH-padT)/4,rawPv=yi(rawPy),pv=(window.BSG&&window.BSG.roundToTick)?window.BSG.roundToTick(rawPv):rawPv,pk=fmt(pv);if(axisSeen[pk])continue;axisSeen[pk]=1;var py=y(pv);ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(plotW,Math.round(py)+.5);ctx.stroke();if(!d.hideAxisTicks)ctx.fillText(pk,plotW+7,py);}",
-      'legal price axis ticks'
-    )
+      'legal price axis ticks')
     source = replaceOne(source,
       "if(showVol){var vh=vmax?((R.v[k]||0)/vmax)*volH:0;",
       "if(showVol&&!d.indicatorPanel){var vh=vmax?((R.v[k]||0)/vmax)*volH:0;",
@@ -111,6 +109,7 @@ for (const [name, out] of Object.entries(specs)) {
     (ip.thresholds||[]).forEach(function(t){var yy=iy(t);ctx.strokeStyle='rgba(120,150,175,.25)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(plotW,yy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=COL.muted;ctx.fillText(String(t),plotW-26,yy-7);});
     if(ip.hist){var zero=iy(0);for(z=first;z<=last;z++){var hv=ip.hist[z];if(!Number.isFinite(hv))continue;var xx=x(z),yy=iy(hv),bw2=Math.max(2,Math.min(bw*.55,10));ctx.fillStyle=hv>=0?'rgba(255,70,95,.55)':'rgba(36,215,155,.55)';ctx.fillRect(xx-bw2/2,Math.min(zero,yy),bw2,Math.max(1,Math.abs(yy-zero)));}}
     series.forEach(function(s,si){ctx.strokeStyle=s.color||[COL.cyan,COL.ma20,COL.violet][si%3];ctx.lineWidth=1.6;ctx.beginPath();var on=false;for(z=first;z<=last;z++){var v=s.values&&s.values[z];if(!Number.isFinite(v)){on=false;continue;}var xx=x(z),yy=iy(v);if(!on){ctx.moveTo(xx,yy);on=true;}else ctx.lineTo(xx,yy);}ctx.stroke();var lv=s.values&&s.values[last];if(Number.isFinite(lv)){ctx.fillStyle=s.color||COL.cyan;ctx.fillText((s.name||'')+' '+(Math.abs(lv)>=100?lv.toFixed(0):lv.toFixed(1)),6+si*94,volTop+20);}});
+    if(ip.summary&&ip.summary.length){ctx.font='800 9px -apple-system,"PingFang TC",sans-serif';ctx.fillStyle='#c5d9e6';var sy=volTop+Math.min(volH-7,34);ip.summary.forEach(function(s,si){ctx.fillText(s,6+(si%2)*Math.max(150,plotW*.47),sy+Math.floor(si/2)*12);});}
     ctx.restore();
   }
   var mode=d.showMA===true?'both':d.showMA;`,
