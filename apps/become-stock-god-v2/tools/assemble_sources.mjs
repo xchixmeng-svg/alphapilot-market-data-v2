@@ -13,9 +13,21 @@ function replaceOne(source, from, to, label) {
   if (!source.includes(from)) throw new Error('patch signature changed: ' + label)
   return source.replace(from, to)
 }
+function sortParts(name, files) {
+  // app.03 closes the legacy core IIFE. M25-M36 were added later as app.030/app.031, and plain
+  // lexical sorting placed them *after* app.03 (outside the scope that owns question/qtext/etc.).
+  // Give those two files virtual keys immediately after app.029 so every lesson override remains
+  // inside the core IIFE, while all later standalone visual/UI wrappers keep their original order.
+  function key(f) {
+    if (name === 'app' && f === 'app.030.part') return 'app.029z1.part'
+    if (name === 'app' && f === 'app.031.part') return 'app.029z2.part'
+    return f
+  }
+  return files.sort((a,b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)
+}
 for (const [name, out] of Object.entries(specs)) {
   const dir = path.join(root, 'parts')
-  const files = fs.readdirSync(dir).filter(f => f.startsWith(name + '.') && f.endsWith('.part')).sort()
+  const files = sortParts(name, fs.readdirSync(dir).filter(f => f.startsWith(name + '.') && f.endsWith('.part')))
   if (!files.length) throw new Error('missing parts for ' + name)
   let source = files.map(f => fs.readFileSync(path.join(dir,f),'utf8')).join('')
 
