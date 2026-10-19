@@ -1,0 +1,105 @@
+name: Validate BSG V4 release candidate
+
+on:
+  push:
+    branches: [bsg-learning-system-20261019]
+    paths:
+      - 'apps/become-stock-god-v2/**'
+      - '.github/workflows/bsg-v4-release-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/become-stock-god-v2/package.json
+      - name: Install
+        working-directory: apps/become-stock-god-v2
+        run: npm install
+      - name: Build complete course
+        working-directory: apps/become-stock-god-v2
+        run: npm run build:web
+      - name: Syntax and full learning audit
+        working-directory: apps/become-stock-god-v2
+        run: |
+          node --check src/engine.js
+          node --check src/content.js
+          node --check src/chart.js
+          node --check src/app.js
+          npm run audit:learning
+      - name: M47 drawing interaction contract
+        working-directory: apps/become-stock-god-v2
+        run: |
+          grep -Fq 'dd.pricePickMode' src/chart.js
+          grep -Fq 'eng.roundToTick' src/chart.js
+          grep -Fq "typeof opt.onPricePick==='function'" src/chart.js
+          grep -Fq 'data-v4-line-confirm' src/app.js
+          grep -Fq 'Math.abs(pick-q.sup)<=tol' src/app.js
+          grep -Fq 'pricePickMode=!!(quiz&&ui&&ui.exercise===2)' src/app.js
+      - name: Browser verify complete course on phone landscape
+        working-directory: apps/become-stock-god-v2
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4174 -d dist >/tmp/bsg-release-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node - <<'NODE'
+          const {chromium}=require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+            await page.goto('http://127.0.0.1:4174/',{waitUntil:'load',timeout:30000});
+            await page.waitForSelector('.hudstats',{timeout:15000});
+            const report=await page.evaluate(()=>{
+              const t=window.BSGV3._test, CT=window.BSG_CONTENT;
+              if(CT.MISSIONS.length!==50) throw new Error('expected 50 missions');
+              if(CT.WORLDS.length!==8) throw new Error('expected 8 worlds');
+              if(CT.FREE_THROUGH!==15||CT.PRODUCT_PRICE_TWD!==149) throw new Error('commercial defaults mismatch');
+              function transformed(mid,ex){
+                t.setupMission(mid,ex,'mission');
+                const m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R);
+                return {m,R,d:window.BSG_V4_FOUNDATION.transform(window.BSG_V4_ADVANCED_VISUALS.transform(window.BSG_V3_VISUALS.transform(base,mid)))};
+              }
+              for(let mid=1;mid<=50;mid++){
+                for(let ex=1;ex<=3;ex++){
+                  t.setupMission(mid,ex,'mission');
+                  const m=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(m,R,ex),text=t.qtext(m,R,ex);
+                  if(!R||!q||q.opts.length!==3||new Set(q.opts.map(String)).size!==3||q.correct<0||q.correct>2||!text) throw new Error(`M${mid} ex${ex} invalid`);
+                }
+              }
+              const m31=transformed(31,2),m32=transformed(32,2),m39=transformed(39,2),m42=transformed(42,2),m44=transformed(44,2),m47=transformed(47,2),m49=transformed(49,2);
+              if(!m31.d.priceGuides||m31.d.priceGuides.length<3)throw new Error('M31 price guides missing');
+              if(!m32.d.priceGuides||m32.d.priceGuides.length<3)throw new Error('M32 price guides missing');
+              if(m39.d.indicatorPanel?.type!=='MACD')throw new Error('MACD panel missing');
+              if(m42.d.indicatorPanel?.type!=='KD')throw new Error('KD panel missing');
+              if(m44.d.indicatorPanel?.type!=='RSI14')throw new Error('RSI panel missing');
+              if(!m47.d.pricePickMode||!m47.d.priceGuides||m47.d.priceGuides.length<3)throw new Error('M47 drawing mode missing');
+              if(!m49.d.priceGuides||m49.d.priceGuides.length<3)throw new Error('M49 price guides missing');
+              const a=transformed(50,1),b=transformed(50,2),c=transformed(50,3),i=a.d.d0Idx;
+              if(a.d.lastIdx!==i||b.d.lastIdx!==Math.min(i+1,b.R.c.length-1)||c.d.lastIdx!==Math.min(i+2,c.R.c.length-1))throw new Error('M50 causal reveal mismatch');
+              return {missions:50,worlds:8,m47Drawing:true,m50Causal:true};
+            });
+            if(errors.length)throw new Error(errors.join(' | '));
+            console.log('BSG_RELEASE_BROWSER_OK',JSON.stringify(report));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Upload validated release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bsg-v4-release-dist
+          path: apps/become-stock-god-v2/dist
+          if-no-files-found: error
+          retention-days: 7
