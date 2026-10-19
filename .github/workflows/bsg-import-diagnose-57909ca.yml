@@ -1,0 +1,26 @@
+name: Diagnose Claude 57909ca import
+
+on:
+  push:
+    branches: [bsg-import-claude-346d033]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -u
+          tr -d '\r\n ' < claude-drop/part00.txt > /tmp/p00
+          base64 -d < claude-drop/part01_outer2.b64 > /tmp/p01 2>/tmp/decode.err || true
+          tr -d '\r\n ' < /tmp/p01 > /tmp/p01n
+          echo PART00=$(sha256sum /tmp/p00 | cut -d' ' -f1)
+          echo PART01=$(sha256sum /tmp/p01n | cut -d' ' -f1)
+          cat /tmp/p00 /tmp/p01n | base64 -d > /tmp/b.bundle 2>/tmp/bdecode.err || true
+          echo BUNDLE=$(sha256sum /tmp/b.bundle | cut -d' ' -f1)
+          echo SIZE00=$(wc -c </tmp/p00) SIZE01=$(wc -c </tmp/p01n) BUNDLESIZE=$(wc -c </tmp/b.bundle)
+          cat /tmp/decode.err /tmp/bdecode.err || true
