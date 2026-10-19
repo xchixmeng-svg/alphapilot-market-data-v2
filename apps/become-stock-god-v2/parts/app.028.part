@@ -1,0 +1,76 @@
+
+// V4 location / breakout module — M13..M18.
+var _w3Question=question;
+function _w3Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W3|'+ex+'|'+BYID[UI.roundId].lb);}
+question=function(m,R,ex){
+  if(!m||m.id<13||m.id>18)return _w3Question(m,R,ex);
+  var q=criterion(m.id,R),i=q.i,ds,dr,side;
+  if(m.id===13){
+    if(ex%3===1)return _w3Sh(m,ex,['價格多次到附近就停止下跌或被接住的區域','任何一天的最低價','成交量最大的一根 K'],0);
+    if(ex%3===2)return _w3Sh(m,ex,['約 '+px(q.sup),'約 '+px(q.res),'約 '+px(q.c)],0);
+    return _w3Sh(m,ex,['支撐應視為一個區域，不是精準到一檔的神奇價位','支撐一定是一條完全不會跌破的線','只要碰過一次低點就能叫重要支撐'],0);
+  }
+  if(m.id===14){
+    if(ex%3===1)return _w3Sh(m,ex,['價格多次到附近就停止上漲或被壓回的區域','任何一天的最高價','只要是整數價就算壓力'],0);
+    if(ex%3===2)return _w3Sh(m,ex,['約 '+px(q.res),'約 '+px(q.sup),'約 '+px(q.c)],0);
+    return _w3Sh(m,ex,['壓力應視為一個區域，而且越接近壓力追價空間越小','壓力一旦碰到就一定會下跌','只要創新高就沒有任何壓力'],0);
+  }
+  if(m.id===15){
+    if(ex%3===1)return _w3Sh(m,ex,['同一個區間裡，靠近下緣與靠近上緣的風險報酬不同','區間任何位置都一樣','只要是紅 K 就不用管位置'],0);
+    ds=Math.abs(q.c-q.sup);dr=Math.abs(q.res-q.c);side=ds<dr*.7?'靠近區間下緣':dr<ds*.7?'靠近區間上緣':'區間中間';
+    if(ex%3===2)return _w3Sh(m,ex,['靠近區間下緣','靠近區間上緣','區間中間'],side==='靠近區間下緣'?0:side==='靠近區間上緣'?1:2);
+    return _w3Sh(m,ex,['越靠近上緣，若還沒突破，能承受的追價錯誤通常越小','越靠近上緣越安全，因為一定會突破','只要在區間內就不需要失策點'],0);
+  }
+  if(m.id===16){
+    if(ex%3===1)return _w3Sh(m,ex,['收盤真正站上明確壓力','盤中影線曾經刺過壓力','只要成交量增加'],0);
+    side=q.c>q.prevHi?'已收盤站上前 20 日壓力':R.h[i]>q.prevHi?'只有盤中碰到／刺過':'仍在壓力下';
+    if(ex%3===2)return _w3Sh(m,ex,['已收盤站上前 20 日壓力','只有盤中碰到／刺過','仍在壓力下'],side==='已收盤站上前 20 日壓力'?0:side==='只有盤中碰到／刺過'?1:2);
+    return _w3Sh(m,ex,['影線穿過不等於有效突破，收盤位置更重要','只要最高價超過壓力一檔就算突破完成','突破後就不需要再看是否跌回'],0);
+  }
+  if(m.id===17){
+    if(ex%3===1)return _w3Sh(m,ex,['曾收上壓力，之後又快速跌回原區間','突破後一路站穩在壓力上方','價格仍在原壓力下，從未突破'],0);
+    if(ex%3===2)return _w3Sh(m,ex,['曾收上原壓力，但 D0 已跌回壓力下方','D0 仍穩穩站在原壓力上方','只看到紅 K，無法比較壓力'],0);
+    return _w3Sh(m,ex,['突破品質會下降，要重新評估原本論點','既然曾突破，就永遠算成功突破','只要創過新高就可以忽略後續結構'],0);
+  }
+  if(m.id===18){
+    if(ex%3===1)return _w3Sh(m,ex,['突破原壓力後，回到原壓力附近測試是否能守住','價格第一次碰到壓力','突破前在區間裡震盪'],0);
+    if(ex%3===2)return _w3Sh(m,ex,['像突破後回測原壓力','像高檔追價，離原壓力很遠','像下降趨勢中直接接刀'],0);
+    return _w3Sh(m,ex,['若明顯跌回原區間深處，回測／突破論點就變弱','只要碰到原壓力就一定回測成功','回測時完全不需要看收盤與結構'],0);
+  }
+  return _w3Question(m,R,ex);
+};
+var _w3Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<13||m.id>18)return _w3Qtext(m,R,ex);
+  if(m.id===13){if(ex%3===1)return'什麼樣的地方比較像「支撐」？';if(ex%3===2)return'看圖上多次被接住的位置，支撐大約在哪個價位？';return'關於支撐，哪個觀念比較正確？';}
+  if(m.id===14){if(ex%3===1)return'什麼樣的地方比較像「壓力」？';if(ex%3===2)return'看圖上多次被壓回的位置，壓力大約在哪個價位？';return'關於壓力，哪個觀念比較正確？';}
+  if(m.id===15){if(ex%3===1)return'同一個盤整區間裡，位置重要嗎？';if(ex%3===2)return'D0 現在比較靠近區間哪裡？';return'如果價格已經靠近區間上緣，最該注意什麼？';}
+  if(m.id===16){if(ex%3===1)return'「碰到壓力」和「有效突破」最大的差別是什麼？';if(ex%3===2)return'比較 D0 與壓力基準，目前是哪個狀態？';return'關於突破，哪個說法比較正確？';}
+  if(m.id===17){if(ex%3===1)return'什麼叫做「假突破」？';if(ex%3===2)return'看突破時收盤與 D0 收盤，目前最像哪種情況？';return'一旦跌回原區間，應該怎麼理解原本突破？';}
+  if(m.id===18){if(ex%3===1)return'什麼叫「突破後回測」？';if(ex%3===2)return'看 D0 與原壓力區的位置，現在比較像什麼？';return'什麼情況會讓回測論點明顯變弱？';}
+  return _w3Qtext(m,R,ex);
+};
+var _w3Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<13||m.id>18)return _w3Explain(m,R,ans);
+  var q=criterion(m.id,R),i=q.i;
+  if(m.id===13)return'支撐看的是「附近反覆出現承接」，不是一條永遠不會跌破的神奇線。這張圖候選支撐約 '+px(q.sup)+'。';
+  if(m.id===14)return'壓力看的是「附近反覆出現賣壓」。這張圖候選壓力約 '+px(q.res)+'；越靠近它，還沒突破前的上方空間通常越小。';
+  if(m.id===15)return'同一個區間裡，D0 收盤 '+px(q.c)+'，下緣約 '+px(q.sup)+'、上緣約 '+px(q.res)+'。位置不同，失策距離與上方空間就不同。';
+  if(m.id===16)return'突破不是最高價一瞬間刺過就算。真正要比較的是 D0 收盤 '+px(q.c)+' 是否站上前段壓力約 '+px(q.prevHi)+'。';
+  if(m.id===17){var r=maxA(R.h,i-22,i-3);return'原壓力約 '+px(r)+'。曾經收在它上方，後來 D0 又回到 '+px(q.c)+'；這種「站上後又跌回」就是突破品質惡化的核心證據。';}
+  if(m.id===18){var r2=maxA(R.h,i-25,i-6);return'原壓力約 '+px(r2)+'。突破後再回到這附近，不是自動成功；要看價格能不能在原區間上方附近守住。';}
+  return _w3Explain(m,R,ans);
+};
+var _w3PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w3PromptIntro(m),extra='';if(!m)return html;
+  if(m.id===13)extra='<strong>支撐是區域｜</strong>價格多次跌到附近就被接住，才有支撐意義；不是一條精準到一檔、永遠不破的線。';
+  if(m.id===14)extra='<strong>壓力是區域｜</strong>價格多次漲到附近就被壓回，才形成壓力；越接近上方壓力，追價前越要算剩餘空間。';
+  if(m.id===15)extra='<strong>同區間，不同位置｜</strong>靠近下緣與靠近上緣，失策距離和上方空間完全不同，所以不能只看「是不是紅 K」。';
+  if(m.id===16)extra='<strong>突破看收盤｜</strong>盤中最高價刺過只代表「碰過」；收盤真正站上明確壓力，才是較有意義的突破證據。';
+  if(m.id===17)extra='<strong>突破也會失敗｜</strong>先站上壓力、之後又跌回原區間，代表市場沒有把突破守住，原本論點要降級。';
+  if(m.id===18)extra='<strong>回測是再驗證｜</strong>突破後回到原壓力附近，市場正在測試「舊壓力能不能變成新支撐」。守不住就不能硬說突破有效。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
