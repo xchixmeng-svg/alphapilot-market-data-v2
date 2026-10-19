@@ -1,0 +1,15 @@
+
+// M47 must not merely ask where support is: the learner actually places a horizontal line on the
+// chart. The normal multiple-choice answer stays hidden and is used only as the existing scoring
+// transport after the drawn line is evaluated by the post-core interaction layer.
+var _v4DrawAnswerHTML=answerHTML;
+answerHTML=function(m,R){
+  var html=_v4DrawAnswerHTML(m,R);
+  if(m&&m.id===47&&UI.mode==='mission'&&UI.exercise===2&&!UI.feedback){
+    return '<div class="coachLine"><strong>現在換你畫｜</strong>直接點 K 線圖的價位，系統會吸附到合法台股跳動單位。把水平線放在你認為的支撐區，再確認。</div>'+
+      '<div id="drawPickReadout" class="coachLine">尚未畫線｜先點圖上的一個價位</div>'+
+      '<button class="btn primary full" type="button" data-v4-line-confirm>確認這條支撐線 →</button>'+
+      '<div class="v4HiddenAnswers" style="display:none">'+html+'</div>';
+  }
+  return html;
+};
