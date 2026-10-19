@@ -10,6 +10,7 @@
   function mid(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
   function minA(a,s,e){var v=Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
   function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function avgA(a,s,e){var n=0,v=0;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i])){v+=a[i];n++;}return n?v/n:null;}
   function transform(d){
     if(!d||!d.R)return d;
     var a=api(),ui=a&&a.ui,id=mid(),R=d.R,i=d.d0Idx,out=Object.assign({},d),ind=window.BSG&&window.BSG.teachingIndicators?window.BSG.teachingIndicators(R):null;
@@ -18,6 +19,16 @@
     function zone(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones=(out.zones||[]).concat([{lo:price-w,hi:price+w,color:color,label:label,alpha:.12}]);}
     if(ind&&(id===39||id===40||id===41||id===45||id===46)){
       out.showVolume=true;out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
+      if(id===45||id===46){
+        var kval=ind.kd.k[i],dval=ind.kd.d[i],rval=ind.rsi14[i],vavg=avgA(R.v,i-19,i),vr=vavg?R.v[i]/vavg:null;
+        out.indicatorPanel.summary=[
+          'MACD '+(ind.macd.dif[i]>=ind.macd.dea[i]?'DIF>Signal':'DIF<Signal'),
+          'KD '+(Number.isFinite(kval)?kval.toFixed(0):'—')+'/'+(Number.isFinite(dval)?dval.toFixed(0):'—'),
+          'RSI '+(Number.isFinite(rval)?rval.toFixed(0):'—'),
+          '量比 '+(Number.isFinite(vr)?vr.toFixed(2)+'x':'—')
+        ];
+        out.showMA=id===46?'both':'ma20';zone(sup,'#24d79b',quiz?'':'支撐');zone(res,'#ff9f43',quiz?'':'壓力');
+      }
     }
     if(ind&&(id===42||id===43)){
       out.showVolume=true;out.indicatorPanel={type:'KD',range:[0,100],thresholds:[20,80],series:[{name:'K',values:ind.kd.k,color:'#39f5ff'},{name:'D',values:ind.kd.d,color:'#ffd44a'}]};
@@ -47,7 +58,7 @@
     if(id===50){
       var ex=ui&&ui.mode==='mission'?ui.exercise:0,reveal=ex<=1?0:ex===2?1:2;
       out.lastIdx=Math.min(i+reveal,R.c.length-1);out.showMA='both';out.showVolume=true;out.zones=[];out.markers=[];
-      if(ind)out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
+      if(ind)out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}],summary:['逐日揭曉 '+(reveal?'D+'+reveal:'D0'),'未來資料：隱藏']};
       line(sup,'#24d79b',quiz?'':'D0 支撐',true);line(res,'#ff9f43',quiz?'':'D0 壓力',true);
       out.allowCross=false;
     }
@@ -62,5 +73,5 @@
     };}
     return originalCreate(wrap,next);
   };
-  window.BSG_V4_ADVANCED_VISUALS={version:'advanced-visuals-v2',transform:transform};
+  window.BSG_V4_ADVANCED_VISUALS={version:'advanced-visuals-v3',transform:transform};
 })();
