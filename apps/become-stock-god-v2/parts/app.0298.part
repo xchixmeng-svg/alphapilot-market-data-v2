@@ -1,0 +1,81 @@
+
+// ───────────── Lesson schema (V4.2) ─────────────
+// A lesson is data. Each registered mission declares its copy, sample filter, exercises, chart evidence,
+// interaction and reveal policy; the generic hooks below serve every registered mission, so adding a
+// mission means adding a defineLesson({...}) entry — not another `if(m.id===xx)` in the app or chart.
+// Mission metadata (title, world, rule…) stays in content.js; this layer only adds behaviour.
+//
+// Flow every lesson follows (teach-before-test is structural, not per mission):
+//   exercise 0 = teach + demo (evidence visible, no question)
+//   exercise 1 = guided   (first check, hints available)
+//   exercise 2 = practice (new chart, hints on request)            ← interaction.exercise may turn this into drawing
+//   exercise 3 = exam     (solo: no hint until a wrong answer)
+//   simulation lessons may declare more exercises; reveal.days[k-1] decides how many future bars exercise k shows.
+//
+// Spec fields:
+//   id            mission id (metadata must exist in content.js)
+//   exercises     number of graded exercises (default 3)
+//   sample(s)     optional suitability filter for historical samples; s = {R, i}
+//   intro         optional extra teaching lines [{label, text}] shown before the coach line
+//   ask           one entry per exercise: {text: string|fn(c), options: array|fn(c)->{options, correct}, correct}
+//   explain       string | fn(c, answerIndex); default = mission rule
+//   chart         {indicator:'MACD'|'KD'|'RSI14'} or fn(c, kit) adding evidence (see app.0444)
+//   interaction   {type:'pricePick', exercise, target(q), tolerance(q), title, prompt, readout, confirm}
+//   reveal        {days:[...]} future bars revealed per exercise (exercise 0 uses days[0]); never more than that
+//   shuffleTag    seed tag for option order (kept per lesson so existing answer order never changes)
+// c (context) = {m, R, ex, i, q:criterion, ind:teaching indicators, px, E, minA, maxA, ui}
+var LESSONS={},LESSON_PHASES=['teach','demo','guided','practice','exam','simulation'];
+function lessonSpec(id){return Object.prototype.hasOwnProperty.call(LESSONS,+id)?LESSONS[+id]:null;}
+function exCount(m){var s=m&&lessonSpec(m.id);return s&&s.exercises?s.exercises:3;}
+function lessonCtx(m,R,ex){return{m:m,R:R,ex:ex,i:X(0),q:criterion(m.id,R),ind:E.teachingIndicators?E.teachingIndicators(R):null,px:px,E:E,minA:minA,maxA:maxA,ui:UI};}
+function lessonProblems(s){
+  var p=[],n=s.exercises||3,meta=CT.MISSIONS.filter(function(x){return x.id===s.id;})[0];
+  if(!meta)p.push('no content.js metadata');
+  if(!Array.isArray(s.ask)||s.ask.length!==n)p.push('ask must have '+n+' entries');
+  (s.ask||[]).forEach(function(a,k){if(!a||(typeof a.text!=='string'&&typeof a.text!=='function'))p.push('ask['+k+'] text');if(!a||(!Array.isArray(a.options)&&typeof a.options!=='function'))p.push('ask['+k+'] options');if(a&&Array.isArray(a.options)&&a.options.length!==3)p.push('ask['+k+'] needs 3 options');});
+  if(s.interaction){var it=s.interaction;if(it.type!=='pricePick')p.push('unknown interaction '+it.type);if(!(it.exercise>=1&&it.exercise<=n))p.push('interaction exercise out of range');if(typeof it.target!=='function'||typeof it.tolerance!=='function')p.push('pricePick needs target() and tolerance()');}
+  if(s.reveal){if(!Array.isArray(s.reveal.days)||s.reveal.days.length!==n)p.push('reveal.days must have '+n+' entries');else s.reveal.days.forEach(function(d,k){if(!(d>=0)||(k&&d<s.reveal.days[k-1]))p.push('reveal.days must be non-negative and non-decreasing');});}
+  return p;
+}
+function defineLesson(s){var p=lessonProblems(s);if(p.length)throw new Error('lesson M'+s.id+': '+p.join('; '));LESSONS[s.id]=s;return s;}
+function lessonAsk(s,ex){var n=s.ask.length;return s.ask[((ex-1)%n+n)%n];}
+
+var _lsSuitable=suitable;
+suitable=function(mid,R){var s=lessonSpec(mid);if(s&&s.sample)return !!s.sample({R:R,i:X(0)});return _lsSuitable(mid,R);};
+var _lsQuestion=question;
+question=function(m,R,ex){
+  var s=m&&lessonSpec(m.id);if(!s)return _lsQuestion(m,R,ex);
+  var a=lessonAsk(s,ex),r=typeof a.options==='function'?a.options(lessonCtx(m,R,ex)):{options:a.options,correct:a.correct||0};
+  return shuffleOptions(r.options,r.correct,m.id+'|'+(s.shuffleTag||'ADV')+'|'+ex+'|'+BYID[UI.roundId].lb);
+};
+var _lsQtext=qtext;
+qtext=function(m,R,ex){var s=m&&lessonSpec(m.id);if(!s)return _lsQtext(m,R,ex);var a=lessonAsk(s,ex);return typeof a.text==='function'?a.text(lessonCtx(m,R,ex)):a.text;};
+var _lsExplain=explain;
+explain=function(m,R,ans){var s=m&&lessonSpec(m.id);if(!s)return _lsExplain(m,R,ans);if(typeof s.explain==='function'){var r=s.explain(lessonCtx(m,R,UI.exercise),ans);if(r!=null)return r;}else if(typeof s.explain==='string')return s.explain;return m.rule;};
+var _lsPromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_lsPromptIntro(m),s=m&&lessonSpec(m.id);if(!s)return html;
+  var extra='<strong>先教，再考｜</strong>'+esc(m.rule)+(s.intro||[]).map(function(x){return'<br><strong>'+x.label+'｜</strong>'+x.text;}).join('');
+  return html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+};
+// Drawing interaction: the learner places a line on the chart; the regular choice answers stay hidden and
+// are only the scoring transport after the drawn line is graded (app.0445).
+var _lsAnswerHTML=answerHTML;
+answerHTML=function(m,R){
+  var html=_lsAnswerHTML(m,R),s=m&&lessonSpec(m.id),it=s&&s.interaction;
+  if(it&&it.type==='pricePick'&&UI.mode==='mission'&&UI.exercise===it.exercise&&!UI.feedback){
+    return '<div class="coachLine"><strong>'+it.title+'｜</strong>'+it.prompt+'</div>'+
+      '<div id="drawPickReadout" class="coachLine">'+it.readout+'</div>'+
+      '<button class="btn primary full" type="button" data-v4-line-confirm>'+it.confirm+'</button>'+
+      '<div class="v4HiddenAnswers" style="display:none">'+html+'</div>';
+  }
+  return html;
+};
+window.BSG_LESSONS={
+  get:lessonSpec,
+  ids:function(){return Object.keys(LESSONS).map(Number).sort(function(a,b){return a-b;});},
+  exercises:exCount,
+  phases:LESSON_PHASES,
+  validate:function(){var bad={};Object.keys(LESSONS).forEach(function(k){var p=lessonProblems(LESSONS[k]);if(p.length)bad[k]=p;});return bad;},
+  criterion:function(id,R){return criterion(id,R);}
+};

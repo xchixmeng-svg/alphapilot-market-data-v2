@@ -1,75 +1,58 @@
 
-// V4 advanced visual contract — indicator panels, price-line practice, reversal evidence and
-// a causal daily-reveal graduation mission. This wrapper runs after the base V4 foundation and
-// before the legacy V3.5 visual transformer is captured, so it receives a clean mission chart.
+// V4 lesson-schema visual layer — applies each registered lesson's chart evidence (indicator panels,
+// price lines, drawing mode, causal daily reveal). Nothing here branches on a mission id: the lesson
+// spec (app.02985) says what to show. This wrapper runs after the base V4 foundation and before the
+// legacy V3.5 visual transformer is captured, so it receives a clean mission chart.
 (function(){
   'use strict';
   if(!window.BSGChart||typeof window.BSGChart.create!=='function')return;
   var originalCreate=window.BSGChart.create;
   function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
-  function mid(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function lessons(){return window.BSG_LESSONS||null;}
+  function currentSpec(){var a=api(),m=a&&a.ui&&a.ui.mission,L=lessons();return m&&L?L.get(+m.id):null;}
   function minA(a,s,e){var v=Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
   function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
   function avgA(a,s,e){var n=0,v=0;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i])){v+=a[i];n++;}return n?v/n:null;}
+  var PANELS={
+    MACD:function(ind){return{type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};},
+    KD:function(ind){return{type:'KD',range:[0,100],thresholds:[20,80],series:[{name:'K',values:ind.kd.k,color:'#39f5ff'},{name:'D',values:ind.kd.d,color:'#ffd44a'}]};},
+    RSI14:function(ind){return{type:'RSI14',range:[0,100],thresholds:[30,70],series:[{name:'RSI',values:ind.rsi14,color:'#c58cff'}]};}
+  };
   function transform(d){
     if(!d||!d.R)return d;
-    var a=api(),ui=a&&a.ui,id=mid(),R=d.R,i=d.d0Idx,out=Object.assign({},d),ind=window.BSG&&window.BSG.teachingIndicators?window.BSG.teachingIndicators(R):null;
+    var spec=currentSpec(),out=Object.assign({},d);if(!spec)return out;
+    var a=api(),ui=a&&a.ui,R=d.R,i=d.d0Idx,ind=window.BSG&&window.BSG.teachingIndicators?window.BSG.teachingIndicators(R):null;
     var quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),atr=(R.atr&&R.atr[i])||R.c[i]*.02;
-    function line(price,color,label,dash){if(Number.isFinite(price))out.lines=(out.lines||[]).concat([{price:price,color:color,label:label||'',dash:!!dash}]);}
-    function zone(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones=(out.zones||[]).concat([{lo:price-w,hi:price+w,color:color,label:label,alpha:.12}]);}
-    if(ind&&(id===39||id===40||id===41||id===45||id===46)){
-      out.showVolume=true;out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
-      if(id===45||id===46){
+    var kit={minA:minA,maxA:maxA,avgA:avgA,
+      line:function(price,color,label,dash){if(Number.isFinite(price))out.lines=(out.lines||[]).concat([{price:price,color:color,label:label||'',dash:!!dash}]);},
+      zone:function(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones=(out.zones||[]).concat([{lo:price-w,hi:price+w,color:color,label:label,alpha:.12}]);},
+      indicator:function(type,extra){if(!ind||!PANELS[type])return null;out.showVolume=true;out.indicatorPanel=Object.assign(PANELS[type](ind),extra||{});return out.indicatorPanel;}
+    };
+    var revealDay=0;
+    if(spec.reveal){var ex=ui&&ui.mode==='mission'?ui.exercise:0,days=spec.reveal.days;revealDay=days[Math.max(0,Math.min(days.length-1,ex-1))];out.lastIdx=Math.min(i+revealDay,R.c.length-1);}
+    var it=spec.interaction;
+    if(it&&it.type==='pricePick'){out.allowCross=false;out.pricePickMode=!!(quiz&&ui&&ui.exercise===it.exercise);}
+    var c={R:R,i:i,quiz:quiz,ui:ui,ind:ind,sup:sup,res:res,atr:atr,revealDay:revealDay,out:out};
+    var ch=spec.chart;
+    if(typeof ch==='function')ch(c,kit);
+    else if(ch&&ch.indicator&&ind){
+      var panel=kit.indicator(ch.indicator);
+      if(ch.summary){
         var kval=ind.kd.k[i],dval=ind.kd.d[i],rval=ind.rsi14[i],vavg=avgA(R.v,i-19,i),vr=vavg?R.v[i]/vavg:null;
-        out.indicatorPanel.summary=[
-          'MACD '+(ind.macd.dif[i]>=ind.macd.dea[i]?'DIF>Signal':'DIF<Signal'),
-          'KD '+(Number.isFinite(kval)?kval.toFixed(0):'—')+'/'+(Number.isFinite(dval)?dval.toFixed(0):'—'),
-          'RSI '+(Number.isFinite(rval)?rval.toFixed(0):'—'),
-          '量比 '+(Number.isFinite(vr)?vr.toFixed(2)+'x':'—')
-        ];
-        out.showMA=id===46?'both':'ma20';zone(sup,'#24d79b',quiz?'':'支撐');zone(res,'#ff9f43',quiz?'':'壓力');
+        panel.summary=['MACD '+(ind.macd.dif[i]>=ind.macd.dea[i]?'DIF>Signal':'DIF<Signal'),'KD '+(Number.isFinite(kval)?kval.toFixed(0):'—')+'/'+(Number.isFinite(dval)?dval.toFixed(0):'—'),'RSI '+(Number.isFinite(rval)?rval.toFixed(0):'—'),'量比 '+(Number.isFinite(vr)?vr.toFixed(2)+'x':'—')];
       }
-    }
-    if(ind&&(id===42||id===43)){
-      out.showVolume=true;out.indicatorPanel={type:'KD',range:[0,100],thresholds:[20,80],series:[{name:'K',values:ind.kd.k,color:'#39f5ff'},{name:'D',values:ind.kd.d,color:'#ffd44a'}]};
-    }
-    if(ind&&id===44){
-      out.showVolume=true;out.indicatorPanel={type:'RSI14',range:[0,100],thresholds:[30,70],series:[{name:'RSI',values:ind.rsi14,color:'#c58cff'}]};
-    }
-    if(id===37){out.showMA=false;out.showVolume=false;out.focusCandles=[i-4,i-3,i-2,i-1,i];}
-    if(id===38){
-      out.showMA=false;out.showVolume=false;out.focusCandles=[i-1,i];
-      line(R.h[i-1],'#ff9f43',quiz?'':'昨高',true);line(R.l[i-1],'#24d79b',quiz?'':'昨低',true);line(R.o[i],'#39f5ff',quiz?'':'今開',true);
-    }
-    if(id===47){
-      out.showMA=false;out.showVolume=false;out.allowCross=false;out.pricePickMode=!!(quiz&&ui&&ui.exercise===2);
-      if(quiz){out.zones=[];out.markers=[];out.priceGuides=[sup,res,R.c[i]];}
-      else{zone(sup,'#24d79b','支撐示範');zone(res,'#ff9f43','壓力示範');}
-    }
-    if(id===48){
-      var ph=maxA(R.h,i-12,i-1),pl=minA(R.l,i-12,i-1);out.showMA=false;out.showVolume=false;out.zones=[];out.markers=[];
-      line(ph,'#ff9f43','關鍵前高',true);line(pl,'#24d79b','近期低點',true);out.focusCandles=[i];
-      if(quiz)out.lines=(out.lines||[]).map(function(x){return Object.assign({},x,{label:''});});
-    }
-    if(id===49){
-      var st=window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down');out.showMA='ma20';out.showVolume=false;out.zones=[];out.markers=[];zone(sup,'#24d79b','結構支撐');line(st,'#ff465f','失策',true);
-      if(quiz){out.zones=[];out.lines=[];out.priceGuides=[st,sup,R.c[i]];}
-    }
-    if(id===50){
-      var ex=ui&&ui.mode==='mission'?ui.exercise:0,reveal=ex<=1?0:ex===2?1:2;
-      out.lastIdx=Math.min(i+reveal,R.c.length-1);out.showMA='both';out.showVolume=true;out.zones=[];out.markers=[];
-      if(ind)out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}],summary:['逐日揭曉 '+(reveal?'D+'+reveal:'D0'),'未來資料：隱藏']};
-      line(sup,'#24d79b',quiz?'':'D0 支撐',true);line(res,'#ff9f43',quiz?'':'D0 壓力',true);
-      out.allowCross=false;
+      if(ch.showMA!==undefined)out.showMA=ch.showMA;
+      if(ch.levels){kit.zone(sup,'#24d79b',quiz?'':'支撐');kit.zone(res,'#ff9f43',quiz?'':'壓力');}
     }
     return out;
   }
+  function drawnText(p){var e=window.BSG;return'你畫的水平線：'+(e&&e.priceDecimals?p.toFixed(e.priceDecimals(p)):p.toFixed(2))+' 元｜可以再點一次調整';}
   window.BSGChart.create=function(wrap,opt){
-    opt=opt||{};var getter=opt.getData,next=Object.assign({},opt),id=mid();
+    opt=opt||{};var getter=opt.getData,next=Object.assign({},opt),spec=currentSpec(),it=spec&&spec.interaction;
     next.getData=function(){return transform(getter?getter():null);};
-    if(id===47){next.onPricePick=function(p){
+    if(it&&it.type==='pricePick'){next.onPricePick=function(p){
       window.BSG_V4_LAST_PICK=p;
-      var box=document.getElementById('drawPickReadout');if(!box){box=document.createElement('div');box.id='drawPickReadout';box.className='coachLine';var host=document.querySelector('.answers');if(host)host.appendChild(box);}if(box)box.textContent='你畫的水平線：'+(window.BSG&&window.BSG.priceDecimals?p.toFixed(window.BSG.priceDecimals(p)):p.toFixed(2))+' 元｜可以再點一次調整';
+      var box=document.getElementById('drawPickReadout');if(!box){box=document.createElement('div');box.id='drawPickReadout';box.className='coachLine';var host=document.querySelector('.answers');if(host)host.appendChild(box);}if(box)box.textContent=drawnText(p);
     };}
     return originalCreate(wrap,next);
   };

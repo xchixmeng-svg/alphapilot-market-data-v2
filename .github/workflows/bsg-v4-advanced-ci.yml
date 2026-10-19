@@ -57,6 +57,9 @@ jobs:
               if(CT.WORLDS.length!==8)throw new Error('world count '+CT.WORLDS.length);
               if(CT.FREE_THROUGH!==15||CT.PRODUCT_PRICE_TWD!==149)throw new Error('commercial defaults mismatch');
               if(!window.BSG_V4_ADVANCED_VISUALS)throw new Error('advanced visual layer missing');
+              if(!window.BSG_LESSONS)throw new Error('lesson schema missing');
+              const badLessons=window.BSG_LESSONS.validate();if(Object.keys(badLessons).length)throw new Error('invalid lesson specs '+JSON.stringify(badLessons));
+              for(let id=37;id<=CT.MISSIONS.length;id++)if(!window.BSG_LESSONS.get(id))throw new Error('M'+id+' not served by the lesson schema');
               function transformed(mid,ex){
                 t.setupMission(mid,ex,'mission');
                 const m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R);

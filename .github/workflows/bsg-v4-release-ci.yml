@@ -42,8 +42,9 @@ jobs:
           grep -Fq 'eng.roundToTick' src/chart.js
           grep -Fq "typeof opt.onPricePick==='function'" src/chart.js
           grep -Fq 'data-v4-line-confirm' src/app.js
-          grep -Fq 'Math.abs(pick-q.sup)<=tol' src/app.js
-          grep -Fq 'pricePickMode=!!(quiz&&ui&&ui.exercise===2)' src/app.js
+          grep -Fq 'Math.abs(pick-target)<=tol' src/app.js
+          grep -Fq 'out.pricePickMode=!!(quiz&&ui&&ui.exercise===it.exercise)' src/app.js
+          grep -Fq "interaction:{type:'pricePick',exercise:2," src/app.js
       - name: Browser verify complete course on phone landscape
         working-directory: apps/become-stock-god-v2
         run: |
