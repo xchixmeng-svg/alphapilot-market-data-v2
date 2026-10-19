@@ -1,0 +1,60 @@
+
+// V4 chart-learning foundation. It is loaded immediately before the V3.5 visual transformer.
+// Because V3.5 captures this create() wrapper, this transform runs AFTER the mission-specific
+// visual transform and can enforce shared pedagogy rules without changing each legacy mission.
+(function(){
+  'use strict';
+  if(!window.BSGChart||typeof window.BSGChart.create!=='function')return;
+  var baseCreate=window.BSGChart.create;
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function minA(a,s,e){var v=Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
+  function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function uniquePrices(a){var seen={},out=[];a.forEach(function(p){if(!Number.isFinite(p)||p<=0)return;var k=String(Math.round(p*10000));if(seen[k])return;seen[k]=1;out.push(p);});return out;}
+  function missionId(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function enforce(d){
+    if(!d||!d.R)return d;
+    var a=api(),ui=a&&a.ui,mid=missionId(),R=d.R,i=d.d0Idx,c=R.c[i],o=R.o[i],atr=(R.atr&&R.atr[i])||c*.02;
+    var sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),out=Object.assign({},d);
+    out.priceGuides=uniquePrices(out.priceGuides||[]);
+
+    // M01 is the reference lesson for the whole product: demonstrate names first, then leave
+    // only numeric prices. Tapping the candle must never open the full OHLC answer during practice.
+    if(mid===1){
+      out.hideAxisTicks=true;out.allowCross=false;out.lines=[];
+      out.priceGuides=uniquePrices([R.h[i],o,c,R.l[i]]);
+      if(quiz)out.markers=[];
+      else out.markers=[
+        {idx:i,price:R.h[i],label:'最高價',color:'#ffd44a',prefer:'above'},
+        {idx:i,price:o,label:'開盤價',color:'#9876ff',prefer:'side'},
+        {idx:i,price:c,label:'收盤價',color:'#39f5ff',prefer:'side'},
+        {idx:i,price:R.l[i],label:'最低價',color:'#24d79b',prefer:'below'}
+      ];
+    }
+
+    // Whenever the answer choices contain exact prices, those prices must be directly readable
+    // from the chart. During the quiz, semantic labels/zones that would literally reveal the
+    // answer are removed; only neutral numeric guide lines remain.
+    if(quiz&&mid===7){out.markers=[];out.priceGuides=uniquePrices([res,sup,c]);}
+    if(quiz&&(mid===13||mid===14)){out.zones=[];out.markers=[];out.priceGuides=uniquePrices([sup,res,c]);}
+    if(mid===31){
+      var st31=window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down');
+      out.lines=(out.lines||[]).map(function(l){return /失策/.test(l.label||'')?Object.assign({},l,{price:st31}):l;});
+      if(quiz){out.zones=[];out.lines=[];out.markers=[];out.priceGuides=uniquePrices([st31,sup,c]);}
+    }
+    if(quiz&&mid===32){
+      var tg32=res>c?res:maxA(R.h,i-60,i-1);
+      out.lines=[];out.priceGuides=uniquePrices([tg32,sup,c]);
+    }
+    if(mid===33||mid===35){
+      var st=window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down');
+      out.lines=(out.lines||[]).map(function(l){return /失策/.test(l.label||'')?Object.assign({},l,{price:st}):l;});
+    }
+    return out;
+  }
+  window.BSGChart.create=function(wrap,opt){
+    opt=opt||{};var getter=opt.getData,next=Object.assign({},opt);
+    next.getData=function(){return enforce(getter?getter():null);};
+    return baseCreate(wrap,next);
+  };
+  window.BSG_V4_FOUNDATION={version:'learning-foundation-v1',transform:enforce,uniquePrices:uniquePrices};
+})();
