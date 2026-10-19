@@ -71,7 +71,6 @@ jobs:
             const contract=await page.evaluate(()=>{
               const t=window.BSGV3._test, rows=[];
               for(let mid=1;mid<=6;mid++){
-                const m=t.content.MISSIONS[mid-1]||t.ui.mission;
                 const exRows=[];
                 for(let ex=1;ex<=3;ex++){
                   t.setupMission(mid,ex,'mission');
