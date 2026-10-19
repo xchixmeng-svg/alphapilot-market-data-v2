@@ -1,0 +1,16 @@
+
+// Grade the learner's M47 horizontal line as a zone, not an exact pixel. This deliberately allows
+// reasonable technical-analysis variation while still rejecting lines that miss the taught area.
+(function(){
+  'use strict';
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-v4-line-confirm]');if(!b)return;
+    var t=window.BSGV3&&window.BSGV3._test,ui=t&&t.ui;if(!t||!ui||!ui.mission||ui.mission.id!==47)return;
+    var pick=window.BSG_V4_LAST_PICK,read=document.getElementById('drawPickReadout');
+    if(!Number.isFinite(pick)){if(read)read.textContent='先在圖上點一個支撐價位，再按確認。';return;}
+    var R=t.getR(ui.roundId),q=t.criterion(47,R),tol=Math.max((q.a||q.c*.02)*.55,q.sup*.004),ok=Math.abs(pick-q.sup)<=tol;
+    var quiz=t.question(ui.mission,R,ui.exercise),idx=ok?quiz.correct:(quiz.correct+1)%quiz.opts.length;
+    if(read)read.textContent='你畫在 '+pick.toFixed(window.BSG.priceDecimals(pick))+' 元；合理區域容許誤差約 ±'+tol.toFixed(window.BSG.priceDecimals(q.sup))+' 元。';
+    var target=document.querySelector('.v4HiddenAnswers .answer[data-i="'+idx+'"]');if(target)target.click();
+  });
+})();
