@@ -109,8 +109,32 @@ jobs:
               const tick=window.BSG.tickSize(p);if(Math.abs(p/tick-Math.round(p/tick))>1e-7)throw new Error('M47 price did not snap to legal tick: '+p);
               host.remove();return p;
             });
+            // Real device-equivalent touch: drive the live M47 lesson through the UI and tap with the
+            // touchscreen (CDP touch events, real active pointer), then confirm and check grading.
+            const realTouch=await (async()=>{
+              const ctx=await browser.newContext({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:3});
+              const tp=await ctx.newPage();const terr=[];tp.on('pageerror',e=>terr.push(String(e)));
+              await tp.goto('http://127.0.0.1:4174/',{waitUntil:'load'});
+              await tp.evaluate(()=>{localStorage.setItem('bsg_v3_product',JSON.stringify({version:3,created:new Date().toISOString(),completed:Array.from({length:46},(_,i)=>i+1),xp:0,coins:0,streak:0,premium:true,missionStats:{},practice:{idx:0,correct:0,total:0},exam:{idx:0,correct:0,total:0},lastMission:47}));sessionStorage.setItem('bsg_landing_entered','1');});
+              await tp.reload({waitUntil:'load'});await tp.waitForSelector('.hudstats',{timeout:15000});
+              await tp.evaluate(()=>{const b=document.createElement('button');b.setAttribute('data-act','mission');b.dataset.id=47;b.hidden=true;document.getElementById('app').appendChild(b);b.click();});
+              await tp.waitForSelector('#v3Chart canvas');
+              await tp.evaluate(()=>document.querySelector('[data-act="beginQuestions"]')?.click());await tp.waitForTimeout(150);
+              await tp.evaluate(()=>{const T=window.BSGV3._test,u=T.ui,ci=T.question(u.mission,T.getR(u.roundId),u.exercise).correct;document.querySelector('[data-act="answer"][data-i="'+ci+'"]')?.click();document.querySelector('[data-act="afterFeedback"]')?.click();});
+              await tp.waitForSelector('[data-v4-line-confirm]',{timeout:5000});
+              const g=await tp.evaluate(()=>{const T=window.BSGV3._test,u=T.ui,R=T.getR(u.roundId),wrap=document.getElementById('v3Chart'),L=wrap.__bsgLayout,cv=wrap.querySelector('canvas').getBoundingClientRect();return{ex:u.exercise,sup:T.criterion(47,R).sup,ys:L.badges.map(b=>cv.top+(b.y0+b.y1)/2),x:cv.left+L.plot.x1*.5};});
+              if(g.ex!==2)throw new Error('M47 real touch: not on the drawing exercise');
+              let hit=null;
+              for(const y of g.ys){await tp.evaluate(()=>{window.BSG_V4_LAST_PICK=null;});await tp.touchscreen.tap(g.x,y);await tp.waitForTimeout(100);const pk=await tp.evaluate(()=>window.BSG_V4_LAST_PICK);if(!Number.isFinite(pk))throw new Error('M47 real touchscreen tap did not create price line');const tk=await tp.evaluate(p=>window.BSG.tickSize(p),pk);if(Math.abs(pk/tk-Math.round(pk/tk))>1e-7)throw new Error('M47 real tap price not on legal tick: '+pk);if(Math.abs(pk-g.sup)<1e-9){hit=pk;break;}}
+              if(hit===null)throw new Error('M47 tapping the support guide did not return the support price '+g.sup);
+              await tp.locator('[data-v4-line-confirm]').first().tap();await tp.waitForTimeout(150);
+              const fb=await tp.evaluate(()=>{const u=window.BSGV3._test.ui;return{feedback:!!u.feedback,ok:!!document.querySelector('.feedbackBox:not(.bad)')};});
+              if(!fb.feedback||!fb.ok)throw new Error('M47 line on the support guide was not graded correct '+JSON.stringify(fb));
+              if(terr.length)throw new Error('M47 real touch errors: '+terr.join(' | '));
+              await ctx.close();return hit;
+            })();
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
-            console.log('M25_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual,m47Picked:picked}));
+            console.log('M25_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual,m47Picked:picked,m47RealTouch:realTouch}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
