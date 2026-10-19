@@ -1,0 +1,80 @@
+
+// V4 tools module — M19..M24: MA20 -> relative position -> distance -> slope -> MA stack -> ATR.
+var _w4Question=question;
+function _w4Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W4|'+ex+'|'+BYID[UI.roundId].lb);}
+question=function(m,R,ex){
+  if(!m||m.id<19||m.id>24)return _w4Question(m,R,ex);
+  var q=criterion(m.id,R),d,side,slope,atrp;
+  if(m.id===19){
+    if(ex%3===1)return _w4Sh(m,ex,['最近 20 個交易日收盤價的移動平均','最近 20 天最高價','近 20 天成交量總和'],0);
+    if(ex%3===2)return _w4Sh(m,ex,['會隨每天新增資料而移動','20 天算一次後就固定不變','只在股價上漲時才會更新'],0);
+    return _w4Sh(m,ex,['它是平均位置工具，不是自動買進按鈕','只要股價站上 MA20 就必買','MA20 可以保證未來方向'],0);
+  }
+  if(m.id===20){
+    if(ex%3===1)return _w4Sh(m,ex,['直接比較目前收盤與 MA20 的數值','只看 K 棒顏色','只看成交量'],0);
+    side=q.c>q.ma?'股價在 MA20 上方':q.c<q.ma?'股價在 MA20 下方':'兩者相同';
+    if(ex%3===2)return _w4Sh(m,ex,['股價在 MA20 上方','股價在 MA20 下方','兩者相同'],side==='股價在 MA20 上方'?0:side==='股價在 MA20 下方'?1:2);
+    return _w4Sh(m,ex,['在 MA20 上方只是位置資訊，不保證繼續上漲','站上 MA20 就代表沒有風險','跌破 MA20 就代表公司基本面轉壞'],0);
+  }
+  if(m.id===21){
+    if(ex%3===1)return _w4Sh(m,ex,['用（收盤−MA20）÷MA20 看百分比距離','只用畫面像素距離','只看今天漲跌幅'],0);
+    d=Math.abs(q.dist||0);side=d<=.025?'接近 MA20':d>=.08?'明顯遠離 MA20':'中等距離';
+    if(ex%3===2)return _w4Sh(m,ex,['接近 MA20（約 ±2.5% 內）','明顯遠離 MA20（約 8% 以上）','中等距離'],side==='接近 MA20'?0:side==='明顯遠離 MA20'?1:2);
+    return _w4Sh(m,ex,['離均線越遠通常越要注意追價風險','離均線越遠一定越安全','不同股價尺度可以直接用畫面距離比較'],0);
+  }
+  if(m.id===22){
+    if(ex%3===1)return _w4Sh(m,ex,['比較今天 MA20 與幾天前 MA20 的高度','只看今天收盤紅綠','只看 MA20 與 MA60 是否交叉'],0);
+    slope=q.ma>q.oldMa*1.002?'MA20 往上':q.ma<q.oldMa*.998?'MA20 往下':'MA20 走平';
+    if(ex%3===2)return _w4Sh(m,ex,['MA20 往上','MA20 往下','MA20 走平'],slope==='MA20 往上'?0:slope==='MA20 往下'?1:2);
+    return _w4Sh(m,ex,['股價一天站上 MA20，不等於 MA20 趨勢已經翻多','只要今天紅 K，MA20 一定向上','MA20 向上就代表明天一定漲'],0);
+  }
+  if(m.id===23){
+    if(ex%3===1)return _w4Sh(m,ex,['同時比較價格、MA20、MA60 的相對順序','只看 MA20 顏色','只看今天成交量'],0);
+    side=q.c>q.ma&&q.ma>q.ma60?'價格 > MA20 > MA60':q.c<q.ma&&q.ma<q.ma60?'價格 < MA20 < MA60':'均線順序混合';
+    if(ex%3===2)return _w4Sh(m,ex,['價格 > MA20 > MA60','價格 < MA20 < MA60','均線順序混合'],side==='價格 > MA20 > MA60'?0:side==='價格 < MA20 < MA60'?1:2);
+    return _w4Sh(m,ex,['均線排列是趨勢整理度的證據，仍要搭配位置與風險','多頭排列就是保證獲利','只要 MA20 > MA60 就不用看價格在哪裡'],0);
+  }
+  if(m.id===24){
+    atrp=q.a/q.c;side=atrp>=.04?'高波動':atrp<=.02?'低波動':'中等波動';
+    if(ex%3===1)return _w4Sh(m,ex,['衡量近期「平常一天會晃多大」的波動尺度','預測明天一定會漲多少','計算公司合理股價'],0);
+    if(ex%3===2)return _w4Sh(m,ex,['高波動（ATR/股價 ≥ 4%）','低波動（≤ 2%）','中等波動'],side==='高波動'?0:side==='低波動'?1:2);
+    return _w4Sh(m,ex,['不同波動股票不能機械套用相同停損距離','ATR 越高代表一定越值得買','ATR 可以單獨決定買賣方向'],0);
+  }
+  return _w4Question(m,R,ex);
+};
+var _w4Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<19||m.id>24)return _w4Qtext(m,R,ex);
+  var q=criterion(m.id,R),pct=q.a&&q.c?(q.a/q.c*100).toFixed(1):'—';
+  if(m.id===19){if(ex%3===1)return'MA20 到底是什麼？';if(ex%3===2)return'為什麼叫「移動」平均？';return'把 MA20 當成什麼最合理？';}
+  if(m.id===20){if(ex%3===1)return'要判斷價格在 MA20 上方或下方，最直接看什麼？';if(ex%3===2)return'看 D0 收盤與 MA20，目前價格在哪一側？';return'「站在 MA20 上方」代表什麼？';}
+  if(m.id===21){if(ex%3===1)return'要比較「離 MA20 多遠」，哪種方法比較可靠？';if(ex%3===2)return'D0 與 MA20 的百分比距離，屬於哪個區間？';return'價格離 MA20 已經很遠時，應該先想到什麼？';}
+  if(m.id===22){if(ex%3===1)return'要看 MA20 自己往上、往下或走平，應該怎麼看？';if(ex%3===2)return'比較 5 天前與今天的 MA20，方向如何？';return'關於 MA20 斜率，哪個說法正確？';}
+  if(m.id===23){if(ex%3===1)return'加入 MA60 後，第一步要比較什麼？';if(ex%3===2)return'看 D0 的價格、MA20、MA60，目前是哪種排列？';return'均線多頭排列應該怎麼理解？';}
+  if(m.id===24){if(ex%3===1)return'ATR 主要在量什麼？';if(ex%3===2)return'系統算出 D0 ATR20 ≈ '+px(q.a)+'、收盤 '+px(q.c)+'，ATR/股價 ≈ '+pct+'%，屬於哪種波動？';return'ATR 對風險管理最重要的提醒是什麼？';}
+  return _w4Qtext(m,R,ex);
+};
+var _w4Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<19||m.id>24)return _w4Explain(m,R,ans);
+  var q=criterion(m.id,R);
+  if(m.id===19)return'MA20 是近 20 個交易日收盤價的移動平均。每天多一筆新收盤、少一筆舊資料，所以這條線會持續移動。';
+  if(m.id===20)return'D0 收盤 '+px(q.c)+'，MA20 '+px(q.ma)+'。先只做數值比較；「在上方」是位置資訊，不是保證上漲。';
+  if(m.id===21)return'D0 收盤 '+px(q.c)+'、MA20 '+px(q.ma)+'，距離約 '+((q.dist||0)*100).toFixed(1)+'%。用百分比才能跨不同股價尺度比較乖離。';
+  if(m.id===22)return'5 天前 MA20 約 '+px(q.oldMa)+'，今天約 '+px(q.ma)+'。斜率看的是均線本身如何移動，不是今天一根 K 的顏色。';
+  if(m.id===23)return'D0：價格 '+px(q.c)+'、MA20 '+px(q.ma)+'、MA60 '+px(q.ma60)+'。排列越整齊，只代表結構較一致，仍不能取代進場位置與失策規劃。';
+  if(m.id===24)return'D0 ATR20 約 '+px(q.a)+'，占收盤約 '+((q.a/q.c)*100).toFixed(1)+'%。ATR 不預測方向，它告訴你「正常震盪有多大」，用來調整停損與部位。';
+  return _w4Explain(m,R,ans);
+};
+var _w4PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w4PromptIntro(m),extra='';if(!m)return html;
+  if(m.id===19)extra='<strong>MA20 是平均位置｜</strong>把最近 20 個交易日的收盤價平均，再每天往前移一格。它幫你看短期平均成本區，不是買進按鈕。';
+  if(m.id===20)extra='<strong>先看哪一側｜</strong>收盤比 MA20 高＝在均線上方；低＝在下方。先學位置，再談強弱。';
+  if(m.id===21)extra='<strong>乖離要用百分比｜</strong>同樣差 5 元，50 元股票和 500 元股票意義完全不同；所以看（收盤−MA20）÷MA20。';
+  if(m.id===22)extra='<strong>均線也有方向｜</strong>今天 MA20 比幾天前高，就是往上；比幾天前低，就是往下。一天站上均線不等於均線已翻多。';
+  if(m.id===23)extra='<strong>短中期一起看｜</strong>價格、MA20、MA60 的順序能告訴你結構是否整齊，但「排列漂亮」仍不是無風險買點。';
+  if(m.id===24)extra='<strong>ATR 是波動尺｜</strong>它回答「這檔股票近期平常一天大約會晃多少」，不回答「明天往哪裡走」。先量波動，才知道停損不能一體適用。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
