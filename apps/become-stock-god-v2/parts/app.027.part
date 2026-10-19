@@ -1,0 +1,79 @@
+
+// V4 structure module — M07..M12: local highs/lows -> HH/HL -> downtrend/range -> shift.
+var _w2Question=question;
+function _w2Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W2|'+ex+'|'+BYID[UI.roundId].lb);}
+question=function(m,R,ex){
+  if(!m||m.id<7||m.id>12)return _w2Question(m,R,ex);
+  var q=criterion(m.id,R),i=q.i,side;
+  if(m.id===7){
+    if(ex%3===1)return _w2Sh(m,ex,['中間價格明顯較高、左右兩側較低的波峰','任何一根紅 K','成交量最大的一天'],0);
+    if(ex%3===2)return _w2Sh(m,ex,['約 '+px(q.res),'約 '+px(q.sup),'約 '+px(q.c)],0);
+    return _w2Sh(m,ex,['把每個小高點都當成重要波峰','先看一段走勢裡真正突出的高點','比較高點前後是否有明顯回落'],0);
+  }
+  if(m.id===8){
+    if(ex%3===1)return _w2Sh(m,ex,['後一個重要高點比前一個更高','後一個低點比前一個更高','收盤高於開盤'],0);
+    side=q.hi2>q.hi1*1.003?'後段高點更高':q.hi2<q.hi1*.997?'後段高點更低':'兩個高點接近';
+    if(ex%3===2)return _w2Sh(m,ex,['後段高點更高','後段高點更低','兩個高點接近'],side==='後段高點更高'?0:side==='後段高點更低'?1:2);
+    return _w2Sh(m,ex,['是偏強線索，但還要搭配低點結構','已經保證之後一定上漲','只代表今天是紅 K'],0);
+  }
+  if(m.id===9){
+    if(ex%3===1)return _w2Sh(m,ex,['後一個重要低點比前一個更高','後一個高點比前一個更高','今天最低價高於開盤'],0);
+    side=q.lo2>q.lo1*1.003?'後段低點更高':q.lo2<q.lo1*.997?'後段低點更低':'兩個低點接近';
+    if(ex%3===2)return _w2Sh(m,ex,['後段低點更高','後段低點更低','兩個低點接近'],side==='後段低點更高'?0:side==='後段低點更低'?1:2);
+    return _w2Sh(m,ex,['低點墊高表示買方願意在更高位置承接','只要低點墊高就可以忽略上方壓力','低點墊高等於今天一定收紅'],0);
+  }
+  if(m.id===10){
+    if(ex%3===1)return _w2Sh(m,ex,['高點降低，而且低點也降低','高點升高、低點升高','高低點反覆重疊'],0);
+    side=q.trendDown?'下降結構':q.trendUp?'上升結構':'盤整／混合';
+    if(ex%3===2)return _w2Sh(m,ex,['下降結構','上升結構','盤整／混合'],side==='下降結構'?0:side==='上升結構'?1:2);
+    return _w2Sh(m,ex,['跌很多不等於到底，先等結構停止破底','跌幅夠大就可以直接判定反轉','連跌三天一定是最後低點'],0);
+  }
+  if(m.id===11){
+    if(ex%3===1)return _w2Sh(m,ex,['高低點反覆重疊，沒有持續墊高或降低','每天都沒有成交量','所有 K 棒都一樣長'],0);
+    side=!q.trendUp&&!q.trendDown?'盤整／混合':q.trendUp?'上升結構':'下降結構';
+    if(ex%3===2)return _w2Sh(m,ex,['盤整／混合','上升結構','下降結構'],side==='盤整／混合'?0:side==='上升結構'?1:2);
+    return _w2Sh(m,ex,['有資訊：同一區間的上緣與下緣風險完全不同','沒資訊：盤整可以直接忽略','盤整代表一定很快向上突破'],0);
+  }
+  if(m.id===12){
+    if(ex%3===1)return _w2Sh(m,ex,['先停止破底，再站上前一個重要高點','只要跌很久就算反轉','只要出現一根紅 K 就算反轉'],0);
+    side=q.c>maxA(R.h,i-12,i-1)?'已突破近期重要高點':q.c<minA(R.l,i-12,i-1)?'仍在破底':'尚未確認改變';
+    if(ex%3===2)return _w2Sh(m,ex,['已突破近期重要高點','仍在破底','尚未確認改變'],side==='已突破近期重要高點'?0:side==='仍在破底'?1:2);
+    return _w2Sh(m,ex,['「跌久了」不是反轉證據，要等價格結構改變','跌越久反彈機率就一定越高','只要成交量放大就可以忽略結構'],0);
+  }
+  return _w2Question(m,R,ex);
+};
+var _w2Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<7||m.id>12)return _w2Qtext(m,R,ex);
+  if(m.id===7){if(ex%3===1)return'什麼樣的位置比較像「重要波峰」？';if(ex%3===2)return'看這段圖，近 20 日最重要的高點大約在哪個價位？';return'找近期高點時，哪個做法最容易誤判？';}
+  if(m.id===8){if(ex%3===1)return'「高點墊高」是什麼意思？';if(ex%3===2)return'比較圖上的前段高與後段高，哪個描述正確？';return'只看到高點墊高，應該怎麼理解？';}
+  if(m.id===9){if(ex%3===1)return'「低點墊高」是什麼意思？';if(ex%3===2)return'比較圖上的前段低與後段低，哪個描述正確？';return'低點墊高通常提供什麼結構資訊？';}
+  if(m.id===10){if(ex%3===1)return'哪一組最符合「下降結構」？';if(ex%3===2)return'依這段高低點變化，目前比較像哪種結構？';return'看到價格已經跌很多，最合理的反應是什麼？';}
+  if(m.id===11){if(ex%3===1)return'什麼叫做「盤整」？';if(ex%3===2)return'依這段高低點，目前比較像哪種結構？';return'盤整是不是「沒有資訊」？';}
+  if(m.id===12){if(ex%3===1)return'下降結構要出現較明確改變，通常先看哪兩件事？';if(ex%3===2)return'把 D0 與前一個重要高點比較，目前是哪個狀態？';return'關於反轉，哪個說法比較正確？';}
+  return _w2Qtext(m,R,ex);
+};
+var _w2Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<7||m.id>12)return _w2Explain(m,R,ans);
+  var q=criterion(m.id,R),i=q.i;
+  if(m.id===7)return'先找真正突出的波峰，不要把每一個小凸起都升格成關鍵高點。這張圖近 20 日高點約在 '+px(q.res)+'。';
+  if(m.id===8)return'前段高約 '+px(q.hi1)+'，後段高約 '+px(q.hi2)+'。重點不是背 HH，而是直接比較「後一個重要高點有沒有更高」。';
+  if(m.id===9)return'前段低約 '+px(q.lo1)+'，後段低約 '+px(q.lo2)+'。後一個低點守得越高，代表買方承接位置可能正在上移。';
+  if(m.id===10)return'下降結構要同時看高點與低點：高點越來越低、低點也越來越低，才是完整的偏空結構。';
+  if(m.id===11)return'盤整不是沒用，而是「方向暫時沒有持續性」。高低點互相重疊時，下一步要開始關心區間上緣、下緣與突破。';
+  if(m.id===12){var ph=maxA(R.h,i-12,i-1);return'前一個重要高點約 '+px(ph)+'，D0 收盤 '+px(q.c)+'。真正的結構改變需要價格證據，不是因為跌久了就自動反轉。';}
+  return _w2Explain(m,R,ans);
+};
+var _w2PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w2PromptIntro(m),extra='';if(!m)return html;
+  if(m.id===7)extra='<strong>先找波峰｜</strong>一段價格裡，真正重要的高點通常會比左右一段都突出；不要把每個小凸起都當關鍵高點。';
+  if(m.id===8)extra='<strong>比較兩個高點｜</strong>後一個重要高點更高，就是「高點墊高」。先看位置，不必急著背 HH。';
+  if(m.id===9)extra='<strong>比較兩個低點｜</strong>後一個重要低點更高，就是「低點墊高」。這代表承接位置可能往上。';
+  if(m.id===10)extra='<strong>下降結構｜</strong>不是「今天跌」而已；要看到重要高點降低，而且重要低點也降低。';
+  if(m.id===11)extra='<strong>盤整也有結構｜</strong>高低點互相重疊、沒有連續墊高或降低，就先承認市場沒有明確方向。';
+  if(m.id===12)extra='<strong>反轉要證據｜</strong>先停止破底，再站上前一個重要高點，才比「跌久了」更像真正的結構改變。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
