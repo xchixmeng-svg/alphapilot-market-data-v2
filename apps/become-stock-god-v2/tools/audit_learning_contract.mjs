@@ -30,14 +30,7 @@ assert(E.priceDecimals(125.5)===1,'125.5 should show one decimal')
 assert(E.priceDecimals(680)===0,'680 should show no decimal')
 assert(E.priceDecimals(1200)===0,'1200 should show no decimal')
 
-// Every historical lesson candle that survives bank construction must itself be tradable on the
-// Taiwan tick ladder. bank.json stores OHLC in integer cents, exactly as the browser's local
-// decodeRound() does, so decode that compact representation here instead of depending on an
-// application-only helper.
-function decodeLessonPrices(row){
-  const f100=a=>a.map(x=>x/100)
-  return {o:f100(row.o),h:f100(row.h),l:f100(row.l),c:f100(row.c)}
-}
+function decodeLessonPrices(row){const f100=a=>a.map(x=>x/100);return {o:f100(row.o),h:f100(row.h),l:f100(row.l),c:f100(row.c)}}
 const bank=JSON.parse(fs.readFileSync('build/bank.json','utf8'))
 let checkedPrices=0
 for(const row of bank.rounds){
@@ -56,7 +49,6 @@ assert(rsi.length===80&&rsi[79]>99,'monotonic rise should produce high RSI')
 const indicators=E.teachingIndicators({h:high,l:low,c:close})
 assert(indicators&&indicators.macd&&indicators.kd&&indicators.rsi14,'teachingIndicators contract missing')
 
-// Assembled renderer contract.
 for (const marker of [
   'var axisSeen={}',
   'window.BSG.roundToTick(rawPv)',
@@ -66,9 +58,8 @@ for (const marker of [
   'if(data().allowCross===false)'
 ]) assert(chart.includes(marker), 'chart contract missing: '+marker)
 
-// App pedagogy contract.
 for (const marker of [
-  'learning-foundation-v2',
+  'learning-foundation-v3',
   '先學會這件事：',
   'OHLC 看圖順序｜',
   'K 棒中間的「實體」代表哪一段？',
@@ -76,33 +67,34 @@ for (const marker of [
   '上影線是哪一段？',
   'K 棒顏色與「今天漲跌」分別比較什麼？',
   '要開始看一段走勢，第一步應該比較什麼？',
+  '什麼樣的位置比較像「重要波峰」？',
+  '「高點墊高」是什麼意思？',
+  '「低點墊高」是什麼意思？',
+  '哪一組最符合「下降結構」？',
+  '什麼叫做「盤整」？',
+  '下降結構要出現較明確改變，通常先看哪兩件事？',
   "window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down')"
 ]) assert(app.includes(marker), 'app learning contract missing: '+marker)
 
-// Beginner module M01-M06 must teach the exact concept before testing it.
 const introMarkers=[
-  ['OHLC 看圖順序｜','M01'],
-  ['看實體｜','M02'],
-  ['看顏色｜','M03'],
-  ['看影線｜','M04'],
-  ['分兩件事｜','M05'],
-  ['從單根進到一段｜','M06']
+  ['OHLC 看圖順序｜','M01'],['看實體｜','M02'],['看顏色｜','M03'],['看影線｜','M04'],['分兩件事｜','M05'],['從單根進到一段｜','M06'],
+  ['先找波峰｜','M07'],['比較兩個高點｜','M08'],['比較兩個低點｜','M09'],['下降結構｜','M10'],['盤整也有結構｜','M11'],['反轉要證據｜','M12']
 ]
 for(const [s,id] of introMarkers)assert(app.includes(s),`${id} teaching copy missing`)
 assert(app.includes("label:'開盤價'")&&app.includes("label:'收盤價'"),'M01 teaching labels missing')
 assert(app.includes("label:'實體上緣'")&&app.includes("label:'實體下緣'"),'M04 body/wick teaching labels missing')
 assert(app.includes("label:'昨收'")&&app.includes("label:'今開'")&&app.includes("label:'今收'"),'M05 comparison evidence missing')
-assert(app.includes('out.allowCross=false'),'beginner module must block tap-to-reveal')
+assert(app.includes("label:'前段高'")&&app.includes("label:'後段高'")&&app.includes("label:'前段低'")&&app.includes("label:'後段低'"),'structure comparison evidence missing')
+assert(app.includes("label:quiz?'前高基準':'前一重要高點'"),'M12 neutral practice reference missing')
+assert(app.includes('out.allowCross=false'),'teaching modules must block tap-to-reveal')
 
-// Current course map is still 36 missions while V4 is built incrementally.
 const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(contentSrc,sandbox)
 const CT=sandbox.window.BSG_CONTENT
 assert(CT&&Array.isArray(CT.MISSIONS)&&CT.MISSIONS.length===36,'current course map != 36')
-const beginnerSkills=['OHLC','BODY','COLOR','WICK','DAYCHANGE','SEQUENCE']
-for(let i=0;i<beginnerSkills.length;i++)assert(CT.MISSIONS[i].skill===beginnerSkills[i],`M0${i+1} beginner skill changed unexpectedly`)
+const skills=['OHLC','BODY','COLOR','WICK','DAYCHANGE','SEQUENCE','SWING_HIGH','HIGHER_HIGH','HIGHER_LOW','DOWNTREND','RANGE','STRUCTURE_SHIFT']
+for(let i=0;i<skills.length;i++)assert(CT.MISSIONS[i].skill===skills[i],`M${String(i+1).padStart(2,'0')} skill changed unexpectedly`)
 for (let i=0;i<CT.MISSIONS.length;i++) assert(CT.MISSIONS[i].id===i+1,'mission ids must stay sequential during migration')
 
-// Locked roadmap must include the full beginner path requested for V4.
 for (const marker of ['先教，才考','台股合法跳動單位','MACD / KD / RSI','止跌不等於反轉','逐日 K 線實戰','結果賺錢 ≠ 決策一定正確']) {
   assert(spec.includes(marker),'V4 roadmap missing: '+marker)
 }
@@ -110,12 +102,13 @@ for (const marker of ['先教，才考','台股合法跳動單位','MACD / KD / 
 const report={
   ok:true,
   currentMissions:CT.MISSIONS.length,
-  foundation:'learning-foundation-v2',
+  foundation:'learning-foundation-v3',
   tickCases:tickCases.length,
   checkedPrices,
   legalAxis:true,
   exactPriceGuides:true,
   beginnerModule:['M01','M02','M03','M04','M05','M06'],
+  structureModule:['M07','M08','M09','M10','M11','M12'],
   teachBeforeTest:true,
   indicators:['MACD','KD','RSI14'],
   roadmapLocked:true
