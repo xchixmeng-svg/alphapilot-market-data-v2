@@ -26,9 +26,12 @@
       out.showVolume=true;out.indicatorPanel={type:'RSI14',range:[0,100],thresholds:[30,70],series:[{name:'RSI',values:ind.rsi14,color:'#c58cff'}]};
     }
     if(id===37){out.showMA=false;out.showVolume=false;out.focusCandles=[i-4,i-3,i-2,i-1,i];}
-    if(id===38){out.showMA=false;out.showVolume=false;out.focusCandles=[i-1,i];line(R.c[i-1],'#9876ff','昨收',true);line(R.o[i],'#39f5ff','今開',true);}
+    if(id===38){
+      out.showMA=false;out.showVolume=false;out.focusCandles=[i-1,i];
+      line(R.h[i-1],'#ff9f43',quiz?'':'昨高',true);line(R.l[i-1],'#24d79b',quiz?'':'昨低',true);line(R.o[i],'#39f5ff',quiz?'':'今開',true);
+    }
     if(id===47){
-      out.showMA=false;out.showVolume=false;out.allowCross=false;out.pricePickMode=quiz;
+      out.showMA=false;out.showVolume=false;out.allowCross=false;out.pricePickMode=!!(quiz&&ui&&ui.exercise===2);
       if(quiz){out.zones=[];out.markers=[];out.priceGuides=[sup,res,R.c[i]];}
       else{zone(sup,'#24d79b','支撐示範');zone(res,'#ff9f43','壓力示範');}
     }
@@ -42,7 +45,7 @@
       if(quiz){out.zones=[];out.lines=[];out.priceGuides=[st,sup,R.c[i]];}
     }
     if(id===50){
-      var ex=ui&&ui.mode==='mission'?ui.exercise:0,reveal=ex<=1?0:ex===2?1:3;
+      var ex=ui&&ui.mode==='mission'?ui.exercise:0,reveal=ex<=1?0:ex===2?1:2;
       out.lastIdx=Math.min(i+reveal,R.c.length-1);out.showMA='both';out.showVolume=true;out.zones=[];out.markers=[];
       if(ind)out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
       line(sup,'#24d79b',quiz?'':'D0 支撐',true);line(res,'#ff9f43',quiz?'':'D0 壓力',true);
@@ -59,5 +62,5 @@
     };}
     return originalCreate(wrap,next);
   };
-  window.BSG_V4_ADVANCED_VISUALS={version:'advanced-visuals-v1',transform:transform};
+  window.BSG_V4_ADVANCED_VISUALS={version:'advanced-visuals-v2',transform:transform};
 })();
