@@ -15,9 +15,7 @@ function replaceOne(source, from, to, label) {
 }
 function sortParts(name, files) {
   // app.03 closes the legacy core IIFE. M25-M36 were added later as app.030/app.031, and plain
-  // lexical sorting placed them *after* app.03 (outside the scope that owns question/qtext/etc.).
-  // Give those two files virtual keys immediately after app.029 so every lesson override remains
-  // inside the core IIFE, while all later standalone visual/UI wrappers keep their original order.
+  // lexical sorting placed them after app.03. Give those files virtual keys inside the core IIFE.
   function key(f) {
     if (name === 'app' && f === 'app.030.part') return 'app.029z1.part'
     if (name === 'app' && f === 'app.031.part') return 'app.029z2.part'
@@ -32,24 +30,56 @@ for (const [name, out] of Object.entries(specs)) {
   let source = files.map(f => fs.readFileSync(path.join(dir,f),'utf8')).join('')
 
   // Keep V4 teaching-indicator functions inside the engine IIFE but before its exported api object.
-  // The original engine source is split across part boundaries, so appending another engine part at
-  // the end can land inside the api literal. Injecting at this stable signature avoids that hazard.
   if (name === 'engine') {
     const inc = fs.readFileSync(path.join(root,'tools','v4_indicator_engine.inc.js'),'utf8').trimEnd()
     source = replaceOne(source, '\n  var api = {', '\n'+inc+'\n\n  var api = {', 'indicator engine api boundary')
   }
 
-  // The in-chart coach orb competes with the candlesticks and can cover the lesson evidence.
-  // The AI coach already has a dedicated right rail, so remove this legacy chart overlay at build time.
   if (name === 'app') {
+    // The in-chart coach orb competes with candles; the dedicated coach rail is enough.
     const coachOrb = '<div class="coachOrb">AI</div>'
     if (!source.includes(coachOrb)) throw new Error('coach orb signature changed')
     source = source.replace(coachOrb, '')
+
+    // V4 course length is data-driven. This is essential now that the advanced path extends M01-M36
+    // through indicators, drawing, reversal and the final daily-reveal mission M50.
+    source = replaceOne(source,
+      "s.completed=s.completed.map(Number).filter(function(x){return x>=1&&x<=36;})",
+      "s.completed=s.completed.map(Number).filter(function(x){return x>=1&&x<=CT.MISSIONS.length;})",
+      'save migration course length')
+    source = replaceOne(source,
+      "function nextMission(){for(var i=1;i<=CT.MISSIONS.length;i++)if(!completed(i))return i;return 36;}",
+      "function nextMission(){for(var i=1;i<=CT.MISSIONS.length;i++)if(!completed(i))return i;return CT.MISSIONS.length;}",
+      'next mission course length')
+    source = replaceOne(source,
+      "function rankName(){var n=S.completed.length;return n>=36?'股神候補':RANKS[Math.floor(n/6)];}",
+      "function rankName(){var n=S.completed.length;if(n>=CT.MISSIONS.length)return'股神候補';if(n>=36)return'進階分析雞';return RANKS[Math.min(RANKS.length-1,Math.floor(n/6))];}",
+      'rank course length')
+    source = replaceOne(source,
+      "function chickStage(){var n=S.completed.length;return n>=36?'god':n>=12?'scholar':'rookie';}",
+      "function chickStage(){var n=S.completed.length;return n>=CT.MISSIONS.length?'god':n>=12?'scholar':'rookie';}",
+      'chick course length')
+    source = source.replaceAll('done>=36','done>=CT.MISSIONS.length')
+    source = source.replaceAll('S.completed.length>=36','S.completed.length>=CT.MISSIONS.length')
+    source = source.replaceAll('for(k=1;k<=36;k++)','for(k=1;k<=CT.MISSIONS.length;k++)')
+    source = source.replaceAll('CT.MISSIONS[35]','CT.MISSIONS[CT.MISSIONS.length-1]')
+    source = source.replaceAll('Math.min(36,m.id+1)','Math.min(CT.MISSIONS.length,m.id+1)')
+    source = source.replaceAll("m.id<36?m.id+1:36","m.id<CT.MISSIONS.length?m.id+1:CT.MISSIONS.length")
+    source = source.replaceAll("m.id<36?'<button","m.id<CT.MISSIONS.length?'<button")
+    source = source.replaceAll('n>=36?', 'n>=CT.MISSIONS.length?')
+    source = source.replaceAll('done/36*100','done/CT.MISSIONS.length*100')
+    source = source.replaceAll("'<small>/36</small>'","'<small>/'+CT.MISSIONS.length+'</small>'")
+    source = source.replaceAll("'+done+' / 36","'+done+' / '+CT.MISSIONS.length")
+    source = source.replaceAll("'+S.completed.length+' / 36","'+S.completed.length+' / '+CT.MISSIONS.length")
+    source = source.replaceAll('36 關總覽','完整課程')
+    source = source.replaceAll('36 關全部完成','完整課程全部完成')
+    source = source.replaceAll('完成 36 關解鎖','完成全部課程解鎖')
+    source = source.replaceAll('36 種題型','完整題型')
+    source = source.replaceAll('先完成 36 關才會開放','先完成全部課程才會開放')
   }
 
-  // V4 learning foundation: every value printed on the *price axis* must be a legal Taiwan-stock
-  // tick. Price-choice lessons can additionally request neutral numeric guide lines through
-  // data.priceGuides. This keeps exact prices readable without naming the answer.
+  // V4 learning foundation: legal Taiwan tick labels, exact-price guides, indicator teaching panels,
+  // and a price-pick mode used by the line-drawing lesson.
   if (name === 'chart') {
     source = replaceOne(
       source,
@@ -63,22 +93,41 @@ for (const [name, out] of Object.entries(specs)) {
       "ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.font='600 11px ui-monospace,Menlo,monospace';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.textBaseline='middle';var axisSeen={};for(var gy=0;gy<=4;gy++){var rawPy=padT+gy*(priceH-padT)/4,rawPv=yi(rawPy),pv=(window.BSG&&window.BSG.roundToTick)?window.BSG.roundToTick(rawPv):rawPv,pk=fmt(pv);if(axisSeen[pk])continue;axisSeen[pk]=1;var py=y(pv);ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(plotW,Math.round(py)+.5);ctx.stroke();if(!d.hideAxisTicks)ctx.fillText(pk,plotW+7,py);}",
       'legal price axis ticks'
     )
+    source = replaceOne(source,
+      "if(showVol){var vh=vmax?((R.v[k]||0)/vmax)*volH:0;",
+      "if(showVol&&!d.indicatorPanel){var vh=vmax?((R.v[k]||0)/vmax)*volH:0;",
+      'reserve lower panel for indicators')
+    source = replaceOne(
+      source,
+      "  var mode=d.showMA===true?'both':d.showMA;",
+      `  if(d.indicatorPanel&&showVol&&volH>0){
+    var ip=d.indicatorPanel,series=ip.series||[],vals=[],z;
+    series.forEach(function(s){for(z=first;z<=last;z++)if(Number.isFinite(s.values&&s.values[z]))vals.push(s.values[z]);});
+    if(ip.hist)for(z=first;z<=last;z++)if(Number.isFinite(ip.hist[z]))vals.push(ip.hist[z]);
+    var imin=ip.range?ip.range[0]:(vals.length?Math.min.apply(null,vals):0),imax=ip.range?ip.range[1]:(vals.length?Math.max.apply(null,vals):1);
+    if(!ip.range){imin=Math.min(imin,0);imax=Math.max(imax,0);if(imax===imin){imax+=1;imin-=1;}var ipp=(imax-imin)*.08;imax+=ipp;imin-=ipp;}
+    function iy(v){return volTop+(imax-v)/(imax-imin)*volH;}
+    ctx.save();ctx.fillStyle='rgba(4,12,24,.72)';ctx.fillRect(0,volTop-5,plotW,volH+5);ctx.font='800 10px -apple-system,"PingFang TC",sans-serif';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.fillText(ip.type||'IND',6,volTop+8);
+    (ip.thresholds||[]).forEach(function(t){var yy=iy(t);ctx.strokeStyle='rgba(120,150,175,.25)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(plotW,yy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=COL.muted;ctx.fillText(String(t),plotW-26,yy-7);});
+    if(ip.hist){var zero=iy(0);for(z=first;z<=last;z++){var hv=ip.hist[z];if(!Number.isFinite(hv))continue;var xx=x(z),yy=iy(hv),bw2=Math.max(2,Math.min(bw*.55,10));ctx.fillStyle=hv>=0?'rgba(255,70,95,.55)':'rgba(36,215,155,.55)';ctx.fillRect(xx-bw2/2,Math.min(zero,yy),bw2,Math.max(1,Math.abs(yy-zero)));}}
+    series.forEach(function(s,si){ctx.strokeStyle=s.color||[COL.cyan,COL.ma20,COL.violet][si%3];ctx.lineWidth=1.6;ctx.beginPath();var on=false;for(z=first;z<=last;z++){var v=s.values&&s.values[z];if(!Number.isFinite(v)){on=false;continue;}var xx=x(z),yy=iy(v);if(!on){ctx.moveTo(xx,yy);on=true;}else ctx.lineTo(xx,yy);}ctx.stroke();var lv=s.values&&s.values[last];if(Number.isFinite(lv)){ctx.fillStyle=s.color||COL.cyan;ctx.fillText((s.name||'')+' '+(Math.abs(lv)>=100?lv.toFixed(0):lv.toFixed(1)),6+si*94,volTop+20);}});
+    ctx.restore();
+  }
+  var mode=d.showMA===true?'both':d.showMA;`,
+      'indicator teaching panel')
     source = replaceOne(
       source,
       "var lns=(d.lines||[]).filter(function(ln){return ln.price>0;}).map(function(ln){return {ln:ln,py:y(ln.price),by:y(ln.price)};}).sort(function(a,b){return a.py-b.py;});",
-      "var guideLines=[],guideSeen={};(d.priceGuides||[]).forEach(function(p){if(!isFinite(p)||p<=0)return;var k=fmt(p);if(guideSeen[k])return;guideSeen[k]=1;guideLines.push({price:p,color:'#7890a4',label:'',dash:true,guide:true});});var lns=(d.lines||[]).concat(guideLines).filter(function(ln){return ln.price>0;}).map(function(ln){return {ln:ln,py:y(ln.price),by:y(ln.price)};}).sort(function(a,b){return a.py-b.py;});",
-      'exact-price guide lines'
-    )
+      "var guideLines=[],guideSeen={};(d.priceGuides||[]).forEach(function(p){if(!isFinite(p)||p<=0)return;var k=fmt(p);if(guideSeen[k])return;guideSeen[k]=1;guideLines.push({price:p,color:'#7890a4',label:'',dash:true,guide:true});});if(d.pricePickMode&&Number.isFinite(view.pick))guideLines.push({price:view.pick,color:'#39f5ff',label:'你的線',dash:false,guide:true});var lns=(d.lines||[]).concat(guideLines).filter(function(ln){return ln.price>0;}).map(function(ln){return {ln:ln,py:y(ln.price),by:y(ln.price)};}).sort(function(a,b){return a.py-b.py;});",
+      'exact-price guide lines and user line')
     source = replaceOne(
       source,
       "function up(e){var p=pointers[e.pointerId];delete pointers[e.pointerId];if(drag&&drag.type==='pan'&&!drag.moved&&p&&geo){var i=Math.round(geo.first+(p.x-(view.count-(geo.last-geo.first+1))*geo.bw)/geo.bw-.5);view.cross=(i===view.cross||i<geo.first||i>geo.last)?null:i;draw();}if(!Object.keys(pointers).length)drag=null;}",
-      "function up(e){var p=pointers[e.pointerId];delete pointers[e.pointerId];if(drag&&drag.type==='pan'&&!drag.moved&&p&&geo){if(data().allowCross===false){view.cross=null;}else{var i=Math.round(geo.first+(p.x-(view.count-(geo.last-geo.first+1))*geo.bw)/geo.bw-.5);view.cross=(i===view.cross||i<geo.first||i>geo.last)?null:i;}draw();}if(!Object.keys(pointers).length)drag=null;}",
-      'lesson crosshair control'
-    )
+      "function up(e){var p=pointers[e.pointerId];delete pointers[e.pointerId];if(drag&&drag.type==='pan'&&!drag.moved&&p&&geo){var dd=data();if(dd.pricePickMode&&p.y>=geo.plotW*0){var pp=geo.yi(Math.max(0,Math.min(geo.priceH,p.y))),eng=window.BSG;pp=eng&&eng.roundToTick?eng.roundToTick(pp):pp;view.pick=pp;view.cross=null;if(typeof opt.onPricePick==='function')opt.onPricePick(pp);draw();}else if(dd.allowCross===false){view.cross=null;draw();}else{var i=Math.round(geo.first+(p.x-(view.count-(geo.last-geo.first+1))*geo.bw)/geo.bw-.5);view.cross=(i===view.cross||i<geo.first||i>geo.last)?null:i;draw();}}if(!Object.keys(pointers).length)drag=null;}",
+      'lesson crosshair and price-pick control')
   }
 
-  // Raw lesson candles must themselves be valid Taiwan-stock prices. The old check only required
-  // two decimal places, which still allowed impossible values such as 68.04 or 125.30.
+  // Raw lesson candles must themselves be valid Taiwan-stock prices.
   if (name === 'build_bank') {
     source = replaceOne(
       source,
@@ -88,8 +137,6 @@ for (const [name, out] of Object.entries(specs)) {
     )
   }
 
-  // V3.6: the former build-time chart patches (resize guard, candle body/wick width, marker
-  // placement) now live directly in parts/chart.01.part, so the renderer can be read in one place.
   fs.mkdirSync(path.dirname(path.join(root, out)), {recursive:true})
   fs.writeFileSync(path.join(root, out), source)
   console.log('assembled', out, files.length, 'parts')
