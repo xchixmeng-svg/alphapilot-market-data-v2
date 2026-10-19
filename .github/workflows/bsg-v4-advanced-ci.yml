@@ -1,4 +1,4 @@
-name: Validate BSG V4 advanced course
+name: Validate BSG V4 complete course
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
           node --check src/chart.js
           node --check src/app.js
           npm run audit:learning
-      - name: Browser verify M37-M50 indicators, drawing and daily reveal
+      - name: Browser verify M25-M50 teach-first, indicators, drawing and daily reveal
         working-directory: apps/become-stock-god-v2
         run: |
           npm install --no-save playwright@1.56.1
@@ -64,7 +64,7 @@ jobs:
                 const adv=window.BSG_V4_ADVANCED_VISUALS.transform(v3);
                 return {m,R,d:window.BSG_V4_FOUNDATION.transform(adv)};
               }
-              for(let mid=37;mid<=50;mid++){
+              for(let mid=25;mid<=50;mid++){
                 const exs=[];
                 for(let ex=1;ex<=3;ex++){
                   t.setupMission(mid,ex,'mission');
@@ -76,6 +76,10 @@ jobs:
                 }
                 rows.push({mid,exs});
               }
+              const m25=transformed(25,2);if(!m25.d.showVolume)throw new Error('M25 volume evidence missing');
+              const m31=transformed(31,2);if(!m31.d.priceGuides||m31.d.priceGuides.length<3)throw new Error('M31 exact-price guides missing');
+              const m32=transformed(32,2);if(!m32.d.priceGuides||m32.d.priceGuides.length<3)throw new Error('M32 exact-price guides missing');
+              const m35=transformed(35,2);if(m35.d.lastIdx<Math.min(m35.d.d0Idx+1,m35.R.c.length-1))throw new Error('M35 hold/exit reveal missing');
               const m38=transformed(38,1);if(!(m38.R.o[m38.d.d0Idx]>m38.R.h[m38.d.d0Idx-1]||m38.R.o[m38.d.d0Idx]<m38.R.l[m38.d.d0Idx-1]))throw new Error('M38 sample is not a true gap');
               const m39=transformed(39,1);if(!m39.d.indicatorPanel||m39.d.indicatorPanel.type!=='MACD')throw new Error('M39 MACD panel missing');
               const m40=transformed(40,2);if(!m40.d.indicatorPanel||!m40.d.indicatorPanel.hist)throw new Error('M40 histogram missing');
@@ -91,7 +95,7 @@ jobs:
               return {missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,rows,advancedVisual:window.BSG_V4_ADVANCED_VISUALS.version};
             });
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
-            console.log('M37_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual}));
+            console.log('M25_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
