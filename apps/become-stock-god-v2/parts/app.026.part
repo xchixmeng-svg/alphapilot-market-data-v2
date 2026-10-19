@@ -1,0 +1,79 @@
+
+// V4 beginner K-line module — M02..M06 are real lessons, not answer-first quizzes.
+// This layer extends the M01 foundation: concept -> worked example -> guided check -> solo check.
+var _w1Suitable=suitable;
+suitable=function(mid,R){
+  var i=X(0),o=R.o[i],c=R.c[i],h=R.h[i],l=R.l[i],range=h-l,body=Math.abs(c-o),upper=h-Math.max(o,c),lower=Math.min(o,c)-l;
+  if(mid===2)return range>0&&body>Math.max(0.0001,range*.12);
+  if(mid===3)return body>0.0001;
+  if(mid===4)return range>0&&(upper+lower)>range*.08;
+  return _w1Suitable(mid,R);
+};
+function _w1Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W1|'+ex+'|'+BYID[UI.roundId].lb);}
+var _w1Question=question;
+question=function(m,R,ex){
+  if(!m||m.id<2||m.id>6)return _w1Question(m,R,ex);
+  var i=X(0),q=criterion(m.id,R),o=R.o[i],c=R.c[i],h=R.h[i],l=R.l[i],pc=R.c[i-1];
+  var bodyTop=Math.max(o,c),bodyBottom=Math.min(o,c),upper=h-bodyTop,lower=bodyBottom-l,up=c>o,dayUp=c>pc,side,combo;
+  if(m.id===2){
+    if(ex%3===1)return _w1Sh(m,ex,['開盤到收盤之間','最低到最高之間','昨收到今收之間'],0);
+    if(ex%3===2)return _w1Sh(m,ex,[px(bodyTop),px(h),px(l)],0);
+    return _w1Sh(m,ex,[px(bodyBottom),px(h),px(l)],0);
+  }
+  if(m.id===3){
+    if(ex%3===1)return _w1Sh(m,ex,['收盤高於開盤＝紅 K；低於開盤＝綠 K','今天比昨收高＝紅 K；低＝綠 K','成交量放大＝紅 K；縮小＝綠 K'],0);
+    if(ex%3===2){side=c>o?'收盤高於開盤':c<o?'收盤低於開盤':'開盤等於收盤';return _w1Sh(m,ex,['收盤高於開盤','收盤低於開盤','開盤等於收盤'],side==='收盤高於開盤'?0:side==='收盤低於開盤'?1:2);}
+    return _w1Sh(m,ex,['紅 K','綠 K','十字／開收相同'],up?0:(c<o?1:2));
+  }
+  if(m.id===4){
+    if(ex%3===1)return _w1Sh(m,ex,['實體上緣到最高價','開盤到收盤','最低價到實體下緣'],0);
+    if(ex%3===2){side=upper>lower*1.15?'上影較長':lower>upper*1.15?'下影較長':'上下影接近';return _w1Sh(m,ex,['上影較長','下影較長','上下影接近'],side==='上影較長'?0:side==='下影較長'?1:2);}
+    return _w1Sh(m,ex,[px(bodyTop)+' → '+px(h),px(l)+' → '+px(bodyBottom),px(bodyBottom)+' → '+px(bodyTop)],0);
+  }
+  if(m.id===5){
+    if(ex%3===1)return _w1Sh(m,ex,['K 棒顏色看開盤與收盤；日漲跌看今收與昨收','K 棒顏色和日漲跌永遠相同','兩者都只看成交量'],0);
+    if(ex%3===2)return _w1Sh(m,ex,['今天相對昨收上漲','今天相對昨收下跌','與昨收完全相同'],dayUp?0:(c<pc?1:2));
+    combo=up?(dayUp?'紅 K ＋ 日漲':'紅 K ＋ 日跌'):(dayUp?'綠 K ＋ 日漲':'綠 K ＋ 日跌');
+    return _w1Sh(m,ex,['紅 K ＋ 日漲','紅 K ＋ 日跌','綠 K ＋ 日漲','綠 K ＋ 日跌'],combo==='紅 K ＋ 日漲'?0:combo==='紅 K ＋ 日跌'?1:combo==='綠 K ＋ 日漲'?2:3);
+  }
+  if(m.id===6){
+    if(ex%3===1)return _w1Sh(m,ex,['比較連續幾天的高低與收盤是否逐步上移或下移','只看最後一根 K 是紅還綠','只看其中最大成交量的一天'],0);
+    var ch=R.c[i]/R.c[i-4]-1;side=ch>.015?'整體上移':ch<-.015?'整體下移':'沒有明顯方向';
+    if(ex%3===2)return _w1Sh(m,ex,['整體上移','整體下移','沒有明顯方向'],side==='整體上移'?0:side==='整體下移'?1:2);
+    return _w1Sh(m,ex,['單根長紅／長綠不足以定義整段趨勢','最後一根 K 可以直接代表前五天','只要今天創高就一定是上升趨勢'],0);
+  }
+  return _w1Question(m,R,ex);
+};
+var _w1Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<2||m.id>6)return _w1Qtext(m,R,ex);
+  if(m.id===2){if(ex%3===1)return'K 棒中間的「實體」代表哪一段？';if(ex%3===2)return'D0 的實體上緣是哪個價格？';return'D0 的實體下緣是哪個價格？';}
+  if(m.id===3){if(ex%3===1)return'台股紅 K、綠 K 是怎麼決定的？';if(ex%3===2)return'D0 的收盤相對開盤在哪裡？';return'D0 這根 K 應該讀成什麼顏色？';}
+  if(m.id===4){if(ex%3===1)return'上影線是哪一段？';if(ex%3===2)return'D0 哪一側的影線比較長？';return'依右側價位，D0 的上影線是哪一段？';}
+  if(m.id===5){if(ex%3===1)return'K 棒顏色與「今天漲跌」分別比較什麼？';if(ex%3===2)return'D0 相對昨天收盤，是上漲還是下跌？';return'D0 的 K 色與日漲跌組合是哪一個？';}
+  if(m.id===6){if(ex%3===1)return'要開始看一段走勢，第一步應該比較什麼？';if(ex%3===2)return'看 D-4 到 D0 的收盤路徑，整體方向如何？';return'關於「單根 K 與一段趨勢」，哪個說法正確？';}
+  return _w1Qtext(m,R,ex);
+};
+var _w1Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<2||m.id>6)return _w1Explain(m,R,ans);
+  var i=X(0),o=R.o[i],c=R.c[i],h=R.h[i],l=R.l[i],pc=R.c[i-1],top=Math.max(o,c),bottom=Math.min(o,c);
+  if(m.id===2)return'實體只連接開盤與收盤。D0：開 '+px(o)+'、收 '+px(c)+'，所以實體範圍是 '+px(bottom)+' ～ '+px(top)+'。';
+  if(m.id===3)return'D0 開 '+px(o)+'、收 '+px(c)+'。台股 K 棒顏色只比較開盤與收盤：收高於開是紅 K，收低於開是綠 K。';
+  if(m.id===4)return'D0 最高 '+px(h)+'、實體上緣 '+px(top)+'、實體下緣 '+px(bottom)+'、最低 '+px(l)+'。影線是實體外、延伸到最高／最低的部分。';
+  if(m.id===5)return'D0 昨收 '+px(pc)+'、今開 '+px(o)+'、今收 '+px(c)+'。K 色比較今開與今收；日漲跌比較昨收與今收，兩件事可能相反。';
+  if(m.id===6)return'趨勢不是一根 K 決定。先把 D-4 到 D0 的多個收盤與高低點連起來，看它們是不是持續上移、下移或重疊。';
+  return _w1Explain(m,R,ans);
+};
+var _w1PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w1PromptIntro(m),extra='';
+  if(!m)return html;
+  if(m.id===2)extra='<strong>看實體｜</strong>粗的矩形只畫「開盤 ↔ 收盤」；最高與最低不屬於實體。';
+  if(m.id===3)extra='<strong>看顏色｜</strong>台股：收盤 &gt; 開盤＝紅 K；收盤 &lt; 開盤＝綠 K。顏色不是拿來跟昨收比較。';
+  if(m.id===4)extra='<strong>看影線｜</strong>最高價到實體上緣＝上影；實體下緣到最低價＝下影。它表示盤中曾到過、後來又被拉回。';
+  if(m.id===5)extra='<strong>分兩件事｜</strong>K 色：今開 vs 今收。日漲跌：昨收 vs 今收。所以「綠 K 但今天上漲」完全可能。';
+  if(m.id===6)extra='<strong>從單根進到一段｜</strong>不要被最後一根長紅或長綠帶走；先比較連續多天的高、低與收盤是否一起上移或下移。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
