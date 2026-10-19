@@ -1,0 +1,56 @@
+name: Validate BSG V4 learning foundation
+
+on:
+  push:
+    branches: [bsg-learning-system-20261019]
+    paths:
+      - 'apps/become-stock-god-v2/**'
+      - '.github/workflows/bsg-v4-learning-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/become-stock-god-v2/package.json
+      - name: Install
+        working-directory: apps/become-stock-god-v2
+        run: npm install
+      - name: Build complete product
+        working-directory: apps/become-stock-god-v2
+        run: npm run build:web
+      - name: Syntax check
+        working-directory: apps/become-stock-god-v2
+        run: |
+          node --check src/engine.js
+          node --check src/content.js
+          node --check src/chart.js
+          node --check src/app.js
+      - name: V4 learning contract audit
+        working-directory: apps/become-stock-god-v2
+        run: npm run audit:learning
+      - name: Verify standalone output
+        working-directory: apps/become-stock-god-v2
+        run: |
+          node - <<'NODE'
+          const fs=require('fs')
+          const html=fs.readFileSync('dist/index.html','utf8')
+          for(const s of ['learning-foundation-v1','OHLC 看圖順序｜','先學會這件事：','priceGuides','從菜雞到股神']) if(!html.includes(s)) throw new Error('missing built marker '+s)
+          if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small')
+          console.log('V4_BUILD_OK', {bytes:Buffer.byteLength(html)})
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bsg-v4-learning-foundation
+          path: |
+            apps/become-stock-god-v2/dist/index.html
+            apps/become-stock-god-v2/audit/learning_contract.json
+          retention-days: 7
