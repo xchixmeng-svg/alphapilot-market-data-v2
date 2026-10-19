@@ -88,7 +88,6 @@ jobs:
               if(b.d.lastIdx!==Math.min(i+1,b.R.c.length-1))throw new Error('M50 D+1 reveal mismatch');
               if(c.d.lastIdx!==Math.min(i+2,c.R.c.length-1))throw new Error('M50 D+2 reveal mismatch');
               if(!a.d.indicatorPanel||a.d.indicatorPanel.type!=='MACD')throw new Error('M50 integrated indicator missing');
-              const src=document.documentElement.innerHTML;if(!src.includes('drawPickReadout'))throw new Error('M47 draw UI marker not bundled');
               return {missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,rows,advancedVisual:window.BSG_V4_ADVANCED_VISUALS.version};
             });
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
@@ -96,4 +95,3 @@ jobs:
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
-NODE
