@@ -1,0 +1,45 @@
+
+// V4 setup visual layer — M25..M30. Keeps evidence, removes verdict labels during practice.
+(function(){
+  'use strict';
+  if(!window.BSGChart||!window.BSG_V4_FOUNDATION)return;
+  var previousCreate=window.BSGChart.create,previousTransform=window.BSG_V4_FOUNDATION.transform;
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function mid(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function argExtreme(a,s,e,wantMax){var lo=Math.max(0,s),hi=Math.min(a.length-1,e),best=lo,v=wantMax?-Infinity:Infinity;for(var i=lo;i<=hi;i++){if(!Number.isFinite(a[i]))continue;if((wantMax&&a[i]>v)||(!wantMax&&a[i]<v)){v=a[i];best=i;}}return best;}
+  function enhance(d){
+    if(!d||!d.R)return d;
+    var a=api(),ui=a&&a.ui,id=mid();if(id<25||id>30)return d;
+    var R=d.R,i=d.d0Idx,c=R.c[i],quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),out=Object.assign({},d);
+    out.allowCross=false;
+    if(id===25){out.showVolume=true;out.focusVolume=i;}
+    if(id===26){out.showVolume=true;out.focusVolume=i;out.focusCandles=[i];}
+    if(id===27){
+      out.showMA='ma20';
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:quiz?'參考支撐區':'回檔支撐'});});
+    }
+    if(id===28){
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:quiz?'前段壓力區':'突破壓力'});});
+      out.lines=(out.lines||[]).map(function(l){return Object.assign({},l,{label:quiz?'壓力基準':'突破基準'});});
+    }
+    if(id===29){
+      var r=maxA(R.h,i-25,i-6),bi=argExtreme(R.c,i-5,i-1,true);
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:quiz?'原壓力區':'原壓力 → 支撐'});});
+      out.lines=[{price:r,color:'#ff9f43',label:quiz?'壓力基準':'回測基準',dash:true}];
+      if(quiz)out.markers=[
+        {idx:bi,price:R.c[bi],label:'前一段收盤',color:'#ffd44a',prefer:'above'},
+        {idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'below'}
+      ];
+    }
+    if(id===30){
+      out.showMA='ma20';
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:'上方壓力區'});});
+      out.markers=quiz?[]:out.markers;
+    }
+    return out;
+  }
+  window.BSGChart.create=function(wrap,opt){opt=opt||{};var getter=opt.getData,next=Object.assign({},opt);next.getData=function(){return enhance(getter?getter():null);};return previousCreate(wrap,next);};
+  window.BSG_V4_FOUNDATION.transform=function(d){return previousTransform(enhance(d));};
+  window.BSG_V4_FOUNDATION.version='learning-foundation-v6';
+})();
