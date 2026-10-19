@@ -1,0 +1,63 @@
+
+// V4 advanced visual contract — indicator panels, price-line practice, reversal evidence and
+// a causal daily-reveal graduation mission. This wrapper runs after the base V4 foundation and
+// before the legacy V3.5 visual transformer is captured, so it receives a clean mission chart.
+(function(){
+  'use strict';
+  if(!window.BSGChart||typeof window.BSGChart.create!=='function')return;
+  var originalCreate=window.BSGChart.create;
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function mid(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function minA(a,s,e){var v=Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
+  function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function transform(d){
+    if(!d||!d.R)return d;
+    var a=api(),ui=a&&a.ui,id=mid(),R=d.R,i=d.d0Idx,out=Object.assign({},d),ind=window.BSG&&window.BSG.teachingIndicators?window.BSG.teachingIndicators(R):null;
+    var quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),atr=(R.atr&&R.atr[i])||R.c[i]*.02;
+    function line(price,color,label,dash){if(Number.isFinite(price))out.lines=(out.lines||[]).concat([{price:price,color:color,label:label||'',dash:!!dash}]);}
+    function zone(price,color,label){if(!Number.isFinite(price))return;var w=Math.max(atr*.35,Math.abs(price)*.0025);out.zones=(out.zones||[]).concat([{lo:price-w,hi:price+w,color:color,label:label,alpha:.12}]);}
+    if(ind&&(id===39||id===40||id===41||id===45||id===46)){
+      out.showVolume=true;out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
+    }
+    if(ind&&(id===42||id===43)){
+      out.showVolume=true;out.indicatorPanel={type:'KD',range:[0,100],thresholds:[20,80],series:[{name:'K',values:ind.kd.k,color:'#39f5ff'},{name:'D',values:ind.kd.d,color:'#ffd44a'}]};
+    }
+    if(ind&&id===44){
+      out.showVolume=true;out.indicatorPanel={type:'RSI14',range:[0,100],thresholds:[30,70],series:[{name:'RSI',values:ind.rsi14,color:'#c58cff'}]};
+    }
+    if(id===37){out.showMA=false;out.showVolume=false;out.focusCandles=[i-4,i-3,i-2,i-1,i];}
+    if(id===38){out.showMA=false;out.showVolume=false;out.focusCandles=[i-1,i];line(R.c[i-1],'#9876ff','昨收',true);line(R.o[i],'#39f5ff','今開',true);}
+    if(id===47){
+      out.showMA=false;out.showVolume=false;out.allowCross=false;out.pricePickMode=quiz;
+      if(quiz){out.zones=[];out.markers=[];out.priceGuides=[sup,res,R.c[i]];}
+      else{zone(sup,'#24d79b','支撐示範');zone(res,'#ff9f43','壓力示範');}
+    }
+    if(id===48){
+      var ph=maxA(R.h,i-12,i-1),pl=minA(R.l,i-12,i-1);out.showMA=false;out.showVolume=false;out.zones=[];out.markers=[];
+      line(ph,'#ff9f43','關鍵前高',true);line(pl,'#24d79b','近期低點',true);out.focusCandles=[i];
+      if(quiz)out.lines=(out.lines||[]).map(function(x){return Object.assign({},x,{label:''});});
+    }
+    if(id===49){
+      var st=window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down');out.showMA='ma20';out.showVolume=false;out.zones=[];out.markers=[];zone(sup,'#24d79b','結構支撐');line(st,'#ff465f','失策',true);
+      if(quiz){out.zones=[];out.lines=[];out.priceGuides=[st,sup,R.c[i]];}
+    }
+    if(id===50){
+      var ex=ui&&ui.mode==='mission'?ui.exercise:0,reveal=ex<=1?0:ex===2?1:3;
+      out.lastIdx=Math.min(i+reveal,R.c.length-1);out.showMA='both';out.showVolume=true;out.zones=[];out.markers=[];
+      if(ind)out.indicatorPanel={type:'MACD',hist:ind.macd.hist,series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
+      line(sup,'#24d79b',quiz?'':'D0 支撐',true);line(res,'#ff9f43',quiz?'':'D0 壓力',true);
+      out.allowCross=false;
+    }
+    return out;
+  }
+  window.BSGChart.create=function(wrap,opt){
+    opt=opt||{};var getter=opt.getData,next=Object.assign({},opt),id=mid();
+    next.getData=function(){return transform(getter?getter():null);};
+    if(id===47){next.onPricePick=function(p){
+      window.BSG_V4_LAST_PICK=p;
+      var box=document.getElementById('drawPickReadout');if(!box){box=document.createElement('div');box.id='drawPickReadout';box.className='coachLine';var host=document.querySelector('.answers');if(host)host.appendChild(box);}if(box)box.textContent='你畫的水平線：'+(window.BSG&&window.BSG.priceDecimals?p.toFixed(window.BSG.priceDecimals(p)):p.toFixed(2))+' 元｜可以再點一次調整';
+    };}
+    return originalCreate(wrap,next);
+  };
+  window.BSG_V4_ADVANCED_VISUALS={version:'advanced-visuals-v1',transform:transform};
+})();
