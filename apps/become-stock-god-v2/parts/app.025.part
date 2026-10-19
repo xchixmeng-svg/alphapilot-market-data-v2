@@ -1,6 +1,11 @@
 
 // V4 learning contract — teach first, then ask. This file is deliberately placed after app.02
 // and before app.03 so it can refine the mission functions without rewriting the legacy bank logic.
+if(CT&&CT.MISSIONS&&CT.MISSIONS[0])Object.assign(CT.MISSIONS[0],{
+  objective:'先把一根 K 棒的開、高、低、收四個位置看懂。',
+  rule:'一根 K 棒有四個價格：開盤、最高、最低、收盤。最高／最低在影線端點；開盤／收盤在實體兩端。',
+  anti:'示範會把四個位置標清楚；開始練習後只留價格，不顯示答案名稱。'
+});
 var _v4Suitable=suitable;
 suitable=function(mid,R){
   if(mid===1){var i=X(0);return R.h[i]>Math.max(R.o[i],R.c[i])&&R.l[i]<Math.min(R.o[i],R.c[i])&&Math.abs(R.o[i]-R.c[i])>0.0001;}
