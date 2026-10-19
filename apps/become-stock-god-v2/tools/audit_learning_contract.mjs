@@ -31,11 +31,17 @@ assert(E.priceDecimals(680)===0,'680 should show no decimal')
 assert(E.priceDecimals(1200)===0,'1200 should show no decimal')
 
 // Every historical lesson candle that survives bank construction must itself be tradable on the
-// Taiwan tick ladder. This catches impossible data before it can reach a learner.
+// Taiwan tick ladder. bank.json stores OHLC in integer cents, exactly as the browser's local
+// decodeRound() does, so decode that compact representation here instead of depending on an
+// application-only helper.
+function decodeLessonPrices(row){
+  const f100=a=>a.map(x=>x/100)
+  return {o:f100(row.o),h:f100(row.h),l:f100(row.l),c:f100(row.c)}
+}
 const bank=JSON.parse(fs.readFileSync('build/bank.json','utf8'))
 let checkedPrices=0
 for(const row of bank.rounds){
-  const R=E.decodeRound(row)
+  const R=decodeLessonPrices(row)
   for(const k of ['o','h','l','c'])for(const p of R[k]){assert(legal(p),`illegal bank price ${row.id||row.round_id||'?'} ${k}=${p}`);checkedPrices++}
 }
 
