@@ -43,11 +43,16 @@ jobs:
           node - <<'NODE'
           const fs=require('fs')
           const html=fs.readFileSync('dist/index.html','utf8')
-          for(const s of ['learning-foundation-v3','OHLC 看圖順序｜','看實體｜','看顏色｜','看影線｜','分兩件事｜','從單根進到一段｜','先找波峰｜','比較兩個高點｜','比較兩個低點｜','下降結構｜','盤整也有結構｜','反轉要證據｜','priceGuides','從菜雞到股神']) if(!html.includes(s)) throw new Error('missing built marker '+s)
+          for(const s of [
+            'learning-foundation-v4','OHLC 看圖順序｜','看實體｜','看顏色｜','看影線｜','分兩件事｜','從單根進到一段｜',
+            '先找波峰｜','比較兩個高點｜','比較兩個低點｜','下降結構｜','盤整也有結構｜','反轉要證據｜',
+            '支撐是區域｜','壓力是區域｜','同區間，不同位置｜','突破看收盤｜','突破也會失敗｜','回測是再驗證｜',
+            'priceGuides','從菜雞到股神'
+          ]) if(!html.includes(s)) throw new Error('missing built marker '+s)
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small')
           console.log('V4_BUILD_OK', {bytes:Buffer.byteLength(html)})
           NODE
-      - name: Browser verify M01-M12 teaching and no-leak practice
+      - name: Browser verify M01-M18 teaching and no-leak practice
         working-directory: apps/become-stock-god-v2
         run: |
           npm install --no-save playwright@1.56.1
@@ -61,64 +66,84 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
-            const errs=[]; page.on('pageerror',e=>errs.push(String(e))); page.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+            const errs=[];
+            page.on('pageerror',e=>errs.push('pageerror: '+String(e)));
+            page.on('console',m=>{if(m.type()==='error')errs.push('console: '+m.text())});
             await page.goto('http://127.0.0.1:4173/',{waitUntil:'load',timeout:30000});
             await page.waitForSelector('.hudstats',{timeout:15000});
-            const enter=page.locator('[data-ui="enter"]'); if(await enter.count()){await enter.click();await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000}).catch(()=>{});}
+            const enter=page.locator('[data-ui="enter"]');
+            if(await enter.count()){await enter.click();await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000}).catch(()=>{});}
             const hook=await page.evaluate(()=>({v4:window.BSG_V4_FOUNDATION&&window.BSG_V4_FOUNDATION.version,v3:window.BSG_V3_VISUALS&&window.BSG_V3_VISUALS.version}));
-            if(hook.v4!=='learning-foundation-v3')throw new Error('V4 foundation missing '+JSON.stringify(hook));
+            if(hook.v4!=='learning-foundation-v4')throw new Error('V4 foundation missing '+JSON.stringify(hook));
 
             const contract=await page.evaluate(()=>{
-              const t=window.BSGV3._test, rows=[];
-              for(let mid=1;mid<=12;mid++){
+              const t=window.BSGV3._test,rows=[];
+              for(let mid=1;mid<=18;mid++){
                 const exRows=[];
                 for(let ex=1;ex<=3;ex++){
                   t.setupMission(mid,ex,'mission');
-                  const mm=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(mm,R,ex),qt=t.qtext(mm,R,ex);
+                  const m=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(m,R,ex),qt=t.qtext(m,R,ex);
                   if(!t.suitable(mid,R))throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' unsuitable sample');
-                  if(!q||!Array.isArray(q.opts)||q.opts.length<3||new Set(q.opts.map(String)).size!==q.opts.length)throw new Error('M'+String(mid).padStart(2,'0')+' invalid question '+ex);
-                  if(typeof qt!=='string'||!qt.trim())throw new Error('M'+String(mid).padStart(2,'0')+' empty qtext '+ex);
-                  exRows.push({ex,q:qt,opts:q.opts.length});
+                  if(!q||!Array.isArray(q.opts)||q.opts.length!==3||new Set(q.opts.map(String)).size!==3)throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' invalid 3-choice contract');
+                  if(typeof qt!=='string'||!qt.trim())throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' empty qtext');
+                  exRows.push({ex,q:qt,opts:q.opts});
                 }
                 t.setupMission(mid,0,'mission');
-                const mm=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(mm,R),v3=window.BSG_V3_VISUALS.transform(base,mid),teach=window.BSG_V4_FOUNDATION.transform(v3);
+                let m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R),v3=window.BSG_V3_VISUALS.transform(base,mid),teach=window.BSG_V4_FOUNDATION.transform(v3);
                 if(teach.allowCross!==false)throw new Error('M'+String(mid).padStart(2,'0')+' demo allows OHLC tap reveal');
                 t.setupMission(mid,1,'mission');
-                const qm=t.ui.mission,QR=t.getR(t.ui.roundId),qb=t.chartData(qm,QR),qv3=window.BSG_V3_VISUALS.transform(qb,mid),quiz=window.BSG_V4_FOUNDATION.transform(qv3);
+                m=t.ui.mission;R=t.getR(t.ui.roundId);base=t.chartData(m,R);v3=window.BSG_V3_VISUALS.transform(base,mid);const quiz=window.BSG_V4_FOUNDATION.transform(v3);
                 if(quiz.allowCross!==false)throw new Error('M'+String(mid).padStart(2,'0')+' quiz allows OHLC tap reveal');
-                rows.push({mid,exRows,teachLabels:(teach.markers||[]).map(x=>x.label),quizLabels:(quiz.markers||[]).map(x=>x.label),teachLines:(teach.lines||[]).map(x=>x.label),quizLines:(quiz.lines||[]).map(x=>x.label),teachGuides:(teach.priceGuides||[]).length,quizGuides:(quiz.priceGuides||[]).length,closePath:quiz.closePath||teach.closePath||null});
+                rows.push({
+                  mid,exRows,
+                  teachLabels:(teach.markers||[]).map(x=>x.label),quizLabels:(quiz.markers||[]).map(x=>x.label),
+                  teachLines:(teach.lines||[]).map(x=>x.label),quizLines:(quiz.lines||[]).map(x=>x.label),
+                  teachZones:(teach.zones||[]).map(x=>x.label),quizZones:(quiz.zones||[]).map(x=>x.label),
+                  teachGuides:(teach.priceGuides||[]).length,quizGuides:(quiz.priceGuides||[]).length,
+                  closePath:quiz.closePath||teach.closePath||null
+                });
               }
               return rows;
             });
             const by=id=>contract.find(x=>x.mid===id);
-            for(const s of ['最高價','開盤價','收盤價','最低價'])if(!by(1).teachLabels.includes(s))throw new Error('M01 teaching label missing '+s);
+            const has=(arr,s)=>arr.includes(s);
+            for(const s of ['最高價','開盤價','收盤價','最低價'])if(!has(by(1).teachLabels,s))throw new Error('M01 teaching label missing '+s);
             if(by(1).quizLabels.length!==0||by(1).quizGuides!==4)throw new Error('M01 quiz leak '+JSON.stringify(by(1)));
-            if(!by(2).teachLabels.includes('開盤')||!by(2).teachLabels.includes('收盤')||by(2).quizLabels.length!==0||by(2).quizGuides<3)throw new Error('M02 contract '+JSON.stringify(by(2)));
-            if(!by(3).teachLabels.includes('開盤')||!by(3).teachLabels.includes('收盤')||by(3).quizLabels.length!==0)throw new Error('M03 contract '+JSON.stringify(by(3)));
-            for(const s of ['最高價','實體上緣','實體下緣','最低價'])if(!by(4).teachLabels.includes(s))throw new Error('M04 teaching label missing '+s);
-            if(by(4).quizLabels.length!==0||by(4).quizGuides<3)throw new Error('M04 quiz leak '+JSON.stringify(by(4)));
-            for(const s of ['昨收','今開','今收'])if(!by(5).teachLabels.includes(s)||!by(5).quizLabels.includes(s))throw new Error('M05 evidence missing '+s);
-            if(!by(6).closePath||by(6).closePath.length!==2)throw new Error('M06 close path missing '+JSON.stringify(by(6)));
-            if(!by(7).teachLabels.includes('近期高點')||by(7).quizLabels.length!==0||by(7).quizGuides<3)throw new Error('M07 contract '+JSON.stringify(by(7)));
-            for(const s of ['前段高','後段高'])if(!by(8).teachLabels.includes(s)||!by(8).quizLabels.includes(s))throw new Error('M08 evidence missing '+s);
-            for(const s of ['前段低','後段低'])if(!by(9).teachLabels.includes(s)||!by(9).quizLabels.includes(s))throw new Error('M09 evidence missing '+s);
-            for(const s of ['前段高','後段高','前段低','後段低'])if(!by(10).teachLabels.includes(s)||!by(10).quizLabels.includes(s))throw new Error('M10 evidence missing '+s);
-            if(!by(11).teachLines.includes('重疊區上緣')||!by(11).teachLines.includes('重疊區下緣')||by(11).quizLines.length!==0)throw new Error('M11 contract '+JSON.stringify(by(11)));
-            if(!by(12).teachLines.includes('前一重要高點')||!by(12).quizLines.includes('前高基準'))throw new Error('M12 contract '+JSON.stringify(by(12)));
+            if(!has(by(2).teachLabels,'開盤')||!has(by(2).teachLabels,'收盤')||by(2).quizLabels.length!==0)throw new Error('M02 contract '+JSON.stringify(by(2)));
+            if(!has(by(3).teachLabels,'開盤')||!has(by(3).teachLabels,'收盤')||by(3).quizLabels.length!==0)throw new Error('M03 contract '+JSON.stringify(by(3)));
+            for(const s of ['最高價','實體上緣','實體下緣','最低價'])if(!has(by(4).teachLabels,s))throw new Error('M04 teaching label missing '+s);
+            if(by(4).quizLabels.length!==0)throw new Error('M04 quiz leak '+JSON.stringify(by(4)));
+            for(const s of ['昨收','今開','今收'])if(!has(by(5).teachLabels,s)||!has(by(5).quizLabels,s))throw new Error('M05 evidence missing '+s);
+            if(!by(6).closePath||by(6).closePath.length!==2)throw new Error('M06 close path missing');
+            if(!has(by(7).teachLabels,'近期高點')||by(7).quizLabels.length!==0||by(7).quizGuides<3)throw new Error('M07 contract '+JSON.stringify(by(7)));
+            for(const s of ['前段高','後段高'])if(!has(by(8).teachLabels,s)||!has(by(8).quizLabels,s))throw new Error('M08 evidence missing '+s);
+            for(const s of ['前段低','後段低'])if(!has(by(9).teachLabels,s)||!has(by(9).quizLabels,s))throw new Error('M09 evidence missing '+s);
+            for(const s of ['前段高','後段高','前段低','後段低'])if(!has(by(10).teachLabels,s)||!has(by(10).quizLabels,s))throw new Error('M10 evidence missing '+s);
+            if(!has(by(11).teachLines,'重疊區上緣')||!has(by(11).teachLines,'重疊區下緣')||by(11).quizLines.length!==0)throw new Error('M11 contract '+JSON.stringify(by(11)));
+            if(!has(by(12).teachLines,'前一重要高點')||!has(by(12).quizLines,'前高基準'))throw new Error('M12 contract '+JSON.stringify(by(12)));
+            if(by(13).teachZones.length<1||by(13).quizZones.length!==0||by(13).quizGuides<3)throw new Error('M13 contract '+JSON.stringify(by(13)));
+            if(by(14).teachZones.length<1||by(14).quizZones.length!==0||by(14).quizGuides<3)throw new Error('M14 contract '+JSON.stringify(by(14)));
+            if(by(15).teachZones.length<2||by(15).quizZones.length<2||by(15).quizGuides<3)throw new Error('M15 contract '+JSON.stringify(by(15)));
+            if(!has(by(16).quizZones,'前段壓力區')||!has(by(16).quizLines,'壓力基準'))throw new Error('M16 neutral evidence missing '+JSON.stringify(by(16)));
+            if(!has(by(17).quizZones,'原壓力區')||!has(by(17).quizLines,'原壓力')||!has(by(17).quizLabels,'突破時收盤')||!has(by(17).quizLabels,'D0 收盤'))throw new Error('M17 neutral evidence missing '+JSON.stringify(by(17)));
+            if(by(17).quizZones.concat(by(17).quizLines,by(17).quizLabels).some(x=>/假突破|跌回區間/.test(x)))throw new Error('M17 verdict leak '+JSON.stringify(by(17)));
+            if(!has(by(18).quizZones,'原壓力區')||!has(by(18).quizLines,'壓力基準')||!has(by(18).quizLabels,'前一段收盤')||!has(by(18).quizLabels,'D0 收盤'))throw new Error('M18 neutral evidence missing '+JSON.stringify(by(18)));
+            if(by(18).quizZones.concat(by(18).quizLines,by(18).quizLabels).some(x=>/回測|突破$/.test(x)))throw new Error('M18 verdict leak '+JSON.stringify(by(18)));
 
             const m1=page.locator('[data-act="mission"][data-id="1"]').first();
             if(!(await m1.count()))throw new Error('M01 entry missing');
-            await m1.click(); await page.waitForSelector('#v3Chart canvas',{timeout:10000}); await page.waitForTimeout(250);
-            const teachText=(await page.locator('.prompt').innerText());
-            if(!teachText.includes('OHLC 看圖順序')||!teachText.includes('先學會這件事'))throw new Error('M01 teaching copy missing '+teachText);
-            fs.mkdirSync('audit',{recursive:true}); await page.screenshot({path:'audit/m01-teaching.png',fullPage:true});
-            await page.locator('[data-act="beginQuestions"]').click(); await page.waitForSelector('.answer',{timeout:5000}); await page.waitForTimeout(250);
-            const quiz=await page.evaluate(()=>({q:document.querySelector('.question').innerText,answers:[...document.querySelectorAll('.answer')].map(x=>x.innerText),badges:(document.querySelector('#v3Chart').__bsgLayout||{}).badges||[]}));
-            if(!quiz.q.includes('哪四種價格')||quiz.badges.length<4)throw new Error('M01 rendered quiz contract failed '+JSON.stringify(quiz));
+            await m1.click();await page.waitForSelector('#v3Chart canvas',{timeout:10000});await page.waitForTimeout(250);
+            const teachText=await page.locator('.prompt').innerText();
+            if(!teachText.includes('OHLC 看圖順序')||!teachText.includes('先學會這件事'))throw new Error('M01 teaching copy missing');
+            fs.mkdirSync('audit',{recursive:true});
+            await page.screenshot({path:'audit/m01-teaching.png',fullPage:true});
+            await page.locator('[data-act="beginQuestions"]').click();await page.waitForSelector('.answer',{timeout:5000});await page.waitForTimeout(250);
+            const rendered=await page.evaluate(()=>({q:document.querySelector('.question').innerText,answers:[...document.querySelectorAll('.answer')].map(x=>x.innerText),badges:(document.querySelector('#v3Chart').__bsgLayout||{}).badges||[]}));
+            if(!rendered.q.includes('哪四種價格')||rendered.answers.length!==3||rendered.badges.length<4)throw new Error('M01 rendered quiz failed '+JSON.stringify(rendered));
             await page.screenshot({path:'audit/m01-practice.png',fullPage:true});
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
-            fs.writeFileSync('audit/teaching_modules_01_12.json',JSON.stringify({ok:true,contract},null,2));
-            console.log('M01_M12_BROWSER_OK',contract);
+            fs.writeFileSync('audit/teaching_modules_01_18.json',JSON.stringify({ok:true,contract},null,2));
+            console.log('M01_M18_BROWSER_OK',{missions:contract.length});
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -128,7 +153,7 @@ jobs:
           path: |
             apps/become-stock-god-v2/dist/index.html
             apps/become-stock-god-v2/audit/learning_contract.json
-            apps/become-stock-god-v2/audit/teaching_modules_01_12.json
+            apps/become-stock-god-v2/audit/teaching_modules_01_18.json
             apps/become-stock-god-v2/audit/m01-teaching.png
             apps/become-stock-god-v2/audit/m01-practice.png
           retention-days: 7
