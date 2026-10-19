@@ -14,8 +14,6 @@ function replaceOne(source, from, to, label) {
   return source.replace(from, to)
 }
 function sortParts(name, files) {
-  // app.03 closes the legacy core IIFE. M25-M36 were added later as app.030/app.031, and plain
-  // lexical sorting placed them after app.03. Give those files virtual keys inside the core IIFE.
   function key(f) {
     if (name === 'app' && f === 'app.030.part') return 'app.029z1.part'
     if (name === 'app' && f === 'app.031.part') return 'app.029z2.part'
@@ -55,8 +53,10 @@ for (const [name, out] of Object.entries(specs)) {
       "function chickStage(){var n=S.completed.length;return n>=36?'god':n>=12?'scholar':'rookie';}",
       "function chickStage(){var n=S.completed.length;return n>=CT.MISSIONS.length?'god':n>=12?'scholar':'rookie';}",
       'chick course length')
+
     source = source.replaceAll('done>=36','done>=CT.MISSIONS.length')
     source = source.replaceAll('S.completed.length>=36','S.completed.length>=CT.MISSIONS.length')
+    source = source.replaceAll('S.completed.length<36','S.completed.length<CT.MISSIONS.length')
     source = source.replaceAll('for(k=1;k<=36;k++)','for(k=1;k<=CT.MISSIONS.length;k++)')
     source = source.replaceAll('CT.MISSIONS[35]','CT.MISSIONS[CT.MISSIONS.length-1]')
     source = source.replaceAll('Math.min(36,m.id+1)','Math.min(CT.MISSIONS.length,m.id+1)')
@@ -68,11 +68,16 @@ for (const [name, out] of Object.entries(specs)) {
     source = source.replaceAll("'<span class=\"ckMuted\">'+done+' / 36</span>'","'<span class=\"ckMuted\">'+done+' / '+CT.MISSIONS.length+'</span>'")
     source = source.replaceAll("'<div class=\"ckRank\">已完成 '+done+' / 36</div>'","'<div class=\"ckRank\">已完成 '+done+' / '+CT.MISSIONS.length+'</div>'")
     source = source.replaceAll("'目前 '+S.completed.length+' / 36。</span>'","'目前 '+S.completed.length+' / '+CT.MISSIONS.length+'。</span>'")
+    source = source.replaceAll("toast('完成 36 關後解鎖')","toast('完成全部課程後解鎖')")
     source = source.replaceAll('36 關總覽','完整課程')
     source = source.replaceAll('36 關全部完成','完整課程全部完成')
     source = source.replaceAll('完成 36 關解鎖','完成全部課程解鎖')
     source = source.replaceAll('36 種題型','完整題型')
     source = source.replaceAll('先完成 36 關才會開放','先完成全部課程才會開放')
+    source = source.replaceAll('免費試玩到第 6 關','前 15 關免費')
+    source = source.replaceAll('完整版：36 關能力鏈、400 題實戰、100 題盲測','完整版：完整能力鏈、指標整合、畫線、逐日實戰、400 題實戰、100 題盲測')
+    source = source.replaceAll('<div class="payFeature">✓ 工具：MA20 / MA60 / ATR</div>','<div class="payFeature">✓ 工具：MA20 / MA60 / ATR / MACD / KD / RSI</div>')
+    source = source.replaceAll('<div class="payFeature">✓ 決策：失策、R:R、部位、出場</div>','<div class="payFeature">✓ 決策：畫線、反轉、進場、失策、R:R、部位、出場</div><div class="payFeature">✓ 畢業：未來遮住的逐日 K 線實戰</div>')
   }
 
   if (name === 'chart') {
@@ -127,8 +132,7 @@ for (const [name, out] of Object.entries(specs)) {
       source,
       "function onPriceGrid(R) {\n  for (const k of ['o', 'h', 'l', 'c']) for (const x of R[k]) if (Math.abs(x * 100 - Math.round(x * 100)) > 1e-6) return false\n  return true\n}",
       "function onPriceGrid(R) {\n  for (const k of ['o', 'h', 'l', 'c']) for (const x of R[k]) {\n    if (!Number.isFinite(x) || x <= 0) return false\n    const legal = E.roundToTick(x)\n    if (Math.abs(x - legal) > 1e-6) return false\n  }\n  return true\n}",
-      'bank legal Taiwan tick grid'
-    )
+      'bank legal Taiwan tick grid')
   }
 
   fs.mkdirSync(path.dirname(path.join(root, out)), {recursive:true})
