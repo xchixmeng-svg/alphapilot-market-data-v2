@@ -1,0 +1,36 @@
+name: Import Claude 57909ca run2
+
+on:
+  push:
+    branches: [bsg-import-claude-346d033]
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Import verified Claude bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          tr -d '\r\n ' < claude-drop/part00.txt > /tmp/part00.txt
+          base64 -d < claude-drop/part01_outer2.b64 > /tmp/part01.txt
+          tr -d '\r\n ' < /tmp/part01.txt > /tmp/part01.norm
+          test "$(sha256sum /tmp/part00.txt | cut -d' ' -f1)" = "c9a0bf73fc604d3a210d3c3098d316d14989ade5d6295d919fa85f87a420ee4b"
+          test "$(sha256sum /tmp/part01.norm | cut -d' ' -f1)" = "decd16171ffe19a71f10e9b45f003843c13f1387221e673d55fadd248af67171"
+          cat /tmp/part00.txt /tmp/part01.norm | base64 -d > /tmp/bsg_v4.bundle
+          echo 'f6dcfbab54df2eb68f7678a64f6496a062e3fcacd9fce2934a05b54d6b061e31  /tmp/bsg_v4.bundle' | sha256sum -c -
+          git bundle verify /tmp/bsg_v4.bundle
+          git fetch origin bsg-learning-system-20261019
+          test "$(git rev-parse FETCH_HEAD)" = "b5dd6d5462e464ce69b75a50c27041b060b7798e"
+          git fetch /tmp/bsg_v4.bundle bsg-learning-system-20261019:refs/remotes/claude/v4
+          test "$(git rev-parse refs/remotes/claude/v4)" = "57909cae5879e6b767c834b5ad925426ec88336d"
+          test "$(git rev-parse 57909cae5879e6b767c834b5ad925426ec88336d~2)" = "b5dd6d5462e464ce69b75a50c27041b060b7798e"
+          git push origin 57909cae5879e6b767c834b5ad925426ec88336d:refs/heads/bsg-learning-system-20261019
+          echo "IMPORTED 57909ca onto bsg-learning-system-20261019"
