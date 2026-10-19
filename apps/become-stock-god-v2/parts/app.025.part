@@ -1,0 +1,48 @@
+
+// V4 learning contract — teach first, then ask. This file is deliberately placed after app.02
+// and before app.03 so it can refine the mission functions without rewriting the legacy bank logic.
+var _v4Suitable=suitable;
+suitable=function(mid,R){
+  if(mid===1){var i=X(0);return R.h[i]>Math.max(R.o[i],R.c[i])&&R.l[i]<Math.min(R.o[i],R.c[i])&&Math.abs(R.o[i]-R.c[i])>0.0001;}
+  return _v4Suitable(mid,R);
+};
+function _v4Shuffle(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|'+ex+'|'+BYID[UI.roundId].lb);}
+var _v4Question=question;
+question=function(m,R,ex){
+  if(m&&m.id===1){
+    var i=X(0),q=criterion(1,R);
+    if(ex%3===1)return _v4Shuffle(m,ex,['開盤、最高、最低、收盤','昨收、今開、均價、成交量','支撐、壓力、MA20、ATR'],0);
+    if(ex%3===2)return _v4Shuffle(m,ex,[px(R.h[i]),px(Math.max(q.o,q.c)),px(R.l[i])],0);
+    return _v4Shuffle(m,ex,[px(R.l[i]),px(Math.min(q.o,q.c)),px(R.h[i])],0);
+  }
+  if(m&&m.skill==='INVALIDATION'){
+    var qi=criterion(m.id,R),st=E.roundToTick(Math.max(.01,qi.sup-qi.a*.45),'down');
+    return _v4Shuffle(m,ex,['放在支撐/結構低點下方：約 '+px(st),'固定設在今天收盤 -1%','放在支撐上方，越近越好'],0);
+  }
+  if(m&&m.skill==='RR'){
+    var qr=criterion(m.id,R),stop=E.roundToTick(Math.max(.01,qr.sup-qr.a*.45),'down'),target=qr.res>qr.c?qr.res:maxA(R.h,qr.i-60,qr.i-1),risk=qr.c-stop,rrv=risk>0?(target-qr.c)/risk:0,side=rrv>=2?'R:R ≥ 2':rrv>=1?'R:R 約 1～2':'R:R < 1';
+    return _v4Shuffle(m,ex,['R:R ≥ 2','R:R 約 1～2','R:R < 1'],side==='R:R ≥ 2'?0:side==='R:R 約 1～2'?1:2);
+  }
+  return _v4Question(m,R,ex);
+};
+var _v4Qtext=qtext;
+qtext=function(m,R,ex){
+  if(m&&m.id===1){if(ex%3===1)return'一根 K 棒，是由哪四種價格組成？';if(ex%3===2)return'看 D0 右側的四個價格，哪個是最高價？';return'看 D0 右側的四個價格，哪個是最低價？';}
+  return _v4Qtext(m,R,ex);
+};
+var _v4Explain=explain;
+explain=function(m,R,ans){
+  if(m&&m.skill==='RR'){
+    var q=criterion(m.id,R),st=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down'),tg=q.res>q.c?q.res:maxA(R.h,q.i-60,q.i-1),rr=(tg-q.c)/(q.c-st);
+    return'用目前價 '+px(q.c)+'、合法跳動價位的失策約 '+px(st)+'、上方壓力約 '+px(tg)+'，R:R 約 '+(isFinite(rr)?rr.toFixed(2):'—')+'。';
+  }
+  return _v4Explain(m,R,ans);
+};
+var _v4PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_v4PromptIntro(m).replace('只新增一件事：','先學會這件事：');
+  if(m&&m.id===1){
+    html=html.replace('<div class="coachLine">AI 教練｜', '<div class="coachLine"><strong>OHLC 看圖順序｜</strong>開盤 Open → 最高 High → 最低 Low → 收盤 Close。<br>影線最上端＝最高、最下端＝最低；中間實體的兩端＝開盤與收盤。</div><div class="coachLine">AI 教練｜');
+  }
+  return html;
+};
