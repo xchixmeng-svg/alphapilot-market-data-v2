@@ -43,11 +43,11 @@ jobs:
           node - <<'NODE'
           const fs=require('fs')
           const html=fs.readFileSync('dist/index.html','utf8')
-          for(const s of ['learning-foundation-v1','OHLC 看圖順序｜','先學會這件事：','priceGuides','從菜雞到股神']) if(!html.includes(s)) throw new Error('missing built marker '+s)
+          for(const s of ['learning-foundation-v2','OHLC 看圖順序｜','看實體｜','看顏色｜','看影線｜','分兩件事｜','從單根進到一段｜','priceGuides','從菜雞到股神']) if(!html.includes(s)) throw new Error('missing built marker '+s)
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small')
           console.log('V4_BUILD_OK', {bytes:Buffer.byteLength(html)})
           NODE
-      - name: Browser verify M01 teaching and no-leak practice
+      - name: Browser verify beginner M01-M06 teaching and no-leak practice
         working-directory: apps/become-stock-god-v2
         run: |
           npm install --no-save playwright@1.56.1
@@ -66,29 +66,54 @@ jobs:
             await page.waitForSelector('.hudstats',{timeout:15000});
             const enter=page.locator('[data-ui="enter"]'); if(await enter.count()){await enter.click();await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000}).catch(()=>{});}
             const hook=await page.evaluate(()=>({v4:window.BSG_V4_FOUNDATION&&window.BSG_V4_FOUNDATION.version,v3:window.BSG_V3_VISUALS&&window.BSG_V3_VISUALS.version}));
-            if(hook.v4!=='learning-foundation-v1')throw new Error('V4 foundation missing '+JSON.stringify(hook));
+            if(hook.v4!=='learning-foundation-v2')throw new Error('V4 foundation missing '+JSON.stringify(hook));
+
+            const contract=await page.evaluate(()=>{
+              const t=window.BSGV3._test, rows=[];
+              for(let mid=1;mid<=6;mid++){
+                const m=t.content.MISSIONS[mid-1]||t.ui.mission;
+                const exRows=[];
+                for(let ex=1;ex<=3;ex++){
+                  t.setupMission(mid,ex,'mission');
+                  const mm=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(mm,R,ex),qt=t.qtext(mm,R,ex);
+                  if(!t.suitable(mid,R))throw new Error('M0'+mid+' ex'+ex+' unsuitable sample');
+                  if(!q||!Array.isArray(q.opts)||q.opts.length<3||new Set(q.opts.map(String)).size!==q.opts.length)throw new Error('M0'+mid+' invalid question '+ex);
+                  if(typeof qt!=='string'||!qt.trim())throw new Error('M0'+mid+' empty qtext '+ex);
+                  exRows.push({ex,q:qt,opts:q.opts.length});
+                }
+                t.setupMission(mid,0,'mission');
+                const mm=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(mm,R),v3=window.BSG_V3_VISUALS.transform(base,mid),teach=window.BSG_V4_FOUNDATION.transform(v3);
+                if(teach.allowCross!==false)throw new Error('M0'+mid+' demo allows OHLC tap reveal');
+                t.setupMission(mid,1,'mission');
+                const qm=t.ui.mission,QR=t.getR(t.ui.roundId),qb=t.chartData(qm,QR),qv3=window.BSG_V3_VISUALS.transform(qb,mid),quiz=window.BSG_V4_FOUNDATION.transform(qv3);
+                if(quiz.allowCross!==false)throw new Error('M0'+mid+' quiz allows OHLC tap reveal');
+                rows.push({mid,exRows,teachLabels:(teach.markers||[]).map(x=>x.label),quizLabels:(quiz.markers||[]).map(x=>x.label),teachGuides:(teach.priceGuides||[]).length,quizGuides:(quiz.priceGuides||[]).length,closePath:quiz.closePath||teach.closePath||null});
+              }
+              return rows;
+            });
+            const by=id=>contract.find(x=>x.mid===id);
+            for(const s of ['最高價','開盤價','收盤價','最低價'])if(!by(1).teachLabels.includes(s))throw new Error('M01 teaching label missing '+s);
+            if(by(1).quizLabels.length!==0||by(1).quizGuides!==4)throw new Error('M01 quiz leak '+JSON.stringify(by(1)));
+            if(!by(2).teachLabels.includes('開盤')||!by(2).teachLabels.includes('收盤')||by(2).quizLabels.length!==0||by(2).quizGuides<3)throw new Error('M02 contract '+JSON.stringify(by(2)));
+            if(!by(3).teachLabels.includes('開盤')||!by(3).teachLabels.includes('收盤')||by(3).quizLabels.length!==0)throw new Error('M03 contract '+JSON.stringify(by(3)));
+            for(const s of ['最高價','實體上緣','實體下緣','最低價'])if(!by(4).teachLabels.includes(s))throw new Error('M04 teaching label missing '+s);
+            if(by(4).quizLabels.length!==0||by(4).quizGuides<3)throw new Error('M04 quiz leak '+JSON.stringify(by(4)));
+            for(const s of ['昨收','今開','今收'])if(!by(5).teachLabels.includes(s)||!by(5).quizLabels.includes(s))throw new Error('M05 evidence missing '+s);
+            if(!by(6).closePath||by(6).closePath.length!==2)throw new Error('M06 close path missing '+JSON.stringify(by(6)));
+
             const m1=page.locator('[data-act="mission"][data-id="1"]').first();
             if(!(await m1.count()))throw new Error('M01 entry missing');
             await m1.click(); await page.waitForSelector('#v3Chart canvas',{timeout:10000}); await page.waitForTimeout(250);
-            const teach=await page.evaluate(()=>{
-              const t=window.BSGV3._test,m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R),v3=window.BSG_V3_VISUALS.transform(base,1),v4=window.BSG_V4_FOUNDATION.transform(v3); const layout=document.querySelector('#v3Chart').__bsgLayout;
-              return {exercise:t.ui.exercise,labels:v4.markers.map(x=>x.label),guides:v4.priceGuides,allowCross:v4.allowCross,hideAxis:v4.hideAxisTicks,badges:layout&&layout.badges&&layout.badges.length,text:document.querySelector('.prompt').innerText};
-            });
-            for(const s of ['開盤價','最高價','最低價','收盤價'])if(!teach.labels.includes(s))throw new Error('teaching label missing '+s+' '+JSON.stringify(teach));
-            if(teach.guides.length!==4||teach.allowCross!==false||teach.hideAxis!==true)throw new Error('bad teaching visual '+JSON.stringify(teach));
-            if(!teach.text.includes('OHLC 看圖順序')||!teach.text.includes('先學會這件事'))throw new Error('teaching copy missing '+teach.text);
+            const teachText=(await page.locator('.prompt').innerText());
+            if(!teachText.includes('OHLC 看圖順序')||!teachText.includes('先學會這件事'))throw new Error('M01 teaching copy missing '+teachText);
             fs.mkdirSync('audit',{recursive:true}); await page.screenshot({path:'audit/m01-teaching.png',fullPage:true});
             await page.locator('[data-act="beginQuestions"]').click(); await page.waitForSelector('.answer',{timeout:5000}); await page.waitForTimeout(250);
-            const quiz=await page.evaluate(()=>{
-              const t=window.BSGV3._test,m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R),v3=window.BSG_V3_VISUALS.transform(base,1),v4=window.BSG_V4_FOUNDATION.transform(v3); const layout=document.querySelector('#v3Chart').__bsgLayout;
-              return {exercise:t.ui.exercise,labels:v4.markers.map(x=>x.label),guides:v4.priceGuides,allowCross:v4.allowCross,badges:layout&&layout.badges&&layout.badges.length,q:document.querySelector('.question').innerText,answers:[...document.querySelectorAll('.answer')].map(x=>x.innerText)};
-            });
-            if(quiz.exercise!==1||quiz.labels.length!==0||quiz.guides.length!==4||quiz.allowCross!==false)throw new Error('quiz leaks semantics '+JSON.stringify(quiz));
-            if(!quiz.q.includes('哪四種價格'))throw new Error('first M01 practice must test concept first '+quiz.q);
-            if(quiz.badges<4)throw new Error('four exact price badges not rendered '+JSON.stringify(quiz));
+            const quiz=await page.evaluate(()=>({q:document.querySelector('.question').innerText,answers:[...document.querySelectorAll('.answer')].map(x=>x.innerText),badges:(document.querySelector('#v3Chart').__bsgLayout||{}).badges||[]}));
+            if(!quiz.q.includes('哪四種價格')||quiz.badges.length<4)throw new Error('M01 rendered quiz contract failed '+JSON.stringify(quiz));
             await page.screenshot({path:'audit/m01-practice.png',fullPage:true});
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
-            console.log('M01_BROWSER_OK', {teach,quiz});
+            fs.writeFileSync('audit/beginner_module.json',JSON.stringify({ok:true,contract},null,2));
+            console.log('BEGINNER_BROWSER_OK',contract);
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -98,6 +123,7 @@ jobs:
           path: |
             apps/become-stock-god-v2/dist/index.html
             apps/become-stock-god-v2/audit/learning_contract.json
+            apps/become-stock-god-v2/audit/beginner_module.json
             apps/become-stock-god-v2/audit/m01-teaching.png
             apps/become-stock-god-v2/audit/m01-practice.png
           retention-days: 7
