@@ -1,0 +1,60 @@
+
+// V4 advanced beginner path — M37..M50. These are intentionally appended only after the
+// original 36-step price/structure/risk foundation, so indicators never become the first answer.
+(function(){
+  function addWorld(w){if(!CT.WORLDS.some(function(x){return x.id===w.id;}))CT.WORLDS.push(w);}
+  function addMission(m){if(!CT.MISSIONS.some(function(x){return x.id===m.id;}))CT.MISSIONS.push(m);}
+  addWorld({id:7,code:'INDICATORS',title:'讀懂指標',sub:'MACD、KD、RSI 都只是價格證據的輔助',accent:'#c58cff'});
+  addWorld({id:8,code:'INTEGRATION',title:'自己做判斷',sub:'畫線、確認反轉、找進場、最後逐日實戰',accent:'#ffb45b'});
+  [
+    {id:37,world:7,title:'先懂時間週期',sub:'日 K、週 K 看的是不同尺度',skill:'TIMEFRAME',objective:'知道同一檔股票換時間週期，看到的結構可能不同。',rule:'短週期看細節、長週期看大結構；先決定自己正在分析哪個尺度。',anti:'不要拿 5 分 K 的支撐，直接當成週 K 等級的關鍵支撐。',focus:'time'},
+    {id:38,world:7,title:'缺口與特殊價格',sub:'K 棒中間也可能真的沒有成交',skill:'GAP',objective:'認得跳空缺口，理解它是價格直接跨過一段區域。',rule:'今天開盤若明顯高於昨高或低於昨低，中間可能形成缺口；缺口本身仍要放回結構判斷。',anti:'看到缺口不要自動當成必漲或必跌。',focus:'gap'},
+    {id:39,world:7,title:'MACD 先看什麼',sub:'先懂 DIF、訊號線與零軸',skill:'MACD_BASE',objective:'先把 MACD 當成「趨勢與動能差」的工具。',rule:'DIF 在訊號線上方代表近期動能相對較強；零軸上下則提供較長尺度的背景。',anti:'黃金交叉不是自動買進鍵。',focus:'macd'},
+    {id:40,world:7,title:'MACD 柱狀體',sub:'看動能是在增強還是收斂',skill:'MACD_HIST',objective:'讀懂 MACD 柱狀體變長、變短代表什麼。',rule:'柱體絕對值擴大＝DIF 與訊號線差距擴大；縮小＝動能差正在收斂。',anti:'柱體剛翻紅不代表上方壓力就消失。',focus:'macd'},
+    {id:41,world:7,title:'MACD 背離',sub:'價格創高，不代表動能也創高',skill:'MACD_DIVERGENCE',objective:'理解價格與 MACD 不同步時，為什麼要提高警覺。',rule:'價格創新高、MACD 高點卻降低，叫偏空背離；它是警訊，不是保證反轉。',anti:'看到背離不要立刻逆勢進場，先等價格結構真的改變。',focus:'macd'},
+    {id:42,world:7,title:'KD 先看什麼',sub:'K、D 是近期區間裡的位置與動能',skill:'KD_BASE',objective:'先會讀 KD 的 K 值、D 值與交叉。',rule:'K 往上穿 D 可視為短線動能改善證據，但一定要搭配價格位置。',anti:'KD 黃金交叉不能蓋過仍在破底的價格結構。',focus:'kd'},
+    {id:43,world:7,title:'KD 鈍化',sub:'80 以上不等於立刻賣，20 以下也不等於立刻買',skill:'KD_STICKY',objective:'避免把 KD 超買超賣當成反轉按鈕。',rule:'強勢趨勢裡 KD 可以長時間維持高檔；弱勢趨勢也可長時間低檔。',anti:'不要只因 KD > 80 就放空，也不要只因 KD < 20 就抄底。',focus:'kd'},
+    {id:44,world:7,title:'RSI 強弱',sub:'看近期上漲力與下跌力的比例',skill:'RSI',objective:'會讀 RSI 的相對強弱，而不是只背 70／30。',rule:'RSI 高表示近期上漲力較強、低表示下跌力較強；極端值要配合結構判斷。',anti:'RSI 超買超賣不是單獨的買賣訊號。',focus:'rsi'},
+    {id:45,world:7,title:'指標衝突',sub:'價格結構永遠先於指標',skill:'INDICATOR_CONFLICT',objective:'當 MACD、KD、RSI 和價格結構打架時，知道先相信什麼。',rule:'先看價格是否破底／突破／守住支撐，再把指標當輔助證據。',anti:'不要用一個漂亮交叉去否定明確破底。',focus:'indicators'},
+    {id:46,world:7,title:'多證據一起看',sub:'結構＋位置＋量價＋指標',skill:'CONFLUENCE',objective:'把指標放進完整判斷鏈，而不是各自背答案。',rule:'價格結構是主角；量、均線、MACD、KD、RSI 是加分或扣分的證據。',anti:'證據互相矛盾時，「先觀察」可以是最好的答案。',focus:'indicators'},
+    {id:47,world:8,title:'自己畫支撐壓力',sub:'從系統標示進到你自己找位置',skill:'DRAW_LEVEL',objective:'自己找出合理支撐／壓力區，而不是等系統把答案畫好。',rule:'先找多次反應的區域；畫線允許合理範圍，不要求精準到單一價位。',anti:'不要為了貼合每個小轉折而畫出一堆沒有意義的線。',focus:'draw'},
+    {id:48,world:8,title:'確認反轉',sub:'止跌 → 較高低點 → 突破前高',skill:'REVERSAL_CONFIRM',objective:'把「止跌」與「確認反轉」清楚分開。',rule:'下降結構先停止破底，再形成較高低點，最後突破關鍵前高，反轉證據才逐步完整。',anti:'一根紅 K、KD 黃金交叉或跌很久，都不等於反轉完成。',focus:'reversal'},
+    {id:49,world:8,title:'找進場與失策',sub:'證據夠了才找可以試的位置',skill:'ENTRY_INVALIDATION',objective:'同時找進場位置與「哪裡代表我看錯」。',rule:'可以在突破、回測守住或重新轉強時考慮；進場前先把失策點說清楚。',anti:'不能先決定要買，再把停損硬塞到方便的位置。',focus:'entry'},
+    {id:50,world:8,title:'逐日 K 線畢業實戰',sub:'未來遮住，一天一天重新判斷',skill:'DAILY_REVEAL',objective:'不用事後答案，只靠當下已知資料做完整判斷。',rule:'D0 做第一次判斷；之後逐日揭曉，重新檢查趨勢、位置、指標、失策與是否仍值得出手。',anti:'最後漲了不代表前面亂猜是好決策；最後停損也不代表原決策一定差。',focus:'daily'}
+  ].forEach(addMission);
+})();
+
+function _advSh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|ADV|'+ex+'|'+BYID[UI.roundId].lb);}
+function _advInd(R){return E.teachingIndicators?E.teachingIndicators(R):null;}
+var _advSuitable=suitable;
+suitable=function(mid,R){
+  if(mid===38){var i=X(0),g=Math.abs(R.o[i]/R.c[i-1]-1);return g>=.015;}
+  return _advSuitable(mid,R);
+};
+var _advQuestion=question;
+question=function(m,R,ex){
+  if(!m||m.id<37||m.id>50)return _advQuestion(m,R,ex);
+  var i=X(0),q=criterion(m.id,R),ind=_advInd(R),macd=ind&&ind.macd,kd=ind&&ind.kd,rsi=ind&&ind.rsi14;
+  var dif=macd&&macd.dif[i],dea=macd&&macd.dea[i],hist=macd&&macd.hist[i],prevHist=macd&&macd.hist[i-1],k=kd&&kd.k[i],d=kd&&kd.d[i],rv=rsi&&rsi[i],side;
+  if(m.id===37){if(ex%3===1)return _advSh(m,ex,['不同週期是在看不同時間尺度的同一段價格','週 K 只是把日 K 顏色換掉','時間週期不會影響支撐壓力'],0);if(ex%3===2)return _advSh(m,ex,['先確認自己在看日 K、週 K 還是更短週期','所有週期共用完全相同的關鍵線','只看最短週期最準'],0);return _advSh(m,ex,['長週期看大結構，短週期看細節與執行','短週期一定比長週期可靠','週期越長就不需要失策點'],0);}
+  if(m.id===38){var gap=(R.o[i]/R.c[i-1]-1)*100;if(ex%3===1)return _advSh(m,ex,['今天開盤直接跨過昨天一段價格區域','今天成交量比昨天大','今天收盤高於開盤'],0);if(ex%3===2)return _advSh(m,ex,['約 '+gap.toFixed(1)+'% 的開盤跳空','完全沒有跳空','只靠 K 棒顏色無法算'],0);return _advSh(m,ex,['缺口是重要資訊，但仍要放回趨勢、位置與後續是否守住來看','向上缺口一定會一路漲','缺口一定會在三天內回補'],0);}
+  if(m.id===39){if(ex%3===1)return _advSh(m,ex,['DIF、訊號線與零軸用來描述趨勢／動能差','MACD 是保證未來漲跌的預測器','只要黃金交叉就買'],0);side=dif>dea?'DIF 在訊號線上方':dif<dea?'DIF 在訊號線下方':'兩線接近';if(ex%3===2)return _advSh(m,ex,['DIF 在訊號線上方','DIF 在訊號線下方','兩線接近'],side==='DIF 在訊號線上方'?0:side==='DIF 在訊號線下方'?1:2);return _advSh(m,ex,['先看價格結構，再把 MACD 當確認證據','MACD 可以取代支撐壓力','只要翻紅就不需要看上方壓力'],0);}
+  if(m.id===40){if(ex%3===1)return _advSh(m,ex,['柱體反映 DIF 與訊號線差距','柱體就是成交量','柱體等於明天漲跌幅'],0);side=Math.abs(hist)>Math.abs(prevHist)?'動能差擴大':'動能差收斂';if(ex%3===2)return _advSh(m,ex,['動能差擴大','動能差收斂','無法比較'],side==='動能差擴大'?0:1);return _advSh(m,ex,['柱體縮短是警訊／收斂，不等於立刻反轉','柱體一縮短就一定要賣','柱體翻紅就代表壓力消失'],0);}
+  if(m.id===41){if(ex%3===1)return _advSh(m,ex,['價格創更高高點，但 MACD 高點沒有跟著創高','價格與 MACD 同時創高','KD 進入 80 以上'],0);if(ex%3===2)return _advSh(m,ex,['背離是動能不同步的警訊，不是反轉保證','看到背離就立刻反向交易','背離出現後不用再看價格'],0);return _advSh(m,ex,['等價格也出現結構破壞／轉折，再提高反轉權重','只靠背離抓最高點','忽略失策點'],0);}
+  if(m.id===42){if(ex%3===1)return _advSh(m,ex,['K、D 描述近期區間中的位置與短線動能','KD 是公司估值','KD 是成交量指標'],0);side=k>d?'K 在 D 上方':k<d?'K 在 D 下方':'K、D 接近';if(ex%3===2)return _advSh(m,ex,['K 在 D 上方','K 在 D 下方','K、D 接近'],side==='K 在 D 上方'?0:side==='K 在 D 下方'?1:2);return _advSh(m,ex,['KD 交叉要配合價格位置與結構','黃金交叉就保證上漲','死亡交叉就保證下跌'],0);}
+  if(m.id===43){if(ex%3===1)return _advSh(m,ex,['強勢時 KD 可以長時間高檔，弱勢時也可長時間低檔','KD 超過 80 下一天一定下跌','KD 低於 20 下一天一定上漲'],0);side=k>=80&&d>=80?'高檔區':k<=20&&d<=20?'低檔區':'中間區';if(ex%3===2)return _advSh(m,ex,['高檔區','低檔區','中間區'],side==='高檔區'?0:side==='低檔區'?1:2);return _advSh(m,ex,['高低檔只描述狀態，不是單獨進出場答案','高檔一定要賣','低檔一定要買'],0);}
+  if(m.id===44){if(ex%3===1)return _advSh(m,ex,['近期上漲力與下跌力的相對強弱','公司獲利率','成交量的多空比'],0);side=rv>=70?'偏強／高檔':rv<=30?'偏弱／低檔':'中性區';if(ex%3===2)return _advSh(m,ex,['偏強／高檔','偏弱／低檔','中性區'],side==='偏強／高檔'?0:side==='偏弱／低檔'?1:2);return _advSh(m,ex,['RSI 極端值要搭配趨勢與結構，不是自動反轉','RSI > 70 就一定賣','RSI < 30 就一定買'],0);}
+  if(m.id===45){if(ex%3===1)return _advSh(m,ex,['價格結構','KD 交叉','MACD 柱體顏色'],0);if(ex%3===2)return _advSh(m,ex,['價格仍持續破底，即使 KD 黃金交叉也先降權','KD 黃金交叉就忽略破底','只看 RSI 是否低於 30'],0);return _advSh(m,ex,['先價格、再位置、再用指標確認','指標越多越可以忽略價格','三個指標同時亮就保證成功'],0);}
+  if(m.id===46){if(ex%3===1)return _advSh(m,ex,['結構＋位置＋量價＋指標一起評估','只找最多指標同時黃金交叉','只看單根 K'],0);if(ex%3===2)return _advSh(m,ex,['證據互相支持才加分；互相衝突就先觀察','只要兩個指標同意就直接買','指標衝突時選最樂觀的'],0);return _advSh(m,ex,['「不做／等待」可以是完整決策','每張圖都一定要找到買點','指標越多，停損越不重要'],0);}
+  if(m.id===47){if(ex%3===1)return _advSh(m,ex,['多次反應的價格區域','任何一根最低價','剛好整數價'],0);if(ex%3===2)return _advSh(m,ex,['支撐約 '+px(q.sup),'壓力約 '+px(q.res),'目前價 '+px(q.c)],0);return _advSh(m,ex,['合理區域比精準一檔更重要','線一定要穿過所有最低點','畫越多線越專業'],0);}
+  if(m.id===48){var ph=maxA(R.h,i-12,i-1),pl=minA(R.l,i-12,i-1);side=q.c>ph?'已突破關鍵前高':q.c<pl?'仍在破底':'止跌／整理但尚未確認';if(ex%3===1)return _advSh(m,ex,['停止破底 → 較高低點 → 突破關鍵前高','一根紅 K → 直接買','KD 黃金交叉 → 反轉完成'],0);if(ex%3===2)return _advSh(m,ex,['已突破關鍵前高','仍在破底','止跌／整理但尚未確認'],side==='已突破關鍵前高'?0:side==='仍在破底'?1:2);return _advSh(m,ex,['止跌不等於反轉，證據要一步一步累積','跌很久就等於反轉','指標翻多可以取代價格突破'],0);}
+  if(m.id===49){var st=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');if(ex%3===1)return _advSh(m,ex,['先等結構／突破／回測證據，再找可試位置，同時先定失策','看到紅 K 先買再想停損','只找最低價抄底'],0);if(ex%3===2)return _advSh(m,ex,['失策約 '+px(st),'固定收盤 -1%','不設失策'],0);return _advSh(m,ex,['進場與失策必須是一組問題','只要看對方向，進場價不重要','失策可以進場後一直往下移'],0);}
+  if(m.id===50){var day=Math.min(i+(ex===1?0:ex===2?1:3),R.c.length-1),cc=R.c[day],sup=minA(R.l,i-20,day-1),res=maxA(R.h,i-20,day-1);if(ex%3===1)return _advSh(m,ex,['先判斷趨勢與位置，再決定等待／觀察／可試','先猜明天漲跌','先找一個一定會贏的指標'],0);if(ex%3===2)return _advSh(m,ex,['新 K 出現後重新檢查原判斷是否仍成立','原判斷一旦做出就不能改','只看今天損益決定'],0);return _advSh(m,ex,['結果與決策品質分開評分','最後賺錢就代表前面所有判斷都正確','最後停損就代表策略一定錯'],0);}
+  return _advQuestion(m,R,ex);
+};
+var _advQtext=qtext;
+qtext=function(m,R,ex){if(!m||m.id<37||m.id>50)return _advQtext(m,R,ex);var ind=_advInd(R),i=X(0);if(m.id===37)return ex%3===1?'時間週期真正改變的是什麼？':ex%3===2?'開始看圖前，第一件事要確認什麼？':'長週期與短週期應該怎麼搭配？';if(m.id===38)return ex%3===1?'什麼叫做 K 線缺口？':ex%3===2?'D0 開盤相對昨收的跳空大約多少？':'缺口應該怎麼解讀？';if(m.id===39)return ex%3===1?'MACD 最核心在描述什麼？':ex%3===2?'看下方 MACD，DIF 與訊號線目前哪個在上？':'MACD 正確的使用順序是什麼？';if(m.id===40)return ex%3===1?'MACD 柱狀體代表什麼？':ex%3===2?'比較最近兩根柱體，動能差正在擴大還是收斂？':'柱體縮短時應該怎麼理解？';if(m.id===41)return ex%3===1?'什麼叫 MACD 偏空背離？':ex%3===2?'背離出現後，最重要的提醒是什麼？':'如果懷疑背離，下一步應該等什麼？';if(m.id===42)return ex%3===1?'KD 的 K、D 主要在描述什麼？':ex%3===2?'看下方 KD，目前 K 與 D 的相對位置？':'KD 黃金交叉應該怎麼用？';if(m.id===43)return ex%3===1?'「KD 鈍化」在提醒什麼？':ex%3===2?'目前 KD 比較落在哪個區域？':'看到 KD 高檔／低檔時，最正確的態度？';if(m.id===44)return ex%3===1?'RSI 在量什麼？':ex%3===2?'目前 RSI14 比較屬於哪一區？':'RSI >70 或 <30 應該怎麼用？';if(m.id===45)return ex%3===1?'價格結構和指標衝突時，優先順序？':ex%3===2?'如果價格還在破底，但 KD 剛黃金交叉？':'完整優先順序是什麼？';if(m.id===46)return ex%3===1?'多證據判斷應該怎麼做？':ex%3===2?'當結構、量價、指標互相矛盾時？':'最後一定要交易嗎？';if(m.id===47)return ex%3===1?'自己畫支撐／壓力時，先找什麼？':ex%3===2?'這張圖最合理的支撐候選大約在哪？':'畫線最容易犯什麼錯？';if(m.id===48)return ex%3===1?'下降結構的反轉證據應該按什麼順序出現？':ex%3===2?'依目前價格和關鍵前高／前低，反轉進度到哪？':'「止跌」和「反轉確認」一樣嗎？';if(m.id===49)return ex%3===1?'真正找進場點前，市場要先給什麼？':ex%3===2?'依結構支撐，哪個失策位置比較合理？':'進場與失策應該怎麼搭配？';if(m.id===50)return ex%3===1?'逐日實戰的 D0，第一步怎麼判斷？':ex%3===2?'揭曉下一根 K 後，你該做什麼？':'最後成績應該只看賺賠嗎？';return _advQtext(m,R,ex);};
+var _advExplain=explain;
+explain=function(m,R,ans){if(!m||m.id<37||m.id>50)return _advExplain(m,R,ans);var i=X(0),q=criterion(m.id,R),ind=_advInd(R);if(m.id===39&&ind)return'D0 MACD：DIF '+ind.macd.dif[i].toFixed(3)+'、訊號線 '+ind.macd.dea[i].toFixed(3)+'。先讀價格結構，再用兩線位置補充動能。';if(m.id===40&&ind)return'D0 柱體 '+ind.macd.hist[i].toFixed(3)+'，前一日 '+ind.macd.hist[i-1].toFixed(3)+'。比較柱體變化是在看動能差擴大或收斂。';if(m.id===42&&ind)return'D0 KD：K '+ind.kd.k[i].toFixed(1)+'、D '+ind.kd.d[i].toFixed(1)+'。交叉只是證據，不能蓋過價格正在破底。';if(m.id===44&&ind)return'D0 RSI14 約 '+ind.rsi14[i].toFixed(1)+'。高低值描述近期強弱，仍要放回趨勢與位置。';if(m.id===47)return'這張圖近 20 日支撐候選約 '+px(q.sup)+'、壓力候選約 '+px(q.res)+'。真正畫線時允許合理區域，不要求一個像素答案。';if(m.id===48)return'反轉證據要按順序累積：先停止破底，再出現較高低點，最後突破關鍵前高。少一步就不要假裝已經確認。';if(m.id===49){var st=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');return'目前支撐約 '+px(q.sup)+'，留波動緩衝後失策約 '+px(st)+'。進場前先能回答「跌到哪裡代表我看錯」。';}if(m.id===50)return'逐日模式只使用當下已知 K 棒。每出現一天，就重新檢查原判斷；最後另外評「結果」和「決策品質」。';return m.rule;};
+var _advPromptIntro=promptIntro;
+promptIntro=function(m){var html=_advPromptIntro(m);if(!m||m.id<37||m.id>50)return html;var extra='<strong>先教，再考｜</strong>'+esc(m.rule);if(m.id>=39&&m.id<=46)extra+='<br><strong>共同原則｜</strong>價格結構是主角；指標只做確認，不能單獨當買賣答案。';if(m.id===50)extra+='<br><strong>畢業規則｜</strong>未來 K 棒全部遮住，只能一天一天揭曉。';return html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');};
