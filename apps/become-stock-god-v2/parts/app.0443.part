@@ -1,0 +1,56 @@
+
+// V4 risk / decision visual layer — M31..M36.
+(function(){
+  'use strict';
+  if(!window.BSGChart||!window.BSG_V4_FOUNDATION)return;
+  var previousCreate=window.BSGChart.create,previousTransform=window.BSG_V4_FOUNDATION.transform;
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function mid(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function minA(a,s,e){var v=Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.min(v,a[i]);return v;}
+  function maxA(a,s,e){var v=-Infinity;for(var i=Math.max(0,s);i<=Math.min(a.length-1,e);i++)if(Number.isFinite(a[i]))v=Math.max(v,a[i]);return v;}
+  function enhance(d){
+    if(!d||!d.R)return d;
+    var a=api(),id=mid();if(id<31||id>36)return d;
+    var R=d.R,i=d.d0Idx,c=R.c[i],q=a&&a.criterion?a.criterion(id,R):null,out=Object.assign({},d);
+    out.allowCross=false;
+    if(!q)return out;
+    var sup=minA(R.l,i-20,i-1),stop=window.BSG.roundToTick(Math.max(.01,sup-q.a*.45),'down'),target=q.res>c?q.res:maxA(R.h,i-60,i-1);
+    if(id===31){
+      // The shared V4 foundation strips these labels in practice and leaves neutral candidate prices.
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:'結構支撐'});});
+      out.lines=(out.lines||[]).map(function(l){return /失策/.test(l.label||'')?Object.assign({},l,{price:stop,label:'失策點'}):l;});
+    }
+    if(id===32){
+      out.lines=(out.lines||[]).map(function(l){return Object.assign({},l,{price:target,label:'第一壓力／目標'});});
+    }
+    if(id===33){
+      out.lines=(out.lines||[]).map(function(l){
+        if(/失策/.test(l.label||''))return Object.assign({},l,{price:stop,label:'失策'});
+        if(/目標/.test(l.label||''))return Object.assign({},l,{price:target,label:'目標'});
+        return l;
+      });
+    }
+    if(id===34){
+      out.lines=[
+        {price:c,color:'#39f5ff',label:'進場參考',dash:false},
+        {price:stop,color:'#ff465f',label:'失策參考',dash:true}
+      ];
+      out.markers=[];
+    }
+    if(id===35){
+      out.lines=(out.lines||[]).map(function(l){return /失策/.test(l.label||'')?Object.assign({},l,{price:stop,label:'原失策'}):l;});
+    }
+    if(id===36){
+      out.showMA='both';out.showVolume=true;
+      out.lines=[
+        {price:stop,color:'#ff465f',label:'失策候選',dash:true},
+        {price:target,color:'#ffd44a',label:'上方空間',dash:true}
+      ];
+      out.markers=[{idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'side'}];
+    }
+    return out;
+  }
+  window.BSGChart.create=function(wrap,opt){opt=opt||{};var getter=opt.getData,next=Object.assign({},opt);next.getData=function(){return enhance(getter?getter():null);};return previousCreate(wrap,next);};
+  window.BSG_V4_FOUNDATION.transform=function(d){return previousTransform(enhance(d));};
+  window.BSG_V4_FOUNDATION.version='learning-foundation-v7';
+})();
