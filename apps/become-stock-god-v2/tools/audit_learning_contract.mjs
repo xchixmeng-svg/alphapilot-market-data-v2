@@ -30,6 +30,26 @@ assert(E.priceDecimals(125.5)===1,'125.5 should show one decimal')
 assert(E.priceDecimals(680)===0,'680 should show no decimal')
 assert(E.priceDecimals(1200)===0,'1200 should show no decimal')
 
+// Every historical lesson candle that survives bank construction must itself be tradable on the
+// Taiwan tick ladder. This catches impossible data before it can reach a learner.
+const bank=JSON.parse(fs.readFileSync('build/bank.json','utf8'))
+let checkedPrices=0
+for(const row of bank.rounds){
+  const R=E.decodeRound(row)
+  for(const k of ['o','h','l','c'])for(const p of R[k]){assert(legal(p),`illegal bank price ${row.id||row.round_id||'?'} ${k}=${p}`);checkedPrices++}
+}
+
+// Indicator engine foundation for the later MACD/KD/RSI teaching module.
+const close=Array.from({length:80},(_,i)=>100+i*0.5)
+const high=close.map(x=>x+1),low=close.map(x=>x-1)
+const macd=E.macdSeries(close,12,26,9),kd=E.kdSeries(high,low,close,9),rsi=E.rsiSeries(close,14)
+assert(macd.dif.length===80&&macd.dea.length===80&&macd.hist.length===80,'MACD series length mismatch')
+assert(Number.isFinite(macd.dif[79])&&Number.isFinite(macd.dea[79])&&Number.isFinite(macd.hist[79]),'MACD tail not finite')
+assert(kd.k.length===80&&kd.d.length===80&&kd.k[79]>=0&&kd.k[79]<=100&&kd.d[79]>=0&&kd.d[79]<=100,'KD out of range')
+assert(rsi.length===80&&rsi[79]>99,'monotonic rise should produce high RSI')
+const indicators=E.teachingIndicators({h:high,l:low,c:close})
+assert(indicators&&indicators.macd&&indicators.kd&&indicators.rsi14,'teachingIndicators contract missing')
+
 // Assembled renderer contract.
 for (const marker of [
   'var axisSeen={}',
@@ -56,7 +76,7 @@ assert(app.includes('一根 K 棒，是由哪四種價格組成？'),'M01 concep
 assert(app.includes('哪個是最高價？')&&app.includes('哪個是最低價？'),'M01 price checks missing')
 assert(app.includes("label:'開盤價'")&&app.includes("label:'收盤價'"),'M01 teaching labels missing')
 
-// Current production course map is still 36 missions while V4 is built incrementally.
+// Current course map is still 36 missions while V4 is built incrementally.
 const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(contentSrc,sandbox)
 const CT=sandbox.window.BSG_CONTENT
 assert(CT&&Array.isArray(CT.MISSIONS)&&CT.MISSIONS.length===36,'current course map != 36')
@@ -73,9 +93,11 @@ const report={
   currentMissions:CT.MISSIONS.length,
   foundation:'learning-foundation-v1',
   tickCases:tickCases.length,
+  checkedPrices,
   legalAxis:true,
   exactPriceGuides:true,
   m01TeachBeforeTest:true,
+  indicators:['MACD','KD','RSI14'],
   roadmapLocked:true
 }
 fs.mkdirSync('audit',{recursive:true})
