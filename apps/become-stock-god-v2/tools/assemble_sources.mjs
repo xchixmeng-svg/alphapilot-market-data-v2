@@ -19,6 +19,14 @@ for (const [name, out] of Object.entries(specs)) {
   if (!files.length) throw new Error('missing parts for ' + name)
   let source = files.map(f => fs.readFileSync(path.join(dir,f),'utf8')).join('')
 
+  // Keep V4 teaching-indicator functions inside the engine IIFE but before its exported api object.
+  // The original engine source is split across part boundaries, so appending another engine part at
+  // the end can land inside the api literal. Injecting at this stable signature avoids that hazard.
+  if (name === 'engine') {
+    const inc = fs.readFileSync(path.join(root,'tools','v4_indicator_engine.inc.js'),'utf8').trimEnd()
+    source = replaceOne(source, '\n  var api = {', '\n'+inc+'\n\n  var api = {', 'indicator engine api boundary')
+  }
+
   // The in-chart coach orb competes with the candlesticks and can cover the lesson evidence.
   // The AI coach already has a dedicated right rail, so remove this legacy chart overlay at build time.
   if (name === 'app') {
