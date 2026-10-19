@@ -2,15 +2,18 @@
 // 從菜雞到股神 — premium dashboard, one-time landing, real settings/help, text coaching only.
 (function(){
   'use strict';
+  var CT=window.BSG_CONTENT;
   try{localStorage.setItem('bsg_voice','0');}catch(e){}
 
   function state(){try{return window.BSGV3&&window.BSGV3.state?window.BSGV3.state():null;}catch(e){return null;}}
   function mixer(){try{return window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state?window.BSG_AUDIO_MIXER.state():{bgm:true,sfx:true};}catch(e){return{bgm:true,sfx:true};}}
+  function courseTotal(){return CT&&CT.MISSIONS?CT.MISSIONS.length:50;}
   function level(s){return s?Math.floor((s.xp||0)/600)+1:1;}
   function xpIn(s){return s?(s.xp||0)%600:0;}
   function rank(s){
     var n=s&&Array.isArray(s.completed)?s.completed.length:0;
-    if(n>=36)return '股神候補';
+    if(n>=courseTotal())return '股神候補';
+    if(n>=36)return '進階分析雞';
     return ['菜雞學徒','K 線小雞','結構雞','位置獵雞','量價分析雞','風控指揮雞'][Math.min(5,Math.floor(n/6))];
   }
   function esc(x){return String(x==null?'':x).replace(/[&<>\"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]||c;});}
@@ -31,17 +34,17 @@
       '</div><div class="ckSetActions"><button class="ckBtn ckCyan" data-ui="cover">回到遊戲封面</button><button class="ckDanger" data-ui="reset">重置本機進度</button></div><p class="ckFine">遊戲進度目前儲存在這台裝置的瀏覽器中。清除網站資料也會清除進度。</p>');
   }
   function help(){
-    modal('遊戲說明','<div class="ckHelpHero"><b>不是背答案，是把看盤拆成 36 個能力。</b><span>每一關只多一件事，完成後再進混合實戰。</span></div><div class="ckHelpGrid">'+
-      '<article><strong>01</strong><div><b>36 關能力鏈</b><p>從單根 K 線、結構、支撐壓力，到均線、量價、風險與完整掃描。</p></div></article>'+
-      '<article><strong>02</strong><div><b>400 題隨機實戰</b><p>使用 2020–2023 歷史題池，36 種技能混抽，可以使用提示。</p></div></article>'+
-      '<article><strong>03</strong><div><b>100 題盲測</b><p>使用隔離的 2024–2025 題池，不提示題型，也不提供提示。</p></div></article>'+
-      '<article><strong>04</strong><div><b>看不懂就回關卡</b><p>已完成與已解鎖關卡都能回去重玩，後面的關卡仍按順序解鎖。</p></div></article>'+
+    modal('遊戲說明','<div class="ckHelpHero"><b>不是背答案，是把看盤拆成 50 個循序能力。</b><span>每一關只多一件事，先教會、再練習，最後才進逐日實戰。</span></div><div class="ckHelpGrid">'+
+      '<article><strong>01</strong><div><b>50 關能力鏈</b><p>從單根 K 線、價位、高低點、支撐壓力，到均線、量價、MACD、KD、RSI、進場與失策。</p></div></article>'+
+      '<article><strong>02</strong><div><b>自己畫、自己判斷</b><p>後段不再只選答案：會自己找支撐壓力、確認反轉、找進場與失策位置。</p></div></article>'+
+      '<article><strong>03</strong><div><b>逐日 K 線畢業實戰</b><p>未來全部遮住，一天一天揭曉；每一天重新檢查原本論點是否仍成立。</p></div></article>'+
+      '<article><strong>04</strong><div><b>混合實戰與盲測</b><p>完整課程完成後，再進 400 題混合實戰與隔離歷史題池的 100 題盲測。</p></div></article>'+
       '</div><div class="ckInfoBox"><b>資料與用途</b><p>使用真實歷史行情做學習題。不是即時行情，也不是投資建議；遊戲中的價格與判斷只用於教育練習。</p></div>');
   }
   function profile(){
-    var s=state()||{},done=(s.completed||[]).length,pr=s.practice||{},ex=s.exam||{},rate=pr.total?Math.round(pr.correct/pr.total*100):0;
-    modal('學習紀錄','<div class="ckProfileHero"><span class="ckChick ck-'+(done>=36?'god':done>=12?'scholar':'rookie')+' ckProfileBig"></span><div><span class="ckUiEyebrow">CURRENT RANK</span><h3>'+esc(rank(s))+'</h3><b>Lv.'+level(s)+'</b><small>'+xpIn(s)+' / 600 EXP</small></div></div><div class="ckRecordGrid">'+
-      '<div><b>'+done+' / 36</b><span>完成關卡</span></div><div><b>'+((s.coins||0).toLocaleString())+'</b><span>金幣</span></div><div><b>'+(s.streak||0)+'</b><span>目前連勝</span></div><div><b>'+rate+'%</b><span>實戰正確率</span></div><div><b>'+((pr.idx||0))+' / 400</b><span>本輪實戰</span></div><div><b>'+Math.min(100,ex.idx||0)+' / 100</b><span>盲測進度</span></div></div>');
+    var s=state()||{},done=(s.completed||[]).length,pr=s.practice||{},ex=s.exam||{},rate=pr.total?Math.round(pr.correct/pr.total*100):0,total=courseTotal();
+    modal('學習紀錄','<div class="ckProfileHero"><span class="ckChick ck-'+(done>=total?'god':done>=12?'scholar':'rookie')+' ckProfileBig"></span><div><span class="ckUiEyebrow">CURRENT RANK</span><h3>'+esc(rank(s))+'</h3><b>Lv.'+level(s)+'</b><small>'+xpIn(s)+' / 600 EXP</small></div></div><div class="ckRecordGrid">'+
+      '<div><b>'+done+' / '+total+'</b><span>完成關卡</span></div><div><b>'+((s.coins||0).toLocaleString())+'</b><span>金幣</span></div><div><b>'+(s.streak||0)+'</b><span>目前連勝</span></div><div><b>'+rate+'%</b><span>實戰正確率</span></div><div><b>'+((pr.idx||0))+' / 400</b><span>本輪實戰</span></div><div><b>'+Math.min(100,ex.idx||0)+' / 100</b><span>盲測進度</span></div></div>');
   }
   function refreshSettings(){
     var a=mixer();['bgm','sfx'].forEach(function(k){var el=document.querySelector('[data-setting-state="'+k+'"]');if(el){var on=!!a[k];el.textContent=on?'開':'關';el.classList.toggle('on',on);}});
@@ -62,13 +65,13 @@
   }
   function enhanceHud(){
     var hud=document.querySelector('.hudbar');if(!hud)return;
-    var s=state()||{},done=(s.completed||[]).length,onHome=!!document.querySelector('.ckHome');
+    var s=state()||{},done=(s.completed||[]).length,onHome=!!document.querySelector('.ckHome'),total=courseTotal();
     hud.classList.toggle('ckDashHud',onHome);
     var stats=hud.querySelector('.hudstats');if(!stats)return;
     var old=stats.querySelector('.ckTopActions');
     if(!old){old=document.createElement('div');old.className='ckTopActions';old.innerHTML='<button class="ckTopBtn" data-ui="settings" aria-label="設定">⚙</button><button class="ckTopBtn" data-ui="help" aria-label="說明">ⓘ</button>';stats.appendChild(old);}
     if(onHome){
-      var brand=hud.querySelector('.brand');if(brand){brand.setAttribute('data-ui','profile');brand.classList.add('ckBrandProfile');var nm=brand.querySelector('.brandname'),sub=brand.querySelector('.brandsub');if(nm)nm.innerHTML=esc(rank(s));if(sub)sub.textContent='Lv.'+level(s)+' · '+done+' / 36 關';}
+      var brand=hud.querySelector('.brand');if(brand){brand.setAttribute('data-ui','profile');brand.classList.add('ckBrandProfile');var nm=brand.querySelector('.brandname'),sub=brand.querySelector('.brandsub');if(nm)nm.innerHTML=esc(rank(s));if(sub)sub.textContent='Lv.'+level(s)+' · '+done+' / '+total+' 關';}
       var xp=hud.querySelector('.xpbox');if(xp)xp.innerHTML='<span class="lv">EXP</span><div class="xpbar"><i style="width:'+(xpIn(s)/6)+'%"></i></div><span class="lv">'+xpIn(s)+' / 600</span>';
       var gold=stats.querySelector('.hudpill.gold');if(gold)gold.textContent='◆ '+(s.coins||0);
       var fire=stats.querySelector('.hudpill.fire');if(fire)fire.textContent='連勝 '+(s.streak||0);
