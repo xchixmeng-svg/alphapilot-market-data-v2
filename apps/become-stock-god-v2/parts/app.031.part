@@ -1,0 +1,84 @@
+
+// V4 risk / decision module — M31..M36: invalidation -> target -> R:R -> position -> hold/exit -> full scan.
+var _w6Suitable=suitable;
+suitable=function(mid,R){
+  if(mid===34){var q=criterion(mid,R),st=window.BSG.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');return st<q.c&&(q.c-st)>=window.BSG.tickSize(q.c);}
+  return _w6Suitable(mid,R);
+};
+function _w6Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W6|'+ex+'|'+BYID[UI.roundId].lb);}
+var _w6Question=question;
+question=function(m,R,ex){
+  if(!m||m.id<31||m.id>36)return _w6Question(m,R,ex);
+  var q=criterion(m.id,R),i=q.i,stop=window.BSG.roundToTick(Math.max(.01,q.sup-q.a*.45),'down'),target=q.res>q.c?q.res:maxA(R.h,i-60,i-1),risk=q.c-stop,reward=target-q.c,rr=risk>0?reward/risk:0,side,d3,futureMin,shares,loss=1000;
+  if(m.id===31){
+    if(ex%3===1)return _w6Sh(m,ex,['「跌到哪裡代表原本買進理由錯了」的位置','固定每一筆都 -5%','只要帳面變綠就賣'],0);
+    if(ex%3===2)return _w6Sh(m,ex,['支撐／結構低點下方：約 '+px(stop),'固定設在今天收盤 -1%','放在支撐上方，越近越好'],0);
+    return _w6Sh(m,ex,['失策點要在進場前就能說清楚，而且不能因為捨不得賠而往下放寬','進場後只要害怕就把失策改遠','看好程度越高就可以不設失策'],0);
+  }
+  if(m.id===32){
+    if(ex%3===1)return _w6Sh(m,ex,['下一個已知明顯壓力／前高','自己希望賺到的固定百分比','帳戶今天想賺多少錢'],0);
+    if(ex%3===2)return _w6Sh(m,ex,['約 '+px(target),'約 '+px(q.sup),'約 '+px(stop)],0);
+    return _w6Sh(m,ex,['目標是估算上方可用空間，不是保證一定到','設定目標後價格一定會到','每筆交易都應固定 +15%'],0);
+  }
+  if(m.id===33){
+    if(ex%3===1)return _w6Sh(m,ex,['潛在報酬 ÷ 潛在風險','勝率 ÷ 成交量','目標價 ÷ 買進價'],0);
+    side=rr>=2?'R:R ≥ 2':rr>=1?'R:R 約 1～2':'R:R < 1';
+    if(ex%3===2)return _w6Sh(m,ex,['R:R ≥ 2','R:R 約 1～2','R:R < 1'],side==='R:R ≥ 2'?0:side==='R:R 約 1～2'?1:2);
+    return _w6Sh(m,ex,['風報比差時，即使方向可能看對也可以選擇不做','只要勝率高，R:R 多差都沒關係','R:R 越高就代表一定會贏'],0);
+  }
+  if(m.id===34){
+    shares=Math.max(1,Math.floor(loss/Math.max(window.BSG.tickSize(q.c),risk)));
+    if(ex%3===1)return _w6Sh(m,ex,['先定帳戶最多願意損失多少，再用每股風險反推股數','先決定想買幾張，再把停損配合部位移動','越看好就把全部資金壓上'],0);
+    if(ex%3===2)return _w6Sh(m,ex,[shares+' 股',Math.max(1,Math.floor(shares/2))+' 股',(shares*2)+' 股'],0);
+    return _w6Sh(m,ex,['失策距離越大，固定帳戶風險下可買股數越少','停損越遠反而可以買越多','部位大小和失策距離無關'],0);
+  }
+  if(m.id===35){
+    d3=Math.min(i+3,R.c.length-1);futureMin=minA(R.c,i+1,d3);side=futureMin<=stop?'失策已觸發，應退出／重新評估':'失策未觸發，可依原理由續抱';
+    if(ex%3===1)return _w6Sh(m,ex,['原本買進理由是否仍成立、失策是否被破壞','已經持有幾天','帳面現在是不是紅色'],0);
+    if(ex%3===2)return _w6Sh(m,ex,['失策已觸發，應退出／重新評估','失策未觸發，可依原理由續抱','固定第 3 天一定賣'],side==='失策已觸發，應退出／重新評估'?0:1);
+    return _w6Sh(m,ex,['持有時間不是退出理由本身，結構與失策才是','每筆都固定第 20 天賣最客觀','只要曾經獲利就不應退出'],0);
+  }
+  if(m.id===36){
+    if(ex%3===1)return _w6Sh(m,ex,['趨勢 → 位置 → 量價 → 失策 → 上方空間／R:R → 決定','先猜漲跌 → 再找理由','先決定買 → 再補停損'],0);
+    side=rr>=2?'R:R ≥ 2':rr>=1?'R:R 約 1～2':'R:R < 1';
+    if(ex%3===2)return _w6Sh(m,ex,['R:R ≥ 2','R:R 約 1～2','R:R < 1'],side==='R:R ≥ 2'?0:side==='R:R 約 1～2'?1:2);
+    return _w6Sh(m,ex,['看不懂、位置差或風報比差時，「不做」就是完整決策','完整掃描後一定要選一個買點','只要指標夠多，就可以忽略失策'],0);
+  }
+  return _w6Question(m,R,ex);
+};
+var _w6Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<31||m.id>36)return _w6Qtext(m,R,ex);
+  var q=criterion(m.id,R),i=q.i,stop=window.BSG.roundToTick(Math.max(.01,q.sup-q.a*.45),'down'),target=q.res>q.c?q.res:maxA(R.h,i-60,i-1),risk=q.c-stop,rr=risk>0?(target-q.c)/risk:0,shares=Math.max(1,Math.floor(1000/Math.max(window.BSG.tickSize(q.c),risk)));
+  if(m.id===31){if(ex%3===1)return'「失策點」真正要回答什麼？';if(ex%3===2)return'依圖上的結構支撐，哪個失策位置比較合理？';return'失策點設好後，哪個紀律最重要？';}
+  if(m.id===32){if(ex%3===1)return'規劃第一個目標／上方空間，最先看什麼？';if(ex%3===2)return'依目前價格與上方壓力，第一個合理目標大約在哪？';return'目標價應該怎麼理解？';}
+  if(m.id===33){if(ex%3===1)return'R:R（風險報酬比）怎麼算？';if(ex%3===2)return'目前價 '+px(q.c)+'、失策 '+px(stop)+'、目標 '+px(target)+'，R:R 約 '+(isFinite(rr)?rr.toFixed(2):'—')+'，屬於哪一級？';return'風報比很差時，最合理的選擇是什麼？';}
+  if(m.id===34){if(ex%3===1)return'部位大小正確的計算順序是什麼？';if(ex%3===2)return'假設帳戶最多願意承受這筆損失 NT$1,000；進場 '+px(q.c)+'、失策 '+px(stop)+'，最多約可買多少股？';return'失策距離變大時，股數應該怎麼變？';}
+  if(m.id===35){if(ex%3===1)return'續抱或退出，最重要應該看什麼？';if(ex%3===2)return'從 D0 看到 D+3，對照原失策 '+px(stop)+'，目前應該怎麼處理？';return'關於持有天數，哪個觀念比較正確？';}
+  if(m.id===36){if(ex%3===1)return'完整掃描的順序應該怎麼排？';if(ex%3===2)return'把失策 '+px(stop)+' 與上方空間 '+px(target)+' 放進來，這張圖目前 R:R 約 '+(isFinite(rr)?rr.toFixed(2):'—')+'，屬於哪一級？';return'完整掃描最後允許哪個答案？';}
+  return _w6Qtext(m,R,ex);
+};
+var _w6Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<31||m.id>36)return _w6Explain(m,R,ans);
+  var q=criterion(m.id,R),i=q.i,stop=window.BSG.roundToTick(Math.max(.01,q.sup-q.a*.45),'down'),target=q.res>q.c?q.res:maxA(R.h,i-60,i-1),risk=q.c-stop,rr=risk>0?(target-q.c)/risk:0;
+  if(m.id===31)return'支撐約 '+px(q.sup)+'，依波動留出緩衝後，失策約 '+px(stop)+'。重點是「跌到這裡，原本的買進理由已經不成立」。';
+  if(m.id===32)return'D0 收盤 '+px(q.c)+'，下一個可辨識壓力／目標約 '+px(target)+'。目標用來估算空間，不是許願或保證。';
+  if(m.id===33)return'每股風險約 '+px(risk)+'，上方空間約 '+px(target-q.c)+'，所以 R:R 約 '+(isFinite(rr)?rr.toFixed(2):'—')+'。方向對不代表買點一定值得。';
+  if(m.id===34){var sh=Math.max(1,Math.floor(1000/Math.max(window.BSG.tickSize(q.c),risk)));return'每股風險約 '+px(risk)+'。若最多承受 NT$1,000，股數約 1000 ÷ '+px(risk)+' ≈ '+sh+' 股。風險距離越大，股數就必須越小。';}
+  if(m.id===35)return'原失策約 '+px(stop)+'。持有期間真正要追蹤的是「原本理由還在不在」，不是機械數到第幾天。';
+  if(m.id===36)return'完整掃描不是為了逼自己交易：先看趨勢與位置，再看量價，接著定失策與上方空間，最後才問這筆風險值不值得承擔。';
+  return _w6Explain(m,R,ans);
+};
+var _w6PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w6PromptIntro(m),extra='';if(!m)return html;
+  if(m.id===31)extra='<strong>失策不是「我不想再賠」｜</strong>它要對應原本論點：跌破哪個支撐／結構低點後，你原本的理由就不成立？';
+  if(m.id===32)extra='<strong>先看市場給多少空間｜</strong>第一個目標先找下一個明顯壓力，不是先決定「我想賺 15%」。';
+  if(m.id===33)extra='<strong>先算值不值得｜</strong>R:R = 上方可能空間 ÷ 到失策的風險。方向可能看對，但位置太差仍可以不做。';
+  if(m.id===34)extra='<strong>先決定最多能賠多少｜</strong>帳戶風險固定後，再用「每股風險＝進場−失策」反推股數；停損越遠，部位必須越小。';
+  if(m.id===35)extra='<strong>續抱看理由，不看日曆｜</strong>理由未失效可以續抱；失策被破壞或突破失敗，就重新評估。固定第 20 天、第 30 天不是邏輯。';
+  if(m.id===36)extra='<strong>最後把流程固定下來｜</strong>趨勢 → 位置 → 量價 → 失策 → 空間／R:R → 決定。最後答案可以是「不做」。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
