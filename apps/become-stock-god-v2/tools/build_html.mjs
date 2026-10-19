@@ -28,7 +28,7 @@ const html = `<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="從菜雞到股神">
-<meta name="description" content="新手也能學會看 K 線與結構：用真實台股歷史行情，36 關一步一步學會讀 K 線、結構、位置與風險。">
+<meta name="description" content="從完全不會看 K 線開始，50 關循序學會價格、結構、支撐壓力、量價、均線、MACD、KD、RSI、進場、失策與逐日實戰。">
 <link rel="icon" type="image/webp" href="./app-icon.webp">
 <link rel="apple-touch-icon" href="./app-icon.webp">
 <title>從菜雞到股神</title>
