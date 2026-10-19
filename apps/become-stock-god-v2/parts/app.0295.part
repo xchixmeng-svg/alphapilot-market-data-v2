@@ -1,0 +1,133 @@
+
+// V4 opportunity/risk module — M25..M36. Keep one new idea per mission and teach before testing.
+var _w5Question=question;
+function _w5Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W5|'+ex+'|'+BYID[UI.roundId].lb);}
+question=function(m,R,ex){
+  if(!m||m.id<25||m.id>36)return _w5Question(m,R,ex);
+  var q=criterion(m.id,R),i=q.i,vr=q.vr,chg=q.c/q.pc-1,side,stop,target,risk,rr;
+  if(m.id===25){
+    if(ex%3===1)return _w5Sh(m,ex,['把今天成交量和近 20 日平均量比較','只看今天成交幾張','只看 K 棒顏色'],0);
+    side=vr>=1.5?'明顯放量':vr<=.7?'明顯縮量':'接近近期平均';
+    if(ex%3===2)return _w5Sh(m,ex,['明顯放量','明顯縮量','接近近期平均'],side==='明顯放量'?0:side==='明顯縮量'?1:2);
+    return _w5Sh(m,ex,['量代表參與程度，要放回價格方向與位置一起看','只要爆量就一定是利多','量縮就代表沒有任何人交易'],0);
+  }
+  if(m.id===26){
+    if(ex%3===1)return _w5Sh(m,ex,['先看價格方向，再看量是放大還縮小','只看量，不看價格','只看價格，不看量'],0);
+    side=chg>0&&vr>1.35?'上漲＋放量':chg<0&&vr>1.35?'下跌＋放量':vr<.8?'縮量':'量能普通';
+    if(ex%3===2)return _w5Sh(m,ex,['上漲＋放量','下跌＋放量','縮量／量能普通'],side==='上漲＋放量'?0:side==='下跌＋放量'?1:2);
+    return _w5Sh(m,ex,['突破配合放量通常比無量突破更有證據，但仍要看位置','只要放量就一定突破成功','回檔縮量就保證之後上漲'],0);
+  }
+  if(m.id===27){
+    if(ex%3===1)return _w5Sh(m,ex,['原本是上升結構，回到支撐／MA20 附近且沒有破壞結構','下降結構一路破底','離 MA20 很遠又急拉'],0);
+    side=q.trendUp&&q.ma&&Math.abs(q.dist)<.05&&q.c>q.sup?'較像順勢回檔':q.trendDown?'較像下降趨勢接刀':'位置不夠標準';
+    if(ex%3===2)return _w5Sh(m,ex,['較像順勢回檔','較像下降趨勢接刀','位置不夠標準'],side==='較像順勢回檔'?0:side==='較像下降趨勢接刀'?1:2);
+    return _w5Sh(m,ex,['回檔的前提是原本結構夠強，而且失策位置要能說清楚','只要跌到 MA20 就一定買','任何下跌都能叫回檔'],0);
+  }
+  if(m.id===28){
+    if(ex%3===1)return _w5Sh(m,ex,['先有清楚壓力，之後收盤真正站上去','只要今天紅 K','只要成交量比昨天大'],0);
+    side=q.c>q.prevHi?'較像有效突破':R.h[i]>q.prevHi?'只有盤中刺過':'仍未突破';
+    if(ex%3===2)return _w5Sh(m,ex,['較像有效突破','只有盤中刺過','仍未突破'],side==='較像有效突破'?0:side==='只有盤中刺過'?1:2);
+    return _w5Sh(m,ex,['突破買點的重點是「突破什麼」以及站上後剩多少空間','創新高就一定值得追','盤中刺過一檔就算突破完成'],0);
+  }
+  if(m.id===29){
+    if(ex%3===1)return _w5Sh(m,ex,['先突破原壓力，之後回到原壓力附近守住再轉強','第一次碰到壓力','一路離壓力越來越遠'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['突破後回測守住，值得繼續觀察','已跌回原區間深處，突破論點變弱','只要出現紅 K 就算回測成功'],0);
+    return _w5Sh(m,ex,['回測提供第二次驗證，若明顯失守原壓力就不能硬說突破有效','回測一定比突破當下安全','回測完全不需要失策點'],0);
+  }
+  if(m.id===30){
+    if(ex%3===1)return _w5Sh(m,ex,['離 MA20 太遠、剛急拉、上方又有壓力時先不追','看到最強的一根就立刻追','越遠離均線越安全'],0);
+    side=(q.dist!=null&&q.dist>.08)||q.c>q.res*.995?'追高風險偏高':'位置尚未明顯過熱';
+    if(ex%3===2)return _w5Sh(m,ex,['追高風險偏高','位置尚未明顯過熱','只看今天紅綠無法判斷'],side==='追高風險偏高'?0:1);
+    return _w5Sh(m,ex,['「不交易」也是正確答案；證據不足或位置太差就等','怕錯過是買進理由','只要很強就不需要看失策'],0);
+  }
+  if(m.id===31){
+    stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');
+    if(ex%3===1)return _w5Sh(m,ex,['先問「跌到哪裡代表原本理由錯了」','固定每次都設 -5%','設在自己最不想賠錢的位置'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['約 '+px(stop),'約 '+px(q.sup+q.a*.25),'固定收盤 -1%'],0);
+    return _w5Sh(m,ex,['失策點應和結構／支撐有關，不是固定百分比','停損越近一定越好','進場後可以為了不想被停損一直往下移'],0);
+  }
+  if(m.id===32){
+    target=q.res>q.c?q.res:maxA(R.h,i-60,i-1);
+    if(ex%3===1)return _w5Sh(m,ex,['先找上方下一個明顯壓力','先決定自己想賺 15%','只看昨天漲幅'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['約 '+px(target),'約 '+px(q.sup),'固定今天收盤 +15%'],0);
+    return _w5Sh(m,ex,['目標不是許願，而是用已知壓力估「還有多少空間」','每筆交易都應該設定同一個目標百分比','沒有壓力就代表上方無限空間'],0);
+  }
+  if(m.id===33){
+    stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');target=q.res>q.c?q.res:maxA(R.h,i-60,i-1);risk=q.c-stop;rr=risk>0?(target-q.c)/risk:0;side=rr>=2?'R:R ≥ 2':rr>=1?'R:R 約 1～2':'R:R < 1';
+    if(ex%3===1)return _w5Sh(m,ex,['潛在報酬 ÷ 潛在風險','勝率 ÷ 成交量','目標價 ÷ 股價'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['R:R ≥ 2','R:R 約 1～2','R:R < 1'],side==='R:R ≥ 2'?0:side==='R:R 約 1～2'?1:2);
+    return _w5Sh(m,ex,['就算看多，R:R 太差也可以選擇不做','只要會漲，任何價位都能進','R:R 越低代表越安全'],0);
+  }
+  if(m.id===34){
+    if(ex%3===1)return _w5Sh(m,ex,['先決定帳戶最多能承受多少損失，再依失策距離算股數','先決定想買幾張，再找停損','越看好就把全部資金壓上'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['失策距離越大，在固定帳戶風險下股數要越少','失策距離越大，股數要越多','股數和失策距離沒有關係'],0);
+    return _w5Sh(m,ex,['部位大小是在控制「判斷錯一次會傷多重」','只要勝率高就不需要部位控制','停損設好後，部位多大都沒差'],0);
+  }
+  if(m.id===35){
+    stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');var d3=Math.min(i+3,R.c.length-1),lo3=minA(R.l,i+1,d3),broken=lo3<=stop;
+    if(ex%3===1)return _w5Sh(m,ex,['先看原本進場理由與失策是否仍成立','固定持有 20 天','只看目前帳面賺賠'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['原失策已被碰到／跌破','原失策尚未被碰到','只看 D+3 顏色就能決定'],broken?0:1);
+    return _w5Sh(m,ex,['理由沒失效可以續抱；理由失效就重新評估／退出','只要還虧錢就不能賣','只要曾經獲利就應永遠續抱'],0);
+  }
+  if(m.id===36){
+    stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');target=q.res>q.c?q.res:maxA(R.h,i-60,i-1);risk=q.c-stop;rr=risk>0?(target-q.c)/risk:0;
+    if(ex%3===1)return _w5Sh(m,ex,['趨勢 → 位置 → 量價 → 失策 → 上方空間','MACD → KD → RSI → 猜漲跌','先決定買，再找理由'],0);
+    var good=q.trendUp&&q.c>q.sup&&(q.dist==null||q.dist<.08)&&rr>=1.5,poor=q.trendDown||rr<1,decision=good?'證據較完整，可列入可試':poor?'目前不做':'等待更多證據';
+    if(ex%3===2)return _w5Sh(m,ex,['證據較完整，可列入可試','等待更多證據','目前不做'],decision==='證據較完整，可列入可試'?0:decision==='等待更多證據'?1:2);
+    return _w5Sh(m,ex,['完整掃描的目標不是每張圖都交易，而是知道何時該等','只要五項裡有一項漂亮就要買','最後漲了就代表任何進場理由都正確'],0);
+  }
+  return _w5Question(m,R,ex);
+};
+var _w5Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<25||m.id>36)return _w5Qtext(m,R,ex);
+  if(m.id===25){if(ex%3===1)return'要判斷今天算放量還是縮量，應該怎麼比？';if(ex%3===2)return'D0 成交量相對近 20 日平均，屬於哪種狀態？';return'成交量最重要的正確觀念是什麼？';}
+  if(m.id===26){if(ex%3===1)return'讀「量價」時，第一步怎麼做？';if(ex%3===2)return'D0 的價格方向＋量能組合是哪一種？';return'關於量價配合，哪個說法正確？';}
+  if(m.id===27){if(ex%3===1)return'什麼情況比較像「順勢回檔」？';if(ex%3===2)return'依目前結構、MA20 與支撐位置，D0 比較像什麼？';return'回檔買點最不能少的前提是什麼？';}
+  if(m.id===28){if(ex%3===1)return'一個「突破買點」至少要先突破什麼？';if(ex%3===2)return'D0 相對前段壓力，目前是哪種狀態？';return'突破買點最重要的提醒是什麼？';}
+  if(m.id===29){if(ex%3===1)return'什麼叫「突破後回測買點」？';if(ex%3===2)return'目前這段比較像哪種回測狀態？';return'回測的價值是什麼？';}
+  if(m.id===30){if(ex%3===1)return'什麼位置最應該避免追價？';if(ex%3===2)return'D0 目前的追高風險如何？';return'證據不足或位置太差時，可以怎麼做？';}
+  if(m.id===31){if(ex%3===1)return'設定失策點前，第一個問題是什麼？';if(ex%3===2)return'依支撐與波動，哪個價位比較像合理失策參考？';return'失策點最重要的原則是什麼？';}
+  if(m.id===32){if(ex%3===1)return'要估上方空間，第一步應該找什麼？';if(ex%3===2)return'依已知壓力，第一個合理目標／壓力大約在哪？';return'目標價應該怎麼理解？';}
+  if(m.id===33){if(ex%3===1)return'R:R（風險報酬比）怎麼算？';if(ex%3===2)return'用圖上的進場、失策與壓力，這筆 R:R 落在哪個區間？';return'如果方向看多，但 R:R 很差，合理做法是什麼？';}
+  if(m.id===34){if(ex%3===1)return'部位大小應該從哪裡開始算？';if(ex%3===2)return'固定帳戶風險時，失策距離變大，股數應該怎麼變？';return'部位控制真正是在控制什麼？';}
+  if(m.id===35){if(ex%3===1)return'持有後要決定續抱或退出，先看什麼？';if(ex%3===2)return'到 D+3 為止，原失策是否已被觸發？';return'續抱／退出最合理的原則是什麼？';}
+  if(m.id===36){if(ex%3===1)return'完整看一張圖，建議固定用什麼順序掃描？';if(ex%3===2)return'依這張圖目前證據，第一個決策比較合理的是什麼？';return'完整掃描最後真正要學會的是什麼？';}
+  return _w5Qtext(m,R,ex);
+};
+var _w5Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<25||m.id>36)return _w5Explain(m,R,ans);
+  var q=criterion(m.id,R),i=q.i,stop,target,risk,rr;
+  if(m.id===25)return'D0 量能約為近 20 日平均的 '+(q.vr||0).toFixed(2)+' 倍。量要先跟自己的近期基準比，之後才和價格方向、位置一起解讀。';
+  if(m.id===26)return'D0 相對昨收 '+((q.c/q.pc-1)*100).toFixed(1)+'%，量能約 '+(q.vr||0).toFixed(2)+' 倍。量不是方向本身，而是告訴你這個價格動作有多少市場參與。';
+  if(m.id===27)return'回檔不是「跌了就買」。先要有上升結構，再看價格是否回到支撐／MA20 附近，而且關鍵低點沒有被破壞。';
+  if(m.id===28)return'前段壓力約 '+px(q.prevHi)+'，D0 收盤 '+px(q.c)+'。突破買點要先有明確壓力，再看收盤是否真正站上以及位置有沒有過度延伸。';
+  if(m.id===29)return'突破後回測是在驗證「舊壓力能否變新支撐」。守住再轉強，證據比只在突破瞬間追價更完整；失守則要降級。';
+  if(m.id===30)return'D0 與 MA20 距離約 '+((q.dist||0)*100).toFixed(1)+'%。位置太延伸、上方壓力太近或證據互相打架時，選擇不交易是有效決策。';
+  if(m.id===31){stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');return'候選支撐約 '+px(q.sup)+'，依波動留一些空間後，失策參考約 '+px(stop)+'。重點是「這裡被破壞後，原本理由不再成立」。';}
+  if(m.id===32){target=q.res>q.c?q.res:maxA(R.h,i-60,i-1);return'D0 收盤 '+px(q.c)+'，上方第一個明顯壓力約 '+px(target)+'。這是用已知結構估空間，不是自己先許願一個報酬率。';}
+  if(m.id===33){stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');target=q.res>q.c?q.res:maxA(R.h,i-60,i-1);risk=q.c-stop;rr=risk>0?(target-q.c)/risk:0;return'目前價 '+px(q.c)+'、失策約 '+px(stop)+'、上方壓力約 '+px(target)+'，R:R 約 '+(isFinite(rr)?rr.toFixed(2):'—')+'。方向看對不代表進場位置一定值得。';}
+  if(m.id===34)return'部位大小不是「看多程度」。先定義單次可承受損失，再用進場到失策的距離反推股數；失策越遠，股數就要越少。';
+  if(m.id===35){stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down');return'原失策約 '+px(stop)+'。持有後每天只問：原本結構與理由還在不在？不要用固定持有天數或帳面盈虧取代論點管理。';}
+  if(m.id===36)return'完整掃描固定依序看：趨勢 → 位置 → 量價 → 失策 → 上方空間。最後允許三種答案：可試、等待、目前不做。不是每張圖都要交易。';
+  return _w5Explain(m,R,ans);
+};
+var _w5PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w5PromptIntro(m),extra='';if(!m)return html;
+  if(m.id===25)extra='<strong>量先跟自己比｜</strong>今天成交 5 萬張不一定叫大量。先拿今天和這檔股票自己的近 20 日平均量比較。';
+  if(m.id===26)extra='<strong>價格＋成交量｜</strong>先看價格往哪裡走，再看這個動作是放量還縮量。量是參與程度，不是獨立買賣訊號。';
+  if(m.id===27)extra='<strong>回檔有前提｜</strong>先有上升結構，再回到支撐／MA20 附近，而且結構沒有被破壞，才叫順勢回檔。';
+  if(m.id===28)extra='<strong>突破要有基準｜</strong>沒有明確壓力，就沒有「突破什麼」。先找壓力，再看收盤是否真正站上。';
+  if(m.id===29)extra='<strong>回測是第二次驗證｜</strong>突破之後回到原壓力附近，市場正在測試舊壓力能不能變成新支撐。';
+  if(m.id===30)extra='<strong>會等待也是能力｜</strong>乖離太大、壓力太近、證據互相衝突時，「不追／先等」就是正確決策，不是漏掉答案。';
+  if(m.id===31)extra='<strong>失策不是固定 -5%｜</strong>先問：哪個支撐、低點或結構一旦被破壞，就代表我的原判斷錯了？';
+  if(m.id===32)extra='<strong>先看下一個壓力｜</strong>目標不是想賺多少，而是價格往上走時，下一個已知障礙在哪裡。';
+  if(m.id===33)extra='<strong>方向對也可能不值得做｜</strong>把「到失策會虧多少」和「到壓力可能賺多少」放在一起，才知道這個位置值不值得冒險。';
+  if(m.id===34)extra='<strong>先定最多能傷多少｜</strong>失策距離越大，同一筆可承受風險下就要買更少。部位是風險控制，不是信心投票。';
+  if(m.id===35)extra='<strong>持有看理由，不看天數｜</strong>價格每天都會晃；真正要追蹤的是原本的結構、支撐與失策有沒有被破壞。';
+  if(m.id===36)extra='<strong>固定掃描順序｜</strong>趨勢 → 位置 → 量價 → 失策 → 上方空間。最後可以選「可試、等待、目前不做」。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
