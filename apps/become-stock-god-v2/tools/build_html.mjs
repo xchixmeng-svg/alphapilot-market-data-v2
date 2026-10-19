@@ -1,6 +1,7 @@
-// 從菜雞到股神 — assemble product HTML + verified visual assets.
+// 從菜雞到股神 — assemble product HTML + verified visual assets + installable PWA bundle.
 import fs from 'node:fs'
 import path from 'node:path'
+import sharp from 'sharp'
 const root = process.cwd() + path.sep
 const read = p => fs.readFileSync(path.join(root, p), 'utf8')
 const bank = read('build/bank.json')
@@ -29,8 +30,9 @@ const html = `<!doctype html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="從菜雞到股神">
 <meta name="description" content="從完全不會看 K 線開始，50 關循序學會價格、結構、支撐壓力、量價、均線、MACD、KD、RSI、進場、失策與逐日實戰。">
-<link rel="icon" type="image/webp" href="./app-icon.webp">
-<link rel="apple-touch-icon" href="./app-icon.webp">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
 <title>從菜雞到股神</title>
 <style>${style}</style>
 </head>
@@ -41,11 +43,36 @@ const html = `<!doctype html>
 <script>${safe(read('src/content.js'))}</script>
 <script>${safe(read('src/chart.js'))}</script>
 <script>${safe(read('src/app.js'))}</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
 </body>
 </html>`
-fs.mkdirSync(path.join(root, 'dist'), {recursive:true})
-fs.writeFileSync(path.join(root, 'dist/app-icon.webp'), Buffer.from(art.chick_god, 'base64'))
-fs.writeFileSync(path.join(root, 'dist/landing.webp'), Buffer.from(art.landing, 'base64'))
-fs.writeFileSync(path.join(root, 'dist/from-chick-to-stock-god.html'), html)
-fs.writeFileSync(path.join(root, 'dist/index.html'), html)
-console.log('dist/index.html', (Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB')
+const dist = path.join(root, 'dist')
+fs.mkdirSync(dist, {recursive:true})
+const god = Buffer.from(art.chick_god, 'base64')
+const landing = Buffer.from(art.landing, 'base64')
+fs.writeFileSync(path.join(dist, 'app-icon.webp'), god)
+fs.writeFileSync(path.join(dist, 'landing.webp'), landing)
+await sharp(god).resize(192,192,{fit:'cover'}).png().toFile(path.join(dist,'icon-192.png'))
+await sharp(god).resize(512,512,{fit:'cover'}).png().toFile(path.join(dist,'icon-512.png'))
+await sharp(god).resize(180,180,{fit:'cover'}).png().toFile(path.join(dist,'apple-touch-icon.png'))
+const manifest = {
+  name:'從菜雞到股神',
+  short_name:'菜雞到股神',
+  description:'從完全不會看 K 線開始，循序學會價格、結構、量價、指標與逐日實戰。',
+  start_url:'./',
+  scope:'./',
+  display:'standalone',
+  orientation:'any',
+  background_color:'#030814',
+  theme_color:'#030814',
+  lang:'zh-Hant',
+  icons:[
+    {src:'./icon-192.png',sizes:'192x192',type:'image/png',purpose:'any maskable'},
+    {src:'./icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}
+  ]
+}
+fs.writeFileSync(path.join(dist,'manifest.webmanifest'),JSON.stringify(manifest,null,2))
+fs.writeFileSync(path.join(dist,'sw.js'),`self.addEventListener('install',()=>self.skipWaiting());\nself.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));\n`)
+fs.writeFileSync(path.join(dist, 'from-chick-to-stock-god.html'), html)
+fs.writeFileSync(path.join(dist, 'index.html'), html)
+console.log('dist/index.html', (Buffer.byteLength(html)/1024/1024).toFixed(2)+' MB', 'PWA icons 180/192/512 ready')
