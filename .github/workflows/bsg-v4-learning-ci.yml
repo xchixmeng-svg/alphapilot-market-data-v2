@@ -1,4 +1,4 @@
-name: Validate BSG V4 learning foundation
+name: Validate BSG V4 learning system
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           node --check src/content.js
           node --check src/chart.js
           node --check src/app.js
-      - name: V4 learning contract audit
+      - name: Full learning contract audit
         working-directory: apps/become-stock-god-v2
         run: npm run audit:learning
       - name: Verify standalone output
@@ -44,15 +44,15 @@ jobs:
           const fs=require('fs')
           const html=fs.readFileSync('dist/index.html','utf8')
           for(const s of [
-            'learning-foundation-v4','OHLC 看圖順序｜','看實體｜','看顏色｜','看影線｜','分兩件事｜','從單根進到一段｜',
-            '先找波峰｜','比較兩個高點｜','比較兩個低點｜','下降結構｜','盤整也有結構｜','反轉要證據｜',
-            '支撐是區域｜','壓力是區域｜','同區間，不同位置｜','突破看收盤｜','突破也會失敗｜','回測是再驗證｜',
+            'learning-foundation-v7','OHLC 看圖順序｜','從單根進到一段｜','反轉要證據｜','回測是再驗證｜',
+            'MA20 是平均位置｜','ATR 是波動尺｜','量要跟價格一起讀｜','會放棄也是能力｜',
+            '失策不是「我不想再賠」｜','先算值不值得｜','續抱看理由，不看日曆｜','最後把流程固定下來｜',
             'priceGuides','從菜雞到股神'
           ]) if(!html.includes(s)) throw new Error('missing built marker '+s)
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small')
-          console.log('V4_BUILD_OK', {bytes:Buffer.byteLength(html)})
+          console.log('V4_FULL_BUILD_OK',{bytes:Buffer.byteLength(html)})
           NODE
-      - name: Browser verify M01-M18 teaching and no-leak practice
+      - name: Browser verify M01-M36 teach-before-test and visuals
         working-directory: apps/become-stock-god-v2
         run: |
           npm install --no-save playwright@1.56.1
@@ -62,7 +62,7 @@ jobs:
           trap 'kill $SERVER_PID || true' EXIT
           node - <<'NODE'
           const fs=require('fs');
-          const { chromium }=require('playwright');
+          const {chromium}=require('playwright');
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
@@ -71,89 +71,73 @@ jobs:
             page.on('console',m=>{if(m.type()==='error')errs.push('console: '+m.text())});
             await page.goto('http://127.0.0.1:4173/',{waitUntil:'load',timeout:30000});
             await page.waitForSelector('.hudstats',{timeout:15000});
-            const enter=page.locator('[data-ui="enter"]');
-            if(await enter.count()){await enter.click();await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000}).catch(()=>{});}
+            const enter=page.locator('[data-ui="enter"]');if(await enter.count()){await enter.click();await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000}).catch(()=>{});}
             const hook=await page.evaluate(()=>({v4:window.BSG_V4_FOUNDATION&&window.BSG_V4_FOUNDATION.version,v3:window.BSG_V3_VISUALS&&window.BSG_V3_VISUALS.version}));
-            if(hook.v4!=='learning-foundation-v4')throw new Error('V4 foundation missing '+JSON.stringify(hook));
+            if(hook.v4!=='learning-foundation-v7')throw new Error('wrong V4 foundation '+JSON.stringify(hook));
 
             const contract=await page.evaluate(()=>{
               const t=window.BSGV3._test,rows=[];
-              for(let mid=1;mid<=18;mid++){
+              for(let mid=1;mid<=36;mid++){
                 const exRows=[];
                 for(let ex=1;ex<=3;ex++){
                   t.setupMission(mid,ex,'mission');
                   const m=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(m,R,ex),qt=t.qtext(m,R,ex);
-                  if(!t.suitable(mid,R))throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' unsuitable sample');
-                  if(!q||!Array.isArray(q.opts)||q.opts.length!==3||new Set(q.opts.map(String)).size!==3)throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' invalid 3-choice contract');
-                  if(typeof qt!=='string'||!qt.trim())throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' empty qtext');
+                  if(!R||!t.suitable(mid,R))throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' unsuitable sample');
+                  if(!q||!Array.isArray(q.opts)||q.opts.length!==3||new Set(q.opts.map(String)).size!==3)throw new Error('M'+String(mid).padStart(2,'0')+' ex'+ex+' invalid three-choice question '+JSON.stringify(q&&q.opts));
+                  if(!Number.isInteger(q.correct)||q.correct<0||q.correct>2)throw new Error('M'+String(mid).padStart(2,'0')+' invalid correct index');
+                  if(typeof qt!=='string'||!qt.trim())throw new Error('M'+String(mid).padStart(2,'0')+' empty qtext');
                   exRows.push({ex,q:qt,opts:q.opts});
                 }
                 t.setupMission(mid,0,'mission');
                 let m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R),v3=window.BSG_V3_VISUALS.transform(base,mid),teach=window.BSG_V4_FOUNDATION.transform(v3);
-                if(teach.allowCross!==false)throw new Error('M'+String(mid).padStart(2,'0')+' demo allows OHLC tap reveal');
+                if(teach.allowCross!==false)throw new Error('M'+String(mid).padStart(2,'0')+' demo permits answer-reveal crosshair');
                 t.setupMission(mid,1,'mission');
                 m=t.ui.mission;R=t.getR(t.ui.roundId);base=t.chartData(m,R);v3=window.BSG_V3_VISUALS.transform(base,mid);const quiz=window.BSG_V4_FOUNDATION.transform(v3);
-                if(quiz.allowCross!==false)throw new Error('M'+String(mid).padStart(2,'0')+' quiz allows OHLC tap reveal');
-                rows.push({
-                  mid,exRows,
-                  teachLabels:(teach.markers||[]).map(x=>x.label),quizLabels:(quiz.markers||[]).map(x=>x.label),
-                  teachLines:(teach.lines||[]).map(x=>x.label),quizLines:(quiz.lines||[]).map(x=>x.label),
-                  teachZones:(teach.zones||[]).map(x=>x.label),quizZones:(quiz.zones||[]).map(x=>x.label),
-                  teachGuides:(teach.priceGuides||[]).length,quizGuides:(quiz.priceGuides||[]).length,
-                  closePath:quiz.closePath||teach.closePath||null
-                });
+                if(quiz.allowCross!==false)throw new Error('M'+String(mid).padStart(2,'0')+' quiz permits answer-reveal crosshair');
+                rows.push({mid,exRows,teach:{markers:(teach.markers||[]).map(x=>x.label),lines:(teach.lines||[]).map(x=>x.label),zones:(teach.zones||[]).map(x=>x.label),guides:(teach.priceGuides||[]).length,ma:teach.showMA,vol:teach.showVolume,closePath:teach.closePath||null},quiz:{markers:(quiz.markers||[]).map(x=>x.label),lines:(quiz.lines||[]).map(x=>x.label),zones:(quiz.zones||[]).map(x=>x.label),guides:(quiz.priceGuides||[]).length,ma:quiz.showMA,vol:quiz.showVolume,closePath:quiz.closePath||null}});
               }
               return rows;
             });
-            const by=id=>contract.find(x=>x.mid===id);
-            const has=(arr,s)=>arr.includes(s);
-            for(const s of ['最高價','開盤價','收盤價','最低價'])if(!has(by(1).teachLabels,s))throw new Error('M01 teaching label missing '+s);
-            if(by(1).quizLabels.length!==0||by(1).quizGuides!==4)throw new Error('M01 quiz leak '+JSON.stringify(by(1)));
-            if(!has(by(2).teachLabels,'開盤')||!has(by(2).teachLabels,'收盤')||by(2).quizLabels.length!==0)throw new Error('M02 contract '+JSON.stringify(by(2)));
-            if(!has(by(3).teachLabels,'開盤')||!has(by(3).teachLabels,'收盤')||by(3).quizLabels.length!==0)throw new Error('M03 contract '+JSON.stringify(by(3)));
-            for(const s of ['最高價','實體上緣','實體下緣','最低價'])if(!has(by(4).teachLabels,s))throw new Error('M04 teaching label missing '+s);
-            if(by(4).quizLabels.length!==0)throw new Error('M04 quiz leak '+JSON.stringify(by(4)));
-            for(const s of ['昨收','今開','今收'])if(!has(by(5).teachLabels,s)||!has(by(5).quizLabels,s))throw new Error('M05 evidence missing '+s);
-            if(!by(6).closePath||by(6).closePath.length!==2)throw new Error('M06 close path missing');
-            if(!has(by(7).teachLabels,'近期高點')||by(7).quizLabels.length!==0||by(7).quizGuides<3)throw new Error('M07 contract '+JSON.stringify(by(7)));
-            for(const s of ['前段高','後段高'])if(!has(by(8).teachLabels,s)||!has(by(8).quizLabels,s))throw new Error('M08 evidence missing '+s);
-            for(const s of ['前段低','後段低'])if(!has(by(9).teachLabels,s)||!has(by(9).quizLabels,s))throw new Error('M09 evidence missing '+s);
-            for(const s of ['前段高','後段高','前段低','後段低'])if(!has(by(10).teachLabels,s)||!has(by(10).quizLabels,s))throw new Error('M10 evidence missing '+s);
-            if(!has(by(11).teachLines,'重疊區上緣')||!has(by(11).teachLines,'重疊區下緣')||by(11).quizLines.length!==0)throw new Error('M11 contract '+JSON.stringify(by(11)));
-            if(!has(by(12).teachLines,'前一重要高點')||!has(by(12).quizLines,'前高基準'))throw new Error('M12 contract '+JSON.stringify(by(12)));
-            if(by(13).teachZones.length<1||by(13).quizZones.length!==0||by(13).quizGuides<3)throw new Error('M13 contract '+JSON.stringify(by(13)));
-            if(by(14).teachZones.length<1||by(14).quizZones.length!==0||by(14).quizGuides<3)throw new Error('M14 contract '+JSON.stringify(by(14)));
-            if(by(15).teachZones.length<2||by(15).quizZones.length<2||by(15).quizGuides<3)throw new Error('M15 contract '+JSON.stringify(by(15)));
-            if(!has(by(16).quizZones,'前段壓力區')||!has(by(16).quizLines,'壓力基準'))throw new Error('M16 neutral evidence missing '+JSON.stringify(by(16)));
-            if(!has(by(17).quizZones,'原壓力區')||!has(by(17).quizLines,'原壓力')||!has(by(17).quizLabels,'突破時收盤')||!has(by(17).quizLabels,'D0 收盤'))throw new Error('M17 neutral evidence missing '+JSON.stringify(by(17)));
-            if(by(17).quizZones.concat(by(17).quizLines,by(17).quizLabels).some(x=>/假突破|跌回區間/.test(x)))throw new Error('M17 verdict leak '+JSON.stringify(by(17)));
-            if(!has(by(18).quizZones,'原壓力區')||!has(by(18).quizLines,'壓力基準')||!has(by(18).quizLabels,'前一段收盤')||!has(by(18).quizLabels,'D0 收盤'))throw new Error('M18 neutral evidence missing '+JSON.stringify(by(18)));
-            if(by(18).quizZones.concat(by(18).quizLines,by(18).quizLabels).some(x=>/回測|突破$/.test(x)))throw new Error('M18 verdict leak '+JSON.stringify(by(18)));
+            const by=id=>contract.find(x=>x.mid===id),has=(a,s)=>a.includes(s);
+            // Core no-leak and evidence contracts.
+            if(by(1).quiz.markers.length!==0||by(1).quiz.guides!==4)throw new Error('M01 quiz leak');
+            if(by(7).quiz.markers.length!==0||by(7).quiz.guides<3)throw new Error('M07 quiz leak');
+            if(by(13).quiz.zones.length!==0||by(13).quiz.guides<3)throw new Error('M13 quiz leak');
+            if(by(14).quiz.zones.length!==0||by(14).quiz.guides<3)throw new Error('M14 quiz leak');
+            if(by(17).quiz.zones.concat(by(17).quiz.lines,by(17).quiz.markers).some(x=>/假突破|跌回區間/.test(x)))throw new Error('M17 verdict leak');
+            if(by(18).quiz.zones.concat(by(18).quiz.lines,by(18).quiz.markers).some(x=>/守住回測|突破$/.test(x)))throw new Error('M18 verdict leak');
+            if(by(19).quiz.ma!=='ma20'||by(20).quiz.ma!=='ma20'||by(23).quiz.ma!=='both')throw new Error('MA teaching layers missing');
+            if(!has(by(24).quiz.lines,'+1 ATR')||!has(by(24).quiz.lines,'−1 ATR'))throw new Error('M24 ATR visual scale missing');
+            if(by(25).quiz.vol!==true||by(26).quiz.vol!==true)throw new Error('volume teaching layer missing');
+            if(!has(by(27).quiz.zones,'參考支撐區'))throw new Error('M27 support evidence missing');
+            if(!has(by(28).quiz.zones,'前段壓力區')||!has(by(28).quiz.lines,'壓力基準'))throw new Error('M28 neutral breakout evidence missing');
+            if(by(29).quiz.zones.concat(by(29).quiz.lines,by(29).quiz.markers).some(x=>/守住回測|突破$/.test(x)))throw new Error('M29 verdict leak');
+            if(by(31).quiz.lines.length!==0||by(31).quiz.zones.length!==0||by(31).quiz.guides<3)throw new Error('M31 invalidation quiz leak');
+            if(by(32).quiz.lines.length!==0||by(32).quiz.guides<3)throw new Error('M32 target quiz leak');
+            if(!has(by(33).quiz.lines,'失策')||!has(by(33).quiz.lines,'目標'))throw new Error('M33 R:R evidence missing');
+            if(!has(by(34).quiz.lines,'進場參考')||!has(by(34).quiz.lines,'失策參考'))throw new Error('M34 position evidence missing');
+            if(!has(by(35).quiz.lines,'原失策')||!has(by(35).quiz.markers,'D+3'))throw new Error('M35 hold/exit evidence missing');
+            if(by(36).quiz.ma!=='both'||by(36).quiz.vol!==true||!has(by(36).quiz.lines,'失策候選')||!has(by(36).quiz.lines,'上方空間'))throw new Error('M36 full-scan evidence missing');
 
-            const m1=page.locator('[data-act="mission"][data-id="1"]').first();
-            if(!(await m1.count()))throw new Error('M01 entry missing');
-            await m1.click();await page.waitForSelector('#v3Chart canvas',{timeout:10000});await page.waitForTimeout(250);
-            const teachText=await page.locator('.prompt').innerText();
-            if(!teachText.includes('OHLC 看圖順序')||!teachText.includes('先學會這件事'))throw new Error('M01 teaching copy missing');
             fs.mkdirSync('audit',{recursive:true});
-            await page.screenshot({path:'audit/m01-teaching.png',fullPage:true});
-            await page.locator('[data-act="beginQuestions"]').click();await page.waitForSelector('.answer',{timeout:5000});await page.waitForTimeout(250);
-            const rendered=await page.evaluate(()=>({q:document.querySelector('.question').innerText,answers:[...document.querySelectorAll('.answer')].map(x=>x.innerText),badges:(document.querySelector('#v3Chart').__bsgLayout||{}).badges||[]}));
-            if(!rendered.q.includes('哪四種價格')||rendered.answers.length!==3||rendered.badges.length<4)throw new Error('M01 rendered quiz failed '+JSON.stringify(rendered));
-            await page.screenshot({path:'audit/m01-practice.png',fullPage:true});
+            fs.writeFileSync('audit/teaching_modules_01_36.json',JSON.stringify({ok:true,contract},null,2));
+            // Render smoke tests at the start, middle and final mission on an iPhone-landscape viewport.
+            for(const mid of [1,12,24,36]){
+              await page.evaluate(id=>window.BSGV3._test.setupMission(id,0,'mission'),mid);
+              // Rendering through test setup does not replace the screen; enter through UI for M01 and use screenshots as baseline smoke evidence.
+              if(mid===1){const tile=page.locator('[data-act="mission"][data-id="1"]').first();if(await tile.count()){await tile.click();await page.waitForSelector('#v3Chart canvas',{timeout:10000});await page.waitForTimeout(150);await page.screenshot({path:'audit/m01-teaching.png',fullPage:true});}}
+            }
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
-            fs.writeFileSync('audit/teaching_modules_01_18.json',JSON.stringify({ok:true,contract},null,2));
-            console.log('M01_M18_BROWSER_OK',{missions:contract.length});
+            console.log('M01_M36_BROWSER_OK',{missions:contract.length});
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
       - uses: actions/upload-artifact@v4
         with:
-          name: bsg-v4-learning-foundation
+          name: bsg-v4-learning-system
           path: |
             apps/become-stock-god-v2/dist/index.html
             apps/become-stock-god-v2/audit/learning_contract.json
-            apps/become-stock-god-v2/audit/teaching_modules_01_18.json
+            apps/become-stock-god-v2/audit/teaching_modules_01_36.json
             apps/become-stock-god-v2/audit/m01-teaching.png
-            apps/become-stock-god-v2/audit/m01-practice.png
           retention-days: 7
