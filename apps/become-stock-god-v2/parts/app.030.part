@@ -1,0 +1,80 @@
+
+// V4 setup module — M25..M30: volume -> price/volume -> pullback -> breakout -> retest -> no-chase.
+var _w5Question=question;
+function _w5Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W5|'+ex+'|'+BYID[UI.roundId].lb);}
+question=function(m,R,ex){
+  if(!m||m.id<25||m.id>30)return _w5Question(m,R,ex);
+  var q=criterion(m.id,R),side,chg;
+  if(m.id===25){
+    if(ex%3===1)return _w5Sh(m,ex,['把今天成交量和近期平均量比較','只看今天絕對張數','只看今天是紅 K 還是綠 K'],0);
+    side=q.vr>=1.5?'明顯放量':q.vr<=.7?'明顯縮量':'接近近期平均';
+    if(ex%3===2)return _w5Sh(m,ex,['明顯放量','明顯縮量','接近近期平均'],side==='明顯放量'?0:side==='明顯縮量'?1:2);
+    return _w5Sh(m,ex,['量代表市場參與程度，必須搭配價格方向與位置','放量本身永遠是利多','成交量越小越容易突破'],0);
+  }
+  if(m.id===26){
+    if(ex%3===1)return _w5Sh(m,ex,['價格方向與成交量一起看','只看成交量大小','只看 K 棒顏色'],0);
+    chg=q.c/q.pc-1;side=chg>0&&q.vr>1.35?'上漲＋放量':chg<0&&q.vr>1.35?'下跌＋放量':q.vr<.8?'縮量':'量能普通';
+    if(ex%3===2)return _w5Sh(m,ex,['上漲＋放量','下跌＋放量','縮量／量能普通'],side==='上漲＋放量'?0:side==='下跌＋放量'?1:2);
+    return _w5Sh(m,ex,['突破放量與回檔縮量要放在結構裡解讀','只要放量就一定要買','下跌放量和上漲放量意義完全相同'],0);
+  }
+  if(m.id===27){
+    if(ex%3===1)return _w5Sh(m,ex,['上升結構中回到支撐／MA20 附近且結構未破壞','下降趨勢中越跌越買','任何一天收綠 K 都叫回檔買點'],0);
+    side=q.trendUp&&q.ma&&Math.abs(q.dist)<.05&&q.c>q.sup?'較像順勢回檔':q.trendDown?'下降趨勢接刀':'位置不夠標準';
+    if(ex%3===2)return _w5Sh(m,ex,['較像順勢回檔','下降趨勢接刀','位置不夠標準'],side==='較像順勢回檔'?0:side==='下降趨勢接刀'?1:2);
+    return _w5Sh(m,ex,['回檔成立的前提是原本結構仍然健康','跌得越多就越像好回檔','只要碰 MA20 就一定反彈'],0);
+  }
+  if(m.id===28){
+    if(ex%3===1)return _w5Sh(m,ex,['先有明確壓力，再看收盤能不能站上','只要今天創新高就算','只要放量就算突破'],0);
+    side=q.c>q.prevHi?'較像有效突破':R.h[q.i]>q.prevHi?'只有盤中刺過':'仍未突破';
+    if(ex%3===2)return _w5Sh(m,ex,['較像有效突破','只有盤中刺過','仍未突破'],side==='較像有效突破'?0:side==='只有盤中刺過'?1:2);
+    return _w5Sh(m,ex,['突破位置若已過度延伸，仍可能不值得追','突破後就完全不需要風險管理','只要站上壓力就保證延續'],0);
+  }
+  if(m.id===29){
+    if(ex%3===1)return _w5Sh(m,ex,['先突破原壓力，再回到附近守住','第一次碰壓力就直接買','跌回原區間深處仍算成功回測'],0);
+    if(ex%3===2)return _w5Sh(m,ex,['突破後回到原壓力附近且仍守住','已完全跌回原區間','離原壓力很遠的追價'],0);
+    return _w5Sh(m,ex,['回測提供第二次驗證，但守不住就要放棄原論點','只要叫回測就一定成功','回測時不需要看收盤位置'],0);
+  }
+  if(m.id===30){
+    if(ex%3===1)return _w5Sh(m,ex,['離 MA20 太遠、剛急拉、上方壓力又近','價格靠近支撐且乖離不大','整理後剛站回平均位置'],0);
+    side=(q.dist!=null&&q.dist>.08)||q.c>q.res*.995?'追高風險偏高':'位置尚未明顯過熱';
+    if(ex%3===2)return _w5Sh(m,ex,['追高風險偏高','位置尚未明顯過熱','完全無法判斷'],side==='追高風險偏高'?0:1);
+    return _w5Sh(m,ex,['錯過一筆交易通常比在壞位置硬追更便宜','怕錯過就是足夠的買進理由','越強勢越不需要看上方壓力'],0);
+  }
+  return _w5Question(m,R,ex);
+};
+var _w5Qtext=qtext;
+qtext=function(m,R,ex){
+  if(!m||m.id<25||m.id>30)return _w5Qtext(m,R,ex);
+  var q=criterion(m.id,R),vr=(q.vr||0).toFixed(2),dist=q.dist==null?'—':(q.dist*100).toFixed(1);
+  if(m.id===25){if(ex%3===1)return'要判斷今天是放量還是縮量，應該怎麼比？';if(ex%3===2)return'D0 成交量約為近 20 日平均的 '+vr+' 倍，屬於哪種量能？';return'成交量本身應該怎麼解讀？';}
+  if(m.id===26){if(ex%3===1)return'量價分析為什麼不能只看「量」？';if(ex%3===2)return'依 D0 漲跌與量比 '+vr+' 倍，目前是哪種量價組合？';return'關於量價，哪個說法比較正確？';}
+  if(m.id===27){if(ex%3===1)return'什麼條件比較像「順勢回檔」？';if(ex%3===2)return'看趨勢、MA20 與支撐，D0 現在比較像哪種位置？';return'回檔買點最重要的前提是什麼？';}
+  if(m.id===28){if(ex%3===1)return'突破買點首先要確認「突破什麼」？';if(ex%3===2)return'比較 D0 收盤與前段壓力，目前是哪個狀態？';return'即使真的突破，還要檢查什麼？';}
+  if(m.id===29){if(ex%3===1)return'完整的「突破回測」順序是什麼？';if(ex%3===2)return'看前段壓力與 D0，目前比較像哪一種？';return'回測的價值是什麼？';}
+  if(m.id===30){if(ex%3===1)return'哪種位置最需要提醒自己「不要追」？';if(ex%3===2)return'D0 距 MA20 約 '+dist+'%，再看上方壓力，目前追價風險如何？';return'看到很強、怕錯過時，哪個觀念比較健康？';}
+  return _w5Qtext(m,R,ex);
+};
+var _w5Explain=explain;
+explain=function(m,R,ans){
+  if(!m||m.id<25||m.id>30)return _w5Explain(m,R,ans);
+  var q=criterion(m.id,R);
+  if(m.id===25)return'D0 量比約 '+(q.vr||0).toFixed(2)+' 倍。成交量要和自己近期平均比，不能拿不同股票的絕對張數硬比。';
+  if(m.id===26)return'D0 收盤相對昨收變化約 '+((q.c/q.pc-1)*100).toFixed(1)+'%，量比 '+(q.vr||0).toFixed(2)+' 倍。價格方向＋量能一起看，才有上下文。';
+  if(m.id===27)return'順勢回檔不是「跌了就買」。要先有上升結構，再看價格是否回到 MA20／支撐附近且沒有破壞原結構。';
+  if(m.id===28)return'前段壓力約 '+px(q.prevHi)+'，D0 收盤 '+px(q.c)+'。突破先看明確基準與收盤，之後仍要檢查乖離、上方空間與失策。';
+  if(m.id===29){var r=maxA(R.h,q.i-25,q.i-6);return'原壓力約 '+px(r)+'，D0 收盤 '+px(q.c)+'。回測是在市場已先證明突破後，再看舊壓力附近能不能守住。';}
+  if(m.id===30)return'D0 與 MA20 距離約 '+((q.dist||0)*100).toFixed(1)+'%，上方壓力約 '+px(q.res)+'。價格越延伸、壓力越近，越要能放棄，而不是怕錯過。';
+  return _w5Explain(m,R,ans);
+};
+var _w5PromptIntro=promptIntro;
+promptIntro=function(m){
+  var html=_w5PromptIntro(m),extra='';if(!m)return html;
+  if(m.id===25)extra='<strong>先建立量的基準｜</strong>「今天 5 萬張」本身沒有意義；先和這檔股票自己的近 20 日平均量比，才知道是放量還是縮量。';
+  if(m.id===26)extra='<strong>量要跟價格一起讀｜</strong>同樣放量，上漲、下跌、突破壓力或高檔爆量，意義都不同。量是參與程度，不是方向答案。';
+  if(m.id===27)extra='<strong>回檔不是接刀｜</strong>先有上升結構，再等價格回到 MA20／支撐附近，而且重要低點沒有被破壞。';
+  if(m.id===28)extra='<strong>突破先問「突破什麼」｜</strong>沒有清楚壓力，就沒有清楚突破；盤中刺過和收盤站上也要分開。';
+  if(m.id===29)extra='<strong>回測是第二次驗證｜</strong>先突破，再回到原壓力附近，守住才有「舊壓力轉支撐」的意義。';
+  if(m.id===30)extra='<strong>會放棄也是能力｜</strong>離 MA20 太遠、剛急拉、上方壓力又近時，看起來最強的地方可能反而最難控制風險。';
+  if(extra)html=html.replace('<div class="coachLine">AI 教練｜','<div class="coachLine">'+extra+'</div><div class="coachLine">AI 教練｜');
+  return html;
+};
