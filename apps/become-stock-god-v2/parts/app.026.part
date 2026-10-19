@@ -4,9 +4,11 @@
 var _w1Suitable=suitable;
 suitable=function(mid,R){
   var i=X(0),o=R.o[i],c=R.c[i],h=R.h[i],l=R.l[i],range=h-l,body=Math.abs(c-o),upper=h-Math.max(o,c),lower=Math.min(o,c)-l;
-  if(mid===2)return range>0&&body>Math.max(0.0001,range*.12);
+  // Body/wick lessons intentionally use visually unambiguous candles. This also guarantees that
+  // exact-price answer choices are distinct instead of accidentally offering the same price twice.
+  if(mid===2)return range>0&&body>Math.max(0.0001,range*.12)&&upper>0&&lower>0;
   if(mid===3)return body>0.0001;
-  if(mid===4)return range>0&&(upper+lower)>range*.08;
+  if(mid===4)return range>0&&upper>range*.03&&lower>range*.03;
   return _w1Suitable(mid,R);
 };
 function _w1Sh(m,ex,vals,correct){return shuffleOptions(vals,correct,m.id+'|W1|'+ex+'|'+BYID[UI.roundId].lb);}
