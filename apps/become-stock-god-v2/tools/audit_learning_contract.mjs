@@ -68,25 +68,38 @@ for (const marker of [
 
 // App pedagogy contract.
 for (const marker of [
-  'learning-foundation-v1',
+  'learning-foundation-v2',
   '先學會這件事：',
   'OHLC 看圖順序｜',
-  "out.priceGuides=uniquePrices([R.h[i],o,c,R.l[i]])",
-  "out.hideAxisTicks=true;out.allowCross=false",
+  'K 棒中間的「實體」代表哪一段？',
+  '台股紅 K、綠 K 是怎麼決定的？',
+  '上影線是哪一段？',
+  'K 棒顏色與「今天漲跌」分別比較什麼？',
+  '要開始看一段走勢，第一步應該比較什麼？',
   "window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down')"
 ]) assert(app.includes(marker), 'app learning contract missing: '+marker)
 
-// M01 must teach before testing and must not use the old ambiguous open/close-edge labels in the
-// V4 foundation path.
-assert(app.includes('一根 K 棒，是由哪四種價格組成？'),'M01 concept check missing')
-assert(app.includes('哪個是最高價？')&&app.includes('哪個是最低價？'),'M01 price checks missing')
+// Beginner module M01-M06 must teach the exact concept before testing it.
+const introMarkers=[
+  ['OHLC 看圖順序｜','M01'],
+  ['看實體｜','M02'],
+  ['看顏色｜','M03'],
+  ['看影線｜','M04'],
+  ['分兩件事｜','M05'],
+  ['從單根進到一段｜','M06']
+]
+for(const [s,id] of introMarkers)assert(app.includes(s),`${id} teaching copy missing`)
 assert(app.includes("label:'開盤價'")&&app.includes("label:'收盤價'"),'M01 teaching labels missing')
+assert(app.includes("label:'實體上緣'")&&app.includes("label:'實體下緣'"),'M04 body/wick teaching labels missing')
+assert(app.includes("label:'昨收'")&&app.includes("label:'今開'")&&app.includes("label:'今收'"),'M05 comparison evidence missing')
+assert(app.includes('out.allowCross=false'),'beginner module must block tap-to-reveal')
 
 // Current course map is still 36 missions while V4 is built incrementally.
 const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(contentSrc,sandbox)
 const CT=sandbox.window.BSG_CONTENT
 assert(CT&&Array.isArray(CT.MISSIONS)&&CT.MISSIONS.length===36,'current course map != 36')
-assert(CT.MISSIONS[0].skill==='OHLC','M01 must remain OHLC')
+const beginnerSkills=['OHLC','BODY','COLOR','WICK','DAYCHANGE','SEQUENCE']
+for(let i=0;i<beginnerSkills.length;i++)assert(CT.MISSIONS[i].skill===beginnerSkills[i],`M0${i+1} beginner skill changed unexpectedly`)
 for (let i=0;i<CT.MISSIONS.length;i++) assert(CT.MISSIONS[i].id===i+1,'mission ids must stay sequential during migration')
 
 // Locked roadmap must include the full beginner path requested for V4.
@@ -97,12 +110,13 @@ for (const marker of ['先教，才考','台股合法跳動單位','MACD / KD / 
 const report={
   ok:true,
   currentMissions:CT.MISSIONS.length,
-  foundation:'learning-foundation-v1',
+  foundation:'learning-foundation-v2',
   tickCases:tickCases.length,
   checkedPrices,
   legalAxis:true,
   exactPriceGuides:true,
-  m01TeachBeforeTest:true,
+  beginnerModule:['M01','M02','M03','M04','M05','M06'],
+  teachBeforeTest:true,
   indicators:['MACD','KD','RSI14'],
   roadmapLocked:true
 }
