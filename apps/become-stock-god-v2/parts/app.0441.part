@@ -1,0 +1,38 @@
+
+// V4 tools visual layer — M19..M24. Runs on V3.5 evidence before the shared V4 foundation.
+(function(){
+  'use strict';
+  if(!window.BSGChart||!window.BSG_V4_FOUNDATION)return;
+  var previousCreate=window.BSGChart.create,previousTransform=window.BSG_V4_FOUNDATION.transform;
+  function api(){return window.BSGV3&&window.BSGV3._test?window.BSGV3._test:null;}
+  function mid(){var a=api(),m=a&&a.ui&&a.ui.mission;return m?+m.id:0;}
+  function enhance(d){
+    if(!d||!d.R)return d;
+    var a=api(),ui=a&&a.ui,id=mid();if(id<19||id>24)return d;
+    var R=d.R,i=d.d0Idx,c=R.c[i],q=a&&a.criterion?a.criterion(id,R):null,quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),out=Object.assign({},d);
+    out.allowCross=false;
+    // M19-M23 already carry the exact evidence required (MA lines + neutral value labels). Keep
+    // those labels in practice because they identify coordinates, not the verdict the learner must infer.
+    if(id===19){out.showMA='ma20';out.markers=quiz?[]:(out.markers||[]);}
+    if(id===20||id===21){out.showMA='ma20';}
+    if(id===22){out.showMA='ma20';}
+    if(id===23){out.showMA='both';}
+    if(id===24&&q){
+      var up=window.BSG.roundToTick(c+q.a),dn=window.BSG.roundToTick(Math.max(.01,c-q.a));
+      out.lines=[
+        {price:up,color:'#ffd44a',label:'+1 ATR',dash:true},
+        {price:dn,color:'#9876ff',label:'−1 ATR',dash:true}
+      ];
+      out.markers=quiz?[]:[{idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'side'}];
+      out.focusCandles=[i];
+    }
+    return out;
+  }
+  window.BSGChart.create=function(wrap,opt){
+    opt=opt||{};var getter=opt.getData,next=Object.assign({},opt);
+    next.getData=function(){return enhance(getter?getter():null);};
+    return previousCreate(wrap,next);
+  };
+  window.BSG_V4_FOUNDATION.transform=function(d){return previousTransform(enhance(d));};
+  window.BSG_V4_FOUNDATION.version='learning-foundation-v5';
+})();
