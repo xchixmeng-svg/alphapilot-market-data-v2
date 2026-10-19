@@ -19,11 +19,10 @@
     var top=Math.max(o,c),bottom=Math.min(o,c),pc=R.c[i-1],q=a&&a.criterion?a.criterion(mid,R):null;
     out.priceGuides=uniquePrices(out.priceGuides||[]);
 
-    // Beginner + structure modules: tapping a candle cannot bypass the lesson by opening a full
+    // First three teaching modules: tapping a candle cannot bypass the lesson by opening a full
     // OHLC tooltip. The chart itself supplies only the evidence the current concept needs.
-    if(mid>=1&&mid<=12)out.allowCross=false;
+    if(mid>=1&&mid<=18)out.allowCross=false;
 
-    // M01 — identify OHLC.
     if(mid===1){
       out.hideAxisTicks=true;out.lines=[];
       out.priceGuides=uniquePrices([R.h[i],o,c,R.l[i]]);
@@ -35,26 +34,14 @@
         {idx:i,price:R.l[i],label:'最低價',color:'#24d79b',prefer:'below'}
       ];
     }
-
-    // M02 — body = open-to-close.
     if(mid===2){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([R.h[i],top,bottom,R.l[i]]);
-      out.markers=quiz?[]:[
-        {idx:i,price:o,label:'開盤',color:'#9876ff',prefer:'side'},
-        {idx:i,price:c,label:'收盤',color:'#39f5ff',prefer:'side'}
-      ];
+      out.markers=quiz?[]:[{idx:i,price:o,label:'開盤',color:'#9876ff',prefer:'side'},{idx:i,price:c,label:'收盤',color:'#39f5ff',prefer:'side'}];
     }
-
-    // M03 — Taiwan candle colour uses open vs close, not yesterday's close.
     if(mid===3){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([o,c]);
-      out.markers=quiz?[]:[
-        {idx:i,price:o,label:'開盤',color:'#9876ff',prefer:'side'},
-        {idx:i,price:c,label:'收盤',color:'#39f5ff',prefer:'side'}
-      ];
+      out.markers=quiz?[]:[{idx:i,price:o,label:'開盤',color:'#9876ff',prefer:'side'},{idx:i,price:c,label:'收盤',color:'#39f5ff',prefer:'side'}];
     }
-
-    // M04 — wick vs body.
     if(mid===4){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([R.h[i],top,bottom,R.l[i]]);
       out.markers=quiz?[]:[
@@ -64,8 +51,6 @@
         {idx:i,price:R.l[i],label:'最低價',color:'#24d79b',prefer:'below'}
       ];
     }
-
-    // M05 — K colour vs day change. Labels are evidence, not the verdict.
     if(mid===5){
       out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([pc,o,c]);
       out.markers=[
@@ -74,27 +59,15 @@
         {idx:i,price:c,label:'今收',color:'#39f5ff',prefer:'side'}
       ];
     }
-
-    // M06 — five-close path. Never annotate the direction itself.
     if(mid===6){
       out.priceGuides=[];
       if(quiz)out.markers=(out.markers||[]).filter(function(m){return /^D-?\d+$/.test(m.label||'')||m.label==='D0';});
     }
-
-    // M07 — demonstrate the true local high, then remove its name during practice. The exact
-    // candidate prices remain readable because this lesson asks for a price level.
     if(mid===7){
       if(quiz){out.markers=[];out.priceGuides=uniquePrices([res,sup,c]);}
       else out.priceGuides=uniquePrices([res,c]);
     }
-
-    // M08/M09 — labels identify the two observations; the learner still has to compare them.
-    if(mid===8||mid===9){
-      out.priceGuides=[];
-    }
-
-    // M10 — show the two highs and two lows explicitly. These are evidence labels, not the
-    // classification. The learner must decide whether both sequences are moving lower.
+    if(mid===8||mid===9)out.priceGuides=[];
     if(mid===10){
       var h1=argExtreme(R.h,i-24,i-13,true),h2=argExtreme(R.h,i-12,i,true),l1=argExtreme(R.l,i-24,i-13,false),l2=argExtreme(R.l,i-12,i,false);
       out.markers=[
@@ -104,30 +77,59 @@
         {idx:l2,price:R.l[l2],label:'後段低',color:'#39f5ff',prefer:'below'}
       ];
     }
-
-    // M11 — demo names the range boundaries; practice removes them so the learner must detect
-    // overlap instead of reading the word "盤整" from the chart.
     if(mid===11){
       if(quiz){out.lines=[];out.zones=[];out.markers=[];}
-      else out.lines=[
-        {price:res,color:'#ff9f43',label:'重疊區上緣',dash:true},
-        {price:sup,color:'#24d79b',label:'重疊區下緣',dash:true}
-      ];
+      else out.lines=[{price:res,color:'#ff9f43',label:'重疊區上緣',dash:true},{price:sup,color:'#24d79b',label:'重疊區下緣',dash:true}];
     }
-
-    // M12 — the prior high is a legitimate reference level. The demo explains it; practice keeps
-    // a neutral reference label so the answer still requires comparing D0 with that level.
     if(mid===12){
       var ph=maxA(R.h,i-12,i-1),phi=argExtreme(R.h,i-12,i-1,true);
       out.lines=[{price:ph,color:'#ff9f43',label:quiz?'前高基準':'前一重要高點',dash:true}];
-      out.markers=[
-        {idx:phi,price:ph,label:'前高',color:'#ff9f43',prefer:'above'},
-        {idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'side'}
+      out.markers=[{idx:phi,price:ph,label:'前高',color:'#ff9f43',prefer:'above'},{idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'side'}];
+    }
+
+    // M13/M14 — teach the zone by name, then remove semantic labels and leave exact candidate
+    // prices so the learner must find the repeated reaction area from the chart.
+    if(mid===13||mid===14){
+      if(quiz){out.zones=[];out.markers=[];out.lines=[];out.priceGuides=uniquePrices([sup,res,c]);}
+      else out.priceGuides=uniquePrices([mid===13?sup:res,c]);
+    }
+
+    // M15 — the boundary names are legitimate coordinate labels; the learner still has to locate
+    // D0 inside the range and reason about remaining upside/downside.
+    if(mid===15){
+      out.priceGuides=uniquePrices([sup,res,c]);
+    }
+
+    // M16 — pressure line is evidence. Practice keeps the reference but removes any verdict word.
+    if(mid===16){
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:quiz?'前段壓力區':'前 20 日壓力'});});
+      out.lines=(out.lines||[]).map(function(l){return Object.assign({},l,{label:quiz?'壓力基準':l.label});});
+      out.markers=quiz?[]:out.markers;
+    }
+
+    // M17 — legacy labels literally said "假突破" / "跌回區間". Keep the same geometry but
+    // rename the evidence so practice requires the learner to infer the failure.
+    if(mid===17){
+      var r17=maxA(R.h,i-22,i-3),b17=argExtreme(R.c,i-2,i-1,true);
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:'原壓力區'});});
+      out.lines=[{price:r17,color:'#ff9f43',label:'原壓力',dash:true}];
+      if(quiz)out.markers=[
+        {idx:b17,price:R.c[b17],label:'突破時收盤',color:'#ffd44a',prefer:'above'},
+        {idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'below'}
       ];
     }
 
-    // Exact-price lessons later in the course.
-    if(quiz&&(mid===13||mid===14)){out.zones=[];out.markers=[];out.priceGuides=uniquePrices([sup,res,c]);}
+    // M18 — "突破" and "回測" are the lesson target, so practice uses neutral time labels.
+    if(mid===18){
+      var r18=maxA(R.h,i-25,i-6),bi=argExtreme(R.c,i-5,i-1,true);
+      out.zones=(out.zones||[]).map(function(z){return Object.assign({},z,{label:quiz?'原壓力區':'原壓力 → 回測區'});});
+      out.lines=[{price:r18,color:'#ff9f43',label:quiz?'壓力基準':'回測基準',dash:true}];
+      if(quiz)out.markers=[
+        {idx:bi,price:R.c[bi],label:'前一段收盤',color:'#ffd44a',prefer:'above'},
+        {idx:i,price:c,label:'D0 收盤',color:'#39f5ff',prefer:'below'}
+      ];
+    }
+
     if(mid===31){
       var st31=window.BSG.roundToTick(Math.max(.01,sup-atr*.45),'down');
       out.lines=(out.lines||[]).map(function(l){return /失策/.test(l.label||'')?Object.assign({},l,{price:st31}):l;});
@@ -148,5 +150,5 @@
     next.getData=function(){return enforce(getter?getter():null);};
     return baseCreate(wrap,next);
   };
-  window.BSG_V4_FOUNDATION={version:'learning-foundation-v3',transform:enforce,uniquePrices:uniquePrices};
+  window.BSG_V4_FOUNDATION={version:'learning-foundation-v4',transform:enforce,uniquePrices:uniquePrices};
 })();
