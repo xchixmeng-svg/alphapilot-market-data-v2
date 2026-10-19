@@ -1,0 +1,99 @@
+name: Validate BSG V4 advanced course
+
+on:
+  push:
+    branches: [bsg-learning-system-20261019]
+    paths:
+      - 'apps/become-stock-god-v2/**'
+      - '.github/workflows/bsg-v4-advanced-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  advanced:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/become-stock-god-v2/package.json
+      - name: Install
+        working-directory: apps/become-stock-god-v2
+        run: npm install
+      - name: Build complete course
+        working-directory: apps/become-stock-god-v2
+        run: npm run build:web
+      - name: Syntax and learning contract
+        working-directory: apps/become-stock-god-v2
+        run: |
+          node --check src/engine.js
+          node --check src/content.js
+          node --check src/chart.js
+          node --check src/app.js
+          npm run audit:learning
+      - name: Browser verify M37-M50 indicators, drawing and daily reveal
+        working-directory: apps/become-stock-god-v2
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4174 -d dist >/tmp/bsg-v4-advanced-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node - <<'NODE'
+          const {chromium}=require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+            const errs=[];page.on('pageerror',e=>errs.push(String(e)));page.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+            await page.goto('http://127.0.0.1:4174/',{waitUntil:'load',timeout:30000});
+            await page.waitForSelector('.hudstats',{timeout:15000});
+            const result=await page.evaluate(()=>{
+              const t=window.BSGV3._test,CT=window.BSG_CONTENT,rows=[];
+              if(CT.MISSIONS.length!==50)throw new Error('mission count '+CT.MISSIONS.length);
+              if(CT.WORLDS.length!==8)throw new Error('world count '+CT.WORLDS.length);
+              if(CT.FREE_THROUGH!==15||CT.PRODUCT_PRICE_TWD!==149)throw new Error('commercial defaults mismatch');
+              if(!window.BSG_V4_ADVANCED_VISUALS)throw new Error('advanced visual layer missing');
+              function transformed(mid,ex){
+                t.setupMission(mid,ex,'mission');
+                const m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R);
+                const v3=window.BSG_V3_VISUALS.transform(base,mid);
+                const adv=window.BSG_V4_ADVANCED_VISUALS.transform(v3);
+                return {m,R,d:window.BSG_V4_FOUNDATION.transform(adv)};
+              }
+              for(let mid=37;mid<=50;mid++){
+                const exs=[];
+                for(let ex=1;ex<=3;ex++){
+                  t.setupMission(mid,ex,'mission');
+                  const m=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(m,R,ex),qt=t.qtext(m,R,ex);
+                  if(!R||!q||!Array.isArray(q.opts)||q.opts.length!==3||new Set(q.opts.map(String)).size!==3)throw new Error('M'+mid+' ex'+ex+' invalid options');
+                  if(!Number.isInteger(q.correct)||q.correct<0||q.correct>2)throw new Error('M'+mid+' ex'+ex+' invalid correct');
+                  if(typeof qt!=='string'||!qt.trim())throw new Error('M'+mid+' ex'+ex+' empty qtext');
+                  exs.push(qt);
+                }
+                rows.push({mid,exs});
+              }
+              const m38=transformed(38,1);if(!(m38.R.o[m38.d.d0Idx]>m38.R.h[m38.d.d0Idx-1]||m38.R.o[m38.d.d0Idx]<m38.R.l[m38.d.d0Idx-1]))throw new Error('M38 sample is not a true gap');
+              const m39=transformed(39,1);if(!m39.d.indicatorPanel||m39.d.indicatorPanel.type!=='MACD')throw new Error('M39 MACD panel missing');
+              const m40=transformed(40,2);if(!m40.d.indicatorPanel||!m40.d.indicatorPanel.hist)throw new Error('M40 histogram missing');
+              const m42=transformed(42,2);if(!m42.d.indicatorPanel||m42.d.indicatorPanel.type!=='KD'||m42.d.indicatorPanel.thresholds.join(',')!=='20,80')throw new Error('M42 KD panel missing');
+              const m44=transformed(44,2);if(!m44.d.indicatorPanel||m44.d.indicatorPanel.type!=='RSI14'||m44.d.indicatorPanel.thresholds.join(',')!=='30,70')throw new Error('M44 RSI panel missing');
+              const m47=transformed(47,2);if(!m47.d.pricePickMode||!m47.d.priceGuides||m47.d.priceGuides.length<3)throw new Error('M47 draw mode missing');
+              const m49=transformed(49,2);if(!m49.d.priceGuides||m49.d.priceGuides.length<3)throw new Error('M49 exact-price guides missing');
+              const a=transformed(50,1),b=transformed(50,2),c=transformed(50,3),i=a.d.d0Idx;
+              if(a.d.lastIdx!==i)throw new Error('M50 D0 future leak');
+              if(b.d.lastIdx!==Math.min(i+1,b.R.c.length-1))throw new Error('M50 D+1 reveal mismatch');
+              if(c.d.lastIdx!==Math.min(i+2,c.R.c.length-1))throw new Error('M50 D+2 reveal mismatch');
+              if(!a.d.indicatorPanel||a.d.indicatorPanel.type!=='MACD')throw new Error('M50 integrated indicator missing');
+              const src=document.documentElement.innerHTML;if(!src.includes('drawPickReadout'))throw new Error('M47 draw UI marker not bundled');
+              return {missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,rows,advancedVisual:window.BSG_V4_ADVANCED_VISUALS.version};
+            });
+            if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
+            console.log('M37_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual}));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+NODE
