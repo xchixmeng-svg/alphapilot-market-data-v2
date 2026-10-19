@@ -1,0 +1,10 @@
+
+// Commercial defaults agreed for the finished course. Ad SDK/payment plumbing stays disabled in
+// the product-test build, but the visible course boundary and one-time price use the target model.
+(function(root){
+  'use strict';
+  var CT=root.BSG_CONTENT;if(!CT)return;
+  CT.FREE_THROUGH=15;
+  CT.PRODUCT_PRICE_TWD=149;
+  CT.REWARDED_UNLOCK_FROM=16;
+})(window);
