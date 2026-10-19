@@ -94,8 +94,30 @@ jobs:
               if(!a.d.indicatorPanel||a.d.indicatorPanel.type!=='MACD')throw new Error('M50 integrated indicator missing');
               return {missions:CT.MISSIONS.length,worlds:CT.WORLDS.length,rows,advancedVisual:window.BSG_V4_ADVANCED_VISUALS.version};
             });
+            const picked=await page.evaluate(async()=>{
+              const t=window.BSGV3._test;t.setupMission(47,2,'mission');
+              const m=t.ui.mission,R=t.getR(t.ui.roundId),host=document.createElement('div');
+              host.style.cssText='position:fixed;left:0;top:0;width:800px;height:300px;z-index:99999;background:#050b17';document.body.appendChild(host);
+              window.BSG_V4_LAST_PICK=null;
+              const chart=window.BSGChart.create(host,{getData:()=>t.chartData(m,R)});chart.setRange(60);
+              await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+              const canvas=host.querySelector('canvas'),rect=canvas.getBoundingClientRect(),x=rect.left+rect.width*.55,y=rect.top+rect.height*.45;
+              canvas.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:77,pointerType:'touch',clientX:x,clientY:y}));
+              canvas.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:77,pointerType:'touch',clientX:x,clientY:y}));
+              await new Promise(r=>requestAnimationFrame(r));
+              const p=window.BSG_V4_LAST_PICK;if(!Number.isFinite(p))throw new Error('M47 touch did not create price line');
+              const tick=window.BSG.tickSize(p);if(Math.abs(p/tick-Math.round(p/tick))>1e-7)throw new Error('M47 price did not snap to legal tick: '+p);
+              host.remove();return p;
+            });
             if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
-            console.log('M25_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual}));
+            console.log('M25_M50_BROWSER_OK',JSON.stringify({missions:result.missions,worlds:result.worlds,advancedVisual:result.advancedVisual,m47Picked:picked}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
+      - name: Upload validated complete-course preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bsg-v4-complete-dist
+          path: apps/become-stock-god-v2/dist
+          if-no-files-found: error
+          retention-days: 7
