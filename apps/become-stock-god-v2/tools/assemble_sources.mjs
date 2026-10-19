@@ -29,20 +29,16 @@ for (const [name, out] of Object.entries(specs)) {
   if (!files.length) throw new Error('missing parts for ' + name)
   let source = files.map(f => fs.readFileSync(path.join(dir,f),'utf8')).join('')
 
-  // Keep V4 teaching-indicator functions inside the engine IIFE but before its exported api object.
   if (name === 'engine') {
     const inc = fs.readFileSync(path.join(root,'tools','v4_indicator_engine.inc.js'),'utf8').trimEnd()
     source = replaceOne(source, '\n  var api = {', '\n'+inc+'\n\n  var api = {', 'indicator engine api boundary')
   }
 
   if (name === 'app') {
-    // The in-chart coach orb competes with candles; the dedicated coach rail is enough.
     const coachOrb = '<div class="coachOrb">AI</div>'
     if (!source.includes(coachOrb)) throw new Error('coach orb signature changed')
     source = source.replace(coachOrb, '')
 
-    // V4 course length is data-driven. This is essential now that the advanced path extends M01-M36
-    // through indicators, drawing, reversal and the final daily-reveal mission M50.
     source = replaceOne(source,
       "s.completed=s.completed.map(Number).filter(function(x){return x>=1&&x<=36;})",
       "s.completed=s.completed.map(Number).filter(function(x){return x>=1&&x<=CT.MISSIONS.length;})",
@@ -69,8 +65,9 @@ for (const [name, out] of Object.entries(specs)) {
     source = source.replaceAll('n>=36?', 'n>=CT.MISSIONS.length?')
     source = source.replaceAll('done/36*100','done/CT.MISSIONS.length*100')
     source = source.replaceAll("'<small>/36</small>'","'<small>/'+CT.MISSIONS.length+'</small>'")
-    source = source.replaceAll("'+done+' / 36","'+done+' / '+CT.MISSIONS.length")
-    source = source.replaceAll("'+S.completed.length+' / 36","'+S.completed.length+' / '+CT.MISSIONS.length")
+    source = source.replaceAll("'<span class=\"ckMuted\">'+done+' / 36</span>'","'<span class=\"ckMuted\">'+done+' / '+CT.MISSIONS.length+'</span>'")
+    source = source.replaceAll("'<div class=\"ckRank\">已完成 '+done+' / 36</div>'","'<div class=\"ckRank\">已完成 '+done+' / '+CT.MISSIONS.length+'</div>'")
+    source = source.replaceAll("'目前 '+S.completed.length+' / 36。</span>'","'目前 '+S.completed.length+' / '+CT.MISSIONS.length+'。</span>'")
     source = source.replaceAll('36 關總覽','完整課程')
     source = source.replaceAll('36 關全部完成','完整課程全部完成')
     source = source.replaceAll('完成 36 關解鎖','完成全部課程解鎖')
@@ -78,8 +75,6 @@ for (const [name, out] of Object.entries(specs)) {
     source = source.replaceAll('先完成 36 關才會開放','先完成全部課程才會開放')
   }
 
-  // V4 learning foundation: legal Taiwan tick labels, exact-price guides, indicator teaching panels,
-  // and a price-pick mode used by the line-drawing lesson.
   if (name === 'chart') {
     source = replaceOne(
       source,
@@ -123,11 +118,10 @@ for (const [name, out] of Object.entries(specs)) {
     source = replaceOne(
       source,
       "function up(e){var p=pointers[e.pointerId];delete pointers[e.pointerId];if(drag&&drag.type==='pan'&&!drag.moved&&p&&geo){var i=Math.round(geo.first+(p.x-(view.count-(geo.last-geo.first+1))*geo.bw)/geo.bw-.5);view.cross=(i===view.cross||i<geo.first||i>geo.last)?null:i;draw();}if(!Object.keys(pointers).length)drag=null;}",
-      "function up(e){var p=pointers[e.pointerId];delete pointers[e.pointerId];if(drag&&drag.type==='pan'&&!drag.moved&&p&&geo){var dd=data();if(dd.pricePickMode&&p.y>=geo.plotW*0){var pp=geo.yi(Math.max(0,Math.min(geo.priceH,p.y))),eng=window.BSG;pp=eng&&eng.roundToTick?eng.roundToTick(pp):pp;view.pick=pp;view.cross=null;if(typeof opt.onPricePick==='function')opt.onPricePick(pp);draw();}else if(dd.allowCross===false){view.cross=null;draw();}else{var i=Math.round(geo.first+(p.x-(view.count-(geo.last-geo.first+1))*geo.bw)/geo.bw-.5);view.cross=(i===view.cross||i<geo.first||i>geo.last)?null:i;draw();}}if(!Object.keys(pointers).length)drag=null;}",
+      "function up(e){var p=pointers[e.pointerId];delete pointers[e.pointerId];if(drag&&drag.type==='pan'&&!drag.moved&&p&&geo){var dd=data();if(dd.pricePickMode&&p.y>=0){var pp=geo.yi(Math.max(0,Math.min(geo.priceH,p.y))),eng=window.BSG;pp=eng&&eng.roundToTick?eng.roundToTick(pp):pp;view.pick=pp;view.cross=null;if(typeof opt.onPricePick==='function')opt.onPricePick(pp);draw();}else if(dd.allowCross===false){view.cross=null;draw();}else{var i=Math.round(geo.first+(p.x-(view.count-(geo.last-geo.first+1))*geo.bw)/geo.bw-.5);view.cross=(i===view.cross||i<geo.first||i>geo.last)?null:i;draw();}}if(!Object.keys(pointers).length)drag=null;}",
       'lesson crosshair and price-pick control')
   }
 
-  // Raw lesson candles must themselves be valid Taiwan-stock prices.
   if (name === 'build_bank') {
     source = replaceOne(
       source,
