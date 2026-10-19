@@ -15,12 +15,16 @@
     if(!d||!d.R)return d;
     var a=api(),ui=a&&a.ui,mid=missionId(),R=d.R,i=d.d0Idx,c=R.c[i],o=R.o[i],atr=(R.atr&&R.atr[i])||c*.02;
     var sup=minA(R.l,i-20,i-1),res=maxA(R.h,i-20,i-1),quiz=!!(ui&&ui.mode==='mission'&&ui.exercise>0),out=Object.assign({},d);
+    var top=Math.max(o,c),bottom=Math.min(o,c),pc=R.c[i-1];
     out.priceGuides=uniquePrices(out.priceGuides||[]);
 
-    // M01 is the reference lesson for the whole product: demonstrate names first, then leave
-    // only numeric prices. Tapping the candle must never open the full OHLC answer during practice.
+    // First module: no tap-to-reveal. The demo names the parts; practice keeps only the evidence
+    // needed to reason, never a semantic label that literally states the answer.
+    if(mid>=1&&mid<=6)out.allowCross=false;
+
+    // M01 — identify OHLC.
     if(mid===1){
-      out.hideAxisTicks=true;out.allowCross=false;out.lines=[];
+      out.hideAxisTicks=true;out.lines=[];
       out.priceGuides=uniquePrices([R.h[i],o,c,R.l[i]]);
       if(quiz)out.markers=[];
       else out.markers=[
@@ -29,6 +33,54 @@
         {idx:i,price:c,label:'收盤價',color:'#39f5ff',prefer:'side'},
         {idx:i,price:R.l[i],label:'最低價',color:'#24d79b',prefer:'below'}
       ];
+    }
+
+    // M02 — body = open-to-close. Four neutral price guides let the learner distinguish body
+    // edges from the full high-low range without the axis inventing rounded values.
+    if(mid===2){
+      out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([R.h[i],top,bottom,R.l[i]]);
+      out.markers=quiz?[]:[
+        {idx:i,price:o,label:'開盤',color:'#9876ff',prefer:'side'},
+        {idx:i,price:c,label:'收盤',color:'#39f5ff',prefer:'side'}
+      ];
+    }
+
+    // M03 — Taiwan candle colour uses open vs close, not yesterday's close.
+    if(mid===3){
+      out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([o,c]);
+      out.markers=quiz?[]:[
+        {idx:i,price:o,label:'開盤',color:'#9876ff',prefer:'side'},
+        {idx:i,price:c,label:'收盤',color:'#39f5ff',prefer:'side'}
+      ];
+    }
+
+    // M04 — explicitly separate wick from body during teaching; remove names during practice.
+    if(mid===4){
+      out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([R.h[i],top,bottom,R.l[i]]);
+      out.markers=quiz?[]:[
+        {idx:i,price:R.h[i],label:'最高價',color:'#ffd44a',prefer:'above'},
+        {idx:i,price:top,label:'實體上緣',color:'#39f5ff',prefer:'side'},
+        {idx:i,price:bottom,label:'實體下緣',color:'#9876ff',prefer:'side'},
+        {idx:i,price:R.l[i],label:'最低價',color:'#24d79b',prefer:'below'}
+      ];
+    }
+
+    // M05 — these labels are evidence, not the verdict. The learner must compare the values.
+    if(mid===5){
+      out.hideAxisTicks=true;out.lines=[];out.priceGuides=uniquePrices([pc,o,c]);
+      out.markers=[
+        {idx:i-1,price:pc,label:'昨收',color:'#9876ff',prefer:'side'},
+        {idx:i,price:o,label:'今開',color:'#ffd44a',prefer:'side'},
+        {idx:i,price:c,label:'今收',color:'#39f5ff',prefer:'side'}
+      ];
+    }
+
+    // M06 — preserve the five-close path and day labels; never annotate the direction itself.
+    if(mid===6){
+      out.priceGuides=[];
+      if(quiz){
+        out.markers=(out.markers||[]).filter(function(m){return /^D-?\d+$/.test(m.label||'')||m.label==='D0';});
+      }
     }
 
     // Whenever the answer choices contain exact prices, those prices must be directly readable
@@ -56,5 +108,5 @@
     next.getData=function(){return enforce(getter?getter():null);};
     return baseCreate(wrap,next);
   };
-  window.BSG_V4_FOUNDATION={version:'learning-foundation-v1',transform:enforce,uniquePrices:uniquePrices};
+  window.BSG_V4_FOUNDATION={version:'learning-foundation-v2',transform:enforce,uniquePrices:uniquePrices};
 })();
