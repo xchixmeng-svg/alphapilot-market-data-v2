@@ -47,10 +47,57 @@ jobs:
           if(Buffer.byteLength(html)<5*1024*1024) throw new Error('standalone html unexpectedly small')
           console.log('V4_BUILD_OK', {bytes:Buffer.byteLength(html)})
           NODE
+      - name: Browser verify M01 teaching and no-leak practice
+        working-directory: apps/become-stock-god-v2
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4173 -d dist >/tmp/bsg-v4-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node - <<'NODE'
+          const fs=require('fs');
+          const { chromium }=require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+            const errs=[]; page.on('pageerror',e=>errs.push(String(e))); page.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+            await page.goto('http://127.0.0.1:4173/',{waitUntil:'load',timeout:30000});
+            await page.waitForSelector('.hudstats',{timeout:15000});
+            const enter=page.locator('[data-ui="enter"]'); if(await enter.count()){await enter.click();await page.waitForSelector('#ckLanding',{state:'detached',timeout:5000}).catch(()=>{});}
+            const hook=await page.evaluate(()=>({v4:window.BSG_V4_FOUNDATION&&window.BSG_V4_FOUNDATION.version,v3:window.BSG_V3_VISUALS&&window.BSG_V3_VISUALS.version}));
+            if(hook.v4!=='learning-foundation-v1')throw new Error('V4 foundation missing '+JSON.stringify(hook));
+            const m1=page.locator('[data-act="mission"][data-id="1"]').first();
+            if(!(await m1.count()))throw new Error('M01 entry missing');
+            await m1.click(); await page.waitForSelector('#v3Chart canvas',{timeout:10000}); await page.waitForTimeout(250);
+            const teach=await page.evaluate(()=>{
+              const t=window.BSGV3._test,m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R),v3=window.BSG_V3_VISUALS.transform(base,1),v4=window.BSG_V4_FOUNDATION.transform(v3); const layout=document.querySelector('#v3Chart').__bsgLayout;
+              return {exercise:t.ui.exercise,labels:v4.markers.map(x=>x.label),guides:v4.priceGuides,allowCross:v4.allowCross,hideAxis:v4.hideAxisTicks,badges:layout&&layout.badges&&layout.badges.length,text:document.querySelector('.prompt').innerText};
+            });
+            for(const s of ['開盤價','最高價','最低價','收盤價'])if(!teach.labels.includes(s))throw new Error('teaching label missing '+s+' '+JSON.stringify(teach));
+            if(teach.guides.length!==4||teach.allowCross!==false||teach.hideAxis!==true)throw new Error('bad teaching visual '+JSON.stringify(teach));
+            if(!teach.text.includes('OHLC 看圖順序')||!teach.text.includes('先學會這件事'))throw new Error('teaching copy missing '+teach.text);
+            fs.mkdirSync('audit',{recursive:true}); await page.screenshot({path:'audit/m01-teaching.png',fullPage:true});
+            await page.locator('[data-act="beginQuestions"]').click(); await page.waitForSelector('.answer',{timeout:5000}); await page.waitForTimeout(250);
+            const quiz=await page.evaluate(()=>{
+              const t=window.BSGV3._test,m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R),v3=window.BSG_V3_VISUALS.transform(base,1),v4=window.BSG_V4_FOUNDATION.transform(v3); const layout=document.querySelector('#v3Chart').__bsgLayout;
+              return {exercise:t.ui.exercise,labels:v4.markers.map(x=>x.label),guides:v4.priceGuides,allowCross:v4.allowCross,badges:layout&&layout.badges&&layout.badges.length,q:document.querySelector('.question').innerText,answers:[...document.querySelectorAll('.answer')].map(x=>x.innerText)};
+            });
+            if(quiz.exercise!==1||quiz.labels.length!==0||quiz.guides.length!==4||quiz.allowCross!==false)throw new Error('quiz leaks semantics '+JSON.stringify(quiz));
+            if(!quiz.q.includes('哪四種價格'))throw new Error('first M01 practice must test concept first '+quiz.q);
+            if(quiz.badges<4)throw new Error('four exact price badges not rendered '+JSON.stringify(quiz));
+            await page.screenshot({path:'audit/m01-practice.png',fullPage:true});
+            if(errs.length)throw new Error('browser errors: '+errs.join(' | '));
+            console.log('M01_BROWSER_OK', {teach,quiz});
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
       - uses: actions/upload-artifact@v4
         with:
           name: bsg-v4-learning-foundation
           path: |
             apps/become-stock-god-v2/dist/index.html
             apps/become-stock-god-v2/audit/learning_contract.json
+            apps/become-stock-god-v2/audit/m01-teaching.png
+            apps/become-stock-god-v2/audit/m01-practice.png
           retention-days: 7
