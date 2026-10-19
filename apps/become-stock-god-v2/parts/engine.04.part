@@ -1,5 +1,7 @@
 asonTitle: seasonTitle, examGrade: examGrade, examUnlocked: examUnlocked,
-    isBankrupt: isBankrupt, validateRound: validateRound
+    isBankrupt: isBankrupt, validateRound: validateRound,
+    emaSeries: emaSeries, macdSeries: macdSeries, kdSeries: kdSeries, rsiSeries: rsiSeries,
+    teachingIndicators: teachingIndicators
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BSG = api;
