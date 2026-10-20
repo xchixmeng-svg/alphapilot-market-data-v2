@@ -1,0 +1,65 @@
+
+// ═════════════ Layer 4 — DAILY_SCENARIOS: day-by-day historical cases ═════════════
+// Each case: D0 → decide → reveal D+1 → decide → … → D+7. The chart and the rubric receive arrays truncated at
+// the current day (upTo), so no future bar can leak. Decision quality and final P/L are scored separately.
+var SCEN_DATA=(function(){try{return JSON.parse(document.getElementById('scenario-data').textContent);}catch(e){return{scenarios:[]};}})();
+var DAILY_SCENARIOS=SCEN_DATA.scenarios||[];
+function dailyUnlocked(){return coreComplete()&&S.practice.total>=60&&S.exam.idx>=20;}
+function dailyDone(){var v=v5State();return DAILY_SCENARIOS.filter(function(sc){return v.daily[sc.id]&&v.daily[sc.id].done;}).length;}
+function scenRound(sc){return getR(sc.roundId);}
+function dailyRec(sc){var v=v5State();if(!v.daily[sc.id])v.daily[sc.id]={k:0,pos:null,log:[],scores:[],stopScores:[],entries:0,done:false,attempt:1};return v.daily[sc.id];}
+// rubric for the current checkpoint: what a disciplined trader would do with only bars ≤ day
+function dailyRubric(sc,rec){var R=scenRound(sc),j=sc.start+rec.k,Rt=upTo(R,j),A=analyze(Rt,j);
+  if(rec.pos){var th=rec.pos.thesis,broken=A.c<=rec.pos.structStop||A.trend==='down'||(th&&th.kind==='breakout'&&A.c<th.level*.99),atTarget=A.c>=rec.pos.target;return{A:A,best:broken||atTarget?'exit':'hold',score:{hold:broken?0:atTarget?.8:1,exit:broken||atTarget?1:.6},why:broken?(th&&th.kind==='breakout'&&A.c<th.level*.99?'收盤跌回突破前的高點 '+px(th.level)+' 下方，突破論點失效。':'收盤跌到結構失策 '+px(rec.pos.structStop)+' 附近或結構轉弱，論點已失效。'):atTarget?'已到達目標附近，分批或全部獲利了結都合理。':'結構與失策都還在，理由沒變就續抱。',broken:broken};}
+  var d=A.decision;return{A:A,best:d==='trade'?'enter':d==='wait'?'wait':'abandon',score:{enter:d==='trade'?1:0,wait:d==='trade'?.6:1,abandon:d==='trade'?.3:d==='wait'?.8:1},why:A.why.join('；')+'。'};}
+function dailyAdvance(sc,rec){var R=scenRound(sc);rec.k++;var j=sc.start+rec.k;
+  if(rec.pos&&rec.pos.stop&&R.l[j]<=rec.pos.stop){var px0=Math.min(R.o[j],rec.pos.stop);dailyClose(sc,rec,px0,'失策觸發：D+'+rec.k+' 最低 '+px(R.l[j])+' 碰到失策 '+px(rec.pos.stop));}
+  if(rec.k>=sc.days)dailyFinish(sc,rec);}
+function dailyClose(sc,rec,price,note){rec.trades=rec.trades||[];rec.trades.push({entry:rec.pos.entry,exit:price,ret:price/rec.pos.entry-1,k0:rec.pos.k,k1:rec.k,note:note});rec.log.push({k:rec.k,action:'stopped',note:note});rec.pos=null;}
+function dailyFinish(sc,rec){var R=scenRound(sc);if(rec.pos){var j=sc.start+Math.min(rec.k,sc.days);dailyClose(sc,rec,R.c[j],'結束時以 D+'+Math.min(rec.k,sc.days)+' 收盤計價');rec.log.pop();}
+  var W=rec.weights||rec.scores.map(function(){return 1;}),wsum=W.reduce(function(a,b){return a+b;},0),avgS=rec.scores.length?rec.scores.reduce(function(a,b,k){return a+b*(W[k]||1);},0)/Math.max(1,wsum):0,stopS=rec.stopScores.length?rec.stopScores.reduce(function(a,b){return a+b;},0)/rec.stopScores.length:null;
+  rec.decision=Math.round(100*(stopS==null?avgS:avgS*.8+stopS*.2));rec.pnl=(rec.trades||[]).reduce(function(a,t){return a+t.ret;},0);rec.done=true;rec.finishedAt=new Date().toISOString();UI.dailyView='result';}
+function dailyAct(action,extra){var sc=V5.scenario,rec=dailyRec(sc),rb=dailyRubric(sc,rec),v=v5State(),R=scenRound(sc),j=sc.start+rec.k,sc0=rb.score[action]==null?0:rb.score[action];
+  rec.scores.push(sc0);(rec.weights=rec.weights||[]).push(rec.pos?1:action==='enter'?6:2);   // opening a position is the decision that matters mostrec.log.push({k:rec.k,action:action,best:rb.best,score:sc0,why:rb.why});
+  if(action==='enter'){var o=stopOptions(rb.A),pick=extra==='none'?null:o.filter(function(x){return x.kind===extra;})[0],ss=pick?stopScore(pick.kind):0;rec.stopScores.push(ss);v.flags.entries++;rec.entries++;
+    if(rb.A.decision!=='trade')v.flags.overtrade++;if(rb.A.dist!=null&&rb.A.dist>.08)v.flags.chase++;if(rb.A.trend==='down')v.flags.earlyReversal++;if(!pick)v.flags.noStop++;
+    rec.pos={entry:R.c[j],k:rec.k,stop:pick?pick.price:null,stopKind:pick?pick.kind:'none',structStop:rb.A.stop,target:rb.A.target,thesis:rb.A.breakout?{kind:'breakout',level:rb.A.res}:{kind:'support',level:rb.A.sup}};}
+  if(action==='hold'&&rb.broken)v.flags.heldBroken++;
+  if(action==='exit'){dailyClose(sc,rec,R.c[j],'D+'+rec.k+' 收盤退出');rec.log.pop();}
+  if(action==='abandon'){rec.abandoned=true;rec.k=sc.days;dailyFinish(sc,rec);save();return dailyScreen();}
+  UI.dailyStop=false;dailyAdvance(sc,rec);save();dailyScreen();}
+function panelButtons(cur){return'<div class="v5Panels">'+[['VOL','量'],['MACD','MACD'],['KD','KD'],['RSI14','RSI']].map(function(p){return'<button class="'+(cur===p[0]?'on':'')+'" data-act="v5Panel" data-p="'+p[0]+'">'+p[1]+'</button>';}).join('')+'</div>';}
+ACT_V5.v5Panel=function(el){UI.v5Panel=el.dataset.p;if(UI.screen==='daily')dailyScreen();else if(V5.flow)v5Show();};
+function dailyScreen(){var sc=V5.scenario;if(!sc)return go('dailyHome');var rec=dailyRec(sc),R=scenRound(sc);UI.screen='daily';
+  if(rec.done)return dailyResult(sc,rec);
+  var j=sc.start+rec.k,Rt=upTo(R,j),pos=rec.pos,panel=UI.v5Panel||'VOL',lines=[];
+  if(pos){lines.push({price:pos.entry,color:'#39f5ff',label:'進場 '+px(pos.entry),dash:true});if(pos.stop)lines.push({price:pos.stop,color:'#ff465f',label:'失策',dash:true});}
+  var status=pos?'持有中｜進場 '+px(pos.entry)+'｜失策 '+(pos.stop?px(pos.stop):'未設定')+'｜以今日收盤計 '+((R.c[j]/pos.entry-1)*100).toFixed(2)+'%':'目前空手';
+  var acts=pos?'<button class="answer" data-act="dailyAct" data-a="hold">續抱</button><button class="answer" data-act="dailyAct" data-a="exit">以今天收盤退出</button>':
+    UI.dailyStop?'<div class="coachLine"><strong>進場前先定失策</strong>（價格已標在圖上）</div>'+stopOptions(analyze(Rt,j)).map(function(o){return'<button class="answer" data-act="dailyEnter" data-s="'+o.kind+'">'+esc(o.label)+'</button>';}).join('')+'<button class="answer" data-act="dailyEnter" data-s="none">先不設失策</button><button class="answerHelp" data-act="dailyCancel">回上一步</button>':
+    '<button class="answer" data-act="dailyAct" data-a="wait">等待，看下一天</button><button class="answer" data-act="dailyStopPick">以今天收盤進場</button><button class="answer" data-act="dailyAct" data-a="abandon">放棄這檔（不交易）</button>';
+  var guides=UI.dailyStop&&!pos?stopOptions(analyze(Rt,j)).map(function(o){return o.price;}):[];
+  app.innerHTML=scan+hud(true)+'<div class="main scanMain v5Main"><section class="training"><div class="trainingHead"><div class="missionTag">逐日</div><div class="trainTitle"><strong>逐日實戰 '+esc(sc.id)+'｜D'+(rec.k?'+'+rec.k:'0')+' / D+'+sc.days+'</strong><span>未來 K 棒全部遮住，只揭曉到今天收盤</span></div></div>'+
+    '<div class="chartArea"><div class="chartFrame"><div id="v3Chart" class="chartwrap"></div></div></div><div class="lessonDock"><div class="dockGrid"><div class="prompt"><div class="promptTop"><span class="qtag">'+(pos?'持倉管理':'今天的決定')+'</span><span class="difficulty">NO HINT</span></div><div class="question">'+esc(pos?'今天收盤後，續抱還是退出？':'只看到今天為止的資料，你要怎麼做？')+'</div><div class="explain">'+esc(status)+'</div>'+panelButtons(panel)+'</div><div class="answers v5Daily">'+acts+'</div></div></div></section></div>';
+  v5Mount(function(){return v5Chart(Rt,j,{d0:sc.start,panel:panel==='VOL'?null:panel,lines:lines,guides:guides,focus:[j]});},null,60);}
+ACT_V5.dailyAct=function(el){dailyAct(el.dataset.a);};
+ACT_V5.dailyStopPick=function(){UI.dailyStop=true;dailyScreen();};
+ACT_V5.dailyCancel=function(){UI.dailyStop=false;dailyScreen();};
+ACT_V5.dailyEnter=function(el){dailyAct('enter',el.dataset.s);};
+function dailyVerdict(rec){var good=rec.decision>=70,won=rec.pnl>0.0001,lost=rec.pnl<-0.0001;if(good&&lost)return'好決策也會賠錢：你照紀律做事，這次結果賠錢不代表決策錯。';if(!good&&won)return'這次賺錢主要是運氣：同樣的決策重複做，長期很難站得住。';if(good&&won)return'決策和結果都不錯，但記得兩者要分開看。';if(!good&&lost)return'決策品質不足，結果也不好：回頭看看哪一天偏離了紀律。';return good?'沒有進場也是完整的決策。':'這次的決策還有改進空間。';}
+function dailyResult(sc,rec){var R=scenRound(sc),end=sc.start+sc.days,acts={enter:'進場',wait:'等待',abandon:'放棄',hold:'續抱',exit:'退出',stopped:'失策觸發'};
+  var rows=rec.log.map(function(l){return'<li><b>D'+(l.k?'+'+l.k:'0')+'｜'+acts[l.action]+'</b>'+(l.best?'<small>（最佳：'+acts[l.best==='abandon'?'abandon':l.best]+'｜得分 '+Math.round((l.score||0)*100)+'）'+esc(l.why||'')+'</small>':'<small>'+esc(l.note||'')+'</small>')+'</li>';}).join('');
+  app.innerHTML=scan+hud(true)+'<div class="main scanMain v5Main"><section class="training"><div class="trainingHead"><div class="missionTag">結果</div><div class="trainTitle"><strong>'+esc(sc.id)+'｜'+esc(sc.title)+'</strong><span>全部揭曉：D0～D+'+sc.days+'</span></div></div>'+
+    '<div class="chartArea"><div class="chartFrame"><div id="v3Chart" class="chartwrap"></div></div></div><div class="lessonDock"><div class="dockGrid"><div class="prompt"><div class="v5Score"><div><b>'+rec.decision+'</b><span>決策品質</span></div><div><b class="'+(rec.pnl>0?'up':rec.pnl<0?'down':'')+'">'+(rec.pnl*100).toFixed(2)+'%</b><span>最終損益</span></div></div><div class="coachLine">'+esc(dailyVerdict(rec))+'</div><div class="explain"><strong>這個案例｜</strong>'+esc(sc.lesson)+'</div><ul class="v5Log">'+rows+'</ul></div>'+
+    '<div class="answers"><button class="btn primary full" data-act="dailyHome">回到逐日實戰</button></div></div></div></section></div>';
+  v5Mount(function(){return v5Chart(upTo(R,end),end,{d0:sc.start,focus:[sc.start]});},null,60);}
+function dailyHome(){UI.screen='dailyHome';var v=v5State(),unlocked=dailyUnlocked();
+  var cards=DAILY_SCENARIOS.map(function(sc){var r=v.daily[sc.id],done=r&&r.done;return'<button class="ckCard v5Scen'+(done?' done':'')+'" data-act="dailyStart" data-id="'+sc.id+'" '+(unlocked?'':'disabled')+'><b>'+esc(sc.id)+'</b><span>'+(done?esc(sc.title):'未知的歷史案例')+'</span><small>'+(done?'決策 '+r.decision+'｜損益 '+(r.pnl*100).toFixed(1)+'%':r&&r.k?'進行到 D+'+r.k:'D0～D+'+sc.days)+'</small></button>';}).join('');
+  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Home"><h1 class="ckPageTitle">逐日實戰</h1><p class="ckMuted">每個案例一天一天揭曉。案例名稱在你做完之後才公布；決策品質和最終損益分開評分。</p>'+
+    (unlocked?'':'<div class="ckCard ckNotice"><span>完成全部核心課程、技能訓練 60 題、混合盲測 20 張後開放。目前：課程 '+ORDER_IDS.filter(completed).length+' / '+ORDER_IDS.length+'｜訓練 '+S.practice.total+' / 60｜盲測 '+S.exam.idx+' / 20</span></div>')+
+    '<div class="v5ScenGrid">'+cards+'</div></main>'+bottomNav('practiceHome');}
+ACT_V5.dailyHome=function(){destroyChart();dailyHome();};
+ACT_V5.dailyStart=function(el){if(!dailyUnlocked()){toast('先完成課程與基本混合訓練');return;}var sc=DAILY_SCENARIOS.filter(function(x){return x.id===el.dataset.id;})[0];if(!sc)return;var v=v5State();if(v.daily[sc.id]&&v.daily[sc.id].done){var a=v.daily[sc.id].attempt||1,best=v.daily[sc.id];v.daily[sc.id]=null;var nr=dailyRec(sc);nr.attempt=a+1;nr.prev={decision:best.decision,pnl:best.pnl};}V5.scenario=sc;UI.dailyStop=false;UI.v5Panel='VOL';dailyScreen();};
+V5.daily={scenarios:DAILY_SCENARIOS,rubric:dailyRubric,unlocked:dailyUnlocked,done:dailyDone,
+  // leakage probe for tests: what the chart / rubric receive at checkpoint k
+  probe:function(id,k){var sc=DAILY_SCENARIOS.filter(function(x){return x.id===id;})[0],R=scenRound(sc),j=sc.start+k,Rt=upTo(R,j),d=v5Chart(Rt,j,{d0:sc.start});return{len:Rt.c.length,lastIdx:d.lastIdx,maxIndex:j,arrays:Object.keys(Rt).filter(function(x){return Array.isArray(Rt[x]);}).map(function(x){return Rt[x].length;}),rubric:dailyRubric(sc,{k:k,pos:null}).A.decision};}};

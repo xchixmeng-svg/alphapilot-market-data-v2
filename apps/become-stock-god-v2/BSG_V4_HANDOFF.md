@@ -191,3 +191,50 @@ defineLesson({id:51,
   which is 17,444 bytes while its RIFF header declares 98,510 (truncated); Chromium cannot decode it and the cover is
   black there. If the playable deployment shows the cover art, that image is coming from outside this build — keep it
   that way or replace `assets/landing.b64` with the intact file so a fresh build cannot regress.
+
+## V5 complete product (Claude, 2026-10-20)
+
+Goal: a beginner who finishes the game can open an unfamiliar chart and, unprompted, state the structure, the
+location, the evidence, whether to trade, what to wait for, where to enter and where they are wrong.
+Five layers, each only using what earlier layers taught:
+
+| Layer | Data | Engine | Size |
+|---|---|---|---|
+| 1 核心教學 | `content.04.part` (M51–M63 metadata + `CT.ORDER`), `app.02987.part` (lesson specs) | `app.0297` course order, `app.0298` lesson schema | 63 lessons |
+| 2 技能訓練場 | `SKILL_FAMILIES`, `LESSON_FAMILY`, `DRILL_GEN` in `app.02992.part` | same file | 205 drill types / 13 families, 400 per round |
+| 3 混合判圖盲測 | `MIXED_STEPS` in `app.02993.part` | same file | 100 unseen charts × 5–7 judgements |
+| 4 逐日實戰 | `tools/build_scenarios.mjs` → `build/scenarios.json` | `app.02994.part` | 12 scripts × 8 checkpoints |
+| 5 股神畢業考 | `FINAL_DIMS`, steps in `app.02995.part` | same file | 3 unseen charts, 17 steps, 10-dimension report |
+
+- **Teaching order** (`CT.ORDER`): new lessons sit right after the idea they extend (e.g. M51 tick size after M05,
+  M56 量價衝突 after M26, M59 MACD 零軸 after M41). Unlock, "next lesson", lists and the free tier follow the order;
+  the free tier is still "first 15 lessons" (`CT.FREE_THROUGH`), price unchanged.
+- **M50 (逐日揭曉)** stays the last core lesson (it teaches the mechanic); it is excluded from the 400 / 100 pools.
+- **Training ground**: a drill enters the pool only when its lesson is completed (`drillAvailable`). Chart-reading
+  drills weigh 3×, definition drills 1× (auto-detected by asking the question on several charts).
+- **Blind mixed exam**: EXAM pool only (2024–2025), every chart distinct, no topic labels, evidence panel rotates
+  MACD / KD / RSI / volume; trade cases add entry + invalidation, wait cases add "what to wait for" + invalidation.
+  Old V4 exam progress is kept in `S.examLegacy`; the new exam starts at 0 (`S.exam.format = 'mixed-v5'`).
+- **Daily scenarios**: unlock after all core lessons + 60 training answers + 20 blind charts. Chart and rubric get
+  arrays truncated at the current day (`upTo`), checked at every checkpoint by the V5 CI. Decision quality and P/L
+  are scored separately (entry decisions weigh most); the case name is revealed only after finishing.
+- **Final exam**: reserve 2024–2025 charts never used anywhere else; trend, click swing high/low, draw
+  support/resistance, breakout, reversal, indicator noise, enter/wait/abandon, entry price, draw the stop, R:R,
+  compare two plans, manage a position day by day. Report: 10 dimensions, strongest/weakest, common mistakes,
+  chasing, indicator over-trust, early reversal guessing, respecting stops, overtrading.
+- **Rubric** (`analyze`/`decide` in `app.02991`): structure first; down-trend, R:R < 1 or > 10% above MA20 → no
+  trade; up-trend above MA20, < 8% extension, R:R ≥ 1.5 and not pressing resistance (unless a 1.5× volume
+  breakout) → trade; otherwise wait. `build_scenarios.mjs` carries the same rules; CI checks they agree.
+
+### Adding content later
+- Lesson: metadata in `content.04.part` + id in `CT.ORDER` + `defineLesson` in a lesson part.
+- Drill: lesson exercises become drills automatically; extra types go in `DRILL_GEN` (`family`, `lesson`, `sample`, `ask`, optional `chart`/`panel`).
+- Mixed step: add to `MIXED_STEPS` and to `mixedPlan`.
+- Daily scenario: add a script to `SCRIPTS` in `tools/build_scenarios.mjs` (detector may read the future; the game never does).
+
+### CI
+`bsg-v5-product-ci.yml` drives the real page (844×390 iPhone-landscape and 412×915 Android UA, real taps):
+course order + 13 new lessons on 40 charts each, drill unlock by progress, 60 training answers, blind-exam pool
+isolation / panel rotation / No-Trade share / prices visible on chart, 5 blind cases, daily gating + 12 scripts +
+leak probe at all 96 checkpoints + a good-decision-but-stopped case, final exam gating + unseen pool + touch
+picks + 10-dimension report, PWA files, zero console errors.

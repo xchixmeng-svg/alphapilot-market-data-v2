@@ -52,6 +52,8 @@ var _lsQtext=qtext;
 qtext=function(m,R,ex){var s=m&&lessonSpec(m.id);if(!s)return _lsQtext(m,R,ex);var a=lessonAsk(s,ex);return typeof a.text==='function'?a.text(lessonCtx(m,R,ex)):a.text;};
 var _lsExplain=explain;
 explain=function(m,R,ans){var s=m&&lessonSpec(m.id);if(!s)return _lsExplain(m,R,ans);if(typeof s.explain==='function'){var r=s.explain(lessonCtx(m,R,UI.exercise),ans);if(r!=null)return r;}else if(typeof s.explain==='string')return s.explain;return m.rule;};
+var _lsHints=hints;
+hints=function(m,R){var s=m&&lessonSpec(m.id);if(!s||!s.hints)return _lsHints(m,R);var h=typeof s.hints==='function'?s.hints(lessonCtx(m,R,UI.exercise)):s.hints;return ['先忽略其他資訊，只找這關標題中的那一件事。'].concat(h);};
 var _lsPromptIntro=promptIntro;
 promptIntro=function(m){
   var html=_lsPromptIntro(m),s=m&&lessonSpec(m.id);if(!s)return html;

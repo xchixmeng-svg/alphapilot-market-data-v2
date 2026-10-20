@@ -1,0 +1,18 @@
+
+// ───────────── Course order (V5) ─────────────
+// CT.ORDER is the teaching sequence. Unlocking, "next lesson", the free tier and every lesson list follow it,
+// so a lesson inserted after the idea it extends is reached at the right time. The free tier stays
+// "first 15 lessons" by position (commercial default unchanged: CT.FREE_THROUGH).
+function courseOrder(){var o=Array.isArray(CT.ORDER)&&CT.ORDER.length?CT.ORDER.slice():[],seen={};o=o.filter(function(id){if(seen[id]||!CT.MISSIONS[id-1])return false;seen[id]=1;return true;});CT.MISSIONS.forEach(function(m){if(!seen[m.id])o.push(m.id);});return o;}
+var ORDER_IDS=courseOrder(),ORDER_POS={};ORDER_IDS.forEach(function(id,k){ORDER_POS[id]=k;});
+function orderPos(id){return ORDER_POS.hasOwnProperty(id)?ORDER_POS[id]:999;}
+function inOrder(list){return list.slice().sort(function(a,b){return orderPos(a.id)-orderPos(b.id);});}
+function prevInOrder(id){var k=orderPos(id);return k>0&&k<999?ORDER_IDS[k-1]:null;}
+function nextInOrder(id){var k=orderPos(id);return k<ORDER_IDS.length-1?ORDER_IDS[k+1]:id;}
+function isLastInOrder(id){return orderPos(id)===ORDER_IDS.length-1;}
+function orderAfter(id,n){var k=orderPos(id);return ORDER_IDS.slice(k,k+n).map(function(x){return CT.MISSIONS[x-1];});}
+function coreComplete(){return ORDER_IDS.every(function(id){return completed(id);});}
+unlocked=function(id){var p=prevInOrder(id);return orderPos(id)===0||(p!=null&&completed(p));};
+nextMission=function(){for(var k=0;k<ORDER_IDS.length;k++)if(!completed(ORDER_IDS[k]))return ORDER_IDS[k];return ORDER_IDS[ORDER_IDS.length-1];};
+premiumNeeded=function(id){return orderPos(id)>=CT.FREE_THROUGH&&!S.premium;};
+currentWorldMissions=function(m){return inOrder(CT.MISSIONS.filter(function(x){return x.world===m.world;}));};

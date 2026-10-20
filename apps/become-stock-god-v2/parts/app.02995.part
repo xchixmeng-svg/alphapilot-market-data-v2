@@ -1,0 +1,115 @@
+
+// ═════════════ Layer 5 — FINAL_EXAM: 股神畢業考 + ability report ═════════════
+// Three unseen charts from the reserve 2024–2025 pool (never used in lessons, training or the blind exam).
+// No hints, no topic names, several interaction types. Scored by ability, P/L is only one of ten dimensions.
+var FINAL_POOL=BANK.rounds.filter(function(r){return r.slot==='reserve'&&r.pool==='C';}).map(function(r){return r.id;});
+var FINAL_DIMS={structure:'結構判斷',lines:'畫線',evidence:'證據使用',entry:'進場品質',stop:'失策設定',rr:'風報比',notrade:'No Trade 判斷',chase:'不亂追',overtrade:'不過度交易',pnl:'最終損益'};
+function finalUnlocked(){return DAILY_SCENARIOS.length>0&&dailyDone()>=DAILY_SCENARIOS.length;}
+function finalCharts(){var sh=E.seededShuffle(FINAL_POOL,C.SEED+'|FINAL|'+S.seed),out=[];for(var k=0;k<sh.length&&out.length<3;k++){var R=getR(sh[k]);if(R)out.push(sh[k]);}return out;}
+function pickTol(A){return Math.max(A.a*.55,A.c*.004);}
+function argExt(a,s,e,max){var b=s;for(var k=s;k<=e;k++)if(max?a[k]>a[b]:a[k]<a[b])b=k;return b;}
+function buildFinal(){
+  var ids=finalCharts(),i=X(0),RA=upTo(getR(ids[0]),i),RB=upTo(getR(ids[1]),i),RCfull=getR(ids[2]),A=analyze(RA,i),B=analyze(RB,i),CA=analyze(upTo(RCfull,i),i),exam={ids:ids,dims:{},answers:[],pnl:0,flags:{chase:0,overtrade:0}};
+  function score(dim,v){var d=exam.dims[dim]||(exam.dims[dim]={n:0,s:0});d.n++;d.s+=v;}
+  function choice(o){var sh=shuffleOptions(o.options,o.correct,'FINAL|'+o.id+'|'+S.seed),st={panels:true,id:o.id,tag:o.tag,head:o.head,title:'股神畢業考',sub:o.sub||'完全無提示：陌生歷史圖，不顯示題型',text:o.text,kind:'choice',options:sh.opts.map(function(x){return{label:x};}),correct:sh.correct,feedback:o.feedback,R:o.R,chart:o.chart,grade:o.grade,raw:o.options,rawCorrect:o.correct};return st;}
+  var hA='圖一｜判讀',hB='圖二｜決策',hC='圖三｜持倉管理';
+  var chartA=function(st){return v5Chart(RA,i,{panel:UI.v5Panel&&UI.v5Panel!=='VOL'?UI.v5Panel:null,candlePick:st.kind==='candle'&&!st.answered,pricePick:st.kind==='price'&&!st.answered,markers:st.pick!=null&&st.kind==='candle'?[{idx:st.pick,price:st.mode==='high'?RA.h[st.pick]:RA.l[st.pick],label:'你選的',color:'#ffd44a',prefer:st.mode==='high'?'above':'below'}]:[],lines:st.answered&&st.target!=null?[{price:st.target,color:'#24d79b',label:'參考答案',dash:true}]:[]});};
+  var trendK=A.trend==='up'?0:A.trend==='down'?1:2,hiIdx=argExt(RA.h,i-20,i-1,true),loIdx=argExt(RA.l,i-20,i-1,false),brK=A.c>A.res*1.002?0:A.c>=A.res*.98?1:2;
+  var steps=[
+    choice({id:'trend',tag:'結構',head:hA+' 1',text:'這張圖現在是什麼結構？',options:['上升趨勢','下降趨勢','盤整或還不明確'],correct:trendK,feedback:'結構：'+trendText(A.trend)+'（前段高 '+px(A.hi1)+' → 後段高 '+px(A.hi2)+'；前段低 '+px(A.lo1)+' → 後段低 '+px(A.lo2)+'）。',R:RA,chart:chartA,grade:function(st){score('structure',st.ok?1:0);}}),
+    {panels:true,id:'swingHigh',tag:'畫線',head:hA+' 2',title:'股神畢業考',sub:'點選 K 棒',text:'點出近 20 天裡「最高點」的那根 K 棒（D0 不算）。',kind:'candle',mode:'high',R:RA,labelFor:function(k){return'D'+(k-i);},chart:chartA,
+     grade:function(st){var d=Math.abs(st.pick-hiIdx),ok=d<=1||RA.h[st.pick]>=RA.h[hiIdx]*.997;st.ok=ok;st.partial=!ok&&d<=3;score('lines',ok?1:st.partial?.5:0);st.feedback='最高點是 D'+(hiIdx-i)+'（'+px(RA.h[hiIdx])+'）。';}},
+    {panels:true,id:'swingLow',tag:'畫線',head:hA+' 3',title:'股神畢業考',sub:'點選 K 棒',text:'點出近 20 天裡「最低點」的那根 K 棒（D0 不算）。',kind:'candle',mode:'low',R:RA,labelFor:function(k){return'D'+(k-i);},chart:chartA,
+     grade:function(st){var d=Math.abs(st.pick-loIdx),ok=d<=1||RA.l[st.pick]<=RA.l[loIdx]*1.003;st.ok=ok;st.partial=!ok&&d<=3;score('lines',ok?1:st.partial?.5:0);st.feedback='最低點是 D'+(loIdx-i)+'（'+px(RA.l[loIdx])+'）。';}},
+    {panels:true,id:'support',tag:'畫線',head:hA+' 4',title:'股神畢業考',sub:'在圖上畫水平線',text:'在圖上畫出你認為最重要的支撐線。',kind:'price',R:RA,chart:chartA,
+     grade:function(st){var t=pickTol(A),d=Math.abs(st.pick-A.sup);st.target=A.sup;st.ok=d<=t;st.partial=!st.ok&&d<=2*t;score('lines',st.ok?1:st.partial?.5:0);st.feedback='近 20 天支撐約 '+px(A.sup)+'，你畫在 '+px(st.pick)+'（容許 ±'+px(t)+'）。';}},
+    {panels:true,id:'resistance',tag:'畫線',head:hA+' 5',title:'股神畢業考',sub:'在圖上畫水平線',text:'在圖上畫出你認為最重要的壓力線。',kind:'price',R:RA,chart:chartA,
+     grade:function(st){var t=pickTol(A),d=Math.abs(st.pick-A.res);st.target=A.res;st.ok=d<=t;st.partial=!st.ok&&d<=2*t;score('lines',st.ok?1:st.partial?.5:0);st.feedback='近 20 天壓力約 '+px(A.res)+'，你畫在 '+px(st.pick)+'（容許 ±'+px(t)+'）。';}},
+    choice({id:'breakout',tag:'證據',head:hA+' 6',text:'價格和你剛畫的壓力相比，現在是？',options:['已有效突破：收盤站上壓力','正在測試：接近但還沒站上','沒有突破：離壓力還遠'],correct:brK,feedback:'壓力約 '+px(A.res)+'，D0 收盤 '+px(A.c)+'。',R:RA,chart:chartA,grade:function(st){score('evidence',st.ok?1:0);}})
+  ];
+  // chart B — reversal, indicator noise, decision, entry/stop/R:R, plan comparison
+  var chartB=function(st){var g=st.guides||[];return v5Chart(RB,i,{panel:UI.v5Panel&&UI.v5Panel!=='VOL'?UI.v5Panel:'MACD',pricePick:st.kind==='price'&&!st.answered,guides:g,lines:st.answered&&st.target!=null?[{price:st.target,color:'#24d79b',label:'參考失策',dash:true}]:[]});};
+  var prior=maxA(RB.h,i-45,i-25)>=B.c*1.08,pl=minA(RB.l,i-30,i-11),hl=minA(RB.l,i-10,i),revK=!prior?3:minA(RB.l,i-4,i)<pl?2:hl>pl*1.02&&B.c>maxA(RB.h,i-15,i-3)?0:1;
+  var s0=B.trend==='up'?1:B.trend==='down'?-1:0,noiseK=!s0||!B.macdDir?2:s0===B.macdDir?0:1,decK=B.decision==='trade'?0:B.decision==='wait'?1:2;
+  var plans=[{stop:B.stop,target:B.target},{stop:E.roundToTick(B.c*.98,'down'),target:E.roundToTick(B.c*1.2)}],rrOf=function(p){return(p.target-B.c)/Math.max(.0001,B.c-p.stop);};
+  var stepsB=[
+    choice({id:'reversal',tag:'結構',head:hB+' 1',text:'這張圖有沒有出現反轉？',options:['確認反轉：止跌、較高低點、突破前高都出現','止跌但還沒確認','仍在下降，還沒止跌','不是下跌之後的情況'],correct:revK,feedback:'前低 '+px(pl)+'、之後低點 '+px(hl)+'、D0 收盤 '+px(B.c)+'。',R:RB,chart:chartB,grade:function(st){score('structure',st.ok?1:0);if(!st.ok&&st.options[st.picked].label===st.raw[0])v5State().flags.earlyReversal++;}}),
+    choice({id:'noise',tag:'證據',head:hB+' 2',text:'下方 MACD 的訊號，對這張圖是有用的證據，還是雜訊？',options:['和結構一致：可以加分','和結構衝突：當作雜訊、降權','沒有明確訊號'],correct:noiseK,feedback:'結構 '+trendText(B.trend)+'，MACD '+(B.macdDir>0?'偏多':B.macdDir<0?'偏空':'不明確')+'。結構優先。',R:RB,chart:chartB,grade:function(st){score('evidence',st.ok?1:0);}}),
+    choice({id:'decision',tag:'決策',head:hB+' 3',text:'只用 D0 以前的資料：進場、等待，還是放棄？',options:['進場','等待','放棄（不交易）'],correct:decK,feedback:B.why.join('；')+'。',R:RB,chart:chartB,
+      grade:function(st){var pick=st.raw.indexOf(st.options[st.picked].label);score(B.decision==='trade'?'entry':'notrade',st.ok?1:0);if(pick===0){exam.entered=true;if(B.decision!=='trade'){exam.flags.overtrade++;v5State().flags.overtrade++;}if(B.dist!=null&&B.dist>.08){exam.flags.chase++;v5State().flags.chase++;}}
+        score('overtrade',pick===0&&B.decision!=='trade'?0:1);score('chase',pick===0&&B.dist!=null&&B.dist>.08?0:1);
+        if(pick===0){var f=V5.flow,at=f.k+1,e2=E.roundToTick(B.res*1.04),e3=E.roundToTick(B.sup*.96,'down');f.steps.splice(at,0,
+          choice({id:'entry',tag:'進場',head:hB+' 4',text:'你選擇進場。進場價選哪一個？（價格已標在圖上）',options:['D0 收盤附近 '+px(E.roundToTick(B.c)),'等漲過前高 4% 再追 '+px(e2),'跌破支撐 4% 再接 '+px(e3)],correct:0,feedback:'條件到位就在現價執行；追更高或等破底都會破壞 R:R。',R:RB,chart:function(s){s.guides=[E.roundToTick(B.c),e2,e3];return chartB(s);},grade:function(s){score('entry',s.ok?1:0);if(!s.ok&&s.raw.indexOf(s.options[s.picked].label)===1){exam.flags.chase++;v5State().flags.chase++;}}}),
+          {panels:true,id:'stop',tag:'失策',head:hB+' 5',title:'股神畢業考',sub:'在圖上畫失策線',text:'進場前先定失策：在圖上畫出「跌到這裡代表我看錯」的價位。',kind:'price',R:RB,chart:chartB,
+           grade:function(s){var t=Math.max(B.a*.3,B.c*.004),d=Math.abs(s.pick-B.stop);s.target=B.stop;exam.userStop=s.pick;s.ok=s.pick<B.c&&d<=t;s.partial=!s.ok&&s.pick<B.c&&d<=3*t;score('stop',s.ok?1:s.partial?.5:0);if(s.pick>=B.c)v5State().flags.noStop++;s.feedback='結構失策約 '+px(B.stop)+'（支撐 '+px(B.sup)+' 下方留一點波動）。你畫在 '+px(s.pick)+'。'+(s.pick>=B.c?'失策必須在進場價下方。':'');}},
+          {id:'rr',tag:'風報比',head:hB+' 6',title:'股神畢業考',kind:'choice',R:RB,chart:chartB,text:'',options:[],correct:0,lazy:true});}}}),
+    choice({id:'plans',tag:'風報比',head:hB+' 7',text:'比較兩個交易計畫（進場都是 D0 收盤 '+px(B.c)+'），哪一個比較好？',options:['計畫 A：失策 '+px(plans[0].stop)+'（結構）、目標 '+px(plans[0].target)+'（前高），R:R '+rrOf(plans[0]).toFixed(2),'計畫 B：失策 '+px(plans[1].stop)+'（固定 -2%）、目標 '+px(plans[1].target)+'（+20%），R:R '+rrOf(plans[1]).toFixed(2),'兩個都不好：這張圖不交易'],correct:B.decision==='notrade'?2:0,
+      feedback:'R:R 高不代表好計畫：計畫 B 的失策不在結構上、目標也不是下一個壓力，數字只是許願。'+(B.decision==='notrade'?'而且這張圖本來就不該交易。':''),R:RB,chart:function(s){s.guides=[plans[0].stop,plans[0].target,plans[1].stop,plans[1].target];return chartB(s);},grade:function(st){score('rr',st.ok?1:0);}})
+  ];
+  // chart C — manage a position day by day (entered at D0 close with the structural stop)
+  var entry=RCfull.c[i],stopC=CA.stop,stepsC=[],stopped=null;
+  for(var k=1;k<=4;k++)(function(k){var Rk=upTo(RCfull,i+k);stepsC.push({id:'manage'+k,tag:'管理',head:hC+' D+'+k,title:'股神畢業考',sub:'只揭曉到今天收盤',kind:'choice',R:Rk,lazyManage:k,
+    text:'假設你在 D0 收盤 '+px(entry)+' 進場，失策 '+px(stopC)+'。現在揭曉到 D+'+k+'，續抱還是退出？',options:[{label:'續抱'},{label:'以今天收盤退出'}],correct:0,
+    chart:function(){return v5Chart(Rk,i+k,{d0:i,panel:UI.v5Panel&&UI.v5Panel!=='VOL'?UI.v5Panel:null,lines:[{price:entry,color:'#39f5ff',label:'進場',dash:true},{price:stopC,color:'#ff465f',label:'失策',dash:true}],focus:[i+k]});}});})(k);
+  exam.manage={entry:entry,stop:stopC,i:i,R:RCfull};
+  var all=steps.concat(stepsB,stepsC);all.forEach(function(st){st.title=st.title||'股神畢業考';});
+  return{exam:exam,steps:all,B:B,i:i};
+}
+function finalPrepare(st,f){
+  if(st.lazy&&st.id==='rr'){var B=f.ctx.B,stop=f.ctx.exam.userStop!=null&&f.ctx.exam.userStop<B.c?f.ctx.exam.userStop:B.stop,rr=(B.target-B.c)/Math.max(.0001,B.c-stop),o=[rr.toFixed(2),(rr*1.6+.3).toFixed(2),Math.max(.1,rr*.5).toFixed(2)],sh=shuffleOptions(o,0,'FINAL|rr|'+S.seed);
+    st.text='用你的失策 '+px(stop)+'、目標（前高）'+px(B.target)+'、進場 '+px(B.c)+'，R:R 是多少？';st.options=sh.opts.map(function(x){return{label:x};});st.correct=sh.correct;st.feedback='R:R ＝ (目標 − 進場) ÷ (進場 − 失策) ＝ ('+px(B.target)+' − '+px(B.c)+') ÷ ('+px(B.c)+' − '+px(stop)+') ≈ '+rr.toFixed(2)+'。';st.guides=[stop,B.target,B.c];st.lazy=false;st.grade=function(s){f.ctx.score('rr',s.ok?1:0);};}
+  if(st.lazyManage){var m=f.ctx.exam.manage,j=m.i+st.lazyManage,R=m.R;
+    if(R.l[j]<=m.stop){st.kind='choice';st.text='D+'+st.lazyManage+' 最低 '+px(R.l[j])+' 碰到失策 '+px(m.stop)+'，部位已依計畫出場。';st.options=[{label:'了解，照計畫執行'}];st.correct=0;st.stopped=true;}
+    else{var A=analyze(upTo(R,j),j),broken=A.c<=m.stop||A.trend==='down',atT=A.c>=A.target;st.correct=broken||atT?1:0;st.feedback=broken?'結構已轉弱，理由不在了，退出是紀律。':atT?'已到目標附近，獲利了結合理。':'結構與失策都還在，理由沒變就續抱。';}
+    st.lazyManage=0;}
+}
+function finalGradeManage(st,f){var m=f.ctx.exam.manage,R=m.R,k=+st.id.replace('manage',''),j=m.i+k;
+  if(st.stopped){m.exit=Math.min(R.o[j],m.stop);m.exitK=k;st.ok=true;st.feedback='照失策出場就是尊重計畫。';f.steps.length=f.k+1;return;}
+  f.ctx.score('pnl',st.ok?1:.5);if(st.picked===1){m.exit=R.c[j];m.exitK=k;f.steps.length=f.k+1;}else if(st.correct===1)v5State().flags.heldBroken++;}
+function startFinal(){if(!finalUnlocked()){toast('完成全部逐日實戰後才開放股神畢業考');return;}var b=buildFinal(),ctx={exam:b.exam,B:b.B,score:function(dim,v){var d=b.exam.dims[dim]||(b.exam.dims[dim]={n:0,s:0});d.n++;d.s+=v;}};
+  UI.v5Panel='VOL';V5.flow={kind:'final',steps:b.steps,k:0,ctx:ctx,
+    grade:function(st){if(st.id&&st.id.indexOf('manage')===0)finalGradeManage(st,V5.flow);else if(st.grade)st.grade(st);b.exam.answers.push({id:st.id,ok:!!st.ok,partial:!!st.partial});},
+    onDone:function(){finalFinish(b.exam);}};
+  finalPrepare(b.steps[0],V5.flow);v5Show();}
+var _v5Next=ACT_V5.v5Next;ACT_V5.v5Next=function(el){var f=V5.flow;if(f&&f.kind==='final'){var nxt=f.steps[f.k+1];if(nxt)finalPrepare(nxt,f);}return _v5Next(el);};
+function finalFinish(exam){var v=v5State(),m=exam.manage,R=m.R;if(m.exit==null){m.exit=R.c[m.i+4];m.exitK=4;}exam.pnl=m.exit/m.entry-1;
+  var dims={};Object.keys(FINAL_DIMS).forEach(function(k){var d=exam.dims[k];dims[k]=d&&d.n?Math.round(100*d.s/d.n):null;});
+  // P/L dimension: management decisions plus outcome; only one of ten dimensions
+  dims.pnl=Math.round(.5*(dims.pnl==null?50:dims.pnl)+.5*Math.max(0,Math.min(100,50+exam.pnl*500)));
+  if(dims.notrade==null){var nt=v.mixed.notrade;dims.notrade=nt&&nt.n?Math.round(100*nt.ok/nt.n):null;}
+  if(dims.entry==null){var en=v.mixed.entry;dims.entry=en&&en.n?Math.round(100*en.ok/en.n):null;}
+  if(dims.stop==null){var dl=DAILY_SCENARIOS.map(function(sc){return v.daily[sc.id];}).filter(function(r){return r&&r.stopScores&&r.stopScores.length;}),ss=[];dl.forEach(function(r){ss=ss.concat(r.stopScores);});dims.stop=ss.length?Math.round(100*ss.reduce(function(a,b){return a+b;},0)/ss.length):null;}
+  var ent=Math.max(1,v.flags.entries+(exam.entered?1:0));dims.chase=Math.round(100*Math.max(0,1-v.flags.chase/ent));dims.overtrade=Math.round(100*Math.max(0,1-v.flags.overtrade/ent));
+  var vals=Object.keys(dims).filter(function(k){return dims[k]!=null;}),total=Math.round(vals.reduce(function(a,k){return a+dims[k];},0)/Math.max(1,vals.length));
+  v.final={done:true,at:new Date().toISOString(),dims:dims,total:total,pnl:exam.pnl,answers:exam.answers,report:abilityReport(dims)};save();go('finalReport');}
+function abilityReport(dims){var v=v5State(),f=v.flags,keys=Object.keys(dims).filter(function(k){return dims[k]!=null;}).sort(function(a,b){return dims[b]-dims[a];});
+  var fam=[];Object.keys(v.mixed).forEach(function(k){var m=v.mixed[k];if(m.n)fam.push({k:k,rate:m.ok/m.n,n:m.n});});Object.keys(v.skills).forEach(function(k){var m=v.skills[k];if(m.n>=5)fam.push({k:k,rate:m.ok/m.n,n:m.n});});
+  fam.sort(function(a,b){return a.rate-b.rate;});var seen={},mistakes=Object.keys(dims).filter(function(k){return dims[k]!=null&&dims[k]<60;}).sort(function(a,b){return dims[a]-dims[b];}).map(function(k){return FINAL_DIMS[k]+'（'+dims[k]+' 分）';});fam.forEach(function(x){if(!seen[x.k]&&x.rate<.7){seen[x.k]=1;mistakes.push((SKILL_FAMILIES[x.k]||x.k)+'（正確率 '+Math.round(x.rate*100)+'%）');}});
+  var conflict=(v.mixed.conflict&&v.mixed.conflict.n?v.mixed.conflict.ok/v.mixed.conflict.n:1),entries=Math.max(1,f.entries);
+  return{strongest:keys.slice(0,2).map(function(k){return FINAL_DIMS[k];}),weakest:keys.slice(-2).reverse().map(function(k){return FINAL_DIMS[k];}),mistakes:mistakes.slice(0,5),
+    habits:[{q:'是否容易追高',yes:f.chase>0,detail:'追高進場 '+f.chase+' 次（離 MA20 超過 8%）'},{q:'是否過度相信指標',yes:conflict<.6,detail:'指標與結構衝突題正確率 '+Math.round(conflict*100)+'%'},{q:'是否太早猜反轉',yes:f.earlyReversal>0,detail:'在下降結構裡進場或誤判反轉 '+f.earlyReversal+' 次'},{q:'是否會尊重失策',yes:f.noStop===0&&f.heldBroken===0,detail:'未設失策 '+f.noStop+' 次、理由失效仍續抱 '+f.heldBroken+' 次'},{q:'是否有過度交易',yes:f.overtrade/entries>.34,detail:'條件不到位卻進場 '+f.overtrade+' 次（共進場 '+f.entries+' 次）'}]};}
+function finalReport(){var v=v5State(),F=v.final;UI.screen='finalReport';if(!F){go('practiceHome');return;}var r=F.report;
+  var bars=Object.keys(FINAL_DIMS).map(function(k){var x=F.dims[k];return'<div class="v5Dim"><span>'+FINAL_DIMS[k]+'</span><i><b style="width:'+(x==null?0:x)+'%"></b></i><em>'+(x==null?'—':x)+'</em></div>';}).join('');
+  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Report"><h1 class="ckPageTitle">股神畢業考｜能力報告</h1><section class="ckCard v5Total"><b>'+F.total+'</b><span>總分（十個面向平均；最終損益只是其中一項，'+(F.pnl*100).toFixed(2)+'%）</span></section>'+
+    '<section class="ckCard">'+bars+'</section><section class="ckCard v5Lists"><div><h3>你最強的能力</h3><p>'+esc(r.strongest.join('、'))+'</p></div><div><h3>你最弱的能力</h3><p>'+esc(r.weakest.join('、'))+'</p></div><div><h3>常犯錯誤</h3><p>'+esc(r.mistakes.length?r.mistakes.join('、'):'沒有明顯弱項（各面向 60 分以上、各技能正確率 70% 以上）')+'</p></div></section>'+
+    '<section class="ckCard v5Habits">'+r.habits.map(function(h){return'<div><b>'+esc(h.q)+'</b><span class="'+((h.q==='是否會尊重失策'?!h.yes:h.yes)?'bad':'good')+'">'+(h.yes?'是':'否')+'</span><small>'+esc(h.detail)+'</small></div>';}).join('')+'</section>'+
+    '<button class="btn primary full" data-act="practiceHome">回到實戰艙</button></main>'+bottomNav('practiceHome');}
+ACT_V5.startFinal=function(){startFinal();};ACT_V5.finalReport=function(){go('finalReport');};ACT_V5.dailyOpen=function(){go('dailyHome');};
+
+// ── arena: the five layers in order, each with its unlock rule ──
+practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,total=ORDER_IDS.length,av=availableDrills().length,pr=S.practice,ex=S.exam,rate=function(o){return o.total?Math.round(o.correct/o.total*100)+'%':'—';},du=dailyUnlocked(),fu=finalUnlocked();
+  function card(n,title,tag,desc,prog,btn,act,on,cls){return'<section class="ckCard ckArenaCard v5Layer'+(on?'':' locked')+'"><header><span class="v5Step">'+n+'</span><b>'+title+'</b><span class="ckTag'+(cls?' '+cls:'')+'">'+tag+'</span></header><p class="ckMuted">'+desc+'</p>'+prog+'<button class="ckBtn '+(cls==='gold'?'ckGold':'ckCyan')+'" data-act="'+act+'" '+(on?'':'disabled')+'>'+btn+' ›</button></section>';}
+  app.innerHTML=scan+hud(true)+'<main class="ckPage ckArena"><div class="ckArenaHead">'+chickImg(fu&&v.final?'god':'scholar','ckAvatar')+'<div><h1 class="ckPageTitle">實戰艙</h1><p class="ckMuted">核心教學 → 技能訓練場 → 混合判圖 → 逐日實戰 → 股神畢業考。每一層都只用前面教過的東西。</p></div></div>'+
+    card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
+    card(2,'技能訓練場','第 '+pr.round+' 輪','學過的技能才會進題池，同一技能換很多張不同的歷史圖。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',av>=3)+
+    card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 位置 → 證據 → 是否交易 → 進場與失策。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',coreComplete()&&ex.idx<100,'gold')+
+    card(4,'逐日實戰',dailyDone()+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
+    card(5,'股神畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成全部逐日實戰後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
+    (v.final?'<button class="btn ghost full" data-act="finalReport">查看能力報告</button>':'')+'</main>'+bottomNav('practiceHome');};
+
+var _v5Render=render;
+render=function(){if(UI.screen==='v5')return v5Show();if(UI.screen==='daily')return dailyScreen();if(UI.screen==='dailyHome')return dailyHome();if(UI.screen==='finalReport')return finalReport();return _v5Render();};
+// Test / audit surface (read-only helpers + state setters used by the CI behaviour tests).
+window.BSG_V5={layers:CT.LAYERS,order:function(){return ORDER_IDS.slice();},drills:V5.drills,mixed:V5.mixed,daily:V5.daily,final:{pool:FINAL_POOL,unlocked:finalUnlocked,dims:FINAL_DIMS,build:function(){return buildFinal();}},
+  analyze:function(R,j){return analyze(upTo(R,j),j);},upTo:upTo,coreComplete:coreComplete,dailyUnlocked:dailyUnlocked,flow:function(){return V5.flow;},state:function(){return v5State();},
+  start:{practice:function(){return startPractice();},exam:function(){return startMixed();},daily:function(id){var b=document.createElement('button');b.dataset.id=id;ACT_V5.dailyStart(b);},final:function(){return startFinal();}}};

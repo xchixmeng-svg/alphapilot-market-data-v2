@@ -1,0 +1,221 @@
+
+// ───────────── Lesson content: M51–M63 (V5 core gaps) ─────────────
+// Abilities the 50-lesson skeleton did not teach explicitly. Each lesson is placed in CT.ORDER right after the
+// lesson it extends, follows teach → demo → guided → practice → solo, and every exact-price question shows
+// that price on the chart (priceGuides). Prices are always legal Taiwan ticks.
+(function(){
+  var TICKS=[.01,.05,.1,.5,1,5];
+  function tk(p){return E.tickSize(p);}
+  function up1(p){return E.roundToTick(p+tk(p));}
+  function fmtTick(t){return(t<.1?t.toFixed(2):t<1?t.toFixed(1):String(t))+' 元';}
+  function bandText(p){return p<10?'10 元以下':p<50?'10～50 元':p<100?'50～100 元':p<500?'100～500 元':p<1000?'500～1000 元':'1000 元以上';}
+  function illegal(p,shift){var t=tk(p),d=t>=5?0:t>=.5?1:t>=.05?2:3,x=+(p+shift*t).toFixed(d);if(Math.abs(x/t-Math.round(x/t))<1e-9)x=+(x+(t>=5?1:Math.pow(10,-d))).toFixed(d);return x.toFixed(d);}
+  function clean(c,o){o=o||{};var out=c.out;out.showMA=o.ma||false;out.showVolume=!!o.vol;out.zones=[];out.markers=[];out.lines=[];out.allowCross=false;out.focusCandles=o.focus||[];out.priceGuides=(o.guides||[]).filter(function(p){return isFinite(p)&&p>0;});if(o.vol&&o.focusVolume!=null)out.focusVolume=o.focusVolume;return out;}
+  // A labelled line already prints its price on the axis; drop the duplicate guide badge for the same price.
+  function done(c){var L=(c.out.lines||[]).map(function(x){return px(x.price);});c.out.priceGuides=(c.out.priceGuides||[]).filter(function(p){return L.indexOf(px(p))<0;});}
+  function argMax(a,s,e){var b=s,v=-Infinity;for(var k=Math.max(0,s);k<=Math.min(a.length-1,e);k++)if(a[k]>v){v=a[k];b=k;}return b;}
+  function argMin(a,s,e){var b=s,v=Infinity;for(var k=Math.max(0,s);k<=Math.min(a.length-1,e);k++)if(a[k]<v){v=a[k];b=k;}return b;}
+  function avgV(R,s,e){var n=0,t=0;for(var k=Math.max(0,s);k<=Math.min(R.v.length-1,e);k++){t+=R.v[k];n++;}return n?t/n:0;}
+
+  // ── M51 tick size ──
+  defineLesson({id:51,
+    ask:[
+      {text:function(c){return'收盤 '+px(c.q.c)+' 元。這個價位一檔跳動是多少？';},
+       options:function(c){var t=tk(c.q.c),k=TICKS.indexOf(t),w=TICKS.filter(function(x){return x!==t;}).sort(function(a,b){return Math.abs(TICKS.indexOf(a)-k)-Math.abs(TICKS.indexOf(b)-k);});return{options:[fmtTick(t),fmtTick(w[0]),fmtTick(w[1])],correct:0};}},
+      {text:'下面哪一個價格「可能」是台股的成交價？',
+       options:function(c){var p=E.roundToTick(c.q.c);return{options:[px(p),illegal(p,.4),illegal(p,-.6)],correct:0};}},
+      {text:function(c){return'從收盤 '+px(E.roundToTick(c.q.c))+' 元往上漲 3 檔，是多少元？';},
+       options:function(c){var p0=E.roundToTick(c.q.c),p=p0;for(var k=0;k<3;k++)p=up1(p);var t=tk(p0),k0=TICKS.indexOf(t),alts=TICKS.filter(function(x){return x!==t;}).sort(function(a,b){return Math.abs(TICKS.indexOf(a)-k0)-Math.abs(TICKS.indexOf(b)-k0);}),o=[px(p)];for(var j=0;j<alts.length&&o.length<3;j++){var x=alts[j],v=(p0+3*x).toFixed(x<.1?2:x<1?1:0);if(o.indexOf(v)<0&&Math.abs(+v-p)>1e-9)o.push(v);}return{options:o,correct:0};}}
+    ],
+    explain:function(c){var p=E.roundToTick(c.q.c);return px(p)+' 元落在'+bandText(p)+'，一檔是 '+fmtTick(tk(p))+'。台股價格只會落在這些「檔位」上；跨過 10、50、100、500、1000 元時，檔位大小會改變。';},
+    hints:function(c){var p=E.roundToTick(c.q.c);return['先看 '+px(p)+' 落在哪個價位區間：'+bandText(p)+'。','這個區間一檔是 '+fmtTick(tk(p))+'；不可能成交的價格，除以一檔不會剛好整除。'];},
+    chart:function(c){var p=E.roundToTick(c.R.c[c.i]);clean(c,{focus:[c.i],guides:[p]});}
+  });
+
+  // ── M52 unclear structure ──
+  function structureClass(q){var hu=q.hi2>q.hi1*1.005,hd=q.hi2<q.hi1*.995,lu=q.lo2>q.lo1*1.005,ld=q.lo2<q.lo1*.995;return hu&&lu?0:hd&&ld?1:2;}
+  function structureMarks(c,labels){var R=c.R,i=c.i,a=argMax(R.h,i-24,i-13),b=argMax(R.h,i-12,i),d=argMin(R.l,i-24,i-13),e=argMin(R.l,i-12,i);
+    c.out.markers=[{idx:a,price:R.h[a],label:labels?'前段高':'',color:'#9876ff',prefer:'above'},{idx:b,price:R.h[b],label:labels?'後段高':'',color:'#39f5ff',prefer:'above'},{idx:d,price:R.l[d],label:labels?'前段低':'',color:'#9876ff',prefer:'below'},{idx:e,price:R.l[e],label:labels?'後段低':'',color:'#39f5ff',prefer:'below'}];
+    c.out.priceGuides=[R.h[a],R.h[b],R.l[d],R.l[e]];}
+  defineLesson({id:52,
+    ask:[
+      {text:'「高點墊高、低點卻降低」這種結構，應該怎麼稱呼？',options:['結構尚未明確，先別硬判趨勢','上升趨勢','下降趨勢']},
+      {text:'圖上標出前後兩段的高點與低點（右側有價格）。目前的結構是？',
+       options:function(c){return{options:['上升：高點與低點都墊高','下降：高點與低點都降低','還不明確：高低點方向不一致或沒有拉開'],correct:structureClass(c.q)};}},
+      {text:'結構還不明確時，最合理的做法是？',options:['等更多高低點出現，再判斷方向','先猜它會往上','用最後一根 K 的顏色決定']}
+    ],
+    explain:function(c){var k=structureClass(c.q);return'前段高 '+px(c.q.hi1)+' → 後段高 '+px(c.q.hi2)+'；前段低 '+px(c.q.lo1)+' → 後段低 '+px(c.q.lo2)+'。'+(k===0?'高低點都墊高，是上升結構。':k===1?'高低點都降低，是下降結構。':'高低點方向不一致或幾乎沒變，結構還不明確——這時「看不出來」就是正確答案。');},
+    hints:['只比兩組數字：後段高 vs 前段高、後段低 vs 前段低。','兩組都往上才叫上升，都往下才叫下降；其他情況都是還不明確。'],
+    chart:function(c){clean(c,{});structureMarks(c,true);}
+  });
+
+  // ── M53 find the wrong line ──
+  // Support/resistance = price levels where several swing lows/highs cluster; the wrong line cuts straight through
+  // candle bodies in the middle of recent trading, with no high or low reacting there.
+  // Everything is judged on the 60 bars the learner sees. Swing points = local extremes (±3 bars).
+  function swings(R,i){var hs=[],ls=[];for(var k=i-56;k<=i-3;k++){var h=true,l=true;for(var j=k-3;j<=k+3;j++){if(j===k)continue;if(R.h[j]>R.h[k])h=false;if(R.l[j]<R.l[k])l=false;}if(h)hs.push(R.h[k]);if(l)ls.push(R.l[k]);}return{hs:hs,ls:ls};}
+  function clusterOf(pts,from,to,t){var best=null,bn=0;pts.forEach(function(L){if(L<from||L>to)return;var n=pts.filter(function(x){return Math.abs(x-L)<=t;}).length;if(n>bn){bn=n;best=L;}});return{level:best,n:bn};}
+  function lineSet(R,i){var a=R.atr[i]||R.c[i]*.02,lo=minA(R.l,i-59,i),hi=maxA(R.h,i-59,i),rg=hi-lo,sw=swings(R,i),S=clusterOf(sw.ls,lo,lo+rg*.35,a*.35),H=clusterOf(sw.hs,hi-rg*.35,hi,a*.35),all=sw.hs.concat(sw.ls),W=null,wd=-1,wb=0;
+    for(var g=0;g<=24;g++){var L=lo+rg*(.3+.4*g/24),d=Infinity,bod=0;all.forEach(function(x){d=Math.min(d,Math.abs(x-L));});for(var k=i-59;k<=i;k++)if(Math.min(R.o[k],R.c[k])<=L&&Math.max(R.o[k],R.c[k])>=L)bod++;if(bod>=2&&d>wd){wd=d;W=L;wb=bod;}}
+    var sup=E.roundToTick(S.level||lo),res=E.roundToTick(H.level||hi),mid=E.roundToTick(W||((lo+hi)/2)),perm=[[0,1,2],[1,2,0],[2,0,1],[0,2,1],[2,1,0],[1,0,2]][Math.round(R.c[i]*100)%6],lv=[sup,res,mid],kind=['support','resistance','wrong'];
+    return{lines:perm.map(function(k){return{price:lv[k],kind:kind[k]};}),ok:S.n>=2&&H.n>=2&&W!=null&&wd>=a*.9&&rg/R.c[i]>=.08};}
+  var ABC=['A','B','C'];
+  defineLesson({id:53,
+    sample:function(s){return lineSet(s.R,s.i).ok;},
+    ask:[
+      {text:'一條合理的支撐線附近，通常會看到什麼？',options:['價格多次在這附近止跌或轉折','剛好是整數價位','只出現過一次大量']},
+      {text:'圖上有 A、B、C 三條水平線。哪一條最不像支撐或壓力（畫錯了）？',options:function(c){var L=lineSet(c.R,c.i),w=L.lines.findIndex(function(x){return x.kind==='wrong';});return{options:['A 線','B 線','C 線'],correct:w};}},
+      {text:'換一張圖再檢查一次：A、B、C 哪一條是畫錯的線？',options:function(c){var L=lineSet(c.R,c.i),w=L.lines.findIndex(function(x){return x.kind==='wrong';});return{options:['A 線','B 線','C 線'],correct:w};}}
+    ],
+    explain:function(c){var L=lineSet(c.R,c.i);return L.lines.map(function(x,k){return ABC[k]+' 線 '+px(x.price)+(x.kind==='wrong'?'：價格直接穿過去，圖上沒有任何轉折高點或低點停在這裡，畫錯了':'：圖上有多個轉折'+(x.kind==='support'?'低點在這裡止跌':'高點在這裡被壓回'));}).join('；')+'。';},
+    hints:['數一數：每條線附近，有幾根 K 的最高或最低剛好碰到又轉向？','直接從一堆 K 棒實體中間穿過、沒有任何高低點停在那裡的線，就是畫錯的線。'],
+    chart:function(c){var L=lineSet(c.R,c.i);clean(c,{guides:L.lines.map(function(x){return x.price;})});
+      L.lines.forEach(function(x,k){var lab=c.quiz?ABC[k]:ABC[k]+(x.kind==='wrong'?'｜只是路過':x.kind==='support'?'｜多次止跌':'｜多次壓回');c.out.lines.push({price:x.price,color:x.kind==='wrong'&&!c.quiz?'#ff465f':'#9fb6c8',label:lab,dash:true});});done(c);}
+  });
+
+  // ── M54 role reversal ──
+  function r2Of(R,i){return maxA(R.h,i-25,i-6);}
+  function brokeAbove(R,lv,s,e,k){for(var j=s;j<=e;j++)if(R.c[j]>lv*(k||1.005))return true;return false;}
+  function roleClass(R,i){var r=r2Of(R,i),c=R.c[i];return c>=r*1.005?0:c<r*.995?1:2;}
+  defineLesson({id:54,
+    sample:function(s){var R=s.R,i=s.i,r=r2Of(R,i);return brokeAbove(R,r,i-5,i-1)&&Math.abs(R.c[i]/r-1)<.04;},
+    ask:[
+      {text:'「突破後角色互換」是什麼意思？',options:['原本的壓力被有效突破後，可能轉成支撐','支撐和壓力每天輪流','所有的線都會反過來']},
+      {text:function(c){return'價格先站上原壓力 '+px(r2Of(c.R,c.i))+'，現在回到附近。D0 收盤和這條線的關係是？';},
+       options:function(c){return{options:['守在原壓力上方：角色互換進行中','跌回原壓力下方：角色互換失敗','貼著原壓力：還在測試'],correct:roleClass(c.R,c.i)};}},
+      {text:'回測時收盤明顯跌回原壓力下方，代表？',options:['角色互換失敗，這次突破可能失效','支撐變得更強','應該加碼攤平']}
+    ],
+    explain:function(c){var r=r2Of(c.R,c.i),k=roleClass(c.R,c.i);return'原壓力約 '+px(r)+'，D0 收盤 '+px(c.R.c[c.i])+'。'+(k===0?'收盤守在上方，原壓力正在轉成支撐，但仍要看後面幾天守不守。':k===1?'收盤跌回下方，角色互換失敗，突破論點要重新檢查。':'收盤貼著這條線，回測還沒有結果，先等。');},
+    hints:function(c){return['找到圖上的關鍵價 '+px(r2Of(c.R,c.i))+'，那是突破前的壓力。','只比 D0 收盤和它：在上面、在下面，還是幾乎一樣？'];},
+    chart:function(c){var r=r2Of(c.R,c.i);clean(c,{guides:[r,c.R.c[c.i]],focus:[c.i]});c.out.lines.push({price:r,color:'#ffd44a',label:c.quiz?'關鍵價':'原壓力 → 可能變支撐',dash:true});done(c);}
+  });
+
+  // ── M55 retest failure ──
+  function r3Of(R,i){return maxA(R.h,i-30,i-10);}
+  function retestClass(R,i){var r=r3Of(R,i),c=R.c[i];return c>=r*1.005?0:c<r*.985?1:2;}
+  defineLesson({id:55,
+    sample:function(s){var R=s.R,i=s.i,r=r3Of(R,i);return brokeAbove(R,r,i-9,i-3)&&Math.abs(R.c[i]/r-1)<.06;},
+    ask:[
+      {text:'回測成功與回測失敗，分界主要看什麼？',options:['收盤有沒有守在原壓力（突破價）上方','當天是紅 K 還是綠 K','成交量是不是最大']},
+      {text:function(c){return'價格曾突破 '+px(r3Of(c.R,c.i))+'，之後回測。到 D0 為止，回測的結果是？';},
+       options:function(c){return{options:['回測成功：收盤守在原壓力上方','回測失敗：收盤跌回原壓力下方','還在測試：收盤貼著原壓力'],correct:retestClass(c.R,c.i)};}},
+      {text:'回測失敗之後，最合理的處理是？',options:['原突破論點失效：持有就照失策處理，沒進場就不追','攤平加碼','等它自己漲回來']}
+    ],
+    explain:function(c){var r=r3Of(c.R,c.i),k=retestClass(c.R,c.i);return'突破價約 '+px(r)+'，D0 收盤 '+px(c.R.c[c.i])+'。'+(k===0?'收盤守在突破價上方，回測目前成功。':k===1?'收盤明顯跌回突破價下方（超過 1.5%），回測失敗。':'收盤還貼著突破價，結果未定，不要提前下結論。');},
+    hints:function(c){return['突破價是 '+px(r3Of(c.R,c.i))+'（圖上的關鍵價）。','跌回下方超過約 1.5% 才算失敗；上方 0.5% 以上算守住。'];},
+    chart:function(c){var r=r3Of(c.R,c.i);clean(c,{guides:[r,c.R.c[c.i]],focus:[c.i]});c.out.lines.push({price:r,color:'#ffd44a',label:c.quiz?'突破價':'突破價｜回測要守住',dash:true});done(c);}
+  });
+
+  // ── M56 volume conflict ──
+  function volClass(R,i){var chg=R.c[i]/R.c[i-5]-1,vr=avgV(R,i-4,i)/Math.max(1,avgV(R,i-24,i-5)),pu=chg>.015,pd=chg<-.015,vu=vr>1.1,vd=vr<.9;return{chg:chg,vr:vr,cls:pu&&vd?0:pd&&vu?1:2,ok:(pu||pd)&&(vu||vd)};}
+  defineLesson({id:56,
+    sample:function(s){return volClass(s.R,s.i).ok;},
+    ask:[
+      {text:'「價漲量縮」通常代表什麼？',options:['上漲的追價力道變弱，延續性要打折','上漲一定會更強','成交量和價格沒有關係']},
+      {text:'比較最近 5 天的價格方向，以及這 5 天的量和前面 20 天比。量價關係是？',
+       options:function(c){return{options:['價漲量縮：量價衝突','價跌量增：賣壓積極','量價同向：漲時量增或跌時量縮'],correct:volClass(c.R,c.i).cls};}},
+      {text:'「價跌量增」最需要注意什麼？',options:['賣壓積極，下跌可能延續，不要急著接','代表馬上會反彈','量大就是買點']}
+    ],
+    explain:function(c){var v=volClass(c.R,c.i);return'最近 5 天價格 '+(v.chg>=0?'+':'')+(v.chg*100).toFixed(1)+'%，這 5 天平均量是前 20 天的 '+v.vr.toFixed(2)+' 倍。'+(v.cls===0?'價漲但量縮：上漲參與度下降。':v.cls===1?'價跌而量增：賣壓積極。':'價量同向，相對健康。');},
+    hints:['先只看價格：5 天前收盤和今天收盤，誰高？','再看量：最後 5 根量柱，比前面的量柱高還是矮？'],
+    chart:function(c){var i=c.i;clean(c,{vol:true,focus:[i-4,i-3,i-2,i-1,i],guides:[c.R.c[i-5],c.R.c[i]]});if(!c.quiz)c.out.markers=[{idx:i-5,price:c.R.c[i-5],label:'5 天前收盤',color:'#9876ff',prefer:'side'},{idx:i,price:c.R.c[i],label:'今天收盤',color:'#39f5ff',prefer:'side'}];}
+  });
+
+  // ── M57 breakout volume ──
+  function bvClass(R,i){var ph=maxA(R.h,i-20,i-1),vr=R.v[i]/Math.max(1,avgV(R,i-20,i-1));return{ph:ph,vr:vr,cls:vr>=1.5?0:vr<.9?2:1};}
+  defineLesson({id:57,
+    sample:function(s){var R=s.R,i=s.i;return R.c[i]>maxA(R.h,i-20,i-1)*1.002;},
+    ask:[
+      {text:'「有量突破」的量，大概要多大？',options:['明顯高於 20 日均量（約 1.5 倍以上）','只要是紅 K 就算','比昨天多一張就算']},
+      {text:function(c){return'今天收盤站上前 20 日高點 '+px(bvClass(c.R,c.i).ph)+'。看今天的量柱和前 20 天比，這次突破是？';},
+       options:function(c){return{options:['有量突破：量明顯放大','量能普通：沒有特別放大','無量突破：量比平常還少'],correct:bvClass(c.R,c.i).cls};}},
+      {text:'無量突破最合理的看法是？',options:['不一定失敗，但要等回測或後續量能確認','一定是假突破','一定會大漲']}
+    ],
+    explain:function(c){var b=bvClass(c.R,c.i);return'今天量約是前 20 日均量的 '+b.vr.toFixed(2)+' 倍。'+(b.cls===0?'1.5 倍以上，屬於有量突破，可信度較高。':b.cls===2?'低於 0.9 倍，量縮突破，要等確認。':'量能普通，突破的可信度一般。');},
+    hints:['只看最後一根量柱，和前面 20 根的平均高度比。','高很多（約 1.5 倍）＝有量；比平常矮＝無量。'],
+    chart:function(c){var b=bvClass(c.R,c.i);clean(c,{vol:true,focusVolume:c.i,focus:[c.i],guides:[b.ph,c.R.c[c.i]]});c.out.lines.push({price:b.ph,color:'#ffd44a',label:c.quiz?'前高':'前 20 日高點',dash:true});done(c);}
+  });
+
+  // ── M58 no trade ──
+  function plan(c){var q=c.q,i=q.i,stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down'),target=E.roundToTick(q.res>q.c?q.res:maxA(c.R.h,i-60,i-1)),risk=q.c-stop,rr=risk>0?(target-q.c)/risk:0,good=q.trendUp&&q.ma&&q.c>q.ma&&(q.dist==null||q.dist<.08)&&rr>=1.5,no=q.trendDown||rr<1||(q.dist!=null&&q.dist>.1);return{stop:stop,target:target,rr:rr,cls:good?0:no?2:1};}
+  defineLesson({id:58,
+    ask:[
+      {text:'什麼時候「不交易」是正確答案？',options:['證據不足、位置不好或 R:R 不划算時','每張圖都一定要找到買點','剛賠錢之後要馬上扳回']},
+      {text:function(c){var p=plan(c);return'D0 失策約 '+px(p.stop)+'、上方目標約 '+px(p.target)+'、R:R 約 '+p.rr.toFixed(2)+'。依趨勢、位置與 R:R，最好的選擇是？';},
+       options:function(c){return{options:['證據完整，可以列入考慮','等待更多證據','不交易'],correct:plan(c).cls};}},
+      {text:function(c){var p=plan(c);return'換一張圖。失策約 '+px(p.stop)+'、目標約 '+px(p.target)+'、R:R 約 '+p.rr.toFixed(2)+'。現在該怎麼做？';},
+       options:function(c){return{options:['證據完整，可以列入考慮','等待更多證據','不交易'],correct:plan(c).cls};}}
+    ],
+    explain:function(c){var p=plan(c),q=c.q;return'趨勢'+(q.trendUp?'向上':q.trendDown?'向下':'不明')+'、收盤'+(q.ma?(q.c>q.ma?'在 MA20 上方':'在 MA20 下方'):'')+(q.dist!=null?'（乖離 '+(q.dist*100).toFixed(1)+'%）':'')+'、R:R '+p.rr.toFixed(2)+'。'+(p.cls===0?'條件都到位，可以列入考慮。':p.cls===2?'下降趨勢、乖離過大或 R:R 不到 1，不交易就是最好的交易。':'還差一些證據，先等待。');},
+    hints:['先看趨勢：下降趨勢裡不找買點。','再看 R:R：不到 1 就不划算；1.5 以上且趨勢向上、離 MA20 不遠，才列入考慮。'],
+    chart:function(c){var q=criterion(58,c.R),stop=E.roundToTick(Math.max(.01,q.sup-q.a*.45),'down'),target=E.roundToTick(q.res>q.c?q.res:maxA(c.R.h,c.i-60,c.i-1));clean(c,{ma:'ma20',guides:[stop,target,c.R.c[c.i]]});c.out.lines.push({price:stop,color:'#ff465f',label:'失策',dash:true},{price:target,color:'#ffd44a',label:'目標',dash:true});done(c);}
+  });
+
+  // ── M59 MACD zero line & failed divergence ──
+  function macdSide(c){var m=c.ind&&c.ind.macd,d=m&&m.dif[c.i],a=c.R.atr[c.i]||c.R.c[c.i]*.02;return !isFinite(d)?2:Math.abs(d)<a*.05?2:d>0?0:1;}
+  defineLesson({id:59,
+    ask:[
+      {text:'DIF 在零軸上方，代表什麼背景？',options:['短期均線在長期均線之上，背景偏多','一定會上漲','和趨勢沒有關係']},
+      {text:'看下方 MACD：DIF 目前在零軸的哪一邊？',options:function(c){return{options:['零軸上方','零軸下方','貼近零軸（幾乎是 0）'],correct:macdSide(c)};}},
+      {text:'出現偏空背離後，價格卻繼續創新高，這代表？',options:['背離失敗：價格結構仍強，背離只是警訊','背離成功，應該立刻放空','MACD 壞掉了']}
+    ],
+    explain:function(c){if(!c.ind)return null;var d=c.ind.macd.dif[c.i];return'D0 的 DIF 約 '+d.toFixed(3)+'。零軸上方＝背景偏多、下方＝背景偏空；背離只是警訊，價格結構沒轉弱之前，背離可以一直失敗。';},
+    hints:['只看 DIF（青色線）和中間那條 0 的水平線。','線在 0 上面就是零軸上方；幾乎貼著 0 才選貼近零軸。'],
+    chart:function(c,k){clean(c,{});k.indicator('MACD',{thresholds:[0]});}
+  });
+
+  // ── M60 KD cross failure ──
+  function kdCross(c){var kd=c.ind&&c.ind.kd,i=c.i;if(!kd)return null;for(var j=i-1;j>=i-15;j--){var a=kd.k[j-1]-kd.d[j-1],b=kd.k[j]-kd.d[j];if(isFinite(a)&&isFinite(b)&&a*b<0)return{idx:j,golden:b>0};}return null;}
+  function kdClass(c){var x=kdCross(c);if(!x)return 2;var mv=c.R.c[c.i]-c.R.c[x.idx];return (x.golden?mv>0:mv<0)?0:1;}
+  defineLesson({id:60,
+    ask:[
+      {text:'KD 黃金交叉之後，價格卻繼續破底，代表？',options:['交叉失敗，價格結構優先','KD 錯了，要反向操作','繼續相信交叉，加碼買']},
+      {text:'圖上標出最近一次 K、D 交叉的那一天。交叉之後，價格有沒有照交叉的方向走？',options:function(c){return{options:['有：價格照交叉方向走','沒有：價格反方向走（交叉失敗）','最近 15 天沒有交叉'],correct:kdClass(c)};}},
+      {text:'KD 在 20 以下黃金交叉，最穩健的用法是？',options:['等價格也止跌、出現較高低點，再提高權重','立刻全部買進','忽略價格，只看 KD']}
+    ],
+    explain:function(c){var x=kdCross(c);if(!x)return'最近 15 天 K、D 沒有交叉。';return'交叉日收盤 '+px(c.R.c[x.idx])+'（'+(x.golden?'黃金交叉':'死亡交叉')+'），D0 收盤 '+px(c.R.c[c.i])+'。'+(kdClass(c)===0?'價格照交叉方向走。':'價格反方向走，這次交叉失敗——價格結構優先。');},
+    hints:['先找標記的交叉日，看那天是 K 往上穿 D（黃金）還是往下穿（死亡）。','再比交叉日收盤和 D0 收盤：方向一致就是有照走。'],
+    chart:function(c,k){var x=kdCross(c);clean(c,{guides:x?[c.R.c[x.idx],c.R.c[c.i]]:[c.R.c[c.i]]});k.indicator('KD');if(x)c.out.markers=[{idx:x.idx,price:c.R.c[x.idx],label:x.golden?'黃金交叉日':'死亡交叉日',color:'#ffd44a',prefer:'side'}];}
+  });
+
+  // ── M61 RSI divergence, sticky, false signal ──
+  function rsiClass(c){var r=c.ind&&c.ind.rsi14,hi=0,lo=0;if(!r)return 2;for(var j=c.i-9;j<=c.i;j++){if(r[j]>=70)hi++;if(r[j]<=30)lo++;}return hi>=7?0:lo>=7?1:2;}
+  defineLesson({id:61,
+    sample:function(s){var r=E.teachingIndicators?E.teachingIndicators(s.R).rsi14:null,hi=0,lo=0;if(!r)return true;for(var j=s.i-9;j<=s.i;j++){if(r[j]>=70)hi++;if(r[j]<=30)lo++;}return hi>=6||lo>=6||Math.round(s.R.c[s.i]*100)%3===0;},
+    ask:[
+      {text:'價格創新低，但 RSI 的低點卻墊高，這叫？',options:['偏多背離：下跌動能減弱的警訊','偏空背離','RSI 鈍化']},
+      {text:'看下方 RSI14 最近 10 天的位置，目前是？',options:function(c){return{options:['高檔鈍化：大多停在 70 以上','低檔鈍化：大多停在 30 以下','沒有鈍化'],correct:rsiClass(c)};}},
+      {text:'RSI 跌破 30 後隔天反彈，就代表反轉了嗎？',options:['不一定，可能只是假訊號，還要看價格結構','是，一定反轉','RSI 30 以下一律買進']}
+    ],
+    explain:function(c){if(!c.ind)return null;return'D0 RSI14 約 '+c.ind.rsi14[c.i].toFixed(1)+'。10 天裡有 7 天以上停在 70 以上（或 30 以下）才叫鈍化；鈍化代表強勢（弱勢）在延續，不是反轉訊號。';},
+    hints:['數最近 10 天：RSI 線在 70 那條虛線上方的有幾天？在 30 下方的有幾天？','7 天以上才算鈍化。'],
+    chart:function(c,k){clean(c,{});k.indicator('RSI14');}
+  });
+
+  // ── M62 failed reversal ──
+  function revClass(R,i){var pl=minA(R.l,i-30,i-16),hl=minA(R.l,i-15,i-5),now=minA(R.l,i-4,i);if(!(hl>pl*1.01))return 2;return now<hl?1:0;}
+  defineLesson({id:62,
+    sample:function(s){var R=s.R,i=s.i;return maxA(R.h,i-45,i-31)>minA(R.l,i-30,i-16)*1.08;},
+    ask:[
+      {text:'下降趨勢出現較高低點後，又跌破那個低點，代表？',options:['反轉失敗，回到下降結構','反轉成功','沒有任何意義']},
+      {text:'圖上標出前低與之後的低點。到 D0 為止，反轉進度是？',options:function(c){return{options:['反轉進行中：較高低點守住','反轉失敗：已跌破較高低點','還沒出現較高低點'],correct:revClass(c.R,c.i)};}},
+      {text:'反轉失敗時，原本設好的失策應該怎麼處理？',options:['照原計畫執行，退出','把失策往下移','加碼攤平']}
+    ],
+    explain:function(c){var R=c.R,i=c.i,pl=minA(R.l,i-30,i-16),hl=minA(R.l,i-15,i-5),k=revClass(R,i);return'前低 '+px(pl)+'，之後的低點 '+px(hl)+'。'+(k===2?'沒有明顯比前低高，還沒出現較高低點。':k===1?'較高低點出現後又被跌破（最近低點 '+px(minA(R.l,i-4,i))+'），反轉失敗。':'較高低點目前守住，反轉還在進行，但要突破前高才算確認。');},
+    hints:['先比兩個低點：之後的低點有沒有比前低高 1% 以上？','有的話，再看最近幾天有沒有跌破那個較高低點。'],
+    chart:function(c){var R=c.R,i=c.i,a=argMin(R.l,i-30,i-16),b=argMin(R.l,i-15,i-5);clean(c,{guides:[R.l[a],R.l[b],R.c[i]]});c.out.markers=[{idx:a,price:R.l[a],label:'前低',color:'#9876ff',prefer:'below'},{idx:b,price:R.l[b],label:c.quiz?'之後的低點':'之後的低點（較高低點？）',color:'#39f5ff',prefer:'below'}];}
+  });
+
+  // ── M63 three entry types ──
+  function entryClass(R,i){var ph=maxA(R.h,i-20,i-1),r=r2Of(R,i);if(R.c[i]>ph*1.002)return 0;if(brokeAbove(R,r,i-12,i-3)&&Math.abs(R.c[i]/r-1)<.03&&R.c[i]>=r*.99)return 1;return 2;}
+  defineLesson({id:63,
+    ask:[
+      {text:'突破進、回測進、確認後進，主要差在哪？',options:['越早進場風險越大；越晚確認越多，但價格較差','三種完全一樣','只有突破進是對的']},
+      {text:'依目前位置，哪一種進場方式最符合現在的狀況？',options:function(c){return{options:['突破進：今天正站上前高','回測進：突破後回到原壓力附近守住','都不符合：先等待'],correct:entryClass(c.R,c.i)};}},
+      {text:'選擇「回測進」的主要好處是？',options:['失策點比較近，R:R 通常比較好','保證一定成交','不用設失策']}
+    ],
+    explain:function(c){var R=c.R,i=c.i,k=entryClass(R,i);return k===0?'今天收盤站上前 20 日高點 '+px(maxA(R.h,i-20,i-1))+'，屬於突破進的時機（最早，也最可能遇到假突破）。':k===1?'之前已突破 '+px(r2Of(R,i))+'，現在回到附近守住，屬於回測進的時機。':'現在既不是突破當下，也不是守住的回測，先等待。';},
+    hints:['先看今天有沒有站上前 20 天最高點（突破進）。','沒有的話，看是不是突破後回到原壓力附近（回測進）；都不是就等待。'],
+    chart:function(c){var R=c.R,i=c.i,ph=maxA(R.h,i-20,i-1),r=r2Of(R,i);clean(c,{vol:true,guides:[ph,r,R.c[i]]});c.out.lines.push({price:ph,color:'#ffd44a',label:c.quiz?'前高':'前 20 日高',dash:true});if(Math.abs(r-ph)/ph>.01)c.out.lines.push({price:r,color:'#9fb6c8',label:c.quiz?'原壓力':'原壓力（回測位置）',dash:true});done(c);}
+  });
+})();

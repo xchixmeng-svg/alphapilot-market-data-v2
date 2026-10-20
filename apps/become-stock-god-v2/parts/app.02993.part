@@ -1,0 +1,35 @@
+
+// ═════════════ Layer 3 — MIXED_CASES: the 100-chart blind mixed exam ═════════════
+// No topic labels. Each case is one unfamiliar chart (isolated 2024–2025 pool) judged in the order a trader
+// would: structure → location → evidence → agreement → decision → (entry + invalidation | what to wait for).
+// The evidence panel rotates MACD / KD / RSI / volume, so M37–M49 skills are always part of the exam.
+var MIXED_PANELS=['MACD','KD','RSI14','VOL'];
+var MIXED_STEPS={
+  structure:{family:'structure',text:'這張圖現在是什麼結構？',build:function(A){var k=A.trend==='up'?0:A.trend==='down'?1:2;return{options:['上升趨勢：高低點墊高','下降趨勢：高低點降低','盤整或還不明確'],correct:k,feedback:'前段高 '+px(A.hi1)+' → 後段高 '+px(A.hi2)+'；前段低 '+px(A.lo1)+' → 後段低 '+px(A.lo2)+'。結構：'+trendText(A.trend)+'。'};}},
+  location:{family:'levels',text:'以近 20 天的高低點來看，價格現在在什麼位置？',build:function(A){var k=A.loc==='nearSup'?0:A.loc==='nearRes'||A.loc==='above'?1:2;return{options:['靠近下緣支撐','靠近上緣壓力，或剛突破','區間中間，離兩邊都遠'],correct:k,feedback:'近 20 天約 '+px(A.sup)+'～'+px(A.res)+'，D0 收盤 '+px(A.c)+'（位置 '+Math.round(A.pos*100)+'%）。'};}},
+  MACD:{family:'macd',text:'看下方 MACD，目前的動能背景是？',build:function(A){var k=A.macdDir>0?0:A.macdDir<0?1:2;return{options:['偏多：DIF 在訊號線上方且在零軸上','偏空：DIF 在訊號線下方且在零軸下','混合：兩個條件不一致'],correct:k,feedback:A.macd?'DIF '+A.macd.dif.toFixed(3)+'、訊號線 '+A.macd.dea.toFixed(3)+'。':''};}},
+  KD:{family:'kd',text:'看下方 KD，目前的狀態是？',build:function(A){var v=A.kd?A.kd.k:50,k=v>=80?0:v<=20?1:2;return{options:['高檔（K 在 80 以上）','低檔（K 在 20 以下）','中間區'],correct:k,feedback:'K 約 '+v.toFixed(1)+'。高低檔只是狀態，不是買賣按鈕。'};}},
+  RSI14:{family:'rsi',text:'看下方 RSI14，目前的強弱是？',build:function(A){var v=A.rsi==null?50:A.rsi,k=v>=70?0:v<=30?1:2;return{options:['偏強（70 以上）','偏弱（30 以下）','中性（30～70）'],correct:k,feedback:'RSI14 約 '+v.toFixed(1)+'。'};}},
+  VOL:{family:'volume',text:'比較最近 5 天的價格方向與成交量，量價關係是？',build:function(A){var k=A.volCls==='upDry'?0:A.volCls==='downHeavy'?1:A.volCls==='aligned'?2:3;return{options:['價漲量縮：追價變少','價跌量增：賣壓積極','量價同向：相對健康','變化不大，沒有明確訊號'],correct:k,feedback:'最近 5 天價格 '+(A.chg5*100).toFixed(1)+'%、量是前 20 天的 '+A.vr5.toFixed(2)+' 倍。'};}},
+  agreement:{family:'conflict',text:'圖上的指標／量價證據，和價格結構是一致還是衝突？',build:function(A,panel){var s=A.trend==='up'?1:A.trend==='down'?-1:0,v=panel==='MACD'?A.macdDir:panel==='KD'?A.kdDir:panel==='RSI14'?A.rsiDir:(A.volCls==='aligned'?sgn(A.chg5):A.volCls==='none'?0:-1),k=!s||!v?2:s===v?0:1;
+    return{options:['一致：證據支持目前結構','衝突：證據和結構方向相反','沒有明確證據'],correct:k,feedback:'結構 '+trendText(A.trend)+'，證據方向 '+(v>0?'偏多':v<0?'偏空':'不明確')+'。'+(k===1?'衝突時以價格結構為主，指標降權。':'')};}},
+  decision:{family:'notrade',text:'綜合以上，只用 D0 以前的資料，現在該怎麼做？',build:function(A){var k=A.decision==='trade'?0:A.decision==='wait'?1:2;return{options:[DECISION_TEXT.trade,DECISION_TEXT.wait,DECISION_TEXT.notrade],correct:k,feedback:A.why.join('；')+'。'};}},
+  waitFor:{family:'entry',text:'如果之後想交易，最該等的是什麼？',build:function(A){var keys=['pullback','breakout','structure','base'],k=keys.indexOf(A.waitFor),others=keys.filter(function(x){return x!==A.waitFor;});return{options:[WAIT_TEXT[A.waitFor],WAIT_TEXT[others[0]],WAIT_TEXT[others[1]]],correct:0,feedback:'目前結構 '+trendText(A.trend)+'、位置 '+Math.round(A.pos*100)+'%，最缺的是：'+WAIT_TEXT[A.waitFor]+'。'};}},
+  entry:{family:'entry',text:'條件到位時，比較合理的進場價是？（價格已標在圖上）',build:function(A){var e2=E.roundToTick(A.res*1.04),e3=E.roundToTick(A.sup*.96,'down');return{options:['D0 收盤附近 '+px(E.roundToTick(A.c)),'等漲過前高 4% 再追 '+px(e2),'跌破支撐 4% 再接 '+px(e3)],correct:0,guides:[E.roundToTick(A.c),e2,e3],feedback:'條件已經到位，就在現價附近執行；追更高或等破底都會破壞 R:R 與結構。'};}},
+  stopPlan:{family:'entry',text:'就算現在先等，也要先想好：如果之後進場，跌到哪裡代表看錯？（價格已標在圖上）',build:function(A){return MIXED_STEPS.stop.build(A);}},
+  stop:{family:'entry',text:'進場前先定失策：哪一個最合理？（價格已標在圖上）',build:function(A){var o=stopOptions(A);return{options:o.map(function(x){return x.label;}),correct:0,guides:o.map(function(x){return x.price;}),feedback:'失策要放在「跌到這裡代表我看錯」的結構位置，不是固定百分比，也不是貼著現價。'};}}
+};
+function mixedPlan(k,A){var panel=MIXED_PANELS[k%4],steps=['structure','location',panel,'agreement','decision'];if(A.decision==='trade')steps.push('entry','stop');else if(A.decision==='wait')steps.push('waitFor','stopPlan');return{panel:panel,steps:steps};}
+function mixedRound(k){var sh=E.seededShuffle(EXAM,C.SEED+'|MIXED|'+S.seed);return sh[k%sh.length];}
+function startMixed(){var k=S.exam.idx;if(k>=100){toast('混合盲測已完成');go('practiceHome');return;}
+  var rid=mixedRound(k),R=getR(rid),i=X(0),Rt=upTo(R,i),A=analyze(Rt,i),plan=mixedPlan(k,A),v=v5State();
+  var steps=plan.steps.map(function(sid,n){var def=MIXED_STEPS[sid],b=def.build(A,plan.panel),sh=shuffleOptions(b.options,b.correct,'MIX|'+rid+'|'+sid);
+    return{id:sid,family:def.family,tag:'盲測',head:'第 '+(k+1)+' / 100 張圖｜判斷 '+(n+1)+' / '+plan.steps.length,title:'陌生圖 '+(k+1)+' / 100',sub:'不提示、不顯示題型：照順序自己判斷',text:def.text,kind:'choice',
+      options:sh.opts.map(function(x){return{label:x};}),correct:sh.correct,feedback:b.feedback,R:Rt,
+      chart:function(){return v5Chart(Rt,i,{panel:plan.panel==='VOL'?null:plan.panel,guides:b.guides,focus:[i]});}};});
+  V5.flow={kind:'mixed',k:0,steps:steps,round:rid,
+    grade:function(st){S.exam.total++;if(st.ok)S.exam.correct++;var m=v.mixed[st.family]||(v.mixed[st.family]={n:0,ok:0});m.n++;if(st.ok)m.ok++;S.xp+=st.ok?15:3;},
+    onDone:function(){S.exam.idx++;S.exam.step=0;save();if(S.exam.idx>=100){toast('100 張混合盲測完成');go('practiceHome');return;}startMixed();}};
+  v5Show();}
+ACT_V5.startExam=function(){if(!coreComplete()){toast('完成全部核心課程後才開放混合盲測');return;}startMixed();};
+V5.mixed={steps:MIXED_STEPS,plan:mixedPlan,round:mixedRound,panels:MIXED_PANELS};

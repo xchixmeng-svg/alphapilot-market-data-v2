@@ -3,7 +3,7 @@
   "private": true,
   "version": "3.0.0",
   "scripts": {
-    "build:web": "node tools/assemble_sources.mjs && BSG_HISTORY_DIR=../../data/history/2020-2025 BSG_HISTORY_DAYS=240 BSG_FUTURE_DAYS=120 node tools/convert.mjs && node tools/build_bank.mjs && node tools/build_html.mjs",
+    "build:web": "node tools/assemble_sources.mjs && BSG_HISTORY_DIR=../../data/history/2020-2025 BSG_HISTORY_DAYS=240 BSG_FUTURE_DAYS=120 node tools/convert.mjs && node tools/build_bank.mjs && node tools/build_scenarios.mjs && node tools/build_html.mjs",
     "audit:learning": "node tools/audit_learning_contract.mjs"
   },
   "dependencies": {

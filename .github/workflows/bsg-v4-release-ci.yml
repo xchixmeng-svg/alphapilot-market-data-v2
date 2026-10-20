@@ -65,7 +65,7 @@ jobs:
             await page.waitForSelector('.hudstats',{timeout:15000});
             const report=await page.evaluate(()=>{
               const t=window.BSGV3._test, CT=window.BSG_CONTENT;
-              if(CT.MISSIONS.length!==50) throw new Error('expected 50 missions');
+              if(CT.MISSIONS.length!==63) throw new Error('expected 63 core lessons');
               if(CT.WORLDS.length!==8) throw new Error('expected 8 worlds');
               if(CT.FREE_THROUGH!==15||CT.PRODUCT_PRICE_TWD!==149) throw new Error('commercial defaults mismatch');
               function transformed(mid,ex){
@@ -73,7 +73,7 @@ jobs:
                 const m=t.ui.mission,R=t.getR(t.ui.roundId),base=t.chartData(m,R);
                 return {m,R,d:window.BSG_V4_FOUNDATION.transform(window.BSG_V4_ADVANCED_VISUALS.transform(window.BSG_V3_VISUALS.transform(base,mid)))};
               }
-              for(let mid=1;mid<=50;mid++){
+              for(let mid=1;mid<=CT.MISSIONS.length;mid++){
                 for(let ex=1;ex<=3;ex++){
                   t.setupMission(mid,ex,'mission');
                   const m=t.ui.mission,R=t.getR(t.ui.roundId),q=t.question(m,R,ex),text=t.qtext(m,R,ex);
@@ -90,7 +90,7 @@ jobs:
               if(!m49.d.priceGuides||m49.d.priceGuides.length<3)throw new Error('M49 price guides missing');
               const a=transformed(50,1),b=transformed(50,2),c=transformed(50,3),i=a.d.d0Idx;
               if(a.d.lastIdx!==i||b.d.lastIdx!==Math.min(i+1,b.R.c.length-1)||c.d.lastIdx!==Math.min(i+2,c.R.c.length-1))throw new Error('M50 causal reveal mismatch');
-              return {missions:50,worlds:8,m47Drawing:true,m50Causal:true};
+              return {missions:CT.MISSIONS.length,worlds:8,m47Drawing:true,m50Causal:true};
             });
             if(errors.length)throw new Error(errors.join(' | '));
             console.log('BSG_RELEASE_BROWSER_OK',JSON.stringify(report));

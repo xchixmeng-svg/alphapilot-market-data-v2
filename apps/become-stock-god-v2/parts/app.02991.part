@@ -1,0 +1,77 @@
+
+// ═════════════ V5 complete product — shared engine ═════════════
+// Layers after the core lessons: SKILL_DRILLS (400 training ground), MIXED_CASES (100 blind mixed charts),
+// DAILY_SCENARIOS (day-by-day historical cases) and FINAL_EXAM, plus the ability report. Content lives in data
+// tables; the functions below are the engine. Everything that judges a chart at bar j only reads bars ≤ j.
+var RAW_CREATE=window.BSGChart&&window.BSGChart.create;   // captured before the lesson visual wrappers install
+var ACT_V5={};                                             // merged into ACT at the end of app.03
+var V5={};
+function v5State(){if(!S.v5||typeof S.v5!=='object')S.v5={};var v=S.v5;v.skills=v.skills||{};v.mixed=v.mixed||{};v.daily=v.daily||{};v.final=v.final||null;v.flags=v.flags||{chase:0,overtrade:0,earlyReversal:0,noStop:0,heldBroken:0,entries:0};return v;}
+if(!S.exam||S.exam.format!=='mixed-v5'){S.examLegacy=S.exam&&S.exam.total?JSON.parse(JSON.stringify(S.exam)):(S.examLegacy||null);S.exam={idx:0,correct:0,total:0,format:'mixed-v5',step:0};}
+v5State();save();
+var _v5Migrate=migrate;migrate=function(s){s=_v5Migrate(s);if(!s.v5)s.v5={};if(!s.exam||s.exam.format!=='mixed-v5')s.exam={idx:0,correct:0,total:0,format:'mixed-v5',step:0};return s;};
+
+// ── truncation: the only data a judgement at bar j may see ──
+function upTo(R,j){var o={};Object.keys(R).forEach(function(k){o[k]=Array.isArray(R[k])?R[k].slice(0,j+1):R[k];});return o;}
+function sgn(x){return x>0?1:x<0?-1:0;}
+// ── chart analysis at bar j (reads bars ≤ j only) ──
+function analyze(R,j){
+  var c=R.c[j],a=R.atr[j]||c*.02,ma=R.ma20[j],ma60=R.ma60[j],sup=minA(R.l,j-20,j-1),res=maxA(R.h,j-20,j-1);
+  var hi1=maxA(R.h,j-24,j-13),hi2=maxA(R.h,j-12,j),lo1=minA(R.l,j-24,j-13),lo2=minA(R.l,j-12,j);
+  var up=hi2>hi1*1.005&&lo2>lo1*1.005,down=hi2<hi1*.995&&lo2<lo1*.995,flat=Math.abs(hi2/hi1-1)<.015&&Math.abs(lo2/lo1-1)<.015;
+  var trend=up?'up':down?'down':flat?'range':'unclear',dist=ma?c/ma-1:null;
+  var stop=E.roundToTick(Math.max(.01,sup-a*.45),'down'),target=E.roundToTick(res>c*1.005?res:maxA(R.h,j-60,j-1)),risk=c-stop,rr=risk>0?(target-c)/risk:0;
+  var pos=res>sup?(c-sup)/(res-sup):.5,loc=c>res*1.002?'above':pos<.33?'nearSup':pos>.67?'nearRes':'middle';
+  var v20=avg(R.v,j-20,j-1),vr=v20?R.v[j]/v20:1,chg5=R.c[j]/R.c[j-5]-1,vr5=avg(R.v,j-4,j)/Math.max(1,avg(R.v,j-24,j-5));
+  var volCls=Math.abs(chg5)<=.015||(vr5>=.9&&vr5<=1.1)?'none':chg5>0&&vr5<.9?'upDry':chg5<0&&vr5>1.1?'downHeavy':'aligned';
+  var ind=E.teachingIndicators?E.teachingIndicators(R):null,m=ind&&ind.macd,kd=ind&&ind.kd,rsi=ind&&ind.rsi14;
+  var macdDir=m?(m.dif[j]>m.dea[j]&&m.dif[j]>0?1:m.dif[j]<m.dea[j]&&m.dif[j]<0?-1:0):0,kdDir=kd?(kd.k[j]>kd.d[j]?1:-1):0,rsiDir=rsi?(rsi[j]>55?1:rsi[j]<45?-1:0):0;
+  var breakout=c>sup&&c>res*1.002,ext=dist!=null&&dist>.08;
+  var d=decide({trend:trend,c:c,ma:ma,dist:dist,rr:rr,loc:loc,breakout:breakout,vr:vr});
+  return{j:j,c:c,a:a,ma:ma,ma60:ma60,sup:E.roundToTick(sup),res:E.roundToTick(res),hi1:hi1,hi2:hi2,lo1:lo1,lo2:lo2,trend:trend,dist:dist,stop:stop,target:target,rr:rr,loc:loc,pos:pos,vr:vr,chg5:chg5,vr5:vr5,volCls:volCls,
+    macd:m?{dif:m.dif[j],dea:m.dea[j],hist:m.hist[j]}:null,kd:kd?{k:kd.k[j],d:kd.d[j]}:null,rsi:rsi?rsi[j]:null,macdDir:macdDir,kdDir:kdDir,rsiDir:rsiDir,breakout:breakout,ext:ext,decision:d.decision,why:d.why,waitFor:d.waitFor};
+}
+// Decision rubric. Price structure first; indicators never turn a bad structure into a trade.
+function decide(x){
+  var why=[],decision;
+  if(x.trend==='down'){decision='notrade';why.push('下降結構裡不找買點');}
+  else if(x.rr<1){decision='notrade';why.push('R:R 不到 1，不划算');}
+  else if(x.dist!=null&&x.dist>.1){decision='notrade';why.push('離 MA20 超過 10%，屬於追高');}
+  else if(x.trend==='up'&&x.ma&&x.c>x.ma&&(x.dist==null||x.dist<.08)&&x.rr>=1.5&&(x.loc!=='nearRes'||(x.breakout&&x.vr>=1.5))){decision='trade';why.push('上升結構、站在 MA20 上方、R:R '+x.rr.toFixed(2)+'，條件到位');}
+  else{decision='wait';why.push('條件還不完整');}
+  var waitFor=x.trend==='up'&&x.dist!=null&&x.dist>=.05?'pullback':x.loc==='nearRes'?'breakout':x.trend==='up'?'pullback':(x.trend==='range'||x.trend==='unclear')?'structure':'base';
+  return{decision:decision,why:why,waitFor:waitFor};
+}
+var WAIT_TEXT={pullback:'等回檔到 MA20 或支撐附近、止跌後再找進場',breakout:'等有量突破壓力，或突破後回測守住',structure:'等結構明確：突破區間或高低點出現方向',base:'等止跌，出現較高低點並突破前高'};
+var DECISION_TEXT={trade:'可以試：條件到位',wait:'等待：條件還不完整',notrade:'不交易：證據不支持'};
+function stopOptions(A){return[{price:A.stop,kind:'structure',label:'結構失策 '+px(A.stop)+'（支撐下方留一點波動）'},{price:E.roundToTick(A.c*.95,'down'),kind:'fixed',label:'固定 -5%：'+px(E.roundToTick(A.c*.95,'down'))},{price:E.roundToTick(A.c-A.a*.25,'down'),kind:'tight',label:'貼著現價 '+px(E.roundToTick(A.c-A.a*.25,'down'))}];}
+function stopScore(kind){return kind==='structure'?1:kind==='fixed'?.4:kind==='tight'?.3:0;}
+
+// ── neutral chart data for V5 screens (no lesson visuals) ──
+function v5Chart(R,j,o){o=o||{};var ind=E.teachingIndicators?E.teachingIndicators(R):null,panel=null;
+  if(o.panel&&ind){if(o.panel==='MACD')panel={type:'MACD',hist:ind.macd.hist,thresholds:[0],series:[{name:'DIF',values:ind.macd.dif,color:'#39f5ff'},{name:'Signal',values:ind.macd.dea,color:'#ffd44a'}]};
+    if(o.panel==='KD')panel={type:'KD',range:[0,100],thresholds:[20,80],series:[{name:'K',values:ind.kd.k,color:'#39f5ff'},{name:'D',values:ind.kd.d,color:'#ffd44a'}]};
+    if(o.panel==='RSI14')panel={type:'RSI14',range:[0,100],thresholds:[30,70],series:[{name:'RSI',values:ind.rsi14,color:'#c58cff'}]};}
+  var d={R:R,lastIdx:j,d0Idx:o.d0!=null?o.d0:j,showMA:o.ma===undefined?'both':o.ma,showVolume:o.vol!==false,zones:o.zones||[],markers:o.markers||[],lines:o.lines||[],focusCandles:o.focus||[],priceGuides:(o.guides||[]).filter(function(p){return isFinite(p)&&p>0;}),allowCross:false,
+    indicatorPanel:panel,pricePickMode:!!o.pricePick,candlePickMode:!!o.candlePick,labelFor:function(k){var b=o.d0!=null?o.d0:j;return k<=b?'D'+(k-b):'D+'+(k-b);}};
+  if(panel)d.showVolume=true;return d;}
+function v5Mount(getData,handlers,range){destroyChart();var host=document.getElementById('v3Chart');if(!host||!RAW_CREATE)return;var opt={getData:getData};handlers=handlers||{};if(handlers.price)opt.onPricePick=handlers.price;if(handlers.candle)opt.onCandlePick=handlers.candle;UI.chart=RAW_CREATE(host,opt);UI.chart.setRange(range||60);}
+
+// ── generic V5 step screen: chart + one step (choice / price pick / candle pick) ──
+// step = {head, tag, title, sub, text, kind:'choice'|'price'|'candle', options:[{label}], correct, feedback, chart:fn()}
+function v5StepScreen(st){
+  var answered=st.answered,body='';
+  if(st.kind==='choice'){body=st.options.map(function(o,k){var cls='answer';if(answered&&k===st.correct)cls+=' correct';if(answered&&st.picked===k&&k!==st.correct)cls+=' wrong';return'<button class="'+cls+'" data-act="v5Choice" data-i="'+k+'" '+(answered?'disabled':'')+'>'+esc(o.label)+'</button>';}).join('');}
+  else{body='<div id="v5PickReadout" class="coachLine">'+esc(st.readout||(st.kind==='price'?'點 K 線圖上的價位畫一條水平線，再按確認。':'點一根 K 棒選取，再按確認。'))+'</div>'+(answered?'':'<button class="btn primary full" data-act="v5ConfirmPick">'+esc(st.confirm||'確認 →')+'</button>');}
+  if(answered)body+='<div class="feedbackBox '+(st.ok?'':'bad')+'"><strong>'+(st.ok?'判斷正確':st.partial?'接近，但還不夠準':'判斷有誤')+'</strong><br>'+esc(st.feedback||'')+'</div><button class="btn '+(st.ok?'green':'ghost')+' full nextBtn" data-act="v5Next">'+esc(st.nextLabel||'下一步 →')+'</button>';
+  app.innerHTML=scan+hud(true)+'<div class="main scanMain v5Main"><section class="training"><div class="trainingHead"><div class="missionTag">'+esc(st.tag)+'</div><div class="trainTitle"><strong>'+esc(st.title)+'</strong><span>'+esc(st.sub||'')+'</span></div></div>'+
+    '<div class="chartArea"><div class="chartFrame"><div id="v3Chart" class="chartwrap"></div></div></div><div class="lessonDock"><div class="dockGrid"><div class="prompt"><div class="promptTop"><span class="qtag">'+esc(st.head||'')+'</span><span class="difficulty">'+esc(st.diff||'NO HINT')+'</span></div><div class="question">'+esc(st.text)+'</div>'+(st.panels?panelButtons(UI.v5Panel||'VOL'):'')+'</div><div class="answers'+(st.kind==='choice'?'':' v5Pick')+'">'+body+'</div></div></div></section></div>';
+  var h={};if(st.kind==='price'&&!answered)h.price=function(p){st.pick=p;var r=document.getElementById('v5PickReadout');if(r)r.textContent='你畫的水平線：'+px(p)+' 元｜可以再點一次調整';};
+  if(st.kind==='candle'&&!answered)h.candle=function(k){st.pick=k;var r=document.getElementById('v5PickReadout');if(r)r.textContent='你選了 '+st.labelFor(k)+' 這根 K（高 '+px(st.R.h[k])+'／低 '+px(st.R.l[k])+'）｜可以再點一次調整';if(UI.chart)UI.chart.draw();};
+  v5Mount(function(){return st.chart(st);},h,st.range||60);
+}
+V5.flow=null;   // the active step flow: {steps:[...], k, onAnswer(step), onDone()}
+function v5Show(){var f=V5.flow;if(!f)return go('practiceHome');var st=f.steps[f.k];UI.screen='v5';v5StepScreen(st);}
+ACT_V5.v5Choice=function(el){var f=V5.flow,st=f&&f.steps[f.k];if(!st||st.answered)return;st.picked=+el.dataset.i;st.answered=true;st.ok=st.picked===st.correct;if(f.grade)f.grade(st);save();v5Show();};
+ACT_V5.v5ConfirmPick=function(){var f=V5.flow,st=f&&f.steps[f.k];if(!st||st.answered)return;if(st.pick==null){var r=document.getElementById('v5PickReadout');if(r)r.textContent=st.kind==='price'?'先在圖上點一個價位，再按確認。':'先點一根 K 棒，再按確認。';return;}st.answered=true;if(f.grade)f.grade(st);save();v5Show();};
+ACT_V5.v5Next=function(){var f=V5.flow;if(!f)return;if(f.next&&f.next()===false)return;f.k++;if(f.k>=f.steps.length){var done=f.onDone;V5.flow=null;if(done)done();return;}v5Show();};

@@ -1,0 +1,95 @@
+
+// ═════════════ Layer 2 — SKILL_DRILLS: the 400-question training ground ═════════════
+// A drill = one skill question type. Lesson drills reuse a lesson exercise on many different historical charts;
+// generator drills are extra question types that only exist here. A drill joins the pool only after its lesson
+// is completed (never test what was not taught). Chart-reading drills weigh 3×, definition drills 1×.
+var SKILL_FAMILIES={candle:'K 棒基礎',structure:'市場結構',levels:'支撐壓力',breakout:'突破真假',reversal:'反轉',volume:'量價',ma:'均線',macd:'MACD',kd:'KD',rsi:'RSI',conflict:'指標衝突',entry:'進場／失策',notrade:'No Trade'};
+var LESSON_FAMILY={1:'candle',2:'candle',3:'candle',4:'candle',5:'candle',6:'structure',51:'candle',38:'candle',7:'structure',8:'structure',9:'structure',10:'structure',11:'structure',52:'structure',37:'structure',12:'reversal',
+  13:'levels',14:'levels',15:'levels',53:'levels',47:'levels',16:'breakout',17:'breakout',18:'breakout',28:'breakout',29:'breakout',54:'breakout',55:'breakout',57:'breakout',48:'reversal',62:'reversal',
+  25:'volume',26:'volume',56:'volume',19:'ma',20:'ma',21:'ma',22:'ma',23:'ma',39:'macd',40:'macd',41:'macd',59:'macd',42:'kd',43:'kd',60:'kd',44:'rsi',61:'rsi',45:'conflict',46:'conflict',
+  24:'entry',27:'entry',30:'notrade',31:'entry',32:'entry',33:'entry',34:'entry',35:'entry',36:'entry',49:'entry',63:'entry',58:'notrade'};
+var DRILL_EXCLUDE={50:true};   // the daily-reveal lesson is only played as a whole time series, never as single questions
+
+// ── generator drills (question types that exist only in the training ground) ──
+function gq(text,options,correct,explain){return{text:text,options:options,correct:correct,explain:explain};}
+var DRILL_GEN=[
+  {id:'G-REV-1',family:'reversal',lesson:48,sample:function(R,i){return maxA(R.h,i-45,i-30)>minA(R.l,i-29,i-10)*1.08;},
+   ask:function(R,i){var lr=minA(R.l,i-9,i),lp=minA(R.l,i-29,i-10),k=lr<lp?0:lr>lp*1.02?2:1;return gq('這段下跌之後，最近 10 天的低點和前面的低點比，結構走到哪？',['還在破底：最近又創新低','停止破底，但還沒有明顯較高低點','已出現較高低點'],k,'前面低點 '+px(lp)+'，最近低點 '+px(lr)+'。'+(k===0?'仍在破底，談不上反轉。':k===2?'低點墊高超過 2%，出現較高低點，接著要看能不能突破前高。':'不再破底，但低點還沒明顯墊高，屬於止跌整理。'));},
+   chart:function(R,i){return{guides:[minA(R.l,i-9,i),minA(R.l,i-29,i-10)]};}},
+  {id:'G-REV-2',family:'reversal',lesson:48,sample:function(R,i){return maxA(R.h,i-45,i-30)>R.c[i]*1.1;},
+   ask:function(R,i){var lh=maxA(R.h,i-20,i-8),k=R.c[i]>lh?0:R.c[i]>lh*.98?1:2;return gq('下跌後的反彈，目前有沒有突破前一個反彈高點？',['已突破前高：反轉證據又多一步','接近但還沒突破','離前高還很遠'],k,'前一個反彈高點約 '+px(lh)+'，D0 收盤 '+px(R.c[i])+'。');},
+   chart:function(R,i){return{guides:[maxA(R.h,i-20,i-8),R.c[i]]};}},
+  {id:'G-REV-3',family:'reversal',lesson:62,sample:function(R,i){var k=-1,b=0;for(var j=i-4;j<=i;j++){var body=R.c[j]-R.o[j];if(body>b){b=body;k=j;}}return k>=0&&b>(R.atr[i]||R.c[i]*.02)*.8&&maxA(R.h,i-40,i-20)>R.c[i]*1.08;},
+   ask:function(R,i){var lh=maxA(R.h,i-20,i-6),k=R.c[i]>lh?1:0;return gq('下跌之後出現一根長紅 K。到 D0 為止，下降結構改變了嗎？',['還沒有：價格仍在前一個反彈高點下方','改變了：已站上前一個反彈高點','一根長紅 K 就代表反轉完成'],k,'前一個反彈高點約 '+px(lh)+'。一根長紅不等於反轉，要站上前高、出現較高低點才算證據。');},
+   chart:function(R,i){return{guides:[maxA(R.h,i-20,i-6),R.c[i]]};}},
+  {id:'G-VOL-1',family:'volume',lesson:25,sample:function(){return true;},
+   ask:function(R,i){var vr=R.v[i]/Math.max(1,avg(R.v,i-20,i-1)),k=vr<.8?0:vr<1.5?1:2;return gq('D0 的成交量大約是前 20 天平均的幾倍？',['不到 0.8 倍（量縮）','0.8～1.5 倍（普通）','1.5 倍以上（放量）'],k,'D0 量約是 20 日均量的 '+vr.toFixed(2)+' 倍。');},
+   chart:function(R,i){return{focusVolume:i};}},
+  {id:'G-VOL-2',family:'volume',lesson:56,sample:function(R,i){return R.c[i]<R.c[i-3]*.97;},
+   ask:function(R,i){var vr=avg(R.v,i-2,i)/Math.max(1,avg(R.v,i-22,i-3)),k=vr>1.1?0:vr<.9?1:2;return gq('最近 3 天價格下跌。這 3 天的量和前 20 天比？',['下跌時量放大：賣壓積極','下跌時量縮小：賣壓不重','差不多'],k,'最近 3 天平均量是前 20 天的 '+vr.toFixed(2)+' 倍。'+(k===0?'價跌量增要提高警覺。':k===1?'價跌量縮，賣壓相對有限。':'量能沒有明顯變化。'));}},
+  {id:'G-VOL-3',family:'volume',lesson:57,sample:function(R,i){for(var j=i-9;j<=i;j++)if(R.c[j]>maxA(R.h,j-20,j-1)*1.002)return true;return false;},
+   ask:function(R,i){var b=-1;for(var j=i;j>=i-9;j--)if(R.c[j]>maxA(R.h,j-20,j-1)*1.002){b=j;break;}var vr=R.v[b]/Math.max(1,avg(R.v,b-20,b-1)),k=vr>=1.5?0:vr<.9?2:1;return gq('最近 10 天內有一天收盤突破前 20 日高點（圖上標出）。那天的量能是？',['有量：明顯放大','普通','無量：比平常還少'],k,'突破那天的量約是 20 日均量的 '+vr.toFixed(2)+' 倍。');},
+   chart:function(R,i){var b=-1;for(var j=i;j>=i-9;j--)if(R.c[j]>maxA(R.h,j-20,j-1)*1.002){b=j;break;}return{markers:b>=0?[{idx:b,price:R.c[b],label:'突破日',color:'#ffd44a',prefer:'above'}]:[],focusVolume:b};}},
+  {id:'G-KD-1',family:'kd',lesson:42,panel:'KD',sample:function(){return true;},
+   ask:function(R,i,A){var k=A.kd?A.kd.k:50,c=k>=80?0:k<=20?1:2;return gq('看下方 KD，K 值目前在哪一區？',['80 以上（高檔）','20 以下（低檔）','20～80 之間'],c,'D0 的 K 值約 '+k.toFixed(1)+'。');}},
+  {id:'G-KD-2',family:'kd',lesson:43,panel:'KD',sample:function(){return true;},
+   ask:function(R,i){var kd=E.teachingIndicators(R).kd,t=2;for(var j=i;j>=i-4;j--){var a=kd.k[j-1]-kd.d[j-1],b=kd.k[j]-kd.d[j];if(a*b<0){t=b>0?0:1;break;}}return gq('最近 5 天內，K、D 有沒有交叉？',['有黃金交叉（K 往上穿過 D）','有死亡交叉（K 往下穿過 D）','沒有交叉'],t,'看 K（青）與 D（黃）兩條線最近 5 天有沒有互相穿越。');}},
+  {id:'G-RSI-1',family:'rsi',lesson:44,panel:'RSI14',sample:function(){return true;},
+   ask:function(R,i,A){var r=A.rsi,c=r>=70?0:r<=30?1:2;return gq('看下方 RSI14，目前在哪個區間？',['70 以上','30 以下','30～70 之間'],c,'D0 的 RSI14 約 '+(r==null?'—':r.toFixed(1))+'。');}},
+  {id:'G-RSI-2',family:'rsi',lesson:61,panel:'RSI14',sample:function(R,i){return maxA(R.h,i-9,i)>maxA(R.h,i-29,i-10);},
+   ask:function(R,i){var rs=E.teachingIndicators(R).rsi14,rn=maxA(rs,i-9,i),rp=maxA(rs,i-29,i-10),k=rn<rp-2?0:1;return gq('最近 10 天價格創了新高。RSI 的高點有沒有跟著創高？',['沒有：偏空背離，上漲動能變弱的警訊','有：價格和 RSI 同步創高','RSI 跟價格無關'],k,'前段 RSI 高點約 '+rp.toFixed(1)+'，最近 RSI 高點約 '+rn.toFixed(1)+'。'+(k===0?'價格新高但 RSI 沒跟上，是警訊不是反轉保證。':'RSI 同步創高，動能還在。'));}},
+  {id:'G-RSI-3',family:'rsi',lesson:61,panel:'RSI14',sample:function(R,i){var rs=E.teachingIndicators(R).rsi14;for(var j=i-10;j<=i;j++)if(rs[j]<30)return true;return false;},
+   ask:function(R,i){var rs=E.teachingIndicators(R).rsi14,lo=minA(R.l,i-3,i),plo=minA(R.l,i-15,i-4),k=lo<plo?0:1;return gq('最近 RSI 跌破 30 又反彈。價格結構怎麼說？',['價格還在創新低：反彈可能只是假訊號','價格沒有再創新低：止跌證據增加','RSI 反彈就代表反轉完成'],k,'前面低點 '+px(plo)+'，最近低點 '+px(lo)+'。RSI 反彈要配合價格不再破底才有意義。');},
+   chart:function(R,i){return{guides:[minA(R.l,i-3,i),minA(R.l,i-15,i-4)]};}},
+  {id:'G-CON-1',family:'conflict',lesson:45,panel:'MACD',sample:function(){return true;},
+   ask:function(R,i,A){var s=A.trend==='up'?1:A.trend==='down'?-1:0,k=!s||!A.macdDir?2:s===A.macdDir?0:1;return gq('MACD 的證據和價格結構是一致還是衝突？',['一致：MACD 支持目前結構','衝突：MACD 和結構方向相反','沒有明確證據（結構或 MACD 不明確）'],k,'結構：'+trendText(A.trend)+'；MACD：'+(A.macdDir>0?'偏多':A.macdDir<0?'偏空':'不明確')+'。衝突時以價格結構為主。');}},
+  {id:'G-CON-2',family:'conflict',lesson:45,panel:'KD',sample:function(R,i){var kd=E.teachingIndicators(R).kd;return analyze(upTo(R,i),i).trend==='down'&&kd.k[i]>kd.d[i];},
+   ask:function(R,i){return gq('價格仍是下降結構，但 KD 的 K 在 D 上方（偏多）。該相信誰？',['以價格結構為主：先不做多','以 KD 為主：可以買進','兩個都不用看'],0,'價格結構永遠先於指標；結構沒有止跌前，KD 偏多只是反彈雜訊。');}},
+  {id:'G-CON-3',family:'conflict',lesson:46,panel:'RSI14',sample:function(R,i){var a=analyze(upTo(R,i),i);return a.trend==='up'&&a.rsi>=70;},
+   ask:function(R,i){return gq('價格是上升結構，但 RSI 超過 70。最合理的解讀？',['趨勢仍向上，RSI 高檔只是提醒不要追高','RSI 超過 70 就該放空','忽略結構，只看 RSI'],0,'強勢趨勢裡 RSI 可以長時間高檔；它提醒的是「位置不好別追」，不是反轉。');}},
+  {id:'G-CON-4',family:'conflict',lesson:46,sample:function(){return true;},
+   ask:function(R,i,A){var s=A.trend==='up'?1:A.trend==='down'?-1:0,v=A.volCls==='aligned'?sgn(A.chg5):A.volCls==='none'?0:-1,k=!s||!v?2:s===v?0:1;return gq('量價證據和價格結構是一致還是衝突？',['一致：量價支持目前結構','衝突：量價和結構矛盾','沒有明確證據'],k,'結構：'+trendText(A.trend)+'；最近 5 天價格 '+(A.chg5*100).toFixed(1)+'%、量是前 20 天的 '+A.vr5.toFixed(2)+' 倍。');}},
+  {id:'G-NT-1',family:'notrade',lesson:58,sample:function(){return true;},
+   ask:function(R,i,A){var k=A.decision==='trade'?0:A.decision==='wait'?1:2;return gq('只用 D0 以前的資料：趨勢、位置、乖離和 R:R（約 '+A.rr.toFixed(2)+'），現在該怎麼做？',['可以試：條件到位','等待：條件還不完整','不交易：證據不支持'],k,A.why.join('；')+'。');},
+   chart:function(R,i,A){return{lines:[{price:A.stop,color:'#ff465f',label:'失策',dash:true},{price:A.target,color:'#ffd44a',label:'目標',dash:true}]};}},
+  {id:'G-NT-2',family:'notrade',lesson:30,sample:function(R,i){var a=analyze(upTo(R,i),i);return a.dist!=null&&a.dist>.1;},
+   ask:function(R,i,A){return gq('收盤離 MA20 約 '+(A.dist*100).toFixed(1)+'%。這時候進場？',['不追：等價格回到合理位置','立刻追進','加碼追進'],0,'離均線太遠，失策點會很遠、R:R 變差，等回檔才是紀律。');}},
+  {id:'G-NT-3',family:'notrade',lesson:33,sample:function(){return true;},
+   ask:function(R,i,A){var k=A.rr>=1.5?0:A.rr>=1?1:2;return gq('結構失策約 '+px(A.stop)+'、上方目標約 '+px(A.target)+'。以 D0 收盤進場，R:R 大約落在哪？',['1.5 以上：值得考慮','1～1.5：勉強','不到 1：不值得'],k,'R:R ＝ (目標 − 進場) ÷ (進場 − 失策) ≈ '+A.rr.toFixed(2)+'。');},
+   chart:function(R,i,A){return{lines:[{price:A.stop,color:'#ff465f',label:'失策',dash:true},{price:A.target,color:'#ffd44a',label:'目標',dash:true}],guides:[R.c[i]]};}},
+  {id:'G-NT-4',family:'notrade',lesson:58,sample:function(R,i){var a=analyze(upTo(R,i),i);return a.trend==='range'||a.trend==='unclear';},
+   ask:function(R,i,A){var k=A.loc==='middle'?0:A.loc==='nearSup'?1:2;return gq('結構不明確時，價格目前在近 20 天區間的哪裡？',['區間中間：半路上，不交易','靠近下緣支撐：可以觀察止跌','靠近上緣或已突破：等確認'],k,'近 20 天區間 '+px(A.sup)+'～'+px(A.res)+'，D0 收盤 '+px(A.c)+'。');},
+   chart:function(R,i,A){return{guides:[A.sup,A.res]};}}
+];
+function trendText(t){return t==='up'?'上升':t==='down'?'下降':t==='range'?'盤整':'不明確';}
+
+// ── drill catalogue: lesson drills (auto-classified) + generators ──
+var DRILL_KIND={};   // 'lesson|ex' -> 'chart'|'concept'
+function lessonDrillKind(id,ex){var key=id+'|'+ex;if(DRILL_KIND[key])return DRILL_KIND[key];var m=CT.MISSIONS[id-1],ids=E.seededShuffle(TRAIN,'kind|'+key),picked=[],keep=UI.roundId;
+  for(var j=0;j<ids.length&&picked.length<3;j++){var R=getR(ids[j]);if(R&&suitable(id,R))picked.push(ids[j]);}
+  var sigs={};picked.forEach(function(rid){UI.roundId=rid;var R=getR(rid),q=question(m,R,ex);sigs[q.opts.slice().sort().join('|')+'#'+qtext(m,R,ex)]=1;});UI.roundId=keep;
+  return DRILL_KIND[key]=Object.keys(sigs).length>1?'chart':'concept';}
+function allDrills(){var out=[];ORDER_IDS.forEach(function(id){if(DRILL_EXCLUDE[id]||!LESSON_FAMILY[id])return;for(var ex=1;ex<=exCount(CT.MISSIONS[id-1]);ex++)out.push({id:'L'+id+'-'+ex,family:LESSON_FAMILY[id],lesson:id,ex:ex});});DRILL_GEN.forEach(function(g){out.push({id:g.id,family:g.family,lesson:g.lesson,gen:g});});return out;}
+var DRILLS=allDrills();
+function drillAvailable(d){return completed(d.lesson)&&!premiumNeeded(d.lesson);}
+function drillWeight(d){return d.gen?3:lessonDrillKind(d.lesson,d.ex)==='chart'?3:1;}
+function availableDrills(){return DRILLS.filter(drillAvailable);}
+function drillRound(d,salt){var pool=E.seededShuffle(TRAIN,C.SEED+'|DRILL|'+d.id+'|'+S.seed+'|'+salt);for(var j=0;j<pool.length;j++){var R=getR(pool[j]);if(!R)continue;if(d.gen?d.gen.sample(R,X(0)):suitable(d.lesson,R))return pool[j];}return pool[0];}
+function pickDrill(idx){var av=availableDrills();if(!av.length)return null;var prev=S.practice.lastFamily,tot=0,ws=av.map(function(d){var w=drillWeight(d)*(d.family===prev&&av.some(function(x){return x.family!==prev;})?0:1);tot+=w;return w;});
+  var r=E.mulberry32(E.hash32(C.SEED+'|PICK|'+S.seed+'|'+S.practice.round+'|'+idx+'|'+av.length))()*tot;for(var k=0;k<av.length;k++){r-=ws[k];if(r<0)return av[k];}return av[av.length-1];}
+function skillStat(fam,ok){var v=v5State(),s=v.skills[fam]||(v.skills[fam]={n:0,ok:0});s.n++;if(ok)s.ok++;}
+
+function startPractice(){var idx=S.practice.idx;if(idx>=400){S.practice.round+=1;S.practice.idx=0;idx=0;save();}var d=pickDrill(idx);if(!d){toast('先完成第一個能力，訓練場才會開放');go('practiceHome');return;}
+  S.practice.lastFamily=d.family;UI.drill=d;UI.scanIdx=idx;var rid=drillRound(d,S.practice.round*10000+idx);
+  if(!d.gen){setupMission(d.lesson,d.ex,'practice');UI.roundId=rid;UI.exercise=d.ex;UI.drill=d;go('training');return;}
+  var R=getR(rid),i=X(0),A=analyze(upTo(R,i),i),q=d.gen.ask(R,i,A),opts=shuffleOptions(q.options,q.correct,d.id+'|'+rid);
+  V5.flow={kind:'practice',steps:[{diff:'RANDOM',tag:'實戰',head:'訓練 '+(idx+1)+' / 400',title:'第 '+(idx+1)+' / 400 題',sub:'題型隨機，先自己判斷這題在問什麼',text:q.text,kind:'choice',options:opts.opts.map(function(x){return{label:x};}),correct:opts.correct,feedback:q.explain,R:R,
+    chart:function(){var extra=d.gen.chart?d.gen.chart(R,i,A):{};return v5Chart(R,i,{panel:d.gen.panel,guides:extra.guides,lines:extra.lines,markers:extra.markers,focus:[i]});}}],k:0,
+    grade:function(st){S.practice.total++;if(st.ok)S.practice.correct++;S.practice.idx++;S.xp+=st.ok?20:5;S.coins+=st.ok?10:0;skillStat(d.family,st.ok);},
+    onDone:function(){startPractice();}};
+  v5Show();}
+// Lesson drills keep the regular practice screen; record their skill family as well.
+ACT_V5.answer=function(el,orig){var r=orig(el);if(UI.mode==='practice'&&UI.drill&&!UI.drill.gen){var R=getR(UI.roundId),q=question(UI.mission,R,UI.exercise);skillStat(UI.drill.family,UI.answer===q.correct);save();}return r;};
+ACT_V5.startPractice=function(){if(availableDrills().length<3){toast('再完成幾個能力，訓練場才會開放');return;}startPractice();};
+startScan=function(mode){if(mode==='exam')return startMixed();return startPractice();};
+V5.drills={all:function(){return DRILLS;},available:availableDrills,families:SKILL_FAMILIES,kind:lessonDrillKind,pick:pickDrill,gen:DRILL_GEN};

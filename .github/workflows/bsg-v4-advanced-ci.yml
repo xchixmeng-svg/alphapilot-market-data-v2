@@ -53,7 +53,7 @@ jobs:
             await page.waitForSelector('.hudstats',{timeout:15000});
             const result=await page.evaluate(()=>{
               const t=window.BSGV3._test,CT=window.BSG_CONTENT,rows=[];
-              if(CT.MISSIONS.length!==50)throw new Error('mission count '+CT.MISSIONS.length);
+              if(CT.MISSIONS.length!==63)throw new Error('mission count '+CT.MISSIONS.length);
               if(CT.WORLDS.length!==8)throw new Error('world count '+CT.WORLDS.length);
               if(CT.FREE_THROUGH!==15||CT.PRODUCT_PRICE_TWD!==149)throw new Error('commercial defaults mismatch');
               if(!window.BSG_V4_ADVANCED_VISUALS)throw new Error('advanced visual layer missing');

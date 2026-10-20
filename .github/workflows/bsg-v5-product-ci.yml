@@ -1,0 +1,162 @@
+name: Validate BSG V5 complete product
+
+# Behaviour tests for the five layers (core lessons, skill drills, mixed blind exam, daily scenarios,
+# final exam) — they drive the real page, not source-string greps.
+on:
+  push:
+    branches: [bsg-learning-system-20261019]
+    paths:
+      - 'apps/become-stock-god-v2/**'
+      - '.github/workflows/bsg-v5-product-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  product:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/become-stock-god-v2/package.json
+      - name: Install
+        working-directory: apps/become-stock-god-v2
+        run: npm install
+      - name: Build complete product
+        working-directory: apps/become-stock-god-v2
+        run: npm run build:web
+      - name: Syntax, learning audit, PWA files
+        working-directory: apps/become-stock-god-v2
+        run: |
+          for f in engine content chart app; do node --check src/$f.js; done
+          npm run audit:learning
+          node - <<'NODE'
+          const fs=require('fs')
+          for(const f of ['dist/index.html','dist/manifest.webmanifest','dist/icon-192.png','dist/icon-512.png','dist/apple-touch-icon.png','dist/sw.js'])if(!fs.existsSync(f)||fs.statSync(f).size<100)throw new Error('PWA file missing '+f)
+          const m=JSON.parse(fs.readFileSync('dist/manifest.webmanifest','utf8'));if(m.display!=='standalone'||!m.icons||m.icons.length<2)throw new Error('manifest incomplete')
+          const sc=JSON.parse(fs.readFileSync('build/scenarios.json','utf8'));if(sc.scenarios.length<12||sc.blockers.length)throw new Error('daily scenarios incomplete '+JSON.stringify(sc.blockers))
+          console.log('V5_STATIC_OK',{scenarios:sc.scenarios.length})
+          NODE
+      - name: Browser behaviour tests (phone landscape + Android portrait)
+        working-directory: apps/become-stock-god-v2
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4175 -d dist >/tmp/bsg-v5-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node - <<'NODE'
+          const {chromium}=require('playwright');
+          const URL='http://127.0.0.1:4175/';
+          const ALL=Array.from({length:63},(_,i)=>i+1);
+          function save(over){return Object.assign({version:3,created:new Date().toISOString(),completed:[],xp:0,coins:0,streak:0,premium:true,missionStats:{},practice:{idx:0,correct:0,total:0,round:1},exam:{idx:0,correct:0,total:0,format:'mixed-v5'},lastMission:1,seed:'ci-seed'},over||{});}
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const report={};
+            async function page(view,s,ua){const ctx=await browser.newContext({viewport:view,isMobile:true,hasTouch:true,deviceScaleFactor:2,userAgent:ua});const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push('pageerror '+e));p.on('console',m=>{if(m.type()==='error')errs.push('console '+m.text())});
+              await p.goto(URL,{waitUntil:'load'});await p.evaluate(s=>{localStorage.setItem('bsg_v3_product',JSON.stringify(s));sessionStorage.setItem('bsg_landing_entered','1');},s);await p.reload({waitUntil:'load'});await p.waitForSelector('.hudstats',{timeout:15000});return{p,ctx,errs};}
+            const LAND={width:844,height:390},ANDROID={width:412,height:915};
+            const ANDROID_UA='Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
+
+            // 1. Core course: 63 lessons, teaching order, unlocks follow the order, new lessons valid on many charts
+            {const {p,ctx,errs}=await page(LAND,save());
+             const r=await p.evaluate(()=>{const t=window.BSGV3._test,CT=window.BSG_CONTENT,V=window.BSG_V5,order=V.order();
+               if(CT.MISSIONS.length!==63||order.length!==63||new Set(order).size!==63)throw new Error('course map');
+               if(CT.FREE_THROUGH!==15||CT.PRODUCT_PRICE_TWD!==149)throw new Error('commercial defaults changed');
+               const pos=id=>order.indexOf(id);
+               // every new lesson comes after the lesson it builds on
+               for(const [id,after] of [[51,1],[52,11],[53,15],[54,18],[55,18],[56,26],[57,28],[58,33],[59,41],[60,43],[61,44],[62,48],[63,49]])if(!(pos(id)>pos(after)))throw new Error('M'+id+' taught before M'+after);
+               if(pos(50)!==62)throw new Error('daily-reveal lesson must be the last core lesson');
+               let checked=0;for(let id=51;id<=63;id++){const m=CT.MISSIONS[id-1],suit=t.TRAIN.filter(r=>t.suitable(id,t.getR(r)));if(suit.length<4)throw new Error('M'+id+' has too few historical examples: '+suit.length);
+                 for(const rid of suit.slice(0,40)){t.ui.roundId=rid;t.ui.mission=m;const R=t.getR(rid);for(let ex=1;ex<=3;ex++){const q=t.question(m,R,ex);if(!q||q.opts.length<3||new Set(q.opts).size!==q.opts.length||q.correct<0||q.correct>=q.opts.length||!t.qtext(m,R,ex))throw new Error('M'+id+' ex'+ex+' invalid on '+rid);checked++;}}}
+               return{lessons:CT.MISSIONS.length,checked};});
+             // unlock follows CT.ORDER: after M01..M05 the next lesson is M51, not M06
+             await p.evaluate(()=>{localStorage.setItem('bsg_v3_product',JSON.stringify(Object.assign(JSON.parse(localStorage.getItem('bsg_v3_product')),{completed:[1,2,3,4,5]})));});await p.reload();await p.waitForSelector('.hudstats');
+             const nx=await p.evaluate(()=>{const b=document.createElement('button');b.dataset.act='continueNext';document.body.appendChild(b);b.click();return window.BSGV3._test.ui.mission.id;});
+             if(nx!==51)throw new Error('next lesson after M05 should be M51, got '+nx);
+             if(errs.length)throw new Error(errs.join(' | '));report.core=r;await ctx.close();}
+
+            // 2. Skill drills: unlock by progress, never untaught skills
+            {const {p,ctx,errs}=await page(LAND,save());
+             const r=await p.evaluate(()=>{const V=window.BSG_V5,order=V.order(),out={};
+               out.none=V.drills.available().length;return out;});
+             if(r.none!==0)throw new Error('drills available before any lesson');
+             const steps=[6,20,40,63];const pools={};
+             for(const n of steps){await p.evaluate(n=>{const o=window.BSG_V5.order();const s=JSON.parse(localStorage.getItem('bsg_v3_product'));s.completed=o.slice(0,n);localStorage.setItem('bsg_v3_product',JSON.stringify(s));},n);await p.reload();await p.waitForSelector('.hudstats');
+               pools[n]=await p.evaluate(n=>{const V=window.BSG_V5,taught=new Set(V.order().slice(0,n)),av=V.drills.available();const bad=av.filter(d=>!taught.has(d.lesson)).map(d=>d.id);if(bad.length)throw new Error('untaught drills in pool: '+bad.join(','));const fam={};av.forEach(d=>fam[d.family]=(fam[d.family]||0)+1);return{n:av.length,fam};},n);}
+             if(!(pools[6].n<pools[20].n&&pools[20].n<pools[40].n&&pools[40].n<pools[63].n))throw new Error('pool must grow with progress');
+             if(pools[20].fam.rsi||pools[20].fam.macd||pools[20].fam.kd)throw new Error('indicator drills before indicators were taught');
+             const fams=pools[63].fam;for(const f of ['structure','levels','breakout','reversal','volume','ma','macd','kd','rsi','conflict','entry','notrade'])if(!(fams[f]>=9))throw new Error('family '+f+' has only '+fams[f]+' drill types');
+             // play 60 training questions through the UI (all answered correctly) — mix of lesson and generator drills
+             await p.evaluate(()=>{const b=document.createElement('button');b.dataset.act='startPractice';document.body.appendChild(b);b.click();});await p.waitForTimeout(200);
+             let gen=0,les=0;for(let n=0;n<60;n++){const info=await p.evaluate(()=>{const f=window.BSG_V5.flow();if(f&&f.kind==='practice')return{gen:1,c:f.steps[f.k].correct};const T=window.BSGV3._test,u=T.ui;return{gen:0,c:T.question(u.mission,T.getR(u.roundId),u.exercise).correct};});
+               if(info.gen){gen++;await p.locator('[data-act="v5Choice"][data-i="'+info.c+'"]').click();await p.locator('[data-act="v5Next"]').click();}else{les++;await p.locator('[data-act="answer"][data-i="'+info.c+'"]').click();await p.locator('[data-act="afterFeedback"]').click();}}
+             const st=await p.evaluate(()=>({pr:window.BSGV3.state().practice,fams:Object.keys(window.BSG_V5.state().skills).length}));
+             if(st.pr.total!==60||st.pr.correct!==60||gen<5||les<5||st.fams<8)throw new Error('training ground play '+JSON.stringify({st,gen,les}));
+             if(errs.length)throw new Error(errs.join(' | '));report.drills={pools:Object.fromEntries(Object.entries(pools).map(([k,v])=>[k,v.n])),families:fams,played:{gen,les}};await ctx.close();}
+
+            // 3. Mixed blind exam: 100 distinct unseen charts, no topic labels, M37–M49 evidence, No Trade common
+            {const {p,ctx,errs}=await page(ANDROID,save({completed:ALL}),ANDROID_UA);
+             const r=await p.evaluate(()=>{const V=window.BSG_V5,t=window.BSGV3._test,rounds=[],dec={trade:0,wait:0,notrade:0},panels={},steps={};let priceSteps=0;
+               for(let k=0;k<100;k++){const rid=V.mixed.round(k);rounds.push(rid);const R=t.getR(rid),i=239+1,A=V.analyze(R,240),plan=V.mixed.plan(k,A);dec[A.decision]++;panels[plan.panel]=(panels[plan.panel]||0)+1;plan.steps.forEach(s=>steps[s]=(steps[s]||0)+1);}
+               const exam=new Set(t.EXAM);if(new Set(rounds).size!==100||rounds.some(r=>!exam.has(r)))throw new Error('blind exam must use 100 distinct EXAM charts');
+               if(rounds.some(r=>t.TRAIN.includes(r)))throw new Error('exam chart leaked from training pool');
+               return{dec,panels,steps};});
+             for(const k of ['MACD','KD','RSI14','VOL'])if(!(r.panels[k]>=20))throw new Error('evidence panel '+k+' underused');
+             if(!(r.dec.notrade+r.dec.wait>=50))throw new Error('No Trade / wait must be a common correct answer '+JSON.stringify(r.dec));
+             if(!((r.steps.stop||0)+(r.steps.stopPlan||0)>=10))throw new Error('invalidation must be asked regularly '+JSON.stringify(r.steps));
+             // play 5 cases on Android with real taps; headers never name the topic
+             await p.evaluate(()=>window.BSG_V5.start.exam());await p.waitForTimeout(200);
+             const forbidden=/RSI 題|MACD 題|KD 題|突破題|支撐題|這是.{0,6}題/;let answered=0;
+             while(answered<200){const f=await p.evaluate(()=>{const f=window.BSG_V5.flow();if(!f||f.kind!=='mixed')return null;const st=f.steps[f.k];return{c:st.correct,head:document.querySelector('.trainingHead').innerText+document.querySelector('.prompt').innerText,opts:st.options.map(o=>o.label),guides:(st.chart(st).priceGuides||[]).map(x=>+x.toFixed(4)),id:st.id};});
+               if(!f)break;if(forbidden.test(f.head))throw new Error('mixed exam names the topic: '+f.head);
+               if(f.id==='entry'||f.id==='stop'||f.id==='stopPlan'){for(const o of f.opts){const m=o.match(/(\d+(?:\.\d+)?)(?!.*\d)/);if(m&&!f.guides.some(g=>Math.abs(g-(+m[1]))<1e-6))throw new Error('price '+m[1]+' in options is not shown on the chart')}}
+               await p.locator('[data-act="v5Choice"][data-i="'+f.c+'"]').tap();await p.locator('[data-act="v5Next"]').tap();answered++;
+               const idx=await p.evaluate(()=>window.BSGV3.state().exam.idx);if(idx>=5)break;}
+             const ex=await p.evaluate(()=>window.BSGV3.state().exam);if(ex.idx!==5||ex.correct!==ex.total)throw new Error('mixed exam play '+JSON.stringify(ex));
+             if(errs.length)throw new Error(errs.join(' | '));report.mixed={decisions:r.dec,panels:r.panels,played:ex};await ctx.close();}
+
+            // 4. Daily scenarios: gating, 12 scripts, no future leak at any checkpoint, separate scoring
+            {const {p,ctx,errs}=await page(LAND,save({completed:ALL}));
+             if(await p.evaluate(()=>window.BSG_V5.dailyUnlocked()))throw new Error('daily scenarios open before training/mixed basics');
+             await p.evaluate(()=>{const s=JSON.parse(localStorage.getItem('bsg_v3_product'));s.practice={idx:60,correct:50,total:60,round:1};s.exam={idx:20,correct:70,total:100,format:'mixed-v5'};localStorage.setItem('bsg_v3_product',JSON.stringify(s));});await p.reload();await p.waitForSelector('.hudstats');
+             const r=await p.evaluate(()=>{const D=window.BSG_V5.daily,need=['uptrend_pullback','false_breakout','retest_success','breakout_fail','oversold_bounce','true_reversal','long_range','pretty_indicators','lowvol_breakout','highvol_breakout','good_decision_stopped','bad_decision_won'];
+               const have=D.scenarios.map(s=>s.script);for(const n of need)if(!have.includes(n))throw new Error('missing scenario '+n);
+               const leaks=[];for(const sc of D.scenarios)for(let k=0;k<=sc.days;k++){const pr=D.probe(sc.id,k);if(pr.len!==sc.start+k+1||pr.lastIdx!==sc.start+k||pr.arrays.some(n=>n!==sc.start+k+1))leaks.push(sc.id+'@'+k);}
+               if(leaks.length)throw new Error('future data leak: '+leaks.join(','));
+               const g=D.scenarios.find(s=>s.script==='good_decision_stopped'),b=D.scenarios.find(s=>s.script==='bad_decision_won');
+               if(D.probe(g.id,0).rubric!=='trade')throw new Error('good-decision case must be a valid setup at D0');if(D.probe(b.id,0).rubric!=='notrade')throw new Error('bad-decision case must be a no-trade at D0');
+               const exam=new Set(window.BSGV3._test.EXAM);if(D.scenarios.some(s=>exam.has(s.roundId)))throw new Error('daily scenario uses a blind-exam chart');
+               return{scenarios:D.scenarios.length,checkpoints:D.scenarios.reduce((a,s)=>a+s.days+1,0)};});
+             // play the good-decision case: enter at D0 with the structural stop, hold → stopped out; decision ≥ 70, P/L < 0
+             const g=await p.evaluate(()=>window.BSG_V5.daily.scenarios.find(s=>s.script==='good_decision_stopped').id);
+             await p.evaluate(id=>window.BSG_V5.start.daily(id),g);await p.waitForTimeout(150);
+             await p.locator('[data-act="dailyStopPick"]').tap();await p.locator('[data-act="dailyEnter"][data-s="structure"]').tap();
+             for(let n=0;n<10;n++){if(await p.locator('[data-act="dailyHome"]').count())break;if(await p.locator('[data-a="hold"]').count())await p.locator('[data-a="hold"]').tap();else await p.locator('[data-a="wait"]').tap();}
+             const res=await p.evaluate(id=>window.BSG_V5.state().daily[id],g);if(!res.done||res.pnl>=0||res.decision<70||!res.log.some(l=>l.action==='stopped'))throw new Error('good decision / losing outcome not scored separately '+JSON.stringify({d:res.decision,p:res.pnl}));
+             if(errs.length)throw new Error(errs.join(' | '));report.daily=Object.assign(r,{goodDecisionStopped:{decision:res.decision,pnl:+(res.pnl*100).toFixed(2)}});await ctx.close();}
+
+            // 5. Final exam: unlock after all scenarios, unseen pool, mixed interactions, report with 10 dimensions
+            {const {p,ctx,errs}=await page(LAND,save({completed:ALL,practice:{idx:60,correct:50,total:60,round:1},exam:{idx:20,correct:70,total:100,format:'mixed-v5'}}));
+             if(await p.evaluate(()=>window.BSG_V5.final.unlocked()))throw new Error('final exam open before the daily scenarios');
+             await p.evaluate(()=>{const s=JSON.parse(localStorage.getItem('bsg_v3_product'));s.v5={daily:{}};window.BSG_V5.daily.scenarios.forEach(sc=>s.v5.daily[sc.id]={done:true,decision:80,pnl:.01,log:[],scores:[1],stopScores:[1]});localStorage.setItem('bsg_v3_product',JSON.stringify(s));});await p.reload();await p.waitForSelector('.hudstats');
+             const pool=await p.evaluate(()=>{const t=window.BSGV3._test,F=window.BSG_V5.final.pool;if(F.length<3)throw new Error('final pool too small');if(F.some(r=>t.TRAIN.includes(r)||t.EXAM.includes(r)))throw new Error('final exam chart was seen before');return F.length;});
+             await p.evaluate(()=>window.BSG_V5.start.final());await p.waitForTimeout(200);const kinds={};let n=0;
+             for(;n<40;n++){const f=await p.evaluate(()=>{const f=window.BSG_V5.flow();if(!f)return null;const st=f.steps[f.k];return{id:st.id,kind:st.kind,c:st.correct,enter:(st.options||[]).findIndex(o=>o.label==='進場')};});if(!f)break;kinds[f.kind]=(kinds[f.kind]||0)+1;
+               if(f.kind==='choice')await p.locator('[data-act="v5Choice"][data-i="'+(f.id==='decision'?f.enter:f.c)+'"]').tap();
+               else{const box=await p.locator('#v3Chart canvas').boundingBox();await p.touchscreen.tap(box.x+box.width*.45,box.y+box.height*.55);const picked=await p.evaluate(()=>{const f=window.BSG_V5.flow();return f.steps[f.k].pick!=null;});if(!picked)throw new Error('touch did not pick on '+f.id);await p.locator('[data-act="v5ConfirmPick"]').tap();}
+               await p.locator('[data-act="v5Next"]').tap();}
+             const fin=await p.evaluate(()=>window.BSG_V5.state().final);
+             if(!fin||!fin.done||Object.keys(fin.dims).length!==10||!fin.report||fin.report.habits.length!==5)throw new Error('final report incomplete');
+             if(!(kinds.candle>=2&&kinds.price>=3&&kinds.choice>=8))throw new Error('final exam interaction mix '+JSON.stringify(kinds));
+             if(!(await p.locator('.v5Report .v5Dim').count()===10))throw new Error('report screen');
+             if(errs.length)throw new Error(errs.join(' | '));report.final={pool,steps:n,kinds,total:fin.total};await ctx.close();}
+
+            console.log('V5_PRODUCT_OK',JSON.stringify(report));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE

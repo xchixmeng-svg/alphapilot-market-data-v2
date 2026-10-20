@@ -50,7 +50,8 @@ for(const marker of lessonMarkers)assert(app.includes(marker),'app learning cont
 
 const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(contentSrc,sandbox)
 const CT=sandbox.window.BSG_CONTENT
-assert(CT&&Array.isArray(CT.MISSIONS)&&CT.MISSIONS.length===50,'current course map != 50')
+assert(CT&&Array.isArray(CT.MISSIONS)&&CT.MISSIONS.length===63,'current course map != 63 core lessons')
+assert(Array.isArray(CT.ORDER)&&CT.ORDER.length===63&&new Set(CT.ORDER).size===63,'teaching order must list every core lesson once')
 assert(CT.WORLDS.length===8,'current world map != 8')
 const advanced=['TIMEFRAME','GAP','MACD_BASE','MACD_HIST','MACD_DIVERGENCE','KD_BASE','KD_STICKY','RSI','INDICATOR_CONFLICT','CONFLUENCE','DRAW_LEVEL','REVERSAL_CONFIRM','ENTRY_INVALIDATION','DAILY_REVEAL']
 for(let i=0;i<CT.MISSIONS.length;i++)assert(CT.MISSIONS[i].id===i+1,'mission ids must stay sequential')
@@ -71,8 +72,8 @@ assert(!hardCoded.length,'mission-id branch for M37+ found (use the lesson schem
 for(const marker of ['window.BSG_LESSONS','function defineLesson(','interaction:{type:\'pricePick\'','Math.abs(pick-target)<=tol'])assert(app.includes(marker),'lesson schema contract missing: '+marker)
 
 const report={
-  ok:true,currentMissions:50,worlds:8,tickCases:tickCases.length,checkedPrices,legalAxis:true,exactPriceGuides:true,teachBeforeTest:true,
-  modules:{foundation:'M01-M36',indicators:'M37-M46',integration:'M47-M50'},
+  ok:true,currentMissions:CT.MISSIONS.length,worlds:8,tickCases:tickCases.length,checkedPrices,legalAxis:true,exactPriceGuides:true,teachBeforeTest:true,
+  modules:{foundation:'M01-M36',indicators:'M37-M46',integration:'M47-M50',coreGaps:'M51-M63'},layers:['core','drills','mixed','daily','final'],
   indicators:['MACD','KD','RSI14'],drawingPractice:true,dailyReveal:true,roadmapLocked:true,
   lessonSchema:{lessons:lessonIds.length,from:Math.min(...lessonIds),to:Math.max(...lessonIds),hardCodedM37Plus:0}
 }
