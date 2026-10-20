@@ -238,3 +238,28 @@ course order + 13 new lessons on 40 charts each, drill unlock by progress, 60 tr
 isolation / panel rotation / No-Trade share / prices visible on chart, 5 blind cases, daily gating + 12 scripts +
 leak probe at all 96 checkpoints + a good-decision-but-stopped case, final exam gating + unseen pool + touch
 picks + 10-dimension report, PWA files, zero console errors.
+
+## V6 learning upgrades (Claude, 2026-10-20)
+
+Why: multiple choice alone teaches recognition, not doing; the V5 blind exam could be passed by always
+answering "no trade" (81% of answers); practice volume and feedback loops were too thin.
+
+- **Balanced, clear cases** — `tools/build_cases.mjs` (shares `tools/rubric.mjs` with `build_scenarios.mjs`) picks
+  the graded chart positions at build time: blind exam 18 trade / 41 wait / 41 no-trade (the rubric rarely says
+  "trade", so 20 was the ceiling), each case clearly inside its class. Writes `build/cases.json` (embedded as
+  `#case-data`). CI checks the game's `analyze()` returns the same class for every case.
+- **Do it yourself** — `app.02996.part`: draw support / resistance, mark swing highs / lows, draw the stop and the
+  target, scored by distance (0.4 ATR for levels, 0.3 ATR for stops); the reference answer is drawn next to the
+  player's line. ≈ 40% of training questions and 3–4 steps of every blind-exam chart are these.
+- **Outcome reveal** — after the decision is committed the next 20 days are shown with what a long at D0 (structural
+  stop, first target) would have done, plus the player's running tally per decision. Before that step every chart
+  is truncated at D0 (CI checks each step).
+- **Review** — a missed skill returns on a new chart after 5, 20 and 60 questions (`S.v5.review`).
+- **Volume** — 72 day-by-day cases (6 sets × 12 scripts, shuffled inside each set); the final exam opens after one set.
+- **Start test / retest** — 10 + 10 unseen charts (reserve C #1–10, early vs late windows, same answer mix);
+  final exam moved to reserve C #11–20. Report compares the two.
+- **Review build** — `window.BSG_OPEN_ALL=true` (injected only into the preview copy) opens every lesson and layer.
+  The production build never sets it (static CI check).
+- **Measured** (training rounds, 2020–2023, see `cases.json → base`): avg return of a long at D0 over the next
+  20 days — rubric "trade" −0.65%, "wait" +0.07%, "no trade" +0.75%; forward returns by class are close to random.
+  The decision rubric teaches a process; the data does not show it has an edge. Decide before marketing it as one.

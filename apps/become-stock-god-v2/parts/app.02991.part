@@ -7,9 +7,9 @@ var RAW_CREATE=window.BSGChart&&window.BSGChart.create;   // captured before the
 var ACT_V5={};                                             // merged into ACT at the end of app.03
 var V5={};
 function v5State(){if(!S.v5||typeof S.v5!=='object')S.v5={};var v=S.v5;v.skills=v.skills||{};v.mixed=v.mixed||{};v.daily=v.daily||{};v.final=v.final||null;v.flags=v.flags||{chase:0,overtrade:0,earlyReversal:0,noStop:0,heldBroken:0,entries:0};return v;}
-if(!S.exam||S.exam.format!=='mixed-v5'){S.examLegacy=S.exam&&S.exam.total?JSON.parse(JSON.stringify(S.exam)):(S.examLegacy||null);S.exam={idx:0,correct:0,total:0,format:'mixed-v5',step:0};}
+if(!S.exam||S.exam.format!=='mixed-v6'){S.examLegacy=S.exam&&S.exam.total?JSON.parse(JSON.stringify(S.exam)):(S.examLegacy||null);S.exam={idx:0,correct:0,total:0,format:'mixed-v6',step:0};}
 v5State();save();
-var _v5Migrate=migrate;migrate=function(s){s=_v5Migrate(s);if(!s.v5)s.v5={};if(!s.exam||s.exam.format!=='mixed-v5')s.exam={idx:0,correct:0,total:0,format:'mixed-v5',step:0};return s;};
+var _v5Migrate=migrate;migrate=function(s){s=_v5Migrate(s);if(!s.v5)s.v5={};if(!s.exam||s.exam.format!=='mixed-v6')s.exam={idx:0,correct:0,total:0,format:'mixed-v6',step:0};return s;};
 
 // ── truncation: the only data a judgement at bar j may see ──
 function upTo(R,j){var o={};Object.keys(R).forEach(function(k){o[k]=Array.isArray(R[k])?R[k].slice(0,j+1):R[k];});return o;}
@@ -62,8 +62,9 @@ function v5Mount(getData,handlers,range){destroyChart();var host=document.getEle
 function v5StepScreen(st){
   var answered=st.answered,body='';
   if(st.kind==='choice'){body=st.options.map(function(o,k){var cls='answer';if(answered&&k===st.correct)cls+=' correct';if(answered&&st.picked===k&&k!==st.correct)cls+=' wrong';return'<button class="'+cls+'" data-act="v5Choice" data-i="'+k+'" '+(answered?'disabled':'')+'>'+esc(o.label)+'</button>';}).join('');}
+  else if(st.kind==='info'){body='<div class="feedbackBox info">'+(st.html||esc(st.feedback||''))+'</div><button class="btn primary full nextBtn" data-act="v5Next">'+esc(st.nextLabel||'下一步 →')+'</button>';}
   else{body='<div id="v5PickReadout" class="coachLine">'+esc(st.readout||(st.kind==='price'?'點 K 線圖上的價位畫一條水平線，再按確認。':'點一根 K 棒選取，再按確認。'))+'</div>'+(answered?'':'<button class="btn primary full" data-act="v5ConfirmPick">'+esc(st.confirm||'確認 →')+'</button>');}
-  if(answered)body+='<div class="feedbackBox '+(st.ok?'':'bad')+'"><strong>'+(st.ok?'判斷正確':st.partial?'接近，但還不夠準':'判斷有誤')+'</strong><br>'+esc(st.feedback||'')+'</div><button class="btn '+(st.ok?'green':'ghost')+' full nextBtn" data-act="v5Next">'+esc(st.nextLabel||'下一步 →')+'</button>';
+  if(answered&&st.kind!=='info')body+='<div class="feedbackBox '+(st.ok?'':'bad')+'"><strong>'+(st.ok?'判斷正確':st.partial?'接近，但還不夠準':'判斷有誤')+'</strong><br>'+esc(st.feedback||'')+'</div><button class="btn '+(st.ok?'green':'ghost')+' full nextBtn" data-act="v5Next">'+esc(st.nextLabel||'下一步 →')+'</button>';
   app.innerHTML=scan+hud(true)+'<div class="main scanMain v5Main"><section class="training"><div class="trainingHead"><div class="missionTag">'+esc(st.tag)+'</div><div class="trainTitle"><strong>'+esc(st.title)+'</strong><span>'+esc(st.sub||'')+'</span></div></div>'+
     '<div class="chartArea"><div class="chartFrame"><div id="v3Chart" class="chartwrap"></div></div></div><div class="lessonDock"><div class="dockGrid"><div class="prompt"><div class="promptTop"><span class="qtag">'+esc(st.head||'')+'</span><span class="difficulty">'+esc(st.diff||'NO HINT')+'</span></div><div class="question">'+esc(st.text)+'</div>'+(st.panels?panelButtons(UI.v5Panel||'VOL'):'')+'</div><div class="answers'+(st.kind==='choice'?'':' v5Pick')+'">'+body+'</div></div></div></section></div>';
   var h={};if(st.kind==='price'&&!answered)h.price=function(p){st.pick=p;var r=document.getElementById('v5PickReadout');if(r)r.textContent='你畫的水平線：'+px(p)+' 元｜可以再點一次調整';};

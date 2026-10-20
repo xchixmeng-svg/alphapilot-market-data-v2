@@ -27,3 +27,8 @@
 .v5Habits span{font:900 13px var(--font,system-ui);padding:1px 10px;border-radius:999px}.v5Habits span.good{background:rgba(36,215,155,.18);color:#24d79b}.v5Habits span.bad{background:rgba(255,70,95,.18);color:#ff7e90}
 .v5Habits small{grid-column:1/-1;font-size:12px;color:#9fbbc9}
 .v5Report,.v5Home{padding-bottom:110px!important}
+.feedbackBox.info{border-color:rgba(57,245,255,.35)!important;background:rgba(6,30,48,.85)!important;line-height:1.55}
+.feedbackBox b.up{color:#ff465f}.feedbackBox b.down{color:#24d79b}.feedbackBox .ckMuted{font-size:12.5px}
+.v5Set{margin:14px 0 6px}.v5SetHead{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 8px;font:900 16px var(--font,system-ui);color:#dff7ff}.v5SetHead span{font:800 12px var(--mono,monospace);color:#89a6bd}
+.v5Cmp{grid-template-columns:minmax(0,1fr) 52px 52px 52px!important}.v5Cmp em{text-align:center!important}.v5Cmp em.up{color:#ff465f}.v5Cmp em.down{color:#24d79b}.v5CmpHead em{color:#89a6bd!important;font-size:11px!important}
+.v5TestMode{border-color:rgba(255,212,74,.5)!important}.v5TestMode span{color:#ffd44a}

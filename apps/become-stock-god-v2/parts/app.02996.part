@@ -1,0 +1,207 @@
+
+// ═════════════ V6 learning upgrades: do-it-yourself tasks, balanced answers, review, outcomes, start/retest ═════════════
+// 1. Balanced answers — graded decisions use positions picked at build time (tools/build_cases.mjs) so no single
+//    answer ("always no trade") scores above ~40%, and each case sits clearly inside its class.
+// 2. Production — players draw support/resistance, mark swing points and draw stops/targets themselves; scored by
+//    distance, then the reference answer is drawn next to theirs.
+// 3. Volume — missed skills come back on new charts after 5 / 20 / 60 questions; after each decision the real
+//    next 20 days are revealed; 72 day-by-day cases in 6 sets.
+// 4. Measurement — a start test and a retest on unseen, matched charts.
+var CASES=(function(){try{return JSON.parse(document.getElementById('case-data').textContent);}catch(e){return null;}})()||{mixed:[],pre:[],post:[],drills:{trade:[],wait:[],notrade:[]},finalPool:[],testPool:[],base:{}};
+if(CASES.finalPool&&CASES.finalPool.length)FINAL_POOL=CASES.finalPool.slice();
+var CLS_TEXT={trade:'可以試',wait:'等待',notrade:'不交易'};
+
+// ── rubric helpers shared with tools/rubric.mjs (CI checks both agree) ──
+function clearClass(A){var near=function(x,t,w){return x!=null&&Math.abs(x-t)<w;};
+  if(A.decision==='trade')return A.rr>=1.6&&A.dist!=null&&A.dist<.07?'trade':null;
+  if(A.decision==='notrade'){if(A.hi2<A.hi1*.98&&A.lo2<A.lo1*.98)return'notrade';if(A.trend!=='down'&&A.rr<.8&&!near(A.dist,.1,.015))return'notrade';if(A.trend!=='down'&&A.dist!=null&&A.dist>.12)return'notrade';return null;}
+  if(near(A.rr,1,.15)||near(A.rr,1.5,.15)||near(A.dist,.08,.01)||near(A.dist,.1,.015)||near(A.dist,0,.005))return null;
+  if(A.trend==='up'&&!(A.hi2>A.hi1*1.015&&A.lo2>A.lo1*1.015))return null;return'wait';}
+function lineTol(A){return Math.max(A.a*.4,A.c*.004);}   // drawing a level: within 0.4 ATR is on it
+function notradeKind(A){return A.trend==='down'?'down':A.dist!=null&&A.dist>.1?'chase':'rr';}
+// what a long entered at the close of bar i (structural stop, first target) did over the next H bars — only ever
+// called after the player has committed to an answer
+function outcomeOf(R,i,A,H){H=H||20;var e=R.c[i];for(var k=1;k<=H&&i+k<R.c.length;k++){var j=i+k;if(R.l[j]<=A.stop)return{res:'stop',k:k,ret:Math.min(R.o[j],A.stop)/e-1};if(R.h[j]>=A.target)return{res:'target',k:k,ret:Math.max(R.o[j],A.target)/e-1};}var j2=Math.min(R.c.length-1,i+H);return{res:'open',k:j2-i,ret:R.c[j2]/e-1};}
+
+// ── gates (OPEN_ALL = review build) ──
+dailyUnlocked=function(){return OPEN_ALL||(coreComplete()&&S.practice.total>=60&&S.exam.idx>=20);};
+finalUnlocked=function(){return OPEN_ALL||dailyDone()>=12;};
+drillAvailable=function(d){return OPEN_ALL||(completed(d.lesson)&&!premiumNeeded(d.lesson));};
+ACT_V5.startExam=function(){if(!OPEN_ALL&&!coreComplete()){toast('完成全部核心課程後才開放混合盲測');return;}startMixed();};
+function retestUnlocked(){return OPEN_ALL||!!v5State().final;}
+
+// ── review (spaced repetition of missed skills) ──
+var REVIEW_GAPS=[5,20,60];
+function reviewState(){var v=v5State();if(!v.review||typeof v.review!=='object')v.review={};return v.review;}
+function reviewMiss(key){var rv=reviewState(),x=rv[key];rv[key]={due:S.practice.total+REVIEW_GAPS[0],lv:0,miss:(x&&x.miss||0)+1};}
+function reviewHit(key){var rv=reviewState(),x=rv[key];if(!x)return;x.lv++;if(x.lv>=REVIEW_GAPS.length)delete rv[key];else x.due=S.practice.total+REVIEW_GAPS[x.lv];}
+function reviewCount(){return Object.keys(reviewState()).length;}
+function reviewDueDrill(){var rv=reviewState(),t=S.practice.total,keys=Object.keys(rv).filter(function(k){return rv[k].due<=t;}).sort(function(a,b){return rv[a].due-rv[b].due;}),av=availableDrills();
+  for(var n=0;n<keys.length;n++){var key=keys[n],d=null;
+    if(key.indexOf('d:')===0)d=av.filter(function(x){return x.id===key.slice(2);})[0];
+    else{var fam=key.slice(2),cand=av.filter(function(x){return x.family===fam;});cand.sort(function(a,b){return drillWeight(b)-drillWeight(a);});d=cand[Math.floor(E.hashUnit('REV|'+key+'|'+t)*Math.min(cand.length,4))]||null;}
+    if(d)return{drill:d,key:key};}
+  return null;}
+
+// ── do-it-yourself steps: draw a price / pick a candle, scored by distance, answer drawn next to the pick ──
+function overlayLines(st){var out=[];if(st.answered&&st.kind==='price'){if(st.pick!=null)out.push({price:st.pick,color:'#ffd44a',label:'你畫的 '+px(st.pick),dash:true});out.push({price:st.target,color:'#39f5ff',label:'參考答案 '+px(st.target)});}return out;}
+function overlayMarkers(st,R){var out=[];if(st.kind!=='candle'||st.pick==null)return out;var hp=st.mode==='high';out.push({idx:st.pick,price:hp?R.h[st.pick]:R.l[st.pick],label:'你選的',color:'#ffd44a',prefer:hp?'above':'below'});if(st.answered)out.push({idx:st.target,price:hp?R.h[st.target]:R.l[st.target],label:'參考答案',color:'#39f5ff',prefer:hp?'above':'below'});return out;}
+function pickChart(R,i,st,o){o=o||{};return v5Chart(R,i,{panel:o.panel,guides:o.guides,focus:[i],lines:(o.lines||[]).concat(overlayLines(st)),markers:overlayMarkers(st,R),pricePick:st.kind==='price'&&!st.answered,candlePick:st.kind==='candle'&&!st.answered});}
+function gradePrice(st){var d=Math.abs(st.pick-st.target);st.err=d;st.ok=d<=st.tol;st.partial=!st.ok&&d<=2*st.tol;if(st.below&&st.pick>=st.ref){st.ok=false;st.partial=false;}
+  st.feedback=(st.explain||'')+' 你畫在 '+px(st.pick)+'，參考答案 '+px(st.target)+'（容許 ±'+px(st.tol)+'）。'+(st.below&&st.pick>=st.ref?'這條線必須在進場價下方。':'');}
+function gradeCandle(st,R){var d=Math.abs(st.pick-st.target),hp=st.mode==='high',ok=d<=1||(hp?R.h[st.pick]>=R.h[st.target]*.997:R.l[st.pick]<=R.l[st.target]*1.003);st.ok=ok;st.partial=!ok&&d<=3;
+  st.feedback=(st.explain||'')+' 參考答案是 '+st.labelFor(st.target)+'（'+px(hp?R.h[st.target]:R.l[st.target])+'）。';}
+function stepScore(st){return st.ok?1:st.partial?.5:0;}
+function priceStep(R,i,o){var st={kind:'price',target:o.target,tol:o.tol,explain:o.explain,below:o.below,ref:R.c[i],family:o.family,dim:o.dim,id:o.id,tag:o.tag,head:o.head,title:o.title,sub:o.sub||'在圖上點價位畫水平線',text:o.text,R:R};
+  st.chart=function(s){return pickChart(R,i,s,{panel:o.panel,lines:o.lines});};return st;}
+function candleStep(R,i,o){var st={kind:'candle',mode:o.mode,target:o.target,explain:o.explain,family:o.family,dim:o.dim,id:o.id,tag:o.tag,head:o.head,title:o.title,sub:o.sub||'點選 K 棒',text:o.text,R:R,labelFor:function(k){return'D'+(k-i);}};
+  st.chart=function(s){return pickChart(R,i,s,{panel:o.panel});};return st;}
+function gradeAny(st){if(st.kind==='price')gradePrice(st);else if(st.kind==='candle')gradeCandle(st,st.R);}
+
+// ── outcome reveal (after the decision is committed) ──
+function outcomeStats(){var v=v5State();if(!v.outcomes)v.outcomes={};return v.outcomes;}
+function revealStep(Rfull,i,A,o){var H=20,end=Math.min(Rfull.c.length-1,i+H),out=outcomeOf(Rfull,i,A,H),Rr=upTo(Rfull,end);
+  var st={kind:'info',id:'reveal',family:null,tag:'揭曉',head:o.head,title:o.title,sub:'作答完成後才揭曉：D0 之後 20 天的真實走勢',text:'後來實際發生了什麼？',nextLabel:o.nextLabel||'下一張 →',R:Rr,out:out};
+  st.prepare=function(){var picked=o.picked(),stats=outcomeStats(),b=stats[picked]||(stats[picked]={n:0,target:0,stop:0,open:0});if(!st.counted){b.n++;b[out.res]++;st.counted=true;save();}
+    var resTxt=out.res==='target'?'D+'+out.k+' 先碰到目標 '+px(A.target):out.res==='stop'?'D+'+out.k+' 先碰到失策 '+px(A.stop):'20 天內目標和失策都沒碰到';
+    st.html='<strong>如果在 D0 收盤 '+px(A.c)+' 做多（失策 '+px(A.stop)+'、目標 '+px(A.target)+'）：</strong><br>'+esc(resTxt)+'，報酬 <b class="'+(out.ret>0?'up':out.ret<0?'down':'')+'">'+(out.ret*100).toFixed(2)+'%</b>。<br><span class="ckMuted">你的判斷：'+esc(CLS_TEXT[picked]||'—')+'｜標準答案：'+esc(CLS_TEXT[A.decision])+'</span><br><span class="ckMuted">你判斷「'+esc(CLS_TEXT[picked]||'—')+'」的圖累計 '+b.n+' 張：先到目標 '+b.target+'、先到失策 '+b.stop+'、都沒到 '+b.open+'。單一結果不代表決策對錯，要看很多張。</span>';};
+  st.chart=function(){return v5Chart(Rr,end,{d0:i,lines:[{price:A.c,color:'#39f5ff',label:'D0 收盤',dash:true},{price:A.stop,color:'#24d79b',label:'失策',dash:true},{price:A.target,color:'#ff465f',label:'目標',dash:true}],focus:[i]});};
+  return st;}
+
+// ── chart-case steps shared by the blind exam and the start / retest exams ──
+function caseSteps(c,opt){var R=getR(c.r),i=c.i,Rt=upTo(R,i),A=analyze(Rt,i),head=opt.head,title=opt.title,tol=lineTol(A),stopTol=Math.max(A.a*.3,A.c*.004),panel=opt.panel,steps=[],picked={v:null};
+  function ch(def,sid){var b=def.build(A,panel),sh=shuffleOptions(b.options,b.correct,opt.salt+'|'+c.r+'|'+i+'|'+sid);return{id:sid,family:def.family,dim:opt.dims&&opt.dims[sid],tag:opt.tag,head:head,title:title,sub:opt.sub,text:def.text,kind:'choice',options:sh.opts.map(function(x){return{label:x};}),correct:sh.correct,raw:b.options,rawCorrect:b.correct,feedback:b.feedback,R:Rt,
+    chart:function(){return v5Chart(Rt,i,{panel:panel&&panel!=='VOL'?panel:null,guides:b.guides,focus:[i]});}};}
+  opt.plan.forEach(function(sid){
+    if(sid==='drawSup')steps.push(priceStep(Rt,i,{id:sid,family:'levels',dim:'lines',tag:opt.tag,head:head,title:title,text:'畫出近 20 天最重要的支撐（點圖上的價位）。',target:A.sup,tol:tol,explain:'近 20 天的低點區約 '+px(A.sup)+'。'}));
+    else if(sid==='drawRes')steps.push(priceStep(Rt,i,{id:sid,family:'levels',dim:'lines',tag:opt.tag,head:head,title:title,text:'畫出近 20 天最重要的壓力（點圖上的價位）。',target:A.res,tol:tol,explain:'近 20 天的高點區約 '+px(A.res)+'。'}));
+    else if(sid==='drawStop')steps.push(priceStep(Rt,i,{id:sid,family:'entry',dim:'stop',tag:opt.tag,head:head,title:title,text:'假設在 D0 收盤 '+px(A.c)+' 進場：畫出「跌到這裡代表看錯」的失策線。',target:A.stop,tol:stopTol,below:true,explain:'結構失策＝支撐 '+px(A.sup)+' 下方再留一點波動（約 0.45 個 ATR）≈ '+px(A.stop)+'。'}));
+    else if(sid==='drawTarget')steps.push(priceStep(Rt,i,{id:sid,family:'entry',dim:'rr',tag:opt.tag,head:head,title:title,text:'畫出上方第一個目標（最近的前高壓力）。',target:A.target,tol:tol,explain:'上方第一個壓力約 '+px(A.target)+'。'}));
+    else if(sid==='whyNot'){var k=notradeKind(A),opts=['下降結構：高低點都在降低','R:R 不到 1：失策比目標還遠','離 MA20 太遠：現在進場是追高'],kk=k==='down'?0:k==='rr'?1:2,sh=shuffleOptions(opts,kk,opt.salt+'|why|'+c.r+'|'+i);
+      steps.push({id:sid,family:'notrade',tag:opt.tag,head:head,title:title,sub:opt.sub,text:'不交易最主要的理由是哪一個？',kind:'choice',options:sh.opts.map(function(x){return{label:x};}),correct:sh.correct,feedback:A.why.join('；')+'。',R:Rt,chart:function(){return v5Chart(Rt,i,{lines:[{price:A.stop,color:'#24d79b',label:'結構失策',dash:true},{price:A.target,color:'#ff465f',label:'第一目標',dash:true}],focus:[i]});}});}
+    else if(sid==='decision'){var s=ch(MIXED_STEPS.decision,sid);s.onPick=function(st){picked.v=['trade','wait','notrade'][st.rawPick];};steps.push(s);}
+    else if(sid==='panel')steps.push(ch(MIXED_STEPS[panel],sid));
+    else steps.push(ch(MIXED_STEPS[sid],sid));});
+  if(opt.reveal)steps.push(revealStep(R,i,A,{head:head,title:title,picked:function(){return picked.v;},nextLabel:opt.nextLabel}));
+  return{steps:steps,A:A};}
+// record the raw (unshuffled) choice index so steps can read what the player meant
+var _v5ChoiceRaw=ACT_V5.v5Choice;ACT_V5.v5Choice=function(el){var f=V5.flow,st=f&&f.steps[f.k];if(st&&!st.answered&&st.raw){st.rawPick=st.raw.indexOf(st.options[+el.dataset.i].label);if(st.onPick)st.onPick(st);}return _v5ChoiceRaw(el);};
+var _v5ConfirmRaw=ACT_V5.v5ConfirmPick;ACT_V5.v5ConfirmPick=function(el){var f=V5.flow,st=f&&f.steps[f.k];if(st&&!st.answered&&st.pick!=null&&(st.kind==='price'||st.kind==='candle')&&st.target!=null&&!st.grade)gradeAny(st);return _v5ConfirmRaw(el);};
+// info steps compute their text when shown
+var _v5ShowRaw=v5Show;v5Show=function(){var f=V5.flow,st=f&&f.steps[f.k];if(st&&st.prepare&&!st.prepared){st.prepare();st.prepared=true;}return _v5ShowRaw();};
+
+// ── Layer 3: blind exam on balanced cases ──
+function mixedCase(k){var L=CASES.mixed;return L.length?L[k%L.length]:{r:mixedRound(k),i:X(0)};}
+mixedPlan=function(k,A){var panel=MIXED_PANELS[k%4],steps=['structure','drawSup','drawRes','panel','agreement','decision'];if(A.decision==='trade')steps.push('drawStop','drawTarget');else if(A.decision==='wait')steps.push('waitFor','drawStop');else steps.push('whyNot');return{panel:panel,steps:steps};};
+startMixed=function(){var k=S.exam.idx;if(k>=100){toast('混合盲測已完成');go('practiceHome');return;}
+  var c=mixedCase(k),R=getR(c.r),A=analyze(upTo(R,c.i),c.i),plan=mixedPlan(k,A),v=v5State();
+  var cs=caseSteps(c,{plan:plan.steps,panel:plan.panel,salt:'MIX6',tag:'盲測',head:'第 '+(k+1)+' / 100 張圖',title:'陌生圖 '+(k+1)+' / 100',sub:'不提示、不顯示題型：照順序自己判斷',reveal:true,nextLabel:k+1>=100?'完成盲測 →':'下一張圖 →'});
+  cs.steps.forEach(function(st,n){if(st.kind!=='info')st.head=st.head+'｜判斷 '+(n+1)+' / '+(cs.steps.length-1);});
+  V5.flow={kind:'mixed',k:0,steps:cs.steps,round:c.r,i:c.i,
+    grade:function(st){var sc=stepScore(st);S.exam.total++;if(st.ok)S.exam.correct++;var m=v.mixed[st.family]||(v.mixed[st.family]={n:0,ok:0});m.n++;if(st.ok)m.ok++;S.xp+=st.ok?15:st.partial?8:3;if(!st.ok&&st.family)reviewMiss('f:'+st.family);},
+    onDone:function(){S.exam.idx++;S.exam.step=0;save();if(S.exam.idx>=100){toast('100 張混合盲測完成');go('practiceHome');return;}startMixed();}};
+  v5Show();};
+V5.mixed.cases=CASES.mixed;V5.mixed.plan=mixedPlan;V5.mixed.caseAt=mixedCase;
+
+// ── Layer 2: training ground — do-it-yourself drills, balanced decision drill, review ──
+function genAt(R,i){return{R:R,i:i,A:analyze(upTo(R,i),i)};}
+var PROD_GEN=[
+  {id:'G-DRAW-SUP',family:'levels',lesson:13,kind:'price',sample:function(){return true;},
+   ask:function(R,i,A){return{text:'畫出近 20 天最重要的支撐（點圖上的價位）。',target:A.sup,tol:lineTol(A),explain:'近 20 天的低點區約 '+px(A.sup)+'。'};}},
+  {id:'G-DRAW-RES',family:'levels',lesson:14,kind:'price',sample:function(){return true;},
+   ask:function(R,i,A){return{text:'畫出近 20 天最重要的壓力（點圖上的價位）。',target:A.res,tol:lineTol(A),explain:'近 20 天的高點區約 '+px(A.res)+'。'};}},
+  {id:'G-SWING-HI',family:'structure',lesson:7,kind:'candle',mode:'high',sample:function(){return true;},
+   ask:function(R,i){return{text:'點出近 20 天裡「最高點」的那根 K 棒（D0 不算）。',target:argExt(R.h,i-20,i-1,true),explain:''};}},
+  {id:'G-SWING-LO',family:'structure',lesson:8,kind:'candle',mode:'low',sample:function(){return true;},
+   ask:function(R,i){return{text:'點出近 20 天裡「最低點」的那根 K 棒（D0 不算）。',target:argExt(R.l,i-20,i-1,false),explain:''};}},
+  {id:'G-DRAW-STOP',family:'entry',lesson:31,kind:'price',sample:function(){return true;},
+   ask:function(R,i,A){return{text:'假設在 D0 收盤 '+px(A.c)+' 進場：畫出結構失策（跌到這裡代表看錯）。',target:A.stop,tol:Math.max(A.a*.3,A.c*.004),below:true,explain:'支撐 '+px(A.sup)+' 下方再留一點波動 ≈ '+px(A.stop)+'。'};}},
+  {id:'G-DRAW-TARGET',family:'entry',lesson:33,kind:'price',sample:function(R,i){var A=analyze(upTo(R,i),i);return A.target>A.c*1.01;},
+   ask:function(R,i,A){return{text:'畫出上方第一個目標（最近的前高壓力）。',target:A.target,tol:lineTol(A),explain:'上方第一個壓力約 '+px(A.target)+'。'};}},
+  {id:'G-DECIDE',family:'notrade',lesson:58,kind:'decide',sample:function(){return true;},ask:function(){return null;}}
+];
+// the old random-position decision drill is replaced by the balanced one
+for(var _g=DRILL_GEN.length-1;_g>=0;_g--)if(DRILL_GEN[_g].id==='G-NT-1')DRILL_GEN.splice(_g,1);
+PROD_GEN.forEach(function(g){DRILL_GEN.push(g);});
+DRILLS=allDrills();
+drillWeight=function(d){return d.gen?(d.gen.kind?4:3):lessonDrillKind(d.lesson,d.ex)==='chart'?3:1;};
+var _pickDrillRaw=pickDrill;
+// about 40% of training questions are do-it-yourself (draw / mark / decide on a balanced case)
+var PROD_SHARE=.4;
+pickDrill=function(idx){var rv=reviewDueDrill();if(rv){rv.drill._review=rv.key;return rv.drill;}
+  var seed=C.SEED+'|PICK6|'+S.seed+'|'+S.practice.round+'|'+idx,prod=availableDrills().filter(function(d){return d.gen&&d.gen.kind;}),prev=S.practice.lastFamily,d=null;
+  var rnd=E.mulberry32(E.hash32(seed));if(prod.length&&rnd()<PROD_SHARE){var cand=prod.filter(function(x){return x.family!==prev;});if(!cand.length)cand=prod;d=cand[Math.floor(rnd()*cand.length)];}
+  if(!d)d=_pickDrillRaw(idx);if(d)d._review=null;return d;};
+function decideCase(idx){var cls=['trade','wait','notrade'][idx%3],L=(CASES.drills&&CASES.drills[cls])||[];if(!L.length){cls='wait';L=CASES.drills.wait||[];}return L.length?L[Math.floor(E.hashUnit('DEC|'+S.seed+'|'+S.practice.round+'|'+idx)*L.length)]:null;}
+startPractice=function(){var idx=S.practice.idx;if(idx>=400){S.practice.round+=1;S.practice.idx=0;idx=0;save();}var d=pickDrill(idx);if(!d){toast('先完成第一個能力，訓練場才會開放');go('practiceHome');return;}
+  var rkey=d._review;S.practice.lastFamily=d.family;UI.drill=d;UI.scanIdx=idx;
+  if(!d.gen){V5.flow=null;var rid0=drillRound(d,S.practice.round*10000+idx);setupMission(d.lesson,d.ex,'practice');UI.roundId=rid0;UI.exercise=d.ex;UI.drill=d;UI.reviewKey=rkey;go('training');return;}
+  var head=(rkey?'複習｜':'')+'訓練 '+(idx+1)+' / 400',title='第 '+(idx+1)+' / 400 題',sub=rkey?'之前錯過的能力，換一張新圖再練一次':'題型隨機，先自己判斷這題在問什麼';
+  function finish(st){var ok=!!st.ok;S.practice.total++;if(ok)S.practice.correct++;S.practice.idx++;S.xp+=ok?20:st.partial?10:5;S.coins+=ok?10:0;skillStat(d.family,ok);
+    if(ok){if(rkey)reviewHit(rkey);}else reviewMiss('d:'+d.id);}
+  if(d.gen.kind==='decide'){var c=decideCase(idx+S.practice.round*400);if(!c){toast('沒有可用的案例');return;}var R=getR(c.r),cs=caseSteps(c,{plan:['decision'],salt:'DEC',tag:rkey?'複習':'實戰',head:head,title:title,sub:sub,reveal:true,nextLabel:'下一題 →'});
+    V5.flow={kind:'practice',steps:cs.steps,k:0,grade:function(st){finish(st);},onDone:function(){startPractice();}};return v5Show();}
+  var rid=drillRound(d,S.practice.round*10000+idx),R2=getR(rid),i=X(0),A=analyze(upTo(R2,i),i),Rt=upTo(R2,i);
+  if(d.gen.kind==='price'||d.gen.kind==='candle'){var q=d.gen.ask(Rt,i,A),o={id:d.id,family:d.family,tag:rkey?'複習':'實戰',head:head,title:title,sub:sub,text:q.text,target:q.target,tol:q.tol,below:q.below,explain:q.explain,mode:d.gen.mode},st=d.gen.kind==='price'?priceStep(Rt,i,o):candleStep(Rt,i,o);
+    V5.flow={kind:'practice',steps:[st],k:0,grade:function(s){finish(s);},onDone:function(){startPractice();}};return v5Show();}
+  var qq=d.gen.ask(R2,i,A),opts=shuffleOptions(qq.options,qq.correct,d.id+'|'+rid);
+  V5.flow={kind:'practice',steps:[{diff:'RANDOM',tag:rkey?'複習':'實戰',head:head,title:title,sub:sub,text:qq.text,kind:'choice',options:opts.opts.map(function(x){return{label:x};}),correct:opts.correct,feedback:qq.explain,R:R2,
+    chart:function(){var extra=d.gen.chart?d.gen.chart(R2,i,A):{};return v5Chart(R2,i,{panel:d.gen.panel,guides:extra.guides,lines:extra.lines,markers:extra.markers,focus:[i]});}}],k:0,
+    grade:function(st){finish(st);},onDone:function(){startPractice();}};
+  v5Show();};
+// lesson drills answered on the regular practice screen: feed the review queue too
+var _v5AnswerRaw=ACT_V5.answer;ACT_V5.answer=function(el,orig){var pre=UI.mode==='practice'&&UI.drill&&!UI.drill.gen?{d:UI.drill,key:UI.reviewKey}:null,r=_v5AnswerRaw(el,orig);
+  if(pre){var R=getR(UI.roundId),q=question(UI.mission,R,UI.exercise),ok=UI.answer===q.correct;if(ok){if(pre.key)reviewHit(pre.key);}else reviewMiss('d:'+pre.d.id);UI.reviewKey=null;save();}return r;};
+V5.drills.review={state:reviewState,due:reviewDueDrill,miss:reviewMiss,hit:reviewHit,count:reviewCount,gaps:REVIEW_GAPS};
+V5.drills.all=function(){return DRILLS;};
+
+// ── start test / retest: same format, unseen matched charts ──
+var TEST_DIMS={structure:'結構判斷',lines:'畫支撐',decision:'交易決策',stop:'畫失策'};
+function testState(kind){var v=v5State();v.tests=v.tests||{};return v.tests[kind]||(v.tests[kind]={k:0,dims:{},done:false});}
+function startTest(kind){var L=CASES[kind]||[],t=testState(kind);if(t.done){t.k=0;t.dims={};t.done=false;}if(t.k>=L.length){return testFinish(kind);}
+  var c=L[t.k],name=kind==='pre'?'起點測驗':'畢業後測',cs=caseSteps(c,{plan:['structure','drawSup','decision','drawStop'],salt:'TEST|'+kind,tag:name,head:name+' '+(t.k+1)+' / '+L.length,title:name,sub:'陌生圖、不提示；和另一份測驗同難度',dims:{structure:'structure',decision:'decision'}});
+  cs.steps.forEach(function(st){if(st.id==='drawSup')st.dim='lines';if(st.id==='drawStop')st.dim='stop';});
+  V5.flow={kind:'test',steps:cs.steps,k:0,grade:function(st){var d=t.dims[st.dim]||(t.dims[st.dim]={n:0,s:0});d.n++;d.s+=stepScore(st);},onDone:function(){t.k++;save();if(t.k>=L.length)return testFinish(kind);startTest(kind);}};
+  v5Show();}
+function testScore(t){var ks=Object.keys(TEST_DIMS),out={},sum=0,n=0;ks.forEach(function(k){var d=t.dims[k];out[k]=d&&d.n?Math.round(100*d.s/d.n):null;if(out[k]!=null){sum+=out[k];n++;}});out.total=n?Math.round(sum/n):null;return out;}
+function testFinish(kind){var t=testState(kind);t.done=true;t.score=testScore(t);t.at=new Date().toISOString();save();go('testReport');}
+function testReport(){UI.screen='testReport';var a=testState('pre'),b=testState('post'),sa=a.done?a.score:null,sb=b.done?b.score:null;
+  var rows=Object.keys(TEST_DIMS).concat(['total']).map(function(k){var x=sa?sa[k]:null,y=sb?sb[k]:null,dlt=x!=null&&y!=null?y-x:null;return'<div class="v5Dim v5Cmp"><span>'+(k==='total'?'總分':TEST_DIMS[k])+'</span><em>'+(x==null?'—':x)+'</em><em>'+(y==null?'—':y)+'</em><em class="'+(dlt>0?'up':dlt<0?'down':'')+'">'+(dlt==null?'':(dlt>0?'+':'')+dlt)+'</em></div>';}).join('');
+  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Report"><h1 class="ckPageTitle">學習成效</h1><p class="ckMuted">起點測驗和畢業後測用不同但同難度的陌生圖（同樣的題型、同樣的答案分布）。分數差距就是你實際學到的。</p>'+
+    '<section class="ckCard"><div class="v5Dim v5Cmp v5CmpHead"><span></span><em>起點</em><em>畢業</em><em>進步</em></div>'+rows+'</section>'+
+    (sa&&sb?'<section class="ckCard"><p>'+(sb.total-sa.total>=15?'進步明顯：你現在判圖的能力和剛開始時已經不一樣。':sb.total-sa.total>0?'有進步，但幅度不大：回訓練場把待複習的能力練到熟。':'沒有進步：這代表練習方式要調整，先看哪個面向沒有提升。')+'</p></section>':'')+
+    '<button class="btn primary full" data-act="practiceHome">回到實戰艙</button></main>'+bottomNav('practiceHome');}
+ACT_V5.startPre=function(){startTest('pre');};
+ACT_V5.startPost=function(){if(!retestUnlocked()){toast('完成股神畢業考後開放畢業後測');return;}startTest('post');};
+ACT_V5.testReport=function(){go('testReport');};
+
+// ── Layer 4: daily scenarios grouped in sets ──
+dailyHome=function(){UI.screen='dailyHome';var v=v5State(),unlocked=dailyUnlocked(),sets={};
+  DAILY_SCENARIOS.forEach(function(sc){(sets[sc.set||1]=sets[sc.set||1]||[]).push(sc);});
+  var html=Object.keys(sets).map(function(n){var list=sets[n],done=list.filter(function(sc){return v.daily[sc.id]&&v.daily[sc.id].done;}).length;
+    return'<section class="v5Set"><h2 class="v5SetHead">第 '+n+' 組<span>'+done+' / '+list.length+'</span></h2><div class="v5ScenGrid">'+list.map(function(sc){var r=v.daily[sc.id],dn=r&&r.done;return'<button class="ckCard v5Scen'+(dn?' done':'')+'" data-act="dailyStart" data-id="'+sc.id+'" '+(unlocked?'':'disabled')+'><b>'+esc(sc.id)+'</b><span>'+(dn?esc(sc.title):'未知的歷史案例')+'</span><small>'+(dn?'決策 '+r.decision+'｜損益 '+(r.pnl*100).toFixed(1)+'%':r&&r.k?'進行到 D+'+r.k:'D0～D+'+sc.days)+'</small></button>';}).join('')+'</div></section>';}).join('');
+  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Home"><h1 class="ckPageTitle">逐日實戰</h1><p class="ckMuted">'+DAILY_SCENARIOS.length+' 個真實歷史案例，每組 12 種情境各一個、順序打亂。每個案例一天一天揭曉，名稱做完才公布；決策品質和最終損益分開評分。做完一組就能挑戰畢業考。</p>'+
+    (unlocked?'':'<div class="ckCard ckNotice"><span>完成全部核心課程、技能訓練 60 題、混合盲測 20 張後開放。目前：課程 '+ORDER_IDS.filter(completed).length+' / '+ORDER_IDS.length+'｜訓練 '+S.practice.total+' / 60｜盲測 '+S.exam.idx+' / 20</span></div>')+html+'</main>'+bottomNav('practiceHome');};
+var _dailyStartRaw=ACT_V5.dailyStart;ACT_V5.dailyStart=function(el){if(!dailyUnlocked()){toast('先完成課程與基本混合訓練');return;}return _dailyStartRaw(el);};
+
+// ── arena: all layers ──
+practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,total=ORDER_IDS.length,av=availableDrills().length,pr=S.practice,ex=S.exam,rate=function(o){return o.total?Math.round(o.correct/o.total*100)+'%':'—';},du=dailyUnlocked(),fu=finalUnlocked(),pre=testState('pre'),post=testState('post'),rv=reviewCount(),dd=dailyDone();
+  function card(n,title,tag,desc,prog,btn,act,on,cls){return'<section class="ckCard ckArenaCard v5Layer'+(on?'':' locked')+'"><header><span class="v5Step">'+n+'</span><b>'+title+'</b><span class="ckTag'+(cls?' '+cls:'')+'">'+tag+'</span></header><p class="ckMuted">'+desc+'</p>'+prog+'<button class="ckBtn '+(cls==='gold'?'ckGold':'ckCyan')+'" data-act="'+act+'" '+(on?'':'disabled')+'>'+btn+' ›</button></section>';}
+  app.innerHTML=scan+hud(true)+'<main class="ckPage ckArena">'+(OPEN_ALL?'<div class="ckCard ckNotice v5TestMode"><span>測試版：全部內容已開放，不需要照順序解鎖。正式版仍會一層一層開放。</span></div>':'')+
+    '<div class="ckArenaHead">'+chickImg(fu&&v.final?'god':'scholar','ckAvatar')+'<div><h1 class="ckPageTitle">實戰艙</h1><p class="ckMuted">起點測驗 → 核心教學 → 技能訓練場 → 混合判圖 → 逐日實戰 → 股神畢業考 → 畢業後測。</p></div></div>'+
+    card(0,'起點測驗',pre.done?'已完成 '+pre.score.total+' 分':'建議先做','10 張陌生圖：判結構、畫支撐、做決策、畫失策。學完再用同難度的另一份測一次，看自己進步多少。','',pre.done?'重做':'開始測驗','startPre',true)+
+    card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
+    card(2,'技能訓練場','第 '+pr.round+' 輪','自己畫支撐壓力、點高低點、畫失策和目標；錯過的能力會在 5、20、60 題後換新圖再考。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span><span>待複習 <b>'+rv+'</b></span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',OPEN_ALL||av>=3)+
+    card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 畫支撐壓力 → 證據 → 是否交易 → 失策與目標，做完揭曉後來 20 天的真實走勢。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',(OPEN_ALL||coreComplete())&&ex.idx<100,'gold')+
+    card(4,'逐日實戰',dd+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
+    card(5,'股神畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成一組逐日實戰（12 個案例）後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
+    card(6,'畢業後測',post.done?post.score.total+' 分':'學習成效','和起點測驗同難度的另一份陌生圖，比較前後分數。完成畢業考後開放。','',post.done?'重做':'開始後測','startPost',retestUnlocked())+
+    (pre.done||post.done?'<button class="btn ghost full" data-act="testReport">查看學習成效</button>':'')+
+    (v.final?'<button class="btn ghost full" data-act="finalReport">查看能力報告</button>':'')+'</main>'+bottomNav('practiceHome');};
+var _v6Render=render;render=function(){if(UI.screen==='testReport')return testReport();return _v6Render();};
+ACT_V5.startFinal=function(){if(!finalUnlocked()){toast('完成一組逐日實戰後才開放股神畢業考');return;}startFinal();};
+
+window.BSG_V6={cases:CASES,clearClass:clearClass,outcome:outcomeOf,review:V5.drills.review,tests:{state:testState,start:startTest,score:testScore},openAll:OPEN_ALL,unlocked:function(id){return unlocked(id);},premiumNeeded:function(id){return premiumNeeded(id);}};
+// keep the test / audit surface pointing at the current rules
+V5.drills.pick=function(i){return pickDrill(i);};V5.drills.available=function(){return availableDrills();};
+window.BSG_V5.final.unlocked=function(){return finalUnlocked();};window.BSG_V5.final.pool=FINAL_POOL;window.BSG_V5.dailyUnlocked=function(){return dailyUnlocked();};V5.daily.unlocked=function(){return dailyUnlocked();};

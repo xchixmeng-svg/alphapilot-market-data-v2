@@ -65,6 +65,8 @@ for (const [name, out] of Object.entries(specs)) {
     source = source.replaceAll('n>=36?', 'n>=CT.MISSIONS.length?')
     source = source.replaceAll('done/36*100','done/CT.MISSIONS.length*100')
     source = source.replaceAll("'<small>/36</small>'","'<small>/'+CT.MISSIONS.length+'</small>'")
+    source = source.replaceAll("<small>/36</small>","<small>/'+CT.MISSIONS.length+'</small>")
+    source = source.replaceAll("'+done+' / 36<","'+done+' / '+CT.MISSIONS.length+'<")
     source = source.replaceAll("'<span class=\"ckMuted\">'+done+' / 36</span>'","'<span class=\"ckMuted\">'+done+' / '+CT.MISSIONS.length+'</span>'")
     source = source.replaceAll("'<div class=\"ckRank\">已完成 '+done+' / 36</div>'","'<div class=\"ckRank\">已完成 '+done+' / '+CT.MISSIONS.length+'</div>'")
     source = source.replaceAll("'目前 '+S.completed.length+' / 36。</span>'","'目前 '+S.completed.length+' / '+CT.MISSIONS.length+'。</span>'")

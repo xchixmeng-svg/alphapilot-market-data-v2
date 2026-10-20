@@ -3,34 +3,10 @@
 // Detection may look at the future (that is how we know a window is a "false breakout"); the game never does:
 // at checkpoint k the player and the rubric only see bars ≤ start+k (see app.02994 and the leakage audit).
 import fs from 'node:fs'
-import { createRequire } from 'node:module'
-const require = createRequire(import.meta.url)
-const E = require('../src/engine.js')
+import { E, dec, minA, maxA, avg, upTo, analyze } from './rubric.mjs'
 const bank = JSON.parse(fs.readFileSync('build/bank.json', 'utf8'))
 const DAYS = 7   // checkpoints D0..D+7 → 8 decisions
-
-const dec = r => ({ o: r.o.map(x => x / 100), h: r.h.map(x => x / 100), l: r.l.map(x => x / 100), c: r.c.map(x => x / 100), v: r.v.slice(),
-  atr: r.atr.map(x => x == null ? null : x / 10000), ma20: r.m20.map(x => x == null ? null : x / 10000), ma60: r.m60.map(x => x == null ? null : x / 10000) })
-const minA = (a, s, e) => { let v = Infinity; for (let i = Math.max(0, s); i <= Math.min(a.length - 1, e); i++) v = Math.min(v, a[i]); return v }
-const maxA = (a, s, e) => { let v = -Infinity; for (let i = Math.max(0, s); i <= Math.min(a.length - 1, e); i++) v = Math.max(v, a[i]); return v }
-const avg = (a, s, e) => { let n = 0, t = 0; for (let i = Math.max(0, s); i <= Math.min(a.length - 1, e); i++) { t += a[i]; n++ } return n ? t / n : 0 }
-const upTo = (R, j) => Object.fromEntries(Object.entries(R).map(([k, v]) => [k, Array.isArray(v) ? v.slice(0, j + 1) : v]))
-
-// Same rubric as the game (app.02991 analyze/decide) — CI re-checks the game agrees on every scenario.
-function analyze(R, j) {
-  const c = R.c[j], a = R.atr[j] || c * .02, ma = R.ma20[j], sup = minA(R.l, j - 20, j - 1), res = maxA(R.h, j - 20, j - 1)
-  const hi1 = maxA(R.h, j - 24, j - 13), hi2 = maxA(R.h, j - 12, j), lo1 = minA(R.l, j - 24, j - 13), lo2 = minA(R.l, j - 12, j)
-  const up = hi2 > hi1 * 1.005 && lo2 > lo1 * 1.005, down = hi2 < hi1 * .995 && lo2 < lo1 * .995, flat = Math.abs(hi2 / hi1 - 1) < .015 && Math.abs(lo2 / lo1 - 1) < .015
-  const trend = up ? 'up' : down ? 'down' : flat ? 'range' : 'unclear', dist = ma ? c / ma - 1 : null
-  const stop = E.roundToTick(Math.max(.01, sup - a * .45), 'down'), target = E.roundToTick(res > c * 1.005 ? res : maxA(R.h, j - 60, j - 1)), risk = c - stop, rr = risk > 0 ? (target - c) / risk : 0
-  const pos = res > sup ? (c - sup) / (res - sup) : .5, loc = c > res * 1.002 ? 'above' : pos < .33 ? 'nearSup' : pos > .67 ? 'nearRes' : 'middle'
-  const v20 = avg(R.v, j - 20, j - 1), vr = v20 ? R.v[j] / v20 : 1, breakout = c > sup && c > res * 1.002
-  let decision
-  if (trend === 'down' || rr < 1 || (dist != null && dist > .1)) decision = 'notrade'
-  else if (trend === 'up' && ma && c > ma && (dist == null || dist < .08) && rr >= 1.5 && (loc !== 'nearRes' || (breakout && vr >= 1.5))) decision = 'trade'
-  else decision = 'wait'
-  return { c, a, ma, sup, res, trend, dist, stop, target, rr, loc, vr, breakout, decision }
-}
+const PER = 6    // cases per script → 6 sets of 12 different historical cases
 
 const SCRIPTS = [
   { id: 'uptrend_pullback', title: '上升趨勢正常回檔', lesson: '上升結構裡回到 MA20 附近、低點守住，是順勢的較好位置；回檔不等於轉弱。',
@@ -60,21 +36,31 @@ const SCRIPTS = [
 ]
 
 const rounds = bank.rounds.filter(r => r.pool === 'A' || r.pool === 'B').sort((a, b) => a.id < b.id ? -1 : 1)
-const used = new Set(), out = [], blockers = []
-for (const sc of SCRIPTS) {
-  let hit = null
-  for (const r of rounds) {
-    if (used.has(r.id)) continue
-    const R = dec(r), n = R.c.length
-    for (let s = n - DAYS - 2; s >= 120 && !hit; s--) {
-      if (!R.atr[s] || !R.ma20[s] || !R.ma60[s]) continue
-      try { if (sc.test(R, s)) hit = { roundId: r.id, start: s } } catch (e) { }
+const used = new Set(), hits = {}, blockers = []
+const decoded = new Map(rounds.map(r => [r.id, dec(r)]))
+for (let set = 0; set < PER; set++) {
+  for (const sc of SCRIPTS) {
+    let hit = null
+    for (const r of rounds) {
+      if (used.has(r.id)) continue
+      const R = decoded.get(r.id), n = R.c.length
+      for (let s = n - DAYS - 2; s >= 120 && !hit; s--) {
+        if (!R.atr[s] || !R.ma20[s] || !R.ma60[s]) continue
+        try { if (sc.test(R, s)) hit = { roundId: r.id, start: s } } catch (e) { }
+      }
+      if (hit) break
     }
-    if (hit) break
+    if (!hit) { blockers.push(sc.id + '#' + (set + 1)); continue }
+    used.add(hit.roundId);
+    (hits[set] = hits[set] || []).push({ sc, hit })
   }
-  if (!hit) { blockers.push(sc.id); continue }
-  used.add(hit.roundId)
-  out.push({ id: 'S' + String(out.length + 1).padStart(2, '0'), script: sc.id, title: sc.title, lesson: sc.lesson, roundId: hit.roundId, start: hit.start, days: DAYS })
 }
-fs.writeFileSync('build/scenarios.json', JSON.stringify({ version: 1, days: DAYS, scenarios: out, blockers }))
-console.log('SCENARIOS', out.length, 'found', blockers.length ? 'missing: ' + blockers.join(',') : '')
+const out = []
+for (let set = 0; set < PER; set++) {
+  // order inside a set is shuffled so the script cannot be guessed from the position
+  const list = (hits[set] || []).slice(), rnd = E.mulberry32(E.hash32('SCEN|' + set))
+  for (let k = list.length - 1; k > 0; k--) { const m = Math.floor(rnd() * (k + 1)); [list[k], list[m]] = [list[m], list[k]] }
+  for (const { sc, hit } of list) out.push({ id: 'S' + String(out.length + 1).padStart(2, '0'), set: set + 1, script: sc.id, title: sc.title, lesson: sc.lesson, roundId: hit.roundId, start: hit.start, days: DAYS })
+}
+fs.writeFileSync('build/scenarios.json', JSON.stringify({ version: 2, days: DAYS, sets: PER, scripts: SCRIPTS.length, scenarios: out, blockers }))
+console.log('SCENARIOS', out.length, 'in', PER, 'sets', blockers.length ? 'missing: ' + blockers.join(',') : '')

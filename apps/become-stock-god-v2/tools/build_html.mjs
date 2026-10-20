@@ -6,6 +6,7 @@ const root = process.cwd() + path.sep
 const read = p => fs.readFileSync(path.join(root, p), 'utf8')
 const bank = read('build/bank.json')
 const scenarios = fs.existsSync(path.join(root, 'build/scenarios.json')) ? read('build/scenarios.json') : '{"version":1,"scenarios":[]}'
+const cases = fs.existsSync(path.join(root, 'build/cases.json')) ? read('build/cases.json') : '{"version":1,"mixed":[]}'
 const coach = read('assets/coach.b64').replace(/\s+/g,'')
 if (!coach.startsWith('UklGR')) throw new Error('coach asset is not valid WebP base64')
 const art = {}
@@ -41,6 +42,7 @@ const html = `<!doctype html>
 <div id="app"></div>
 <script id="bank-data" type="application/json">${safe(bank)}</script>
 <script id="scenario-data" type="application/json">${safe(scenarios)}</script>
+<script id="case-data" type="application/json">${safe(cases)}</script>
 <script>${safe(read('src/engine.js'))}</script>
 <script>${safe(read('src/content.js'))}</script>
 <script>${safe(read('src/chart.js'))}</script>

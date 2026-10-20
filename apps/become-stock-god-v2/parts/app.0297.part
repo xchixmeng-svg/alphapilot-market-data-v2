@@ -12,7 +12,10 @@ function nextInOrder(id){var k=orderPos(id);return k<ORDER_IDS.length-1?ORDER_ID
 function isLastInOrder(id){return orderPos(id)===ORDER_IDS.length-1;}
 function orderAfter(id,n){var k=orderPos(id);return ORDER_IDS.slice(k,k+n).map(function(x){return CT.MISSIONS[x-1];});}
 function coreComplete(){return ORDER_IDS.every(function(id){return completed(id);});}
-unlocked=function(id){var p=prevInOrder(id);return orderPos(id)===0||(p!=null&&completed(p));};
+// Test builds only: window.BSG_OPEN_ALL (injected by the preview publish, never by the production build) opens every
+// lesson and layer so the whole product can be reviewed without playing through it. Commercial settings are unchanged.
+var OPEN_ALL=!!window.BSG_OPEN_ALL;
+unlocked=function(id){var p=prevInOrder(id);return OPEN_ALL||orderPos(id)===0||(p!=null&&completed(p));};
 nextMission=function(){for(var k=0;k<ORDER_IDS.length;k++)if(!completed(ORDER_IDS[k]))return ORDER_IDS[k];return ORDER_IDS[ORDER_IDS.length-1];};
-premiumNeeded=function(id){return orderPos(id)>=CT.FREE_THROUGH&&!S.premium;};
+premiumNeeded=function(id){return !OPEN_ALL&&orderPos(id)>=CT.FREE_THROUGH&&!S.premium;};
 currentWorldMissions=function(m){return inOrder(CT.MISSIONS.filter(function(x){return x.world===m.world;}));};
