@@ -1,0 +1,26 @@
+{
+  "name": "從菜雞到股神",
+  "short_name": "菜雞到股神",
+  "description": "從完全不會看 K 線開始，循序學會價格、結構、量價、指標與逐日實戰。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#030814",
+  "theme_color": "#030814",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

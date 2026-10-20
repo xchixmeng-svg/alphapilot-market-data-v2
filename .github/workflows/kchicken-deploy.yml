@@ -1,0 +1,33 @@
+name: Deploy kchicken-game (Vercel)
+
+on:
+  push:
+    branches: [kchicken-site]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy static files to Vercel project kchicken-game
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN}" ]; then
+            echo "::error::Repository secret VERCEL_TOKEN is missing. Create a token at https://vercel.com/account/tokens and save it as VERCEL_TOKEN in this repository's Actions secrets, then re-run."
+            exit 1
+          fi
+          test -s index.html && test -s bgm.mp3 && test -s landing.webp
+          npx --yes vercel@latest link --yes --project kchicken-game --token "$VERCEL_TOKEN"
+          URL=$(npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN")
+          echo "deployed: $URL"
+          curl -fsS https://kchicken-game.vercel.app/ | grep -q '從菜雞到股神'
+          echo "KCHICKEN_DEPLOY_OK $URL"
