@@ -7,3 +7,5 @@ the intact original art. For the paid launch, rebuild without that line.
 Deploy: pushing this branch runs `.github/workflows/kchicken-deploy.yml`, which publishes these files to the Vercel
 project `kchicken-game` (needs repository secret `VERCEL_TOKEN`). Or connect the Vercel project to this repository
 and branch with Framework "Other", no build command, output directory ".".
+
+GitHub Pages: Settings → Pages → Deploy from a branch → `kchicken-site` / `(root)` → https://xchixmeng-svg.github.io/alphapilot-market-data-v2/
