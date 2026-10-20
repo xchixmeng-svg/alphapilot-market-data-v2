@@ -41,7 +41,7 @@ try{
   await page.waitForTimeout(180)
   report.audio=await page.evaluate(()=>window.BSG_AUDIO_MIXER&&window.BSG_AUDIO_MIXER.state())
   assert(report.audio,'audio mixer missing')
-  assert(report.audio.music==='airy-piano-bell-v2','wrong BGM profile: '+JSON.stringify(report.audio))
+  assert(report.audio.music==='calm-felt-piano-v3','wrong BGM profile: '+JSON.stringify(report.audio))
   assert(report.audio.minHz>=220,'BGM minimum frequency below 220 Hz')
 
   const logic=await page.evaluate((expected)=>{

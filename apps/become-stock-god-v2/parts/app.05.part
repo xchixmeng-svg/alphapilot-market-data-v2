@@ -7,11 +7,12 @@
   var bgmOn=storeGet('bsg_bgm','1')!=='0';
   var sfxOn=storeGet('bsg_sfx','1')!=='0';
   var ctx=null,bgmStarted=false,userActivated=false,musicTimer=null,bgmBus=null,chordIndex=0;
+  // Calm, consonant C-major loop (I – vi – IV/C – V/B): no chromatic shifts between chords, every voice ≥ 220 Hz.
   var CHORDS=[
-    [261.63,329.63,392.00,493.88],
-    [220.00,277.18,329.63,440.00],
-    [246.94,293.66,369.99,493.88],
-    [293.66,349.23,440.00,523.25]
+    [261.63,329.63,392.00,523.25],
+    [220.00,261.63,329.63,440.00],
+    [261.63,349.23,440.00,523.25],
+    [246.94,293.66,392.00,493.88]
   ];
   var MIN_BGM_HZ=220;
   function ac(){
@@ -27,47 +28,38 @@
     if(bgmBus){try{bgmBus.disconnect();}catch(e){}bgmBus=null;}
     bgmStarted=false;
   }
-  function airyPad(c,freq,when,dur,level,detune){
+  // Pure sine pad: a single oscillator per voice (no detuned pair, so no beating / wobble), slow swell.
+  function airyPad(c,freq,when,dur,level){
     if(!bgmBus)return;
     try{
-      var o=c.createOscillator(),o2=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
+      var o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
       o.type='sine';o.frequency.setValueAtTime(freq,when);
-      o2.type='sine';o2.frequency.setValueAtTime(freq,when);o2.detune.setValueAtTime(detune||5,when);
-      f.type='lowpass';f.frequency.setValueAtTime(1800,when);f.Q.value=.35;
-      g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(level,when+1.1);g.gain.setValueAtTime(level,when+dur-1.5);g.gain.exponentialRampToValueAtTime(.0001,when+dur);
-      o.connect(f);o2.connect(f);f.connect(g);g.connect(bgmBus);o.start(when);o2.start(when);o.stop(when+dur+.1);o2.stop(when+dur+.1);
+      f.type='lowpass';f.frequency.setValueAtTime(1400,when);f.Q.value=.3;
+      g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(level,when+1.8);g.gain.setValueAtTime(level,when+dur-2.2);g.gain.exponentialRampToValueAtTime(.0001,when+dur);
+      o.connect(f);f.connect(g);g.connect(bgmBus);o.start(when);o.stop(when+dur+.1);
     }catch(e){}
   }
+  // Soft felt-piano note: sine body with a quiet, exactly-octave overtone and a gentle 40 ms attack.
   function softPiano(c,freq,when,level){
     if(!bgmBus)return;
     try{
       var o=c.createOscillator(),h=c.createOscillator(),g=c.createGain(),hg=c.createGain(),f=c.createBiquadFilter();
-      o.type='triangle';o.frequency.setValueAtTime(freq,when);
-      h.type='sine';h.frequency.setValueAtTime(freq*2,when);hg.gain.value=.22;
-      f.type='lowpass';f.frequency.setValueAtTime(2600,when);f.frequency.exponentialRampToValueAtTime(1050,when+1.65);
-      g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(level,when+.018);g.gain.exponentialRampToValueAtTime(level*.34,when+.34);g.gain.exponentialRampToValueAtTime(.0001,when+2.2);
-      o.connect(f);h.connect(hg);hg.connect(f);f.connect(g);g.connect(bgmBus);o.start(when);h.start(when);o.stop(when+2.25);h.stop(when+2.25);
-    }catch(e){}
-  }
-  function softBell(c,freq,when,level){
-    if(!bgmBus)return;
-    try{
-      var o=c.createOscillator(),h=c.createOscillator(),g=c.createGain(),hg=c.createGain();
       o.type='sine';o.frequency.setValueAtTime(freq,when);
-      h.type='sine';h.frequency.setValueAtTime(freq*2.01,when);hg.gain.value=.18;
-      g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(level,when+.012);g.gain.exponentialRampToValueAtTime(.0001,when+2.7);
-      o.connect(g);h.connect(hg);hg.connect(g);g.connect(bgmBus);o.start(when);h.start(when);o.stop(when+2.75);h.stop(when+2.75);
+      h.type='sine';h.frequency.setValueAtTime(freq*2,when);hg.gain.value=.12;
+      f.type='lowpass';f.frequency.setValueAtTime(1800,when);f.frequency.exponentialRampToValueAtTime(900,when+2);
+      g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(level,when+.04);g.gain.exponentialRampToValueAtTime(level*.45,when+.6);g.gain.exponentialRampToValueAtTime(.0001,when+3.2);
+      o.connect(f);h.connect(hg);hg.connect(f);f.connect(g);g.connect(bgmBus);o.start(when);h.start(when);o.stop(when+3.3);h.stop(when+3.3);
     }catch(e){}
   }
   function playChord(c){
     if(!bgmOn||!bgmBus)return;
     var chord=CHORDS[chordIndex%CHORDS.length],now=c.currentTime+.04;
-    chord.forEach(function(fr,i){airyPad(c,fr,now,8.15,i===0?.010:.007,4+i*2);});
-    softPiano(c,chord[0],now+.55,.023);
-    softPiano(c,chord[1],now+2.35,.020);
-    softBell(c,chord[2]*2,now+4.15,.010);
-    softPiano(c,chord[1],now+5.85,.017);
-    softBell(c,chord[3],now+6.85,.008);
+    chord.forEach(function(fr,i){airyPad(c,fr,now,8.6,i===0?.009:.006);});
+    // slow rising arpeggio of chord tones, one note every two seconds
+    softPiano(c,chord[0],now+.3,.020);
+    softPiano(c,chord[1],now+2.3,.017);
+    softPiano(c,chord[2],now+4.3,.016);
+    softPiano(c,chord[3],now+6.3,.013);
     chordIndex=(chordIndex+1)%CHORDS.length;
   }
   function startBgm(){
@@ -76,8 +68,8 @@
     try{
       var master=c.createGain(),highpass=c.createBiquadFilter(),lowpass=c.createBiquadFilter(),comp=c.createDynamicsCompressor();
       master.gain.value=.62;
-      highpass.type='highpass';highpass.frequency.value=215;highpass.Q.value=.7;
-      lowpass.type='lowpass';lowpass.frequency.value=3200;lowpass.Q.value=.35;
+      highpass.type='highpass';highpass.frequency.value=200;highpass.Q.value=.5;
+      lowpass.type='lowpass';lowpass.frequency.value=2200;lowpass.Q.value=.3;
       comp.threshold.value=-24;comp.knee.value=20;comp.ratio.value=2;comp.attack.value=.025;comp.release.value=.75;
       master.connect(highpass);highpass.connect(lowpass);lowpass.connect(comp);comp.connect(c.destination);bgmBus=master;
       bgmStarted=true;playChord(c);musicTimer=setInterval(function(){if(bgmOn&&bgmBus)playChord(c);},8000);
@@ -96,7 +88,7 @@
   window.addEventListener('pagehide',stopBgm);
   window.addEventListener('pageshow',function(){if(userActivated&&bgmOn)startBgm();});
   window.BSG_AUDIO_MIXER={
-    state:function(){return {bgm:bgmOn,sfx:sfxOn,started:bgmStarted,activated:userActivated,music:'airy-piano-bell-v2',minHz:MIN_BGM_HZ};},
+    state:function(){return {bgm:bgmOn,sfx:sfxOn,started:bgmStarted,activated:userActivated,music:'calm-felt-piano-v3',minHz:MIN_BGM_HZ};},
     setBgm:setBgm,setSfx:setSfx,sync:function(){syncSfx();}
   };
 })();

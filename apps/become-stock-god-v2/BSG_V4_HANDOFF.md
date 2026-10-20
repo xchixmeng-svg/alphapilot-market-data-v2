@@ -263,3 +263,10 @@ answering "no trade" (81% of answers); practice volume and feedback loops were t
 - **Measured** (training rounds, 2020–2023, see `cases.json → base`): avg return of a long at D0 over the next
   20 days — rubric "trade" −0.65%, "wait" +0.07%, "no trade" +0.75%; forward returns by class are close to random.
   The decision rubric teaches a process; the data does not show it has an edge. Decide before marketing it as one.
+
+## Background music (2026-10-20)
+- `app.05.part` now plays a calm, consonant C-major loop (I – vi – IV/C – V/B), pure sine pads (no detuned pairs,
+  so no beating), soft felt-piano arpeggio every 2 s, master low-pass 2.2 kHz; every voice stays ≥ 220 Hz.
+  Mixer profile id is `calm-felt-piano-v3` (`tools/audit36.mjs` updated).
+- When this branch is merged into the production pipeline, `.github/workflows/bsg-v3-build.yml` line ~102 still
+  expects `airy-piano-bell-v2` and must be updated to `calm-felt-piano-v3` (left untouched here: production pipeline).

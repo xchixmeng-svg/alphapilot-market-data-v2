@@ -28,7 +28,7 @@
   function settings(){
     var a=mixer();
     modal('設定','<div class="ckSetList">'+
-      toggleRow('bgm','背景音樂','柔和 piano / bell / airy pad',!!a.bgm)+
+      toggleRow('bgm','背景音樂','平靜的鋼琴與柔和和弦',!!a.bgm)+
       toggleRow('sfx','操作音效','按鍵、答對、答錯與過關提示音',!!a.sfx)+
       '<button class="ckSetRow" data-coach="fullscreen"><span class="ckSetIcon">⛶</span><span><b>全螢幕</b><small>支援的瀏覽器會隱藏部分瀏覽器介面</small></span><i>開啟</i></button>'+
       '</div><div class="ckSetActions"><button class="ckBtn ckCyan" data-ui="cover">回到遊戲封面</button><button class="ckDanger" data-ui="reset">重置本機進度</button></div><p class="ckFine">遊戲進度目前儲存在這台裝置的瀏覽器中。清除網站資料也會清除進度。</p>');
