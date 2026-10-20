@@ -205,3 +205,9 @@ window.BSG_V6={cases:CASES,clearClass:clearClass,outcome:outcomeOf,review:V5.dri
 // keep the test / audit surface pointing at the current rules
 V5.drills.pick=function(i){return pickDrill(i);};V5.drills.available=function(){return availableDrills();};
 window.BSG_V5.final.unlocked=function(){return finalUnlocked();};window.BSG_V5.final.pool=FINAL_POOL;window.BSG_V5.dailyUnlocked=function(){return dailyUnlocked();};V5.daily.unlocked=function(){return dailyUnlocked();};
+
+// ── crosshair: open/high/low/close only when they cannot give an answer away ──
+// V5 screens: after the step is answered (or on reveal / day-by-day charts, which only hold past bars).
+var _v5MountRaw=v5Mount;v5Mount=function(getData,h,range){return _v5MountRaw(function(){var d=getData();if(d&&d.crossOHLC===undefined){if(UI.screen==='daily')d.crossOHLC=true;else{var f=V5.flow,st=f&&f.steps[f.k];d.crossOHLC=!!(st&&(st.answered||st.kind==='info'));}}return d;},h,range);};
+// Lessons and lesson drills: during teaching (exercise 0) and after the answer is shown.
+(function(){var B=window.BSGChart;if(!B||!B.create)return;var C0=B.create;B.create=function(host,opt){opt=opt||{};var g=opt.getData;if(g)opt=Object.assign({},opt,{getData:function(){var d=g();if(d&&d.crossOHLC===undefined)d.crossOHLC=!(UI.screen==='training'&&UI.exercise>0&&!UI.feedback);return d;}});return C0(host,opt);};})();

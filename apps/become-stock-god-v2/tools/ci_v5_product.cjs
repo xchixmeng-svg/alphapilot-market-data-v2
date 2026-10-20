@@ -187,6 +187,34 @@ const assert = (c, m) => { if (!c) throw new Error(m) }
     assert(await p.locator('.v5TestMode').count() === 1, 'open-all build must say it is a review build')
     assert(!errs.length, errs.join(' | ')); report.openAll = { layers: 7 }; await ctx.close() }
 
+  // 8. Crosshair on every chart: tap shows the price at the finger (legal tick) and the day; open/high/low/close only
+  //    when they cannot give an answer away; drag moves it, tapping the same spot hides it; pick modes keep the tap.
+  for (const [view, ua, name] of [[LAND, undefined, 'iphone-landscape'], [ANDROID, ANDROID_UA, 'android']]) {
+    const { p, ctx, errs } = await page(view, save({ completed: ALL, practice: { idx: 60, correct: 50, total: 60, round: 1 }, exam: { idx: 20, correct: 70, total: 100, format: FMT } }), ua)
+    const cross = () => p.evaluate(() => { const w = document.getElementById('v3Chart'), l = w && w.__bsgLayout; return l && l.cross ? Object.assign({ last: l.candles[l.candles.length - 1].idx }, l.cross) : null })
+    const tap = async (fx, fy) => { const box = await p.locator('#v3Chart canvas').boundingBox(); await p.touchscreen.tap(box.x + box.width * fx, box.y + box.height * fy); await p.waitForTimeout(120) }
+    const legal = v => p.evaluate(v => Math.abs(window.BSG.roundToTick(v) - v) < 1e-9, v)
+    await p.evaluate(() => window.BSG_V5.start.exam()); await p.waitForTimeout(200)
+    await tap(.45, .3); let c = await cross()
+    assert(c && c.price > 0 && await legal(c.price) && !c.ohlc && !/開 /.test(c.text) && c.i <= c.last, name + ': crosshair before answering ' + JSON.stringify(c))
+    await tap(.45, .3); assert(!(await cross()), name + ': tapping the same spot hides the crosshair')
+    await tap(.3, .3); const a = await cross(); await tap(.75, .5); const b = await cross(); assert(a && b && b.i > a.i, name + ': tapping elsewhere moves the crosshair')
+    const k = await p.evaluate(() => { const f = window.BSG_V5.flow(); return f.steps[f.k].correct }); await p.locator('[data-act="v5Choice"][data-i="' + k + '"]').tap(); await p.waitForTimeout(150)
+    await tap(.5, .35); c = await cross(); assert(c && c.ohlc && /開 .*高 .*低 .*收 /.test(c.text), name + ': open/high/low/close after answering ' + JSON.stringify(c))
+    await p.locator('[data-act="v5Next"]').tap(); await p.waitForTimeout(150)
+    await tap(.5, .4); const pk = await p.evaluate(() => { const f = window.BSG_V5.flow(); return f.steps[f.k].pick })
+    assert(pk != null && !(await cross()), name + ': drawing steps keep the tap for the line')
+    // lesson quiz: price only until the answer is shown
+    await p.evaluate(() => { const b = document.createElement('button'); b.dataset.act = 'continueNext'; document.body.appendChild(b); b.click() }); await p.waitForTimeout(200)
+    const mb = await p.$('[data-act=beginQuestions]'); if (mb) { await mb.click(); await p.waitForTimeout(200) }
+    const inQuiz = await p.evaluate(() => { const u = window.BSGV3._test.ui; return u.exercise > 0 && !u.feedback && !!document.querySelector('#v3Chart canvas') })
+    if (inQuiz) { await tap(.4, .4); c = await cross(); assert(c && !c.ohlc && c.price > 0, name + ': lesson quiz must not list open/high/low/close ' + JSON.stringify(c)) }
+    // day-by-day case: only past bars, so open/high/low/close are shown and never beyond today
+    const sid = await p.evaluate(() => window.BSG_V5.daily.scenarios[0].id); await p.evaluate(id => window.BSG_V5.start.daily(id), sid); await p.waitForTimeout(200)
+    await tap(.95, .4); c = await cross(); const sc = await p.evaluate(id => window.BSG_V5.daily.scenarios.find(s => s.id === id), sid)
+    assert(c && c.ohlc && c.i <= sc.start && c.last === sc.start, name + ': daily crosshair ' + JSON.stringify(c))
+    assert(!errs.length, errs.join(' | ')); (report.crosshair = report.crosshair || {})[name] = 'ok'; await ctx.close() }
+
   console.log('V5_PRODUCT_OK', JSON.stringify(report))
   await browser.close()
 })().catch(e => { console.error(e); console.log('::error title=V5 behaviour test::' + String(e && e.stack || e).slice(0, 1500).replace(/%/g, '%25').replace(/\r?\n/g, '%0A')); process.exit(1) })
