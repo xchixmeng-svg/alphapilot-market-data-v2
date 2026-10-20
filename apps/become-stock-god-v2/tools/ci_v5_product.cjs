@@ -224,7 +224,7 @@ const assert = (c, m) => { if (!c) throw new Error(m) }
     assert(!(await p.evaluate(() => window.BSG_AUDIO_MIXER.state().started)), 'music must not start before the first tap')
     await p.touchscreen.tap(200, 600); await p.waitForTimeout(2500)
     const st = await p.evaluate(() => window.BSG_AUDIO_MIXER.state())
-    if (!block) assert(st.started && st.music === 'focus-flow-file' && st.playing && st.position > .5, 'music file not playing ' + JSON.stringify(st))
+    if (!block) assert(st.started && st.music === 'focus-flow-file' && st.mode === 'buffer' && st.playing && st.position > .5, 'music file not playing ' + JSON.stringify(st))
     else assert(st.started && st.music === 'calm-felt-piano-v3' && st.fileFailed, 'no fallback when the music file is missing ' + JSON.stringify(st))
     await p.evaluate(() => window.BSG_AUDIO_MIXER.setBgm(false)); const off = await p.evaluate(() => window.BSG_AUDIO_MIXER.state())
     assert(!off.started && !off.playing, 'music toggle off ' + JSON.stringify(off))

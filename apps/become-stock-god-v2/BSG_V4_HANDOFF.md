@@ -275,3 +275,7 @@ answering "no trade" (81% of answers); practice volume and feedback loops were t
   at gain 0.45 through Web Audio (iOS ignores element volume). If the file cannot play, the synthesized calm loop
   takes over (profile ids `focus-flow-file` / `calm-felt-piano-v3`). Commercial use needs a paid Suno plan at the
   time the track was generated.
+- Fix: playing the file through `createMediaElementSource` was silent in the claude.ai preview on iPhone. The
+  track (now mono 80 kbps, 2.1 MB) is fetched at load, decoded after the first tap and looped as an
+  AudioBuffer in the same Web Audio graph as the effects (gapless, resumes where it stopped). Fallbacks: plain
+  `<audio>` element, then the synthesized loop. Note: Web Audio follows the iPhone silent switch.
