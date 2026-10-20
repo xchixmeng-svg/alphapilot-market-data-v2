@@ -24,6 +24,7 @@
     }catch(e){return null;}
   }
   function stopBgm(){
+    if(track){try{track.pause();}catch(e){}}
     if(musicTimer){clearInterval(musicTimer);musicTimer=null;}
     if(bgmBus){try{bgmBus.disconnect();}catch(e){}bgmBus=null;}
     bgmStarted=false;
@@ -62,7 +63,26 @@
     softPiano(c,chord[3],now+6.3,.013);
     chordIndex=(chordIndex+1)%CHORDS.length;
   }
+  // Background music file (Focus Flow, ./bgm.mp3 next to the page). Loops quietly; if the file cannot play
+  // (missing, offline, blocked) the synthesized calm loop below takes over.
+  var BGM_FILE='./bgm.mp3',BGM_VOL=.45,track=null,trackFailed=false,trackGain=null;
+  function startTrack(){
+    if(trackFailed||typeof Audio==='undefined')return false;
+    try{
+      if(!track){track=new Audio(BGM_FILE);track.loop=true;track.preload='auto';track.volume=BGM_VOL;track.setAttribute('playsinline','');
+        // iOS ignores element.volume, so the level is set with a Web Audio gain node when available.
+        try{var c=ac();if(c&&c.createMediaElementSource){var src=c.createMediaElementSource(track);trackGain=c.createGain();trackGain.gain.value=BGM_VOL;src.connect(trackGain);trackGain.connect(c.destination);track.volume=1;}}catch(e){track.volume=BGM_VOL;}
+        track.addEventListener('error',function(){trackFailed=true;track=null;if(bgmOn&&!bgmBus){bgmStarted=false;startSynth();}});}
+      var pr=track.play();if(pr&&pr.catch)pr.catch(function(err){if(err&&err.name==='NotAllowedError'){bgmStarted=false;return;}trackFailed=true;track=null;if(bgmOn){bgmStarted=false;startSynth();}});
+      bgmStarted=true;return true;
+    }catch(e){trackFailed=true;track=null;return false;}
+  }
   function startBgm(){
+    if(!bgmOn||bgmStarted||!userActivated)return;
+    if(startTrack())return;
+    startSynth();
+  }
+  function startSynth(){
     if(!bgmOn||bgmStarted||!userActivated)return;
     var c=ac();if(!c)return;
     try{
@@ -88,7 +108,7 @@
   window.addEventListener('pagehide',stopBgm);
   window.addEventListener('pageshow',function(){if(userActivated&&bgmOn)startBgm();});
   window.BSG_AUDIO_MIXER={
-    state:function(){return {bgm:bgmOn,sfx:sfxOn,started:bgmStarted,activated:userActivated,music:'calm-felt-piano-v3',minHz:MIN_BGM_HZ};},
+    state:function(){return {bgm:bgmOn,sfx:sfxOn,started:bgmStarted,activated:userActivated,music:trackFailed?'calm-felt-piano-v3':'focus-flow-file',file:BGM_FILE,fileFailed:trackFailed,playing:!!(track&&!track.paused),position:track?+track.currentTime.toFixed(2):null,minHz:MIN_BGM_HZ};},
     setBgm:setBgm,setSfx:setSfx,sync:function(){syncSfx();}
   };
 })();

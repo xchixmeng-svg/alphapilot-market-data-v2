@@ -215,6 +215,22 @@ const assert = (c, m) => { if (!c) throw new Error(m) }
     assert(c && c.ohlc && c.i <= sc.start && c.last === sc.start, name + ': daily crosshair ' + JSON.stringify(c))
     assert(!errs.length, errs.join(' | ')); (report.crosshair = report.crosshair || {})[name] = 'ok'; await ctx.close() }
 
+  // 9. Background music: Focus Flow file plays after the first tap, toggles off/on, falls back to the synth if missing
+  for (const block of [false, true]) {
+    const ctx = await browser.newContext({ viewport: ANDROID, isMobile: true, hasTouch: true }), p = await ctx.newPage(), errs = []
+    p.on('pageerror', e => errs.push('pageerror ' + e))
+    if (block) await p.route('**/bgm.mp3', r => r.abort())
+    await p.goto(APP_URL, { waitUntil: 'load' }); await p.waitForTimeout(800)
+    assert(!(await p.evaluate(() => window.BSG_AUDIO_MIXER.state().started)), 'music must not start before the first tap')
+    await p.touchscreen.tap(200, 600); await p.waitForTimeout(2500)
+    const st = await p.evaluate(() => window.BSG_AUDIO_MIXER.state())
+    if (!block) assert(st.started && st.music === 'focus-flow-file' && st.playing && st.position > .5, 'music file not playing ' + JSON.stringify(st))
+    else assert(st.started && st.music === 'calm-felt-piano-v3' && st.fileFailed, 'no fallback when the music file is missing ' + JSON.stringify(st))
+    await p.evaluate(() => window.BSG_AUDIO_MIXER.setBgm(false)); const off = await p.evaluate(() => window.BSG_AUDIO_MIXER.state())
+    assert(!off.started && !off.playing, 'music toggle off ' + JSON.stringify(off))
+    await p.evaluate(() => window.BSG_AUDIO_MIXER.setBgm(true))
+    assert(!errs.length, errs.join(' | ')); (report.music = report.music || {})[block ? 'fallback' : 'file'] = 'ok'; await ctx.close() }
+
   console.log('V5_PRODUCT_OK', JSON.stringify(report))
   await browser.close()
 })().catch(e => { console.error(e); console.log('::error title=V5 behaviour test::' + String(e && e.stack || e).slice(0, 1500).replace(/%/g, '%25').replace(/\r?\n/g, '%0A')); process.exit(1) })

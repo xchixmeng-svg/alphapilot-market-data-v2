@@ -270,3 +270,8 @@ answering "no trade" (81% of answers); practice volume and feedback loops were t
   Mixer profile id is `calm-felt-piano-v3` (`tools/audit36.mjs` updated).
 - When this branch is merged into the production pipeline, `.github/workflows/bsg-v3-build.yml` line ~102 still
   expects `airy-piano-bell-v2` and must be updated to `calm-felt-piano-v3` (left untouched here: production pipeline).
+- Later the same day: background music is now Chi's track **Focus Flow** (`assets/bgm.mp3`, made with Suno,
+  loudness-normalised to −20 LUFS, 112 kbps, 1.5 s fade-in / 2 s fade-out, 2.9 MB) copied to `dist/bgm.mp3` and looped
+  at gain 0.45 through Web Audio (iOS ignores element volume). If the file cannot play, the synthesized calm loop
+  takes over (profile ids `focus-flow-file` / `calm-felt-piano-v3`). Commercial use needs a paid Suno plan at the
+  time the track was generated.

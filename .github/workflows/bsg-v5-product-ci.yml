@@ -36,7 +36,7 @@ jobs:
           npm run audit:learning
           node - <<'NODE'
           const fs=require('fs')
-          for(const f of ['dist/index.html','dist/manifest.webmanifest','dist/icon-192.png','dist/icon-512.png','dist/apple-touch-icon.png','dist/sw.js'])if(!fs.existsSync(f)||fs.statSync(f).size<100)throw new Error('PWA file missing '+f)
+          for(const f of ['dist/index.html','dist/manifest.webmanifest','dist/icon-192.png','dist/icon-512.png','dist/apple-touch-icon.png','dist/sw.js','dist/bgm.mp3'])if(!fs.existsSync(f)||fs.statSync(f).size<100)throw new Error('PWA file missing '+f)
           const m=JSON.parse(fs.readFileSync('dist/manifest.webmanifest','utf8'));if(m.display!=='standalone'||!m.icons||m.icons.length<2)throw new Error('manifest incomplete')
           const sc=JSON.parse(fs.readFileSync('build/scenarios.json','utf8'));if(sc.scenarios.length<72||sc.blockers.length)throw new Error('daily scenarios incomplete '+JSON.stringify(sc.blockers))
           const cs=JSON.parse(fs.readFileSync('build/cases.json','utf8'));if(cs.mixed.length!==100||cs.pre.length!==10||cs.post.length!==10||cs.finalPool.length<3)throw new Error('graded cases incomplete')
