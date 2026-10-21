@@ -1,0 +1,42 @@
+name: BSG 100-lesson real data cases
+
+# Builds the fixed real-history cases for lessons 64-100 (market context, breadth, institutional,
+# news timeline, fundamentals, corporate actions). Output is uploaded as an artifact and then
+# committed by hand into apps/become-stock-god-v2/assets/cases100.json after review.
+on:
+  push:
+    branches: [bsg-100-lessons]
+    paths:
+      - 'apps/become-stock-god-v2/tools/data100/**'
+      - '.github/workflows/bsg-100-data.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests pandas pyarrow
+      - name: Run data scripts
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: |
+          set -e
+          mkdir -p out
+          for s in apps/become-stock-god-v2/tools/data100/[0-9a-z]*.py; do
+            echo "### $s"
+            python "$s" out || echo "SCRIPT_FAILED $s"
+          done
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bsg100-data
+          path: out
+          retention-days: 7
