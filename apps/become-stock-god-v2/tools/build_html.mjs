@@ -7,6 +7,9 @@ const read = p => fs.readFileSync(path.join(root, p), 'utf8')
 const bank = read('build/bank.json')
 const scenarios = fs.existsSync(path.join(root, 'build/scenarios.json')) ? read('build/scenarios.json') : '{"version":1,"scenarios":[]}'
 const cases = fs.existsSync(path.join(root, 'build/cases.json')) ? read('build/cases.json') : '{"version":1,"mixed":[]}'
+// Real-history cases for lessons 64-100 (tools/data100/build_cases100.py, reviewed and committed).
+const cases100 = read('assets/cases100.json')
+if (!JSON.parse(cases100).cases) throw new Error('assets/cases100.json has no cases')
 const coach = read('assets/coach.b64').replace(/\s+/g,'')
 if (!coach.startsWith('UklGR')) throw new Error('coach asset is not valid WebP base64')
 const art = {}
@@ -35,7 +38,7 @@ const html = `<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="從菜雞到股神">
-<meta name="description" content="從完全不會看 K 線開始，50 關循序學會價格、結構、支撐壓力、量價、均線、MACD、KD、RSI、進場、失策與逐日實戰。">
+<meta name="description" content="從完全看不懂，到能自己做出一個有理由的交易決策：100 關循序學會 K 線、結構、位置、量價、指標、下單、市場環境、題材資金、公司基本面與風險管理。">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
@@ -47,6 +50,7 @@ const html = `<!doctype html>
 <script id="bank-data" type="application/json">${safe(bank)}</script>
 <script id="scenario-data" type="application/json">${safe(scenarios)}</script>
 <script id="case-data" type="application/json">${safe(cases)}</script>
+<script id="cases100-data" type="application/json">${safe(cases100)}</script>
 <script>${safe(read('src/engine.js'))}</script>
 <script>${safe(read('src/content.js'))}</script>
 <script>${safe(read('src/chart.js'))}</script>

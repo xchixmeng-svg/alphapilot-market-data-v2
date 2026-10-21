@@ -38,14 +38,14 @@ const assert = (c, m) => { if (!c) throw new Error(m) }
     return f
   }
 
-  // 1. Core course: 63 lessons, teaching order, unlocks follow the order, new lessons valid on many charts
+  // 1. Core course: 100 lessons (63 chart lessons + 37 case lessons), teaching order, unlocks follow the order, chart lessons valid on many charts
   { const { p, ctx, errs } = await page(LAND, save())
     const r = await p.evaluate(() => { const t = window.BSGV3._test, CT = window.BSG_CONTENT, V = window.BSG_V5, order = V.order()
-      if (CT.MISSIONS.length !== 63 || order.length !== 63 || new Set(order).size !== 63) throw new Error('course map')
+      if (CT.MISSIONS.length !== 100 || order.length !== 100 || new Set(order).size !== 100) throw new Error('course map')
       if (CT.FREE_THROUGH !== 15 || CT.PRODUCT_PRICE_TWD !== 149) throw new Error('commercial defaults changed')
       if (window.BSG_V6.openAll) throw new Error('production build must not be open-all')
       const pos = id => order.indexOf(id)
-      for (const [id, after] of [[51, 1], [52, 11], [53, 15], [54, 18], [55, 18], [56, 26], [57, 28], [58, 33], [59, 41], [60, 43], [61, 44], [62, 48], [63, 49]]) if (!(pos(id) > pos(after))) throw new Error('M' + id + ' taught before M' + after)
+      for (const [id, after] of [[51, 1], [52, 11], [53, 15], [54, 17], [55, 18], [56, 26], [57, 26], [58, 33], [59, 41], [60, 43], [61, 44], [62, 48], [63, 29]]) if (!(pos(id) > pos(after))) throw new Error('M' + id + ' taught before M' + after)
       if (pos(50) !== 62) throw new Error('daily-reveal lesson must be the last core lesson')
       let checked = 0; for (let id = 51; id <= 63; id++) { const m = CT.MISSIONS[id - 1], suit = t.TRAIN.filter(r => t.suitable(id, t.getR(r))); if (suit.length < 4) throw new Error('M' + id + ' has too few historical examples: ' + suit.length)
         for (const rid of suit.slice(0, 40)) { t.ui.roundId = rid; t.ui.mission = m; const R = t.getR(rid); for (let ex = 1; ex <= 3; ex++) { const q = t.question(m, R, ex); if (!q || q.opts.length < 3 || new Set(q.opts).size !== q.opts.length || q.correct < 0 || q.correct >= q.opts.length || !t.qtext(m, R, ex)) throw new Error('M' + id + ' ex' + ex + ' invalid on ' + rid); checked++ } } }
@@ -54,7 +54,7 @@ const assert = (c, m) => { if (!c) throw new Error(m) }
     const nx = await p.evaluate(() => { const b = document.createElement('button'); b.dataset.act = 'continueNext'; document.body.appendChild(b); b.click(); return window.BSGV3._test.ui.mission.id })
     assert(nx === 51, 'next lesson after M05 should be M51, got ' + nx)
     await act(p, 'home'); await p.waitForTimeout(150)
-    const home = await p.locator('.ckStats').innerText(); assert(/\/63/.test(home) && !/\/36/.test(home), 'home progress must count 63 lessons: ' + home)
+    const home = await p.locator('.ckStats').innerText(); assert(/\/100/.test(home) && !/\/63/.test(home), 'home progress must count 100 lessons: ' + home)
     assert(!errs.length, errs.join(' | ')); report.core = r; await ctx.close() }
 
   // 2. Training ground: unlock by progress, do-it-yourself drills, 60 questions played, review queue

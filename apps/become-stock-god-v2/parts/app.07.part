@@ -34,17 +34,22 @@
       '</div><div class="ckSetActions"><button class="ckBtn ckCyan" data-ui="cover">回到遊戲封面</button><button class="ckDanger" data-ui="reset">重置本機進度</button></div><p class="ckFine">遊戲進度目前儲存在這台裝置的瀏覽器中。清除網站資料也會清除進度。</p>');
   }
   function help(){
-    modal('遊戲說明','<div class="ckHelpHero"><b>不是背答案，是把看盤拆成 50 個循序能力。</b><span>每一關只多一件事，先教會、再練習，最後才進逐日實戰。</span></div><div class="ckHelpGrid">'+
-      '<article><strong>01</strong><div><b>50 關能力鏈</b><p>從單根 K 線、價位、高低點、支撐壓力，到均線、量價、MACD、KD、RSI、進場與失策。</p></div></article>'+
-      '<article><strong>02</strong><div><b>自己畫、自己判斷</b><p>後段不再只選答案：會自己找支撐壓力、確認反轉、找進場與失策位置。</p></div></article>'+
-      '<article><strong>03</strong><div><b>逐日 K 線畢業實戰</b><p>未來全部遮住，一天一天揭曉；每一天重新檢查原本論點是否仍成立。</p></div></article>'+
-      '<article><strong>04</strong><div><b>混合實戰與盲測</b><p>完整課程完成後，再進 400 題混合實戰與隔離歷史題池的 100 題盲測。</p></div></article>'+
-      '</div><div class="ckInfoBox"><b>資料與用途</b><p>使用真實歷史行情做學習題。不是即時行情，也不是投資建議；遊戲中的價格與判斷只用於教育練習。</p></div>');
+    modal('遊戲說明','<div class="ckHelpHero"><b>從完全看不懂，到能自己做出一個有理由的交易決策。</b><span>100 關、14 個模組，每一關只多一件事：先看、再判斷、答完才解釋。</span></div><div class="ckHelpGrid">'+
+      '<article><strong>01</strong><div><b>技術面 63 關</b><p>單根 K 線、結構、支撐壓力、均線、量價、進場、失策、風報比，到 MACD、KD、RSI 怎麼用、怎麼失效。</p></div></article>'+
+      '<article><strong>02</strong><div><b>市場與題材</b><p>真的下單怎麼成交、大盤與產業、相對強弱、新聞時間軸、法人與資金流。</p></div></article>'+
+      '<article><strong>03</strong><div><b>公司與自己</b><p>營收、毛利、EPS、現金流與估值的白話版，再加上分散、總風險、攤平與交易日誌。</p></div></article>'+
+      '<article><strong>04</strong><div><b>最終畢業考</b><p>真實歷史台股盲測：名稱、日期、未來全部遮住，做完整交易計畫後一天一天揭曉。</p></div></article>'+
+      '</div><div class="ckInfoBox"><b>資料與用途</b><p>案例使用真實歷史行情與當時已公開的資料；標示「教學示意」的畫面是為了說明規則，不是歷史紀錄。不是即時行情，也不是投資建議，不保證任何報酬。</p></div>');
   }
   function profile(){
     var s=state()||{},done=(s.completed||[]).length,pr=s.practice||{},ex=s.exam||{},rate=pr.total?Math.round(pr.correct/pr.total*100):0,total=courseTotal();
     modal('學習紀錄','<div class="ckProfileHero"><span class="ckChick ck-'+(done>=total?'god':done>=12?'scholar':'rookie')+' ckProfileBig"></span><div><span class="ckUiEyebrow">CURRENT RANK</span><h3>'+esc(rank(s))+'</h3><b>Lv.'+level(s)+'</b><small>'+xpIn(s)+' / 600 EXP</small></div></div><div class="ckRecordGrid">'+
-      '<div><b>'+done+' / '+total+'</b><span>完成關卡</span></div><div><b>'+((s.coins||0).toLocaleString())+'</b><span>金幣</span></div><div><b>'+(s.streak||0)+'</b><span>目前連勝</span></div><div><b>'+rate+'%</b><span>實戰正確率</span></div><div><b>'+((pr.idx||0))+' / 400</b><span>本輪實戰</span></div><div><b>'+Math.min(100,ex.idx||0)+' / 100</b><span>盲測進度</span></div></div>');
+      '<div><b>'+done+' / '+total+'</b><span>完成關卡</span></div><div><b>'+((s.coins||0).toLocaleString())+'</b><span>金幣</span></div><div><b>'+(s.streak||0)+'</b><span>目前連勝</span></div><div><b>'+rate+'%</b><span>實戰正確率</span></div><div><b>'+((pr.idx||0))+' / 400</b><span>本輪實戰</span></div><div><b>'+Math.min(100,ex.idx||0)+' / 100</b><span>盲測進度</span></div></div>'+weakBlock());
+  }
+  function weakBlock(){
+    var w=window.BSG100&&window.BSG100.weak?window.BSG100.weak():null;
+    if(!w||!w.ready)return '<div class="ckInfoBox ckWeak"><b>我的弱點</b><p>完成 12 關以上、累積一些答錯紀錄後，這裡會告訴你最常犯的錯。</p></div>';
+    return '<div class="ckInfoBox ckWeak"><b>我的弱點</b><p>你最常犯的錯：<strong>'+esc(w.top[0].name)+'</strong>（'+w.top[0].n+' 次）'+(w.top.length>1?'；其次是 '+w.top.slice(1).map(function(x){return esc(x.name)+'（'+x.n+'）';}).join('、'):'')+'。回到對應模組重玩，或到實戰艙的技能訓練場練習。</p></div>';
   }
   function refreshSettings(){
     var a=mixer();['bgm','sfx'].forEach(function(k){var el=document.querySelector('[data-setting-state="'+k+'"]');if(el){var on=!!a[k];el.textContent=on?'開':'關';el.classList.toggle('on',on);}});

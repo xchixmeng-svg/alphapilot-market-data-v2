@@ -1,0 +1,150 @@
+
+// ═════════════ 100-lesson course: progress, display numbers, weakness log, case player ═════════════
+// Runs last inside the main module so it can see S / UI / ACT. Permanent lesson ids stay the save key;
+// the player only ever sees displayNo. Lessons 64..100 (type 'concept') are played by the case player
+// below; their content (cases, questions, feedback) lives in content.06 and the real-history data in
+// the build-time #cases100-data block.
+var C100=(function(){try{var n=document.getElementById('cases100-data');return n?JSON.parse(n.textContent).cases||{}:{};}catch(e){console.error(e);return{};}})();
+var L100=window.BSG_L100||{};
+
+// ── progress: frontier + make-up lessons (補課) ──
+// A lesson moved earlier by the v2 reordering must not drag an existing player back. The "frontier" is the
+// furthest completed lesson in teaching order; everything up to one step past it is open, and uncompleted
+// lessons before it are make-up lessons. Graduation (displayNo 100) needs every other lesson done.
+var LAST_ID=ORDER_IDS[ORDER_IDS.length-1];
+function frontierPos(){var f=-1;for(var k=0;k<ORDER_IDS.length;k++)if(completed(ORDER_IDS[k]))f=k;return f;}
+function isMakeup(id){return !completed(id)&&orderPos(id)<frontierPos();}
+function makeupIds(){var f=frontierPos();return ORDER_IDS.filter(function(id,k){return k<f&&!completed(id);});}
+function allButLast(){return ORDER_IDS.every(function(id){return id===LAST_ID||completed(id);});}
+unlocked=function(id){if(OPEN_ALL||completed(id))return true;var k=orderPos(id);if(k>=999)return false;if(id===LAST_ID&&!allButLast())return false;return k<=frontierPos()+1;};
+nextMission=function(){var f=frontierPos();for(var k=f+1;k<ORDER_IDS.length;k++)if(!completed(ORDER_IDS[k])&&(ORDER_IDS[k]!==LAST_ID||allButLast()))return ORDER_IDS[k];var mk=makeupIds();if(mk.length)return mk[0];return LAST_ID;};
+// The practice layers (訓練場 / 盲測 / 逐日實戰) train chart reading, so they open after the 63 chart lessons.
+coreComplete=function(){return CT.CHART_IDS.every(function(id){return completed(id);});};
+function graduated(){return ORDER_IDS.every(function(id){return completed(id);});}
+var _cpMissionCard=missionCard;
+missionCard=function(x){var html=_cpMissionCard(x);if(isMakeup(x.id)&&unlocked(x.id))html=html.replace(/<span class="ckTileState">[^<]*<\/span>/,'<span class="ckTileState ckMakeup">↺ 補課</span>').replace('class="ckTile next','class="ckTile next makeup');if(x.id===LAST_ID&&!completed(x.id)&&!unlocked(x.id))html=html.replace(/<span class="ckTileState">[^<]*<\/span>/,'<span class="ckTileState">🎓 其餘 99 關完成後開放</span>');return html;};
+(function migrateV2(){var ch=false;if(S.curriculumVersion!==CT.CURRICULUM_VERSION){S.curriculumVersion=CT.CURRICULUM_VERSION;ch=true;}if(!S.weak||typeof S.weak!=='object'){S.weak={};ch=true;}if(!Array.isArray(S.weakLog)){S.weakLog=[];ch=true;}if(ch)save();})();
+
+// ── weakness events ──
+var WEAK_NAMES={structure_error:'結構判斷',support_resistance_error:'支撐壓力',chasing_error:'追高／進場位置',volume_error:'量價解讀',indicator_overtrust:'過度相信指標',
+  news_causality_error:'新聞因果',risk_reward_error:'風險報酬',no_trade_error:'不該做卻做',position_size_error:'部位大小',fundamental_error:'基本面解讀',market_context_error:'忽略市場環境',
+  invalidation_error:'失策點',price_reading_error:'K 線基本讀圖',tool_reading_error:'均線與波動工具',order_mechanics_error:'下單與成交規則'};
+var SKILL_WEAK={OHLC:'price_reading_error',BODY:'price_reading_error',COLOR:'price_reading_error',WICK:'price_reading_error',DAYCHANGE:'price_reading_error',TICK:'price_reading_error',GAP:'price_reading_error',
+  SEQUENCE:'structure_error',TIMEFRAME:'structure_error',SWING_HIGH:'structure_error',HIGHER_HIGH:'structure_error',HIGHER_LOW:'structure_error',DOWNTREND:'structure_error',RANGE:'structure_error',UNCLEAR:'structure_error',STRUCTURE_SHIFT:'structure_error',REVERSAL_CONFIRM:'structure_error',REVERSAL_FAIL:'structure_error',
+  SUPPORT:'support_resistance_error',RESISTANCE:'support_resistance_error',RANGE_EDGE:'support_resistance_error',WRONG_LINE:'support_resistance_error',BREAKOUT:'support_resistance_error',FALSE_BREAKOUT:'support_resistance_error',ROLE_REVERSAL:'support_resistance_error',RETEST:'support_resistance_error',RETEST_FAIL:'support_resistance_error',DRAW_LEVEL:'support_resistance_error',
+  MA20_ID:'tool_reading_error',MA20_SIDE:'tool_reading_error',MA20_DISTANCE:'chasing_error',MA20_SLOPE:'tool_reading_error',MA_STACK:'tool_reading_error',ATR:'tool_reading_error',
+  VOLUME:'volume_error',PRICE_VOLUME:'volume_error',VOLUME_CONFLICT:'volume_error',BREAKOUT_VOLUME:'volume_error',
+  PULLBACK:'chasing_error',BREAKOUT_SETUP:'chasing_error',RETEST_SETUP:'chasing_error',ENTRY_TYPES:'chasing_error',NO_CHASE:'chasing_error',ENTRY_INVALIDATION:'invalidation_error',
+  INVALIDATION:'invalidation_error',TARGET:'risk_reward_error',RR:'risk_reward_error',NO_TRADE:'no_trade_error',POSITION:'position_size_error',HOLD_EXIT:'invalidation_error',FULL_SCAN:'no_trade_error',DAILY_REVEAL:'no_trade_error',
+  MACD_BASE:'indicator_overtrust',MACD_HIST:'indicator_overtrust',MACD_DIVERGENCE:'indicator_overtrust',MACD_ZERO:'indicator_overtrust',KD_BASE:'indicator_overtrust',KD_STICKY:'indicator_overtrust',KD_FAIL:'indicator_overtrust',RSI:'indicator_overtrust',RSI_ADVANCED:'indicator_overtrust',INDICATOR_CONFLICT:'indicator_overtrust',CONFLUENCE:'indicator_overtrust'};
+function weakEvent(tag,id){if(!tag)return;S.weak[tag]=(S.weak[tag]||0)+1;S.weakLog.push({tag:tag,id:id,t:Date.now()});if(S.weakLog.length>200)S.weakLog=S.weakLog.slice(-200);}
+function weakSummary(){var tags=Object.keys(S.weak||{}).filter(function(k){return S.weak[k]>0;}).sort(function(a,b){return S.weak[b]-S.weak[a];});
+  return{ready:S.completed.length>=12&&tags.length>0,top:tags.slice(0,3).map(function(k){return{tag:k,name:WEAK_NAMES[k]||k,n:S.weak[k]};})};}
+var _cpAnswer=ACT.answer;
+ACT.answer=function(el){var m=UI.mission,before=S.missionStats[m&&m.id]?S.missionStats[m.id].wrong:0;_cpAnswer(el);if(m&&S.missionStats[m.id]&&S.missionStats[m.id].wrong>before){weakEvent(SKILL_WEAK[m.skill]||'structure_error',m.id);save();}};
+
+// ── scene renderers (SVG, theme-aware via currentColor and CSS vars) ──
+var CP_COL=['#39f5ff','#ffd44a','#ff6fa0','#7ee0a0','#b18cff'];
+function fmtN(v,dp){if(v==null||!isFinite(v))return'—';return Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dp||0,maximumFractionDigits:dp==null?2:dp});}
+function fmtD(d){d=String(d);return d.length===8?d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6):d;}
+function cpRange(arrs){var lo=Infinity,hi=-Infinity;arrs.forEach(function(a){(a||[]).forEach(function(v){if(v!=null&&isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}});});if(!isFinite(lo)){lo=0;hi=1;}if(hi===lo){hi+=1;lo-=1;}var p=(hi-lo)*.08;return[lo-p,hi+p];}
+function svgLines(sc){var W=360,H=200,L=6,R=44,T=10,B=22,series=sc.series||[],n=Math.max.apply(null,series.map(function(s){return(s.values||[]).length;}).concat([2])),rg=sc.range||cpRange(series.map(function(s){return s.values;})),
+  x=function(i){return L+(W-L-R)*(n<=1?0:i/(n-1));},y=function(v){return T+(H-T-B)*(1-(v-rg[0])/(rg[1]-rg[0]));};
+  var g='';for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+3)+'" class="cpAx">'+fmtN(v,sc.dp==null?(rg[1]-rg[0]<20?1:0):sc.dp)+'</text>';}
+  if(sc.base!=null&&sc.base>rg[0]&&sc.base<rg[1])g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(sc.base)+'" y2="'+y(sc.base)+'" class="cpBase"/>';
+  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-B)+'" class="cpMark"/><text x="'+Math.min(W-R-2,Math.max(L+2,xx+3))+'" y="'+(T+10)+'" class="cpMarkT">'+esc(mk.label)+'</text>';});
+  series.forEach(function(s,k){var pts=[];(s.values||[]).forEach(function(v,i){if(v!=null&&isFinite(v))pts.push(x(i).toFixed(1)+','+y(v).toFixed(1));});g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+(s.color||CP_COL[k%5])+'" stroke-width="'+(s.width||2)+'"'+(s.dash?' stroke-dasharray="5 4"':'')+'/>';});
+  if(sc.labels&&sc.labels.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(fmtD(sc.labels[0]))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(fmtD(sc.labels[sc.labels.length-1]))+'</text>';
+  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+esc(sc.title||'走勢圖')+'">'+g+'</svg>';}
+function svgCandles(sc){var d=sc.data,n=d.c.length,W=360,H=sc.vol===false?200:230,L=4,R=44,T=10,PB=sc.vol===false?22:58,VH=34,rg=cpRange([d.h,d.l].concat((sc.lines||[]).map(function(l){return[l.y];}))),
+  cw=(W-L-R)/Math.max(n,1),x=function(i){return L+cw*(i+.5);},y=function(v){return T+(H-T-PB)*(1-(v-rg[0])/(rg[1]-rg[0]));},vmax=Math.max.apply(null,(d.v||[0]).map(function(v){return v||0;}))||1,g='';
+  for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+3)+'" class="cpAx">'+fmtN(v,v<100?2:v<1000?1:0)+'</text>';}
+  if(sc.cut!=null)g+='<rect x="'+(L+cw*sc.cut)+'" y="'+T+'" width="'+(W-R-L-cw*sc.cut)+'" height="'+(H-T-PB)+'" class="cpFuture"/>';
+  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-PB)+'" class="cpMark"/><text x="'+Math.min(W-R-30,Math.max(L+2,xx+3))+'" y="'+(T+10)+'" class="cpMarkT">'+esc(mk.label)+'</text>';});
+  (sc.lines||[]).forEach(function(l){var yy=y(l.y);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpLevel" stroke="'+(l.color||'#ffd44a')+'"/><text x="'+(L+3)+'" y="'+(yy-3)+'" class="cpMarkT" fill="'+(l.color||'#ffd44a')+'">'+esc(l.label)+'</text>';});
+  for(var i=0;i<n;i++){var o=d.o[i],h=d.h[i],l=d.l[i],c=d.c[i];if(c==null)continue;if(o==null)o=c;var up=c>=o,col=up?'var(--up,#ff465f)':'var(--down,#24d79b)',bw=Math.max(1,cw*.62);
+    g+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(h)+'" y2="'+y(l)+'" stroke="'+col+'"/><rect x="'+(x(i)-bw/2)+'" y="'+y(Math.max(o,c))+'" width="'+bw+'" height="'+Math.max(1,Math.abs(y(o)-y(c)))+'" fill="'+col+'"/>';
+    if(sc.vol!==false&&d.v&&d.v[i]!=null){var vh=VH*(d.v[i]/vmax);g+='<rect x="'+(x(i)-bw/2)+'" y="'+(H-22-vh)+'" width="'+bw+'" height="'+vh+'" class="cpVol"/>';}}
+  if(d.d&&d.d.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(sc.mask?'D-'+(sc.cut!=null?sc.cut-1:n-1):fmtD(d.d[0]))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(sc.mask?(sc.cut!=null&&sc.cut<n?'D+'+(n-sc.cut):'D0'):fmtD(d.d[n-1]))+'</text>';
+  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="K 線圖">'+g+'</svg>';}
+function svgBars(sc){var W=360,H=200,L=6,R=44,T=10,B=22,n=sc.a.length,vmax=Math.max.apply(null,sc.a.concat(sc.b))||1,cw=(W-L-R)/n,g='',mid=T+(H-T-B)/2,half=(H-T-B)/2-4;
+  g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+mid+'" y2="'+mid+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(T+10)+'" class="cpAx">'+esc(sc.aLabel)+'</text><text x="'+(W-R+4)+'" y="'+(H-B)+'" class="cpAx">'+esc(sc.bLabel)+'</text>';
+  for(var i=0;i<n;i++){var a=sc.a[i]/vmax*half,b=sc.b[i]/vmax*half,xx=L+cw*i+cw*.15,bw=cw*.7;g+='<rect x="'+xx+'" y="'+(mid-a)+'" width="'+bw+'" height="'+a+'" fill="var(--up,#ff465f)"'+(i===n-1?'':' opacity=".55"')+'/><rect x="'+xx+'" y="'+mid+'" width="'+bw+'" height="'+b+'" fill="var(--down,#24d79b)"'+(i===n-1?'':' opacity=".55"')+'/>';}
+  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="上漲下跌家數">'+g+'</svg>';}
+function sceneTable(sc){return '<div class="cpTableWrap"><table class="cpTable">'+(sc.head?'<thead><tr>'+sc.head.map(function(h){return'<th>'+esc(h)+'</th>';}).join('')+'</tr></thead>':'')+'<tbody>'+sc.rows.map(function(r,i){return'<tr'+((sc.hi||[]).indexOf(i)>=0?' class="hi"':'')+(r.future?' class="future"':'')+'>'+(r.cells||r).map(function(c){return'<td>'+(c&&c.html?c.html:esc(c))+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';}
+function sceneBook(sc){var row=function(p,q,side){return'<div class="cpBookRow '+side+'"><span>'+fmtN(p,2)+'</span><b>'+fmtN(q)+'</b></div>';};
+  return '<div class="cpBook"><div class="cpBookCol"><div class="cpBookHead">委賣（Ask）</div>'+sc.asks.slice().reverse().map(function(a){return row(a[0],a[1],'ask');}).join('')+'</div><div class="cpBookCol"><div class="cpBookHead">委買（Bid）</div>'+sc.bids.map(function(a){return row(a[0],a[1],'bid');}).join('')+'</div>'+(sc.last!=null?'<div class="cpBookLast">最近成交 <b>'+fmtN(sc.last,2)+'</b></div>':'')+'</div>';}
+function sceneTimeline(sc){return '<ol class="cpTimeline">'+sc.items.map(function(it){return'<li class="'+(it.kind||'')+'"><time>'+esc(it.t)+'</time><span>'+esc(it.label)+'</span></li>';}).join('')+'</ol>';}
+function sceneCards(sc){return '<div class="cpCards">'+sc.items.map(function(it){return'<div class="cpCard'+(it.hi?' hi':'')+'"><small>'+esc(it.k)+'</small><b>'+esc(it.v)+'</b>'+(it.sub?'<span>'+esc(it.sub)+'</span>':'')+'</div>';}).join('')+'</div>';}
+function sceneText(sc){return '<div class="cpText">'+(sc.html||esc(sc.text))+'</div>';}
+function legend(series){return '<div class="cpLegend">'+series.map(function(s,k){return'<span><i style="background:'+(s.color||CP_COL[k%5])+'"></i>'+esc(s.name)+'</span>';}).join('')+'</div>';}
+function renderScene(sc){if(!sc)return'';var body='';
+  if(sc.type==='multi')return '<div class="cpMulti">'+sc.parts.map(renderScene).join('')+'</div>';
+  if(sc.type==='lines')body=legend(sc.series)+svgLines(sc);else if(sc.type==='candles')body=svgCandles(sc);else if(sc.type==='bars')body=svgBars(sc);
+  else if(sc.type==='table')body=sceneTable(sc);else if(sc.type==='book')body=sceneBook(sc);else if(sc.type==='timeline')body=sceneTimeline(sc);else if(sc.type==='cards')body=sceneCards(sc);else body=sceneText(sc);
+  var badge=sc.demo?'<span class="cpBadge demo">教學示意，非真實歷史資料</span>':sc.real?'<span class="cpBadge real">真實歷史資料'+(sc.real===true?'':'｜'+esc(sc.real))+'</span>':'';
+  return '<figure class="cpFig cp-'+sc.type+'">'+(sc.title||badge?'<figcaption>'+(sc.title?'<b>'+esc(sc.title)+'</b>':'')+badge+'</figcaption>':'')+body+(sc.note?'<p class="cpNote">'+esc(sc.note)+'</p>':'')+'</figure>';}
+
+// ── case player ──
+function cpHash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return(h>>>0)/4294967296;}
+var CP_HELP={fmtN:fmtN,fmtD:fmtD,pct:function(v,dp){return v==null?'—':(v>0?'+':'')+fmtN(v,dp==null?1:dp)+'%';},rules:CT.MARKET_RULES,
+  slice:function(c,a,b){var o={};Object.keys(c).forEach(function(k){o[k]=c[k].slice(a,b);});return o;},
+  concat:function(a,b){var o={};Object.keys(a).forEach(function(k){o[k]=(a[k]||[]).concat(b[k]||[]);});return o;},
+  maskName:function(){return'某檔股票';},hash:cpHash};
+function cpSpec(id){return L100[id];}
+function cpBuild(m){var spec=cpSpec(m.id);if(!spec)return null;var data=C100[String(spec.dataFrom||m.id)]||[],all=spec.cases(data,CP_HELP)||[],st=S.missionStats[m.id]||{},attempt=st.attempts||0;
+  all=all.filter(Boolean);if(!all.length)return null;var per=Math.min(spec.per||2,all.length),order=all.map(function(c,i){return{c:c,k:cpHash(S.seed+'|'+m.id+'|'+attempt+'|'+i)};}).sort(function(a,b){return a.k-b.k;}).map(function(x){return x.c;});
+  if(spec.keepFirst)order=[all[0]].concat(order.filter(function(c){return c!==all[0];}));
+  var cases=order.slice(0,per),steps=[];cases.forEach(function(c,ci){(c.qs||[]).forEach(function(q,qi){steps.push({ci:ci,qi:qi,q:cpShuffle(q,m.id+'|'+attempt+'|'+ci+'|'+qi)});});});
+  return{spec:spec,cases:cases,steps:steps,step:-1,answer:null,fb:false,score:{},log:[]};}
+// Shuffle answer positions (never for graded plan steps, whose index carries meaning).
+function cpShuffle(q,key){if(q.grade||q.info||!q.options||q.options.length<2||q.fixed)return q;var idx=q.options.map(function(_,i){return i;}).sort(function(a,b){return cpHash(key+'|'+S.seed+'|'+a)-cpHash(key+'|'+S.seed+'|'+b);});
+  var o={};Object.keys(q).forEach(function(k){o[k]=q[k];});o.options=idx.map(function(i){return q.options[i];});o.correct=idx.indexOf(q.correct);
+  if(q.wrong&&typeof q.wrong==='object'){o.wrong={};Object.keys(q.wrong).forEach(function(k){o.wrong[idx.indexOf(+k)]=q.wrong[k];});}return o;}
+var _cpSetup=setupMission;
+setupMission=function(id,ex,mode){var m=CT.MISSIONS[id-1];if(m&&m.type==='concept'){UI.mission=m;UI.mode=mode||'mission';UI.exercise=0;UI.roundId=null;UI.feedback=null;UI.answer=null;UI.hint=0;UI.cp=cpBuild(m);return;}UI.cp=null;_cpSetup(id,ex,mode);};
+function cpCur(){var P=UI.cp;if(!P||P.step<0||P.step>=P.steps.length)return null;var s=P.steps[P.step];return{c:P.cases[s.ci],q:s.q,s:s};}
+function cpQText(q,c){return typeof q.text==='function'?q.text(c):q.text;}
+function cpOptions(q){return q.options||[];}
+function cpHead(m){var P=UI.cp,total=P?P.steps.length:0,dots='';for(var k=0;k<total;k++)dots+='<i class="'+(P.step===k?'on':P.step>k?'done':'')+'"></i>';
+  return '<div class="trainingHead"><div class="missionTag">'+dno(m.id)+'</div><div class="trainTitle"><strong>'+esc(m.title)+'</strong><span>'+esc(m.sub)+'</span></div><div class="stepDots">'+dots+'</div></div>';}
+function cpTraining(){var m=UI.mission,P=UI.cp;if(!P){P=UI.cp=cpBuild(m);}
+  if(!P){app.innerHTML=scan+hud(true)+'<div class="main"><section class="training">'+cpHead(m)+'<div class="chartArea cpScene"><div class="cpText">這一關的案例資料暫時無法載入。</div></div><div class="lessonDock"><button class="btn primary full" data-act="overview">回到完整課程</button></div></section></div>';return;}
+  var spec=P.spec,cur=cpCur(),scene,prompt,ans;
+  if(P.step<0){var c0=P.cases[0];scene=spec.introScene?spec.introScene(c0,CP_HELP):c0.scene;
+    prompt='<div class="promptTop"><span class="qtag">LESSON '+dno(m.id)+'</span><span class="difficulty">LEARN</span></div><div class="question">'+esc(m.objective)+'</div>'+
+      (spec.teach||[]).map(function(t){return'<div class="coachLine"><strong>'+esc(t[0])+'｜</strong>'+esc(t[1])+'</div>';}).join('')+'<div class="explain"><strong>先學會這件事：</strong>'+esc(m.rule)+'</div>';
+    ans='<button class="btn primary full pulse" data-act="cpNext">看懂了，開始判斷 →</button>';}
+  else if(P.step>=P.steps.length){scene=P.cases[P.cases.length-1].reveal||P.cases[P.cases.length-1].scene;var fin=spec.finish?spec.finish(P,CP_HELP):null;
+    prompt='<div class="promptTop"><span class="qtag">TAKEAWAY</span></div><div class="question">'+esc(spec.takeaway)+'</div>'+(fin?'<div class="explain">'+fin+'</div>':'');
+    ans='<button class="btn primary full pulse" data-act="cpFinish">'+(fin&&P.failed?'換一個案例重來':'完成本關 ✓')+'</button>';}
+  else{var c=cur.c,q=cur.q,opts=cpOptions(q);scene=(P.fb&&q.revealScene)?q.revealScene:(q.scene||c.scene);
+    prompt='<div class="promptTop"><span class="qtag">Q '+(P.step+1)+' / '+P.steps.length+'</span>'+(q.kind?'<span class="difficulty">'+esc(q.kind)+'</span>':'')+'</div><div class="question">'+esc(cpQText(q,c))+'</div>'+(q.hint&&!P.fb?'<div class="explain">'+esc(q.hint)+'</div>':'');
+    if(q.info){ans='<div class="feedbackBox info">'+q.info+'</div><button class="btn primary full nextBtn" data-act="cpNext">繼續 →</button>';}
+    else if(!P.fb){ans=opts.map(function(o,i){return'<button class="answer" data-act="cpAnswer" data-i="'+i+'">'+esc(o)+'</button>';}).join('');}
+    else{var ok=q.grade?true:P.answer===q.correct,why=typeof q.why==='function'?q.why(c,P.answer):q.why,wr=q.wrong?(typeof q.wrong==='function'?q.wrong(P.answer,c):q.wrong[P.answer]):'';
+      ans=opts.map(function(o,i){return'<button class="answer'+(i===q.correct&&!q.grade?' correct':i===P.answer?(ok?' correct':' wrong'):'')+'" disabled>'+esc(o)+'</button>';}).join('')+
+        '<div class="feedbackBox'+(ok?'':' bad')+'">'+(q.grade?'<strong>已記錄｜</strong>':ok?'<strong>答對｜</strong>':'<strong>答錯｜</strong>')+(!ok&&wr?'<b>你多推論了：</b>'+esc(wr)+'<br>':'')+'<b>事實是：</b>'+esc(why||'')+'</div>'+
+        '<button class="btn primary full nextBtn" data-act="cpAfter">'+(ok?'下一步 →':'我懂了，重做這題')+'</button>';}}
+  app.innerHTML=scan+hud(true)+'<div class="main cpMain"><section class="training cpTraining">'+cpHead(m)+'<div class="chartArea cpScene">'+renderScene(scene)+'</div><div class="lessonDock"><div class="dockGrid"><div class="prompt">'+prompt+'</div><div class="answers cpAnswers">'+ans+'</div></div></div></section></div>';
+  var dock=app.querySelector('.lessonDock');if(dock)dock.scrollTop=0;}
+var _cpTrainingOrig=training;
+training=function(){var m=UI.mission;if(m&&m.type==='concept'&&UI.mode==='mission'){destroyChart();cpTraining();return;}_cpTrainingOrig();};
+ACT.cpNext=function(){var P=UI.cp;if(!P)return;P.step++;P.answer=null;P.fb=false;render();};
+ACT.cpAnswer=function(el){var P=UI.cp,cur=cpCur();if(!P||!cur||P.fb)return;var i=+el.dataset.i,q=cur.q;P.answer=i;P.fb=true;
+  if(q.grade){var g=q.grade(i,cur.c,P)||{};Object.keys(g).forEach(function(k){if(k!=='tag')P.score[k]=(P.score[k]||0)+g[k];});P.log.push({q:cur.s.qi,i:i});if(g.tag)weakEvent(g.tag,UI.mission.id);}
+  else if(i!==q.correct){var st=S.missionStats[UI.mission.id]||{wrong:0,hints:0};st.wrong=(st.wrong||0)+1;S.missionStats[UI.mission.id]=st;S.streak=0;weakEvent(q.tag||P.spec.tag,UI.mission.id);}
+  save();render();};
+ACT.cpAfter=function(){var P=UI.cp,cur=cpCur();if(!P||!cur)return;var ok=cur.q.grade||P.answer===cur.q.correct;if(!ok){P.fb=false;P.answer=null;render();return;}P.step++;P.answer=null;P.fb=false;render();};
+ACT.cpFinish=function(){var P=UI.cp,m=UI.mission,st=S.missionStats[m.id]||{wrong:0,hints:0};st.attempts=(st.attempts||0)+1;S.missionStats[m.id]=st;
+  if(P&&P.failed){save();UI.cp=cpBuild(m);render();return;}
+  if(P&&P.spec.onComplete)P.spec.onComplete(P,S);save();UI.cp=null;completeMission();};
+var _cpMastery=mastery;
+mastery=function(){_cpMastery();var m=UI.mission;if(m&&m.id===LAST_ID&&graduated()){var h=app.querySelector('.mastery h2');if(h)h.textContent='畢業！100 關全部完成';}};
+var _cpRankName=rankName;rankName=function(){return graduated()?'股神候補（畢業）':_cpRankName();};
+
+window.BSG100={version:CT.CURRICULUM_VERSION,order:function(){return ORDER_IDS.slice();},displayNo:function(id){return CT.displayNo(id);},frontier:frontierPos,makeup:makeupIds,
+  next:function(){return nextMission();},unlocked:function(id){return unlocked(id);},graduated:graduated,weak:weakSummary,weakNames:WEAK_NAMES,cases:function(id){return C100[String(id)]||[];},
+  spec:function(id){return cpSpec(id);},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;}};
+render();
+})();

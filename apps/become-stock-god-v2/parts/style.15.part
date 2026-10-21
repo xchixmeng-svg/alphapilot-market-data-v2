@@ -1,0 +1,54 @@
+
+/* V7 case player (lessons 64–100): scenes reuse the lesson frame; the scene box scrolls inside itself. */
+.cpScene{overflow-y:auto!important;overscroll-behavior:contain;padding:10px 12px 0!important;display:flex;flex-direction:column;gap:10px}
+.cpFig{margin:0;border:1px solid rgba(57,245,255,.32);border-radius:14px;background:linear-gradient(180deg,#041222,#030b17);padding:8px 10px 10px;min-width:0}
+.cpFig figcaption{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 6px;font-size:12px;color:#cfe9f7}
+.cpFig figcaption b{font-weight:850;color:#effaff}
+.cpBadge{font:800 10px var(--mono,monospace);padding:2px 7px;border-radius:999px;border:1px solid rgba(57,245,255,.35);color:#7fd8f0}
+.cpBadge.demo{border-color:rgba(255,173,56,.55);color:#ffc066}
+.cpSvg{display:block;width:100%;height:auto;aspect-ratio:360/200;max-height:42dvh;color:#9fb9cc}
+.cp-candles .cpSvg{aspect-ratio:360/230}
+.cpGrid{stroke:rgba(127,176,205,.16);stroke-width:1}
+.cpBase{stroke:rgba(255,255,255,.35);stroke-dasharray:3 3}
+.cpAx{fill:#7f9bb0;font:600 9px var(--mono,monospace)}
+.cpMark{stroke:#ffd44a;stroke-width:1;stroke-dasharray:3 3;opacity:.85}
+.cpMarkT{fill:#ffd44a;font:800 9px var(--font,system-ui)}
+.cpLevel{stroke-width:1.2;stroke-dasharray:6 4}
+.cpVol{fill:rgba(120,170,210,.35)}
+.cpFuture{fill:rgba(57,245,255,.06)}
+.cpLegend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#cfe9f7;margin:0 0 4px}
+.cpLegend i{display:inline-block;width:14px;height:3px;border-radius:3px;margin-right:4px;vertical-align:middle}
+.cpTableWrap{overflow-x:auto}
+.cpTable{width:100%;border-collapse:collapse;font-size:12.5px}
+.cpTable th{font-weight:800;color:#8fb5ca;text-align:right;padding:5px 6px;border-bottom:1px solid rgba(57,245,255,.25);white-space:nowrap}
+.cpTable th:first-child,.cpTable td:first-child{text-align:left}
+.cpTable td{padding:5px 6px;text-align:right;border-bottom:1px solid rgba(127,176,205,.12);font-family:var(--mono,monospace);white-space:nowrap}
+.cpTable tr.hi td{color:#ffd44a;font-weight:800}
+.cpTable tr.future td{color:#ff9fb8}
+.cpCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.cpCard{border:1px solid rgba(127,176,205,.22);border-radius:11px;padding:8px 10px;background:rgba(9,30,50,.6);display:flex;flex-direction:column;gap:2px;min-width:0}
+.cpCard small{font-size:11px;color:#8fb5ca}.cpCard b{font:850 16px var(--mono,monospace);color:#effaff;overflow-wrap:anywhere}.cpCard span{font-size:11px;color:#9fb9cc}
+.cpCard.hi{border-color:rgba(255,212,74,.55)}.cpCard.hi b{color:#ffd44a}
+.cpBook{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cpBookHead{font:800 11px var(--font,system-ui);color:#8fb5ca;margin-bottom:4px}
+.cpBookRow{display:flex;justify-content:space-between;padding:4px 8px;border-radius:7px;font:700 13px var(--mono,monospace);margin-bottom:3px}
+.cpBookRow.ask{background:rgba(36,215,155,.10);color:#7cebc0}.cpBookRow.bid{background:rgba(255,70,95,.10);color:#ff98a8}
+.cpBookLast{grid-column:1/-1;text-align:center;font-size:12px;color:#cfe9f7}
+.cpTimeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.cpTimeline li{display:grid;grid-template-columns:112px 1fr;gap:8px;font-size:12.5px;align-items:start}
+.cpTimeline time{font:700 11px var(--mono,monospace);color:#8fb5ca}
+.cpTimeline li.hi span{color:#ffd44a;font-weight:800}.cpTimeline li.news span{color:#cfe9f7}
+.cpText{font-size:14px;line-height:1.6;color:#d8ecf7}
+.cpNote{margin:6px 0 0;font-size:11px;color:#8fb5ca}
+.cpMulti{display:flex;flex-direction:column;gap:8px}
+.cpMulti .cpSvg{max-height:24dvh}
+.cpAnswers .answer{min-height:52px!important;text-align:left!important;font-size:14px!important;line-height:1.45!important}
+.ckTileState.ckMakeup{color:#ffb45b!important;border-color:rgba(255,180,91,.55)!important}
+.ckWeak strong{color:#ffd44a}
+@media (orientation:portrait) and (max-width:940px){
+  #app>.main.cpMain>.training{grid-template-rows:auto minmax(150px,1fr) auto!important}
+  .cpAnswers{display:flex!important;flex-direction:column!important;gap:7px!important}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .cpSvg{max-height:52dvh}.cpMulti .cpSvg{max-height:30dvh}
+}
