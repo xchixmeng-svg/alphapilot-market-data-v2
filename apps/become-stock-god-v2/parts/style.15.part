@@ -40,6 +40,7 @@
 .cpTimeline li.hi span{color:#ffd44a;font-weight:800}.cpTimeline li.news span{color:#cfe9f7}
 .cpText{font-size:14px;line-height:1.6;color:#d8ecf7}
 .cpNote{margin:6px 0 0;font-size:11px;color:#8fb5ca}
+.cpScene>.cpFig .cpSvg{max-height:50dvh}
 .cpMulti{display:flex;flex-direction:column;gap:8px}
 .cpMulti .cpSvg{max-height:24dvh}
 .cpAnswers .answer{min-height:52px!important;text-align:left!important;font-size:14px!important;line-height:1.45!important}
@@ -52,3 +53,19 @@
 @media (orientation:landscape) and (max-height:520px){
   .cpSvg{max-height:52dvh}.cpMulti .cpSvg{max-height:30dvh}
 }
+/* Landscape phones and desktop: scene on the left, question on the right, both on one screen. */
+@media (orientation:landscape) and (max-height:520px), (min-width:941px){
+  #app>.main.cpMain{display:block!important;overflow:hidden!important;padding:0!important}
+  .main.cpMain>.training.cpTraining{height:100%!important;min-height:0!important;display:grid!important;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr)!important;grid-template-rows:auto minmax(0,1fr)!important;overflow:hidden!important}
+  .cpTraining>.trainingHead{grid-column:1/-1;grid-row:1}
+  .cpTraining>.chartArea{grid-column:1;grid-row:2;min-height:0!important;height:auto!important;overflow-y:auto!important;padding:8px!important}
+  .cpTraining>.lessonDock{grid-column:2;grid-row:2;height:auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;border-top:0!important;border-left:1px solid rgba(57,245,255,.25);padding:8px!important}
+  .cpTraining .dockGrid{display:block!important;height:auto!important}
+  .cpTraining .prompt{margin-bottom:8px!important}
+  .cpTraining .question{font-size:15px!important;line-height:1.45!important}
+  .cpTraining .explain,.cpTraining .coachLine{font-size:12px!important;line-height:1.5!important;max-height:none!important}
+  .cpTraining .cpAnswers{display:flex!important;flex-direction:column!important;gap:6px!important}
+  .cpTraining .answer{min-height:42px!important;font-size:13px!important;padding:8px 10px!important}
+  .cpTraining .feedbackBox{font-size:12px!important}
+}
+@media (min-width:941px){.main.cpMain>.training.cpTraining{height:calc(100dvh - 76px)!important}.cpSvg{max-height:60dvh}}

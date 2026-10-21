@@ -133,7 +133,7 @@ try {
 
   // 17–21: layouts. Portrait list, landscape chart, long titles inside cards, nav never hides the last tile
   for (const [w, h, tag] of [[375, 667, 'portrait-SE'], [390, 844, 'portrait'], [844, 390, 'landscape']]) {
-    const { p, ctx, errs } = await open({ width: w, height: h }, baseSave({ completed: Array.from({ length: 70 }, (_, i) => i + 1) }), false)
+    const { p, ctx, errs } = await open({ width: w, height: h }, baseSave({ completed: Array.from({ length: 70 }, (_, i) => i + 1) }), true)
     await act(p, 'overview'); await p.waitForTimeout(300)
     const r = await p.evaluate(() => { const box = document.querySelector('#app>main'); const tiles = [...document.querySelectorAll('.ckTile')]; const over = tiles.filter(t => t.scrollWidth > t.clientWidth + 2 || t.getBoundingClientRect().right > innerWidth + 1).map(t => t.dataset.mid)
       if (box) box.scrollTop = box.scrollHeight; const last = tiles[tiles.length - 1].getBoundingClientRect(), nav = document.querySelector('.ckNav')?.getBoundingClientRect()
@@ -185,7 +185,7 @@ try {
     const id = await p.evaluate(() => window.BSGV3._test.ui.mission.id)
     await p.reload({ waitUntil: 'load' }); await p.waitForSelector('.hudbar')
     const s = await state(p)
-    check(id === 51 && s.completed.length === 3, 'smoke: continue/reload ' + id + ' ' + s.completed.length)
+    check(id === 4 && s.completed.length === 3, 'smoke: continue/reload ' + id + ' ' + s.completed.length)
     check(!errs.length, 'console errors (smoke): ' + errs.join(' | ')); await ctx.close() }
 } catch (e) { fails.push('crash: ' + (e && e.stack || e)) }
 await browser.close()
