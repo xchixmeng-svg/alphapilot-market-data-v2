@@ -53,3 +53,4 @@ jobs:
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
           BSG_URL=http://127.0.0.1:4175/ node tools/ci_v5_product.cjs
+          BSG_AUDIT_URL=http://127.0.0.1:4175/ node tools/audit_onepage.mjs

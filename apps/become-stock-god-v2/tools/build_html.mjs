@@ -14,11 +14,15 @@ for (const name of ['hero', 'chick_rookie', 'chick_scholar', 'chick_god', 'landi
   art[name] = read('assets/' + name + '.b64').replace(/\s+/g, '')
   if (!art[name].startsWith('UklGR')) throw new Error(name + ' asset is not valid WebP base64')
 }
-let style = read('src/style.css').replaceAll('__COACH_ASSET__', 'data:image/webp;base64,' + coach)
-for (const [name, b64] of Object.entries(art)) {
-  const asset = name === 'landing' ? './landing.webp' : 'data:image/webp;base64,' + b64
-  style = style.replaceAll('__' + name.toUpperCase() + '_ASSET__', asset)
+// A truncated image still starts with "UklGR", so also check the RIFF length: a broken cover once shipped as a black screen.
+for (const [name, b64] of Object.entries({ coach, ...art })) {
+  const buf = Buffer.from(b64, 'base64')
+  if (buf.length < 12 || buf.readUInt32LE(4) + 8 !== buf.length) throw new Error(name + ' asset is truncated (' + buf.length + ' of ' + (buf.length >= 8 ? buf.readUInt32LE(4) + 8 : '?') + ' bytes)')
 }
+// Images ship as their own cacheable files instead of base64 copies inside the page.
+const imageFiles = { coach: 'coach.webp', hero: 'hero.webp', chick_rookie: 'chick-rookie.webp', chick_scholar: 'chick-scholar.webp', chick_god: 'chick-god.webp', landing: 'landing.webp' }
+let style = read('src/style.css').replaceAll('__COACH_ASSET__', './' + imageFiles.coach)
+for (const name of Object.keys(art)) style = style.replaceAll('__' + name.toUpperCase() + '_ASSET__', './' + imageFiles[name])
 if (/__[A-Z_]+_ASSET__/.test(style)) throw new Error('unresolved asset placeholder in style.css')
 const safe = s => s.replace(/<\/script/gi, '<\\/script')
 const html = `<!doctype html>
@@ -55,7 +59,7 @@ fs.mkdirSync(dist, {recursive:true})
 const god = Buffer.from(art.chick_god, 'base64')
 const landing = Buffer.from(art.landing, 'base64')
 fs.writeFileSync(path.join(dist, 'app-icon.webp'), god)
-fs.writeFileSync(path.join(dist, 'landing.webp'), landing)
+for (const [name, file] of Object.entries(imageFiles)) fs.writeFileSync(path.join(dist, file), Buffer.from(name === 'coach' ? coach : art[name], 'base64'))
 if (fs.existsSync(path.join(root, 'assets/bgm.mp3'))) fs.copyFileSync(path.join(root, 'assets/bgm.mp3'), path.join(dist, 'bgm.mp3'))   // background music (Focus Flow)
 await sharp(god).resize(192,192,{fit:'cover'}).png().toFile(path.join(dist,'icon-192.png'))
 await sharp(god).resize(512,512,{fit:'cover'}).png().toFile(path.join(dist,'icon-512.png'))
