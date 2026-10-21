@@ -101,7 +101,7 @@ for i, cs in MEMBERS.items():
     if len(cs) < 6: continue
     r = PIV['ret'][cs].where(PIV['value'][cs] >= 5e6)
     IND_IDX[i] = (1 + r.mean(axis=1).fillna(0)).cumprod() * 100
-log('industry indexes', len(IND_IDX))
+log('industry indexes', len(IND_IDX), sorted(((len(v), k) for k, v in MEMBERS.items()), reverse=True)[:25])
 
 # ───────────────────────── helpers ─────────────────────────
 def rnd(x, n=2):
@@ -458,6 +458,8 @@ def rev(code):
     return REV[code]
 
 def m12():
+    q0 = fin('2330'); k0 = sorted(q0)[-1] if q0 else None
+    if k0: log('statement keys', sorted(q0[k0].keys()))
     # 86 revenue: MoM drop but YoY up / single-month spike / steady uptrend
     found = {'momDropYoyUp': [], 'spike': [], 'trend': []}
     for code in UNIVERSE:
@@ -486,6 +488,31 @@ def m12():
                 a, b = (y, m + 1) if m < 12 else (y + 1, 1)
                 rows.append({'ym': f'{a}-{b:02d}', 'rev': rnd(R.get((a, b), 0) / 1e8, 2), 'avail': ravail(a, b), 'reveal': True})
             put(86, {'kind': k, 'code': code, 'name': NAME.get(code), 'asof': ravail(y, m), 'rows': rows})
+    # 81 expectation gap: strong revenue but no rise (already priced in) / weak revenue but no fall
+    g81 = []
+    for code in UNIVERSE:
+        R = rev(code)
+        if code not in PIV['close'].columns: continue
+        for (y, m), v in R.items():
+            ly = R.get((y - 1, m))
+            if not ly or y < 2021 or (y, m) > (2025, 9): continue
+            yoy = v / ly - 1
+            me = max([d for d in DATES if d <= int(f'{y}{m:02d}31')] or [0])
+            av = ravail(y, m); da = min([d for d in DATES if d >= av] or [0])
+            if not me or not da or me not in DPOS or len(after(da, 10)) < 10: continue
+            pre = cret(code, window(me, 21)[0], me); post = cret(code, da, after(da, 10)[-1])
+            if pre is None or post is None: continue
+            if yoy > 0.3 and pre > 0.12 and post < -0.04: g81.append((code, y * 100 + m, 'goodNoRise'))
+            if yoy < -0.15 and pre < -0.10 and post > 0.04: g81.append((code, y * 100 + m, 'badNoFall'))
+    kinds = {}
+    for code, ym, k in seeded(g81, 'exp81'):
+        if kinds.get(k, 0) >= 2: continue
+        kinds[k] = kinds.get(k, 0) + 1
+        y, m = divmod(ym, 100); R = rev(code); me = max(d for d in DATES if d <= int(f'{y}{m:02d}31')); da = min(d for d in DATES if d >= ravail(y, m))
+        w = window(me, 30) + [d for d in DATES if me < d <= da]
+        put(81, {'kind': k, 'code': code, 'name': NAME.get(code), 'ym': f'{y}-{m:02d}', 'rev': rnd(R[(y, m)] / 1e8, 2), 'yoy': rnd((R[(y, m)] / R[(y - 1, m)] - 1) * 100, 1),
+                 'asof': da, 'chart': candles(code, w), 'monthEnd': me, 'avail': da, 'preRet20': rnd(cret(code, window(me, 21)[0], me) * 100, 1),
+                 'reveal': {'chart': candles(code, after(da, 10)), 'ret10': rnd(cret(code, da, after(da, 10)[-1]) * 100, 1)}})
     # 87-91 quarterly statements
     g87, g88, g89, g90, g91 = [], [], [], [], []
     for code in UNIVERSE:
@@ -513,8 +540,9 @@ def m12():
                 nis = [gv(x, 'IncomeAfterTaxes', 'NetIncome') for x in last4]
                 ocf = gv(dq, 'cf_CashFlowsFromOperatingActivities', 'cf_NetCashInflowFromOperatingActivities')
                 if None not in nis and all(x > 0 for x in nis) and ocf is not None and ocf < 0 and dq[5:7] == '12': g90.append((code, dq, 'cashGap'))
-            ta, tl = gv(dq, 'bs_TotalAssets'), gv(dq, 'bs_Liabilities', 'bs_TotalLiabilities')
-            fc = gv(dq, 'FinanceCosts', 'FinancialCosts', 'InterestExpense')
+            ta, tl = gv(dq, 'bs_TotalAssets'), gv(dq, 'bs_Liabilities', 'bs_TotalLiabilities', 'bs_TotalLiabilities_per')
+            fc = gv(dq, 'FinanceCosts', 'FinancialCosts', 'InterestExpense', 'cf_InterestExpense', 'cf_InterestPaid', 'FinanceCost')
+            if fc is not None and fc < 0: fc = -fc
             if ta and tl and fc and fc > 0 and op:
                 cov = op / fc; dr = tl / ta
                 if dr > 0.6 and cov > 15: g91.append((code, dq, 'highDebtCovered'))
@@ -542,7 +570,7 @@ def m12():
     for c, dq, k in seeded(g91, 'debt'):
         if kinds.get(k, 0) < 2:
             kinds[k] = kinds.get(k, 0) + 1
-            fcase(c, dq, k, 91, dict(F_IS, assets=['bs_TotalAssets'], liab=['bs_Liabilities', 'bs_TotalLiabilities'], fin=['FinanceCosts', 'FinancialCosts', 'InterestExpense']))
+            fcase(c, dq, k, 91, dict(F_IS, assets=['bs_TotalAssets'], liab=['bs_Liabilities', 'bs_TotalLiabilities'], fin=['FinanceCosts', 'FinancialCosts', 'InterestExpense', 'cf_InterestExpense', 'cf_InterestPaid', 'FinanceCost']))
     # 92 valuation: low PER followed by EPS decline (trap) / high PER with growth
     for code in ['2603', '2609', '2615', '2002', '1303', '3661', '6669', '5269', '3711', '2454']:
         per = fm('TaiwanStockPER', code, '2021-01-01', '2025-06-30')
@@ -568,9 +596,9 @@ def m13():
         def top(ind, k):
             cs = [c for c in MEMBERS.get(ind, []) if liquid(c, w[-1], 60, 2e8)]
             return sorted(cs, key=lambda c: -PIV['value'][c].reindex(w).mean())[:k]
-        semi = top('半導體業', 5)
-        cross = [x for x in [top(i, 1) for i in ('半導體業', '金融保險業', '航運業', '食品工業', '鋼鐵工業')] if x]
-        cross = [x[0] for x in cross]
+        inds = sorted(IND_IDX, key=lambda i: -len([c for c in MEMBERS[i] if liquid(c, w[-1], 60, 2e8)]))
+        semi = top(inds[0], 5)
+        cross = [x[0] for x in [top(i, 1) for i in inds[:12]] if x][:5]
         if len(semi) < 5 or len(cross) < 5: continue
         def basket(cs):
             r = PIV['ret'][cs].reindex(w)
@@ -667,6 +695,11 @@ for fn in (m09, m10, m11, m12, m13, m14):
 
 meta = {'built': time.strftime('%Y-%m-%d %H:%M:%S'), 'finmindRequests': NREQ[0], 'counts': {k: len(v) for k, v in CASES.items()},
         'rules': {'revenueAvailable': '10th of next month', 'quarterAvailable': 'Q1 05-15, Q2 08-14, Q3 11-14, Q4 03-31 next year', 'industry': 'FinMind TaiwanStockInfo latest category (classification as of build date)'}}
-json.dump({'meta': meta, 'cases': CASES}, open(os.path.join(OUT, 'cases100.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+def _np(o):
+    if isinstance(o, (np.integer,)): return int(o)
+    if isinstance(o, (np.floating,)): return None if math.isnan(o) else float(o)
+    if isinstance(o, np.ndarray): return o.tolist()
+    return str(o)
+json.dump({'meta': meta, 'cases': CASES}, open(os.path.join(OUT, 'cases100.json'), 'w'), ensure_ascii=False, separators=(',', ':'), default=_np)
 open(os.path.join(OUT, 'cases100.log'), 'w').write('\n'.join(LOG))
 log('DONE', meta)
