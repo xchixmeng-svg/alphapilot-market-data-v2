@@ -1,6 +1,6 @@
 # kchicken-game.vercel.app — 《從菜雞到股神》 site files
 
-Built from `bsg-learning-system-20261019` @ ad68a13 (apps/become-stock-god-v2/dist) as the **open-all review build**: every lesson
+Built from `bsg-learning-system-20261019` @ 4dd2cf9 (100-lesson course) (apps/become-stock-god-v2/dist) as the **open-all review build**: every lesson
 and layer is open (`window.BSG_OPEN_ALL=true` injected in index.html) for testing. Payment is simulated. The cover is
 the intact original art. For the paid launch, rebuild without that line.
 
