@@ -47,30 +47,37 @@ ACT.answer=function(el){var m=UI.mission,before=S.missionStats[m&&m.id]?S.missio
 var CP_COL=['#39f5ff','#ffd44a','#ff6fa0','#7ee0a0','#b18cff'];
 function fmtN(v,dp){if(v==null||!isFinite(v))return'—';return Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dp||0,maximumFractionDigits:dp==null?2:dp});}
 function fmtD(d){d=String(d);return d.length===8?d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6):d;}
+// Real dates never reach the screen: an 8-digit date label becomes "第 N 日"; other labels (D-80, D0) pass through.
+function relLab(v,i,base){return /^(19|20)\d{6}$/.test(String(v))?(base?(i===0?'起點':'第'+i+'日'):'第'+(i+1)+'日'):String(v);}
+// Uniform scaling only ("meet"), so chart text is never stretched; the box keeps the drawing's own aspect ratio.
+var CP_TALL=false;
+// Event label next to a vertical marker: right of the line, or left of it when it would run into the price axis.
+function cpMarkLabel(xx,right,L,T,label){var w=String(label).length*13+4,left=xx+4+w>right;return '<text x="'+(left?Math.max(L+w,xx-4):xx+4)+'" y="'+(T+13)+'" class="cpMarkT"'+(left?' text-anchor="end"':'')+'>'+esc(label)+'</text>';}
+function cpSvgTag(W,H,label,g){return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" style="aspect-ratio:'+W+'/'+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="'+esc(label)+'">'+g+'</svg>';}
 function cpRange(arrs){var lo=Infinity,hi=-Infinity;arrs.forEach(function(a){(a||[]).forEach(function(v){if(v!=null&&isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}});});if(!isFinite(lo)){lo=0;hi=1;}if(hi===lo){hi+=1;lo-=1;}var p=(hi-lo)*.08;return[lo-p,hi+p];}
-function svgLines(sc){var W=360,H=200,L=6,R=44,T=10,B=22,series=sc.series||[],n=Math.max.apply(null,series.map(function(s){return(s.values||[]).length;}).concat([2])),rg=sc.range||cpRange(series.map(function(s){return s.values;})),
+function svgLines(sc){var W=360,H=CP_TALL?270:200,L=6,R=58,T=10,B=22,series=sc.series||[],n=Math.max.apply(null,series.map(function(s){return(s.values||[]).length;}).concat([2])),rg=sc.range||cpRange(series.map(function(s){return s.values;})),
   x=function(i){return L+(W-L-R)*(n<=1?0:i/(n-1));},y=function(v){return T+(H-T-B)*(1-(v-rg[0])/(rg[1]-rg[0]));};
-  var g='';for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+3)+'" class="cpAx">'+fmtN(v,sc.dp==null?(rg[1]-rg[0]<20?1:0):sc.dp)+'</text>';}
+  var g='';for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+5)+'" class="cpAx">'+fmtN(v,sc.dp==null?(rg[1]-rg[0]<20?1:0):sc.dp)+'</text>';}
   if(sc.base!=null&&sc.base>rg[0]&&sc.base<rg[1])g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(sc.base)+'" y2="'+y(sc.base)+'" class="cpBase"/>';
-  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-B)+'" class="cpMark"/><text x="'+Math.min(W-R-2,Math.max(L+2,xx+3))+'" y="'+(T+10)+'" class="cpMarkT">'+esc(mk.label)+'</text>';});
+  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-B)+'" class="cpMark"/>'+cpMarkLabel(xx,W-R,L,T,mk.label);});
   series.forEach(function(s,k){var pts=[];(s.values||[]).forEach(function(v,i){if(v!=null&&isFinite(v))pts.push(x(i).toFixed(1)+','+y(v).toFixed(1));});g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+(s.color||CP_COL[k%5])+'" stroke-width="'+(s.width||2)+'"'+(s.dash?' stroke-dasharray="5 4"':'')+'/>';});
-  if(sc.labels&&sc.labels.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(fmtD(sc.labels[0]))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(fmtD(sc.labels[sc.labels.length-1]))+'</text>';
-  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+esc(sc.title||'走勢圖')+'">'+g+'</svg>';}
-function svgCandles(sc){var d=sc.data,n=d.c.length,W=360,H=sc.vol===false?200:230,L=4,R=44,T=10,PB=sc.vol===false?22:58,VH=34,rg=cpRange([d.h,d.l].concat((sc.lines||[]).map(function(l){return[l.y];}))),
+  if(sc.labels&&sc.labels.length){var nl=sc.labels.length;g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(relLab(sc.labels[0],0,sc.base===100))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(relLab(sc.labels[nl-1],nl-1,sc.base===100))+'</text>';}
+  return cpSvgTag(W,H,sc.title||'走勢圖',g);}
+function svgCandles(sc){var d=sc.data,n=d.c.length,W=360,H=(sc.vol===false?200:230)+(CP_TALL?50:0),L=4,R=58,T=10,PB=sc.vol===false?24:62,VH=34,rg=cpRange([d.h,d.l].concat((sc.lines||[]).map(function(l){return[l.y];}))),
   cw=(W-L-R)/Math.max(n,1),x=function(i){return L+cw*(i+.5);},y=function(v){return T+(H-T-PB)*(1-(v-rg[0])/(rg[1]-rg[0]));},vmax=Math.max.apply(null,(d.v||[0]).map(function(v){return v||0;}))||1,g='';
-  for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+3)+'" class="cpAx">'+fmtN(v,v<100?2:v<1000?1:0)+'</text>';}
+  for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+5)+'" class="cpAx">'+fmtN(v,v<100?2:v<1000?1:0)+'</text>';}
   if(sc.cut!=null)g+='<rect x="'+(L+cw*sc.cut)+'" y="'+T+'" width="'+(W-R-L-cw*sc.cut)+'" height="'+(H-T-PB)+'" class="cpFuture"/>';
-  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-PB)+'" class="cpMark"/><text x="'+Math.min(W-R-30,Math.max(L+2,xx+3))+'" y="'+(T+10)+'" class="cpMarkT">'+esc(mk.label)+'</text>';});
+  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-PB)+'" class="cpMark"/>'+cpMarkLabel(xx,W-R,L,T,mk.label);});
   (sc.lines||[]).forEach(function(l){var yy=y(l.y);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpLevel" stroke="'+(l.color||'#ffd44a')+'"/><text x="'+(L+3)+'" y="'+(yy-3)+'" class="cpMarkT" fill="'+(l.color||'#ffd44a')+'">'+esc(l.label)+'</text>';});
   for(var i=0;i<n;i++){var o=d.o[i],h=d.h[i],l=d.l[i],c=d.c[i];if(c==null)continue;if(o==null)o=c;var up=c>=o,col=up?'var(--up,#ff465f)':'var(--down,#24d79b)',bw=Math.max(1,cw*.62);
     g+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(h)+'" y2="'+y(l)+'" stroke="'+col+'"/><rect x="'+(x(i)-bw/2)+'" y="'+y(Math.max(o,c))+'" width="'+bw+'" height="'+Math.max(1,Math.abs(y(o)-y(c)))+'" fill="'+col+'"/>';
-    if(sc.vol!==false&&d.v&&d.v[i]!=null){var vh=VH*(d.v[i]/vmax);g+='<rect x="'+(x(i)-bw/2)+'" y="'+(H-22-vh)+'" width="'+bw+'" height="'+vh+'" class="cpVol"/>';}}
-  if(d.d&&d.d.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(sc.mask?'D-'+(sc.cut!=null?sc.cut-1:n-1):fmtD(d.d[0]))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(sc.mask?(sc.cut!=null&&sc.cut<n?'D+'+(n-sc.cut):'D0'):fmtD(d.d[n-1]))+'</text>';
-  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="K 線圖">'+g+'</svg>';}
-function svgBars(sc){var W=360,H=200,L=6,R=44,T=10,B=22,n=sc.a.length,vmax=Math.max.apply(null,sc.a.concat(sc.b))||1,cw=(W-L-R)/n,g='',mid=T+(H-T-B)/2,half=(H-T-B)/2-4;
+    if(sc.vol!==false&&d.v&&d.v[i]!=null){var vh=VH*(d.v[i]/vmax);g+='<rect x="'+(x(i)-bw/2)+'" y="'+(H-24-vh)+'" width="'+bw+'" height="'+vh+'" class="cpVol"/>';}}
+  if(d.d&&d.d.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(sc.mask?'D-'+(sc.cut!=null?sc.cut-1:n-1):'第1日')+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(sc.mask?(sc.cut!=null&&sc.cut<n?'D+'+(n-sc.cut):'D0'):'第'+n+'日')+'</text>';
+  return cpSvgTag(W,H,'K 線圖',g);}
+function svgBars(sc){var W=360,H=CP_TALL?230:200,L=6,R=58,T=10,B=22,n=sc.a.length,vmax=Math.max.apply(null,sc.a.concat(sc.b))||1,cw=(W-L-R)/n,g='',mid=T+(H-T-B)/2,half=(H-T-B)/2-4;
   g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+mid+'" y2="'+mid+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(T+10)+'" class="cpAx">'+esc(sc.aLabel)+'</text><text x="'+(W-R+4)+'" y="'+(H-B)+'" class="cpAx">'+esc(sc.bLabel)+'</text>';
   for(var i=0;i<n;i++){var a=sc.a[i]/vmax*half,b=sc.b[i]/vmax*half,xx=L+cw*i+cw*.15,bw=cw*.7;g+='<rect x="'+xx+'" y="'+(mid-a)+'" width="'+bw+'" height="'+a+'" fill="var(--up,#ff465f)"'+(i===n-1?'':' opacity=".55"')+'/><rect x="'+xx+'" y="'+mid+'" width="'+bw+'" height="'+b+'" fill="var(--down,#24d79b)"'+(i===n-1?'':' opacity=".55"')+'/>';}
-  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="上漲下跌家數">'+g+'</svg>';}
+  return cpSvgTag(W,H,'上漲下跌家數',g);}
 function sceneTable(sc){return '<div class="cpTableWrap"><table class="cpTable">'+(sc.head?'<thead><tr>'+sc.head.map(function(h){return'<th>'+esc(h)+'</th>';}).join('')+'</tr></thead>':'')+'<tbody>'+sc.rows.map(function(r,i){return'<tr'+((sc.hi||[]).indexOf(i)>=0?' class="hi"':'')+(r.future?' class="future"':'')+'>'+(r.cells||r).map(function(c){return'<td>'+(c&&c.html?c.html:esc(c))+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';}
 function sceneBook(sc){var row=function(p,q,side){return'<div class="cpBookRow '+side+'"><span>'+fmtN(p,2)+'</span><b>'+fmtN(q)+'</b></div>';};
   return '<div class="cpBook"><div class="cpBookCol"><div class="cpBookHead">委賣（Ask）</div>'+sc.asks.slice().reverse().map(function(a){return row(a[0],a[1],'ask');}).join('')+'</div><div class="cpBookCol"><div class="cpBookHead">委買（Bid）</div>'+sc.bids.map(function(a){return row(a[0],a[1],'bid');}).join('')+'</div>'+(sc.last!=null?'<div class="cpBookLast">最近成交 <b>'+fmtN(sc.last,2)+'</b></div>':'')+'</div>';}
@@ -79,18 +86,32 @@ function sceneCards(sc){return '<div class="cpCards">'+sc.items.map(function(it)
 function sceneText(sc){return '<div class="cpText">'+(sc.html||esc(sc.text))+'</div>';}
 function legend(series){return '<div class="cpLegend">'+series.map(function(s,k){return'<span><i style="background:'+(s.color||CP_COL[k%5])+'"></i>'+esc(s.name)+'</span>';}).join('')+'</div>';}
 function renderScene(sc){if(!sc)return'';var body='';
-  if(sc.type==='multi')return '<div class="cpMulti">'+sc.parts.map(renderScene).join('')+'</div>';
+  if(sc.type==='multi'){var was=CP_TALL;CP_TALL=false;var out='<div class="cpMulti">'+sc.parts.map(renderScene).join('')+'</div>';CP_TALL=was;return out;}
   if(sc.type==='lines')body=legend(sc.series)+svgLines(sc);else if(sc.type==='candles')body=svgCandles(sc);else if(sc.type==='bars')body=svgBars(sc);
   else if(sc.type==='table')body=sceneTable(sc);else if(sc.type==='book')body=sceneBook(sc);else if(sc.type==='timeline')body=sceneTimeline(sc);else if(sc.type==='cards')body=sceneCards(sc);else body=sceneText(sc);
-  var badge=sc.demo?'<span class="cpBadge demo">教學示意，非真實歷史資料</span>':sc.real?'<span class="cpBadge real">真實歷史資料'+(sc.real===true?'':'｜'+esc(sc.real))+'</span>':'';
-  return '<figure class="cpFig cp-'+sc.type+'">'+(sc.title||badge?'<figcaption>'+(sc.title?'<b>'+esc(sc.title)+'</b>':'')+badge+'</figcaption>':'')+body+(sc.note?'<p class="cpNote">'+esc(sc.note)+'</p>':'')+'</figure>';}
+  // Data provenance (sc.real / sc.demo) stays in the scene object only; nothing is badged on screen.
+  var note=sc.note||(sc.type==='lines'&&sc.base===100?'起點統一設為 100，方便比較相對強弱':'');
+  return '<figure class="cpFig cp-'+sc.type+'">'+(sc.title?'<figcaption><b>'+esc(sc.title)+'</b></figcaption>':'')+(note?'<p class="cpNote cpNoteTop">'+esc(note)+'</p>':'')+body+'</figure>';}
 
 // ── case player ──
 function cpHash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return(h>>>0)/4294967296;}
 var CP_HELP={fmtN:fmtN,fmtD:fmtD,pct:function(v,dp){return v==null?'—':(v>0?'+':'')+fmtN(v,dp==null?1:dp)+'%';},rules:CT.MARKET_RULES,
   slice:function(c,a,b){var o={};Object.keys(c).forEach(function(k){o[k]=c[k].slice(a,b);});return o;},
   concat:function(a,b){var o={};Object.keys(a).forEach(function(k){o[k]=(a[k]||[]).concat(b[k]||[]);});return o;},
-  maskName:function(){return'某檔股票';},hash:cpHash};
+  maskName:function(){return'某檔股票';},hash:cpHash,
+  // anon: strip the company's name / code and any calendar year from free text (news titles etc.).
+  anon:function(t,x){t=String(t||'');var ns=[];(function walk(o){if(!o||typeof o!=='object')return;if(typeof o.name==='string')ns.push(o.name);if(typeof o.code==='string')ns.push(o.code);if(Array.isArray(o.names))ns=ns.concat(o.names);(Array.isArray(o)?o:Object.keys(o).map(function(k){return k==='reveal'?null:o[k];})).forEach(walk);})(x);
+    ns.filter(function(n){return n&&n.length>=2;}).sort(function(a,b){return b.length-a.length;}).forEach(function(n){t=t.split(n).join('這家公司');});t=t.replace(/這家公司[(（]這家公司[)）]/g,'這家公司');
+    cpAllNames().forEach(function(n){t=t.split(n).join('某公司');});
+    return t.replace(/(19|20)\d\d[\/\-.](\d\d?)[\/\-.](\d\d?)/g,'某日').replace(/[(（]?\b\d{1,2}\/\d{1,2}\b[)）]?/g,'某日').replace(/(19|20)\d\d\s*年/g,'').replace(/\s+-\s+[^-]*$/,'').trim();},
+  // relYm / relQ: "2022-03" -> "今年 3 月" / "今年 Q1", relative to the reference month (the decision month).
+  relYear:function(y,ref){var d=+y-(+ref);return d===0?'今年':d===-1?'去年':d===-2?'前年':d===1?'明年':(d>0?d+' 年後':(-d)+' 年前');},
+  relYm:function(ym,ref){var a=String(ym).split('-'),b=String(ref).split('-');return CP_HELP.relYear(a[0],b[0])+' '+(+a[1])+' 月';},
+  relQ:function(q,ref){var a=String(q).split('-'),b=String(ref).split('-');return CP_HELP.relYear(a[0],b[0])+' Q'+Math.ceil(+a[1]/3);},
+  // relDay: news timestamp relative to the decision day D0 (yyyymmdd) -> "D0 18:20", "D+1 08:05", "D-2 21:00".
+  relDay:function(ts,d0){ts=String(ts||'');var m=ts.match(/^(\d{4})-(\d\d)-(\d\d)[ T](\d\d:\d\d)/);if(!m)return ts;var s=String(d0),a=Date.UTC(+m[1],+m[2]-1,+m[3]),b=Date.UTC(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8)),k=Math.round((a-b)/864e5);return 'D'+(k===0?'0':k>0?'+'+k:k)+' · '+m[4];}};
+var CP_NAMES=null;function cpAllNames(){if(CP_NAMES)return CP_NAMES;var set={};(function walk(o){if(!o||typeof o!=='object')return;if(typeof o.name==='string'&&o.name.length>=2)set[o.name]=1;if(typeof o.code==='string'&&o.code.length>=4)set[o.code]=1;if(Array.isArray(o.names))o.names.forEach(function(n){set[n]=1;});(Array.isArray(o)?o:Object.keys(o).map(function(k){return o[k];})).forEach(walk);})(C100);
+  CP_NAMES=Object.keys(set).sort(function(a,b){return b.length-a.length;});return CP_NAMES;}
 function cpSpec(id){return L100[id];}
 function cpBuild(m){var spec=cpSpec(m.id);if(!spec)return null;var data=C100[String(spec.dataFrom||m.id)]||[],all=spec.cases(data,CP_HELP)||[],st=S.missionStats[m.id]||{},attempt=st.attempts||0;
   all=all.filter(Boolean);if(!all.length)return null;var per=Math.min(spec.per||2,all.length),order=all.map(function(c,i){return{c:c,k:cpHash(S.seed+'|'+m.id+'|'+attempt+'|'+i)};}).sort(function(a,b){return a.k-b.k;}).map(function(x){return x.c;});
@@ -126,7 +147,8 @@ function cpTraining(){var m=UI.mission,P=UI.cp;if(!P){P=UI.cp=cpBuild(m);}
       ans=opts.map(function(o,i){return'<button class="answer'+(i===q.correct&&!q.grade?' correct':i===P.answer?(ok?' correct':' wrong'):'')+'" disabled>'+esc(o)+'</button>';}).join('')+
         '<div class="feedbackBox'+(ok?'':' bad')+'">'+(q.grade?'<strong>已記錄｜</strong><b>參考：</b>'+esc(why||''):(ok?'<strong>答對｜</strong>':'<strong>答錯｜</strong>')+(!ok&&wr?'<b>你多推論了：</b>'+esc(wr)+'<br>':'')+'<b>事實是：</b>'+esc(why||''))+'</div>'+
         '<button class="btn primary full nextBtn" data-act="cpAfter">'+(ok?'下一步 →':'我懂了，重做這題')+'</button>';}}
-  app.innerHTML=scan+hud(true)+'<div class="main cpMain"><section class="training cpTraining">'+cpHead(m)+'<div class="chartArea cpScene">'+renderScene(scene)+'</div><div class="lessonDock"><div class="dockGrid"><div class="prompt">'+prompt+'</div><div class="answers cpAnswers">'+ans+'</div></div></div></section></div>';
+  CP_TALL=!!(window.matchMedia&&matchMedia('(orientation:portrait) and (max-width:940px)').matches);var sceneHtml=renderScene(scene);CP_TALL=false;
+  app.innerHTML=scan+hud(true)+'<div class="main cpMain"><section class="training cpTraining">'+cpHead(m)+'<div class="chartArea cpScene">'+sceneHtml+'</div><div class="lessonDock"><div class="dockGrid"><div class="prompt">'+prompt+'</div><div class="answers cpAnswers">'+ans+'</div></div></div></section></div>';
   var dock=app.querySelector('.lessonDock');if(dock)dock.scrollTop=0;}
 var _cpTrainingOrig=training;
 training=function(){var m=UI.mission;if(m&&m.type==='concept'&&UI.mode==='mission'){destroyChart();cpTraining();return;}_cpTrainingOrig();};
@@ -145,6 +167,6 @@ var _cpRankName=rankName;rankName=function(){return graduated()?'股神候補（
 
 window.BSG100={version:CT.CURRICULUM_VERSION,order:function(){return ORDER_IDS.slice();},displayNo:function(id){return CT.displayNo(id);},frontier:frontierPos,makeup:makeupIds,
   next:function(){return nextMission();},unlocked:function(id){return unlocked(id);},graduated:graduated,weak:weakSummary,weakNames:WEAK_NAMES,cases:function(id){return C100[String(id)]||[];},
-  spec:function(id){return cpSpec(id);},help:CP_HELP,allCases:function(id){var sp=cpSpec(id);return sp?sp.cases(C100[String(sp.dataFrom||id)]||[],CP_HELP).filter(Boolean):[];},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;}};
+  spec:function(id){return cpSpec(id);},help:CP_HELP,allCases:function(id){var sp=cpSpec(id);return sp?sp.cases(C100[String(sp.dataFrom||id)]||[],CP_HELP).filter(Boolean):[];},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;},renderScene:renderScene};
 render();
 })();

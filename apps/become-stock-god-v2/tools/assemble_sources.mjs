@@ -156,6 +156,8 @@ for (const [name, out] of Object.entries(specs)) {
       'bank legal Taiwan tick grid')
   }
 
+  // Readability pass (2026-10): every canvas label on the chart lessons is 2px larger than originally drawn.
+  if (name === 'chart') source = source.replace(/(['"])(\d+) ?(\d+)px (ui-monospace|-apple-system)/g, (m, q, w, px, f) => q + w + ' ' + (+px + 2) + 'px ' + f)
   fs.mkdirSync(path.dirname(path.join(root, out)), {recursive:true})
   fs.writeFileSync(path.join(root, out), source)
   console.log('assembled', out, files.length, 'parts')

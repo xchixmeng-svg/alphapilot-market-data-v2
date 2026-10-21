@@ -38,8 +38,8 @@
       '<article><strong>01</strong><div><b>技術面 63 關</b><p>單根 K 線、結構、支撐壓力、均線、量價、進場、失策、風報比，到 MACD、KD、RSI 怎麼用、怎麼失效。</p></div></article>'+
       '<article><strong>02</strong><div><b>市場與題材</b><p>真的下單怎麼成交、大盤與產業、相對強弱、新聞時間軸、法人與資金流。</p></div></article>'+
       '<article><strong>03</strong><div><b>公司與自己</b><p>營收、毛利、EPS、現金流與估值的白話版，再加上分散、總風險、攤平與交易日誌。</p></div></article>'+
-      '<article><strong>04</strong><div><b>最終畢業考</b><p>真實歷史台股盲測：名稱、日期、未來全部遮住，做完整交易計畫後一天一天揭曉。</p></div></article>'+
-      '</div><div class="ckInfoBox"><b>資料與用途</b><p>案例使用真實歷史行情與當時已公開的資料；標示「教學示意」的畫面是為了說明規則，不是歷史紀錄。不是即時行情，也不是投資建議，不保證任何報酬。</p></div>');
+      '<article><strong>04</strong><div><b>最終畢業考</b><p>台股歷史盲測：名稱、日期、未來全部遮住，做完整交易計畫後一天一天揭曉。</p></div></article>'+
+      '</div><div class="ckInfoBox"><b>資料與用途</b><p>本課程的案例取自台股歷史行情，已匿名化與指數化：作答時不顯示公司、代號與真實日期，只用當時已公開的資料。下單五檔、成本計算等少數畫面是為了說明規則的教學示意。不是即時行情，也不是投資建議，不保證任何報酬。</p></div>');
   }
   function profile(){
     var s=state()||{},done=(s.completed||[]).length,pr=s.practice||{},ex=s.exam||{},rate=pr.total?Math.round(pr.correct/pr.total*100):0,total=courseTotal();

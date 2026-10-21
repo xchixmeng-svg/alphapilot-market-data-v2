@@ -58,7 +58,7 @@ function home(){var next=nextMission(),m=CT.MISSIONS[next-1],done=S.completed.le
   '<div class="ckStats"><div><b>'+done+'<small>/36</small></b><span>關卡進度</span></div><div><b>'+S.streak+'</b><span>連勝</span></div><div><b>'+S.practice.correct+'</b><span>實戰答對</span></div></div></section>';
  var feats='<section class="ckFeatures">'+
   '<button class="ckFeat" data-act="overview">'+chickImg('scholar','ckFeatArt')+'<b>情境教學</b><small>從一根 K 到完整掃描，一次只學一件事</small></button>'+
-  '<button class="ckFeat" data-act="continueNext">'+chickImg('rookie','ckFeatArt')+'<b>互動練習</b><small>真實歷史 K 線，看圖作答</small></button>'+
+  '<button class="ckFeat" data-act="continueNext">'+chickImg('rookie','ckFeatArt')+'<b>互動練習</b><small>看圖作答，答完才解釋</small></button>'+
   '<button class="ckFeat" data-act="practiceHome">'+chickImg('god','ckFeatArt')+'<b>挑戰關卡</b><small>400 題混合實戰、100 題盲測</small></button></section>';
  var upNext=all?ORDER_IDS.slice(-3).map(function(x){return CT.MISSIONS[x-1];}):orderAfter(next,3);
  var strip='<section class="ckSection"><header class="ckSecHead"><h2>接下來的關卡</h2><button class="ckLink" data-act="overview">查看全部 ›</button></header><div class="ckStrip">'+upNext.map(missionCard).join('')+'</div></section>';

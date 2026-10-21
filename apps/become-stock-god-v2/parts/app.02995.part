@@ -103,7 +103,7 @@ practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,
     card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
     card(2,'技能訓練場','第 '+pr.round+' 輪','學過的技能才會進題池，同一技能換很多張不同的歷史圖。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',av>=3)+
     card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 位置 → 證據 → 是否交易 → 進場與失策。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',coreComplete()&&ex.idx<100,'gold')+
-    card(4,'逐日實戰',dailyDone()+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
+    card(4,'逐日實戰',dailyDone()+' / '+DAILY_SCENARIOS.length,'歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
     card(5,'技術面畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成全部逐日實戰後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
     (v.final?'<button class="btn ghost full" data-act="finalReport">查看能力報告</button>':'')+'</main>'+bottomNav('practiceHome');};
 

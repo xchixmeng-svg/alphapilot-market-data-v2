@@ -61,7 +61,7 @@ function gradeAny(st){if(st.kind==='price')gradePrice(st);else if(st.kind==='can
 // ── outcome reveal (after the decision is committed) ──
 function outcomeStats(){var v=v5State();if(!v.outcomes)v.outcomes={};return v.outcomes;}
 function revealStep(Rfull,i,A,o){var H=20,end=Math.min(Rfull.c.length-1,i+H),out=outcomeOf(Rfull,i,A,H),Rr=upTo(Rfull,end);
-  var st={kind:'info',id:'reveal',family:null,tag:'揭曉',head:o.head,title:o.title,sub:'作答完成後才揭曉：D0 之後 20 天的真實走勢',text:'後來實際發生了什麼？',nextLabel:o.nextLabel||'下一張 →',R:Rr,out:out};
+  var st={kind:'info',id:'reveal',family:null,tag:'揭曉',head:o.head,title:o.title,sub:'作答完成後才揭曉：D0 之後 20 天的走勢',text:'後來實際發生了什麼？',nextLabel:o.nextLabel||'下一張 →',R:Rr,out:out};
   st.prepare=function(){var picked=o.picked(),stats=outcomeStats(),b=stats[picked]||(stats[picked]={n:0,target:0,stop:0,open:0});if(!st.counted){b.n++;b[out.res]++;st.counted=true;save();}
     var resTxt=out.res==='target'?'D+'+out.k+' 先碰到目標 '+px(A.target):out.res==='stop'?'D+'+out.k+' 先碰到失策 '+px(A.stop):'20 天內目標和失策都沒碰到';
     st.html='<strong>如果在 D0 收盤 '+px(A.c)+' 做多（失策 '+px(A.stop)+'、目標 '+px(A.target)+'）：</strong><br>'+esc(resTxt)+'，報酬 <b class="'+(out.ret>0?'up':out.ret<0?'down':'')+'">'+(out.ret*100).toFixed(2)+'%</b>。<br><span class="ckMuted">你的判斷：'+esc(CLS_TEXT[picked]||'—')+'｜標準答案：'+esc(CLS_TEXT[A.decision])+'</span><br><span class="ckMuted">你判斷「'+esc(CLS_TEXT[picked]||'—')+'」的圖累計 '+b.n+' 張：先到目標 '+b.target+'、先到失策 '+b.stop+'、都沒到 '+b.open+'。單一結果不代表決策對錯，要看很多張。</span>';};
@@ -180,7 +180,7 @@ dailyHome=function(){UI.screen='dailyHome';var v=v5State(),unlocked=dailyUnlocke
   DAILY_SCENARIOS.forEach(function(sc){(sets[sc.set||1]=sets[sc.set||1]||[]).push(sc);});
   var html=Object.keys(sets).map(function(n){var list=sets[n],done=list.filter(function(sc){return v.daily[sc.id]&&v.daily[sc.id].done;}).length;
     return'<section class="v5Set"><h2 class="v5SetHead">第 '+n+' 組<span>'+done+' / '+list.length+'</span></h2><div class="v5ScenGrid">'+list.map(function(sc){var r=v.daily[sc.id],dn=r&&r.done;return'<button class="ckCard v5Scen'+(dn?' done':'')+'" data-act="dailyStart" data-id="'+sc.id+'" '+(unlocked?'':'disabled')+'><b>'+esc(sc.id)+'</b><span>'+(dn?esc(sc.title):'未知的歷史案例')+'</span><small>'+(dn?'決策 '+r.decision+'｜損益 '+(r.pnl*100).toFixed(1)+'%':r&&r.k?'進行到 D+'+r.k:'D0～D+'+sc.days)+'</small></button>';}).join('')+'</div></section>';}).join('');
-  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Home"><h1 class="ckPageTitle">逐日實戰</h1><p class="ckMuted">'+DAILY_SCENARIOS.length+' 個真實歷史案例，每組 12 種情境各一個、順序打亂。每個案例一天一天揭曉，名稱做完才公布；決策品質和最終損益分開評分。做完一組就能挑戰畢業考。</p>'+
+  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Home"><h1 class="ckPageTitle">逐日實戰</h1><p class="ckMuted">'+DAILY_SCENARIOS.length+' 個歷史案例，每組 12 種情境各一個、順序打亂。每個案例一天一天揭曉，名稱做完才公布；決策品質和最終損益分開評分。做完一組就能挑戰畢業考。</p>'+
     (unlocked?'':'<div class="ckCard ckNotice"><span>完成全部核心課程、技能訓練 60 題、混合盲測 20 張後開放。目前：課程 '+ORDER_IDS.filter(completed).length+' / '+ORDER_IDS.length+'｜訓練 '+S.practice.total+' / 60｜盲測 '+S.exam.idx+' / 20</span></div>')+html+'</main>'+bottomNav('practiceHome');};
 var _dailyStartRaw=ACT_V5.dailyStart;ACT_V5.dailyStart=function(el){if(!dailyUnlocked()){toast('先完成課程與基本混合訓練');return;}return _dailyStartRaw(el);};
 
@@ -192,8 +192,8 @@ practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,
     card(0,'起點測驗',pre.done?'已完成 '+pre.score.total+' 分':'建議先做','10 張陌生圖：判結構、畫支撐、做決策、畫失策。學完再用同難度的另一份測一次，看自己進步多少。','',pre.done?'重做':'開始測驗','startPre',true)+
     card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
     card(2,'技能訓練場','第 '+pr.round+' 輪','自己畫支撐壓力、點高低點、畫失策和目標；錯過的能力會在 5、20、60 題後換新圖再考。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span><span>待複習 <b>'+rv+'</b></span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',OPEN_ALL||av>=3)+
-    card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 畫支撐壓力 → 證據 → 是否交易 → 失策與目標，做完揭曉後來 20 天的真實走勢。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',(OPEN_ALL||coreComplete())&&ex.idx<100,'gold')+
-    card(4,'逐日實戰',dd+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
+    card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 畫支撐壓力 → 證據 → 是否交易 → 失策與目標，做完揭曉後來 20 天的走勢。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',(OPEN_ALL||coreComplete())&&ex.idx<100,'gold')+
+    card(4,'逐日實戰',dd+' / '+DAILY_SCENARIOS.length,'歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
     card(5,'技術面畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成一組逐日實戰（12 個案例）後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
     card(6,'畢業後測',post.done?post.score.total+' 分':'學習成效','和起點測驗同難度的另一份陌生圖，比較前後分數。完成畢業考後開放。','',post.done?'重做':'開始後測','startPost',retestUnlocked())+
     (pre.done||post.done?'<button class="btn ghost full" data-act="testReport">查看學習成效</button>':'')+

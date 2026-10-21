@@ -1,0 +1,67 @@
+
+/* ═══ Readability pass (2026-10): larger type everywhere. Loaded last, so it wins over the older layers. ═══
+   Floors on a phone: body text 15px, answers 16px, small labels 12–13px, chart axis text ≥ 12px on screen. */
+.question{font-size:18px!important;line-height:1.45!important}
+.coachLine,.explain{font-size:15px!important;line-height:1.55!important}
+.answer,.main:has(>.training) .answer,.cpTraining .answer,.cpAnswers .answer{font-size:16px!important;line-height:1.45!important}
+.answer small,.answerHelp{font-size:13px!important}
+.feedbackBox{font-size:15px!important;line-height:1.55!important}
+.feedbackBox .ckMuted{font-size:14px!important}
+.qtag,.difficulty,.missionTag{font-size:13px!important}
+.trainTitle strong{font-size:18px!important}
+.trainTitle span{font-size:14px!important}
+.btn{font-size:15px!important}
+.hudpill,.lv{font-size:13px!important}
+.chartlegend,.ma-legend,.charttip{font-size:12.5px!important}
+.chartctl.v2 button,.chartctl.v3 button{font-size:12.5px!important}
+.coachSpeechTitle,.coachSpeechBody,.homeCoachSpeech b,.homeCoachSpeech span,.coachSpeak{font-size:14px!important;line-height:1.5!important}
+.coachQuick button{font-size:13px!important}
+.toast,.hintStep{font-size:15px!important}
+
+/* Home, course map, pages and modals */
+.ckDashboard .ckStrip .ckTileTxt b,.ckTileTxt b{font-size:15px!important}
+.ckDashboard .ckStrip .ckTileTxt small,.ckTileTxt small,.ckTileState{font-size:12.5px!important}
+.ckFeat b,.ckDashboard .ckFeat b{font-size:15px!important}
+.ckFeat small,.ckDashboard .ckFeat small{font-size:12px!important;position:relative;z-index:2;text-shadow:0 1px 3px #021019,0 0 8px #021019}
+.ckDashboard .ckFeatArt,.ckDashboard .ckFeat:nth-child(1) .ckFeatArt,.ckDashboard .ckFeat:nth-child(3) .ckFeatArt{width:62px!important;height:62px!important}
+.ckMod small,.ckModProg,.ckModCode,.ckStats span,.ckStats b small,.ckXpTxt,.ckPremium small{font-size:13px!important}
+.ckHome .ckCtaRow .ckBtn em,.ckBtn em{font-size:12.5px!important}
+.ckHelpGrid p,.ckInfoBox p,.ckArenaCard p,.ckArenaHead p,.ckPageSub,.ckNotice,.ckSmall{font-size:14.5px!important;line-height:1.55!important}
+.ckHelpGrid b,.ckLink{font-size:15px!important}
+.ckUiEyebrow,.brandsub,.ckDashHud .brandsub{font-size:11.5px!important}
+.v5Log small,.v5Scen small{font-size:13px!important}
+.v5Log b,.v5Step,.v5Dim span,.v5Habits span{font-size:14.5px!important}
+.worldCard .wc,.worldCard .ws,.worldsub,.missionrow .st,.missionrow .num{font-size:12.5px!important}
+.missionrow .tt{font-size:15px!important}
+.legal,.ckHome .legal,.footer,.tiny{font-size:12px!important}
+
+/* Case player (lessons 64–100) */
+.cpFig figcaption{font-size:15px!important;margin-bottom:4px!important}
+.cpLegend{font-size:13.5px!important;gap:12px!important}
+.cpLegend i{width:16px!important;height:4px!important}
+.cpNote{font-size:13px!important;color:#9fc0d4!important;margin:0 0 6px!important}
+.cpTable{font-size:14.5px!important}
+.cpTable th{font-size:13px!important}
+.cpTimeline li{font-size:14.5px!important;grid-template-columns:96px 1fr!important}
+.cpTimeline time{font-size:13px!important}
+.cpCard small,.cpCard span{font-size:13px!important}
+.cpCard b{font-size:19px!important}
+.cpText{font-size:15.5px!important}
+.cpBookHead{font-size:13px!important}
+.cpBookRow{font-size:15px!important}
+.cpBookLast{font-size:14px!important}
+/* SVG user units ≈ CSS px × 0.85–1.05 on phones, so 14 units renders at ≥ 12px. */
+.cpAx{font:700 14px var(--mono,monospace)!important}
+.cpMarkT{font:800 13px var(--font,system-ui)!important}
+/* Never stretch: the svg keeps its own aspect ratio (set inline) and scales uniformly. */
+.cpSvg{height:auto!important;max-height:none!important}
+.cpMulti .cpSvg{max-height:30dvh!important}
+@media (orientation:landscape) and (max-height:520px), (min-width:941px){
+  .cpTraining .question{font-size:17px!important}
+  .cpTraining .answer{font-size:15px!important;min-height:44px!important}
+  .cpTraining .explain,.cpTraining .coachLine,.cpTraining .feedbackBox{font-size:14px!important}
+  .cpSvg{max-height:60dvh!important;width:auto!important;max-width:100%!important;margin:0 auto}
+}
+
+/* Full-width buttons span the whole answer grid (bigger text no longer fits half a column). */
+.answers>.btn.full,.answers>.nextBtn{grid-column:1/-1!important;width:100%!important}
