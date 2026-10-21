@@ -6,7 +6,6 @@ on:
     branches: [bsg-100-lessons]
     paths:
       - 'apps/become-stock-god-v2/**'
-      - '!apps/become-stock-god-v2/tools/data100/**'
       - '.github/workflows/bsg-100-ci.yml'
   workflow_dispatch:
 
