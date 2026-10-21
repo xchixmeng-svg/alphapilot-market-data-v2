@@ -540,13 +540,16 @@ def m12():
                 nis = [gv(x, 'IncomeAfterTaxes', 'NetIncome') for x in last4]
                 ocf = gv(dq, 'cf_CashFlowsFromOperatingActivities', 'cf_NetCashInflowFromOperatingActivities')
                 if None not in nis and all(x > 0 for x in nis) and ocf is not None and ocf < 0 and dq[5:7] == '12': g90.append((code, dq, 'cashGap'))
-            ta, tl = gv(dq, 'bs_TotalAssets'), gv(dq, 'bs_Liabilities', 'bs_TotalLiabilities', 'bs_TotalLiabilities_per')
-            fc = gv(dq, 'FinanceCosts', 'FinancialCosts', 'InterestExpense', 'cf_InterestExpense', 'cf_InterestPaid', 'FinanceCost')
-            if fc is not None and fc < 0: fc = -fc
-            if ta and tl and fc and fc > 0 and op:
-                cov = op / fc; dr = tl / ta
-                if dr > 0.6 and cov > 15: g91.append((code, dq, 'highDebtCovered'))
-                if dr < 0.55 and cov < 2.5 and op > 0: g91.append((code, dq, 'thinCover'))
+            ta, tl = gv(dq, 'bs_TotalAssets'), gv(dq, 'bs_Liabilities', 'bs_TotalLiabilities')
+            if dq[5:7] == '12' and i >= 3 and ta and tl:
+                yq = [k for k in ks[i - 3:i + 1] if k[:4] == dq[:4]]
+                opy = sum(gv(k, 'OperatingIncome') or 0 for k in yq) if len(yq) == 4 else None
+                fcy = gv(dq, 'cf_InterestExpense', 'cf_InterestPaid')
+                if fcy is not None: fcy = abs(fcy)
+                if opy and fcy and fcy > 0:
+                    cov = opy / fcy; dr = tl / ta
+                    rec = (code, dq, 'highDebtCovered' if dr > 0.6 and cov > 15 else 'thinCover' if dr < 0.55 and 0 < cov < 2.5 else None, opy, fcy)
+                    if rec[2]: g91.append(rec)
     def fcase(code, dq, kind, lesson, fields):
         q = fin(code); ks = [k for k in sorted(q) if k <= dq][-6:]
         rows = []
@@ -567,10 +570,12 @@ def m12():
     for c, dq, k in pick_spread([(a, b, c_) for a, b, c_ in g90], 2, 'cf'):
         fcase(c, dq, k, 90, dict(F_IS, ocf=['cf_CashFlowsFromOperatingActivities', 'cf_NetCashInflowFromOperatingActivities']))
     kinds = {}
-    for c, dq, k in seeded(g91, 'debt'):
-        if kinds.get(k, 0) < 2:
-            kinds[k] = kinds.get(k, 0) + 1
-            fcase(c, dq, k, 91, dict(F_IS, assets=['bs_TotalAssets'], liab=['bs_Liabilities', 'bs_TotalLiabilities'], fin=['FinanceCosts', 'FinancialCosts', 'InterestExpense', 'cf_InterestExpense', 'cf_InterestPaid', 'FinanceCost']))
+    for c, dq, k, opy, fcy in seeded(g91, 'debt'):
+        if kinds.get(k, 0) >= 2: continue
+        kinds[k] = kinds.get(k, 0) + 1
+        q = fin(c)
+        put(91, {'kind': k, 'code': c, 'name': NAME.get(c), 'asof': qavail(dq), 'year': dq[:4], 'assets': rnd(q[dq].get('bs_TotalAssets') / 1e8, 1),
+                 'liab': rnd((q[dq].get('bs_Liabilities') or q[dq].get('bs_TotalLiabilities')) / 1e8, 1), 'opYear': rnd(opy / 1e8, 1), 'interestYear': rnd(fcy / 1e8, 2)})
     # 92 valuation: low PER followed by EPS decline (trap) / high PER with growth
     for code in ['2603', '2609', '2615', '2002', '1303', '3661', '6669', '5269', '3711', '2454']:
         per = fm('TaiwanStockPER', code, '2021-01-01', '2025-06-30')
@@ -596,10 +601,9 @@ def m13():
         def top(ind, k):
             cs = [c for c in MEMBERS.get(ind, []) if liquid(c, w[-1], 60, 2e8)]
             return sorted(cs, key=lambda c: -PIV['value'][c].reindex(w).mean())[:k]
-        inds = sorted(IND_IDX, key=lambda i: -len([c for c in MEMBERS[i] if liquid(c, w[-1], 60, 2e8)]))
-        semi = top(inds[0], 5)
-        cross = [x[0] for x in [top(i, 1) for i in inds[:12]] if x][:5]
-        if len(semi) < 5 or len(cross) < 5: continue
+        semi = top('半導體業', 5)
+        cross = [x[0] for x in [top(i, 1) for i in ('半導體業', '金融保險', '食品工業', '航運業', '鋼鐵工業', '建材營造', '塑膠工業', '觀光餐旅')] if x][:5]
+        if len(semi) < 5 or len(cross) < 5: log('m13 basket skipped', y0, len(semi), len(cross)); continue
         def basket(cs):
             r = PIV['ret'][cs].reindex(w)
             corr = r.corr().values; n = len(cs); avgc = (corr.sum() - n) / (n * n - n)
@@ -607,7 +611,9 @@ def m13():
             down_all = int((r < 0).all(axis=1).sum())
             return {'codes': cs, 'names': [NAME.get(c) for c in cs], 'avgCorr': rnd(avgc, 2), 'worstDay': int(worst), 'worstDayPct': rnd(eq.min() * 100, 2),
                     'allDownDays': down_all, 'days': len(w), 'line': norm([rnd(x) for x in (1 + eq.fillna(0)).cumprod().reindex(w[::5]) * 100])}
-        put(93, {'from': w[0], 'to': w[-1], 'same': basket(semi), 'mixed': basket(cross)})
+        A, B = basket(semi), basket(cross)
+        if A['avgCorr'] > B['avgCorr'] + 0.1 and A['allDownDays'] > B['allDownDays']: put(93, {'from': w[0], 'to': w[-1], 'same': A, 'mixed': B})
+        else: log('m13 basket not illustrative', y0, A['avgCorr'], B['avgCorr'], A['allDownDays'], B['allDownDays'])
     # 95 averaging into a broken thesis: support broken then a further fall
     cands = []
     for d in VALID_DATES[::10]:
@@ -635,7 +641,7 @@ def m13():
             if fut is None: continue
             if dist > 0.22 and fut > 0.12: lucky.append((c, d))
             lo = PIV['low'][c].reindex(w[-15:]).min()
-            if 0.0 < dist < 0.05 and cl > PIV['close'][c].get(w[-20]) * 1.03 and min(PIV['low'][c].reindex(after(d, 20))) < lo * 0.99 and fut < -0.06: unlucky.append((c, d))
+            if 0.0 < dist < 0.05 and cl > PIV['close'][c].get(w[-20]) * 1.03 and lo >= cl * 0.9 and min(PIV['low'][c].reindex(after(d, 20))) < lo * 0.99 and fut < -0.06: unlucky.append((c, d))
         if len(lucky) > 15 and len(unlucky) > 15: break
     for kind, arr in (('luckyChase', lucky), ('goodLoss', unlucky)):
         for c, d in pick_spread(arr, 2, 'proc' + kind):
