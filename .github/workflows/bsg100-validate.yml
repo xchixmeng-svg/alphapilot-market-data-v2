@@ -6,7 +6,7 @@ on:
     branches: [bsg-100-lessons]
     paths:
       - 'apps/become-stock-god-v2/**'
-      - '.github/workflows/bsg-100-ci.yml'
+      - '.github/workflows/bsg100-validate.yml'
   workflow_dispatch:
 
 permissions:
