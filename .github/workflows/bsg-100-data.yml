@@ -7,7 +7,7 @@ on:
   push:
     branches: [bsg-100-lessons]
     paths:
-      - 'apps/become-stock-god-v2/tools/data100/**'
+      - 'apps/become-stock-god-v2/**'
       - '.github/workflows/bsg-100-data.yml'
   workflow_dispatch:
 
@@ -15,7 +15,26 @@ permissions:
   contents: write
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      data: ${{ steps.d.outputs.data }}
+      app: ${{ steps.d.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: d
+        run: |
+          set +e
+          files=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" 2>/dev/null)
+          if [ -z "$files" ]; then files=$(git show --name-only --format= HEAD); fi
+          echo "$files"
+          if echo "$files" | grep -q '^apps/become-stock-god-v2/tools/data100/'; then echo data=true >> $GITHUB_OUTPUT; else echo data=false >> $GITHUB_OUTPUT; fi
+          if echo "$files" | grep -v '^apps/become-stock-god-v2/tools/data100/' | grep -q '^apps/become-stock-god-v2/\|^.github/workflows/bsg-100-data.yml'; then echo app=true >> $GITHUB_OUTPUT; else echo app=false >> $GITHUB_OUTPUT; fi
   data:
+    needs: changes
+    if: needs.changes.outputs.data == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -45,3 +64,38 @@ jobs:
           git add -A
           git commit -q -m "bsg100 data output ${GITHUB_SHA}"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" bsg-100-data-out
+
+  # Full build from the parquet archive + every product test (the 100-lesson acceptance audit included).
+  validate:
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        working-directory: apps/become-stock-god-v2
+        run: npm install
+      - name: Build complete product
+        working-directory: apps/become-stock-god-v2
+        run: npm run build:web
+      - name: Syntax and learning contract (100 lessons)
+        working-directory: apps/become-stock-god-v2
+        run: |
+          for f in engine content chart app; do node --check src/$f.js; done
+          npm run audit:learning
+      - name: Browser tests (product, one-page, 100-lesson acceptance)
+        working-directory: apps/become-stock-god-v2
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4175 -d dist >/tmp/http.log 2>&1 &
+          sleep 2
+          BSG_URL=http://127.0.0.1:4175/ node tools/ci_v5_product.cjs
+          BSG_AUDIT_URL=http://127.0.0.1:4175/ node tools/audit_onepage.mjs
+          BSG_AUDIT_URL=http://127.0.0.1:4175/ node tools/audit_100.mjs
