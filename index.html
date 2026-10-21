@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
-<script>/* review build only */window.BSG_OPEN_ALL=true;</script>
+<head><script>/* review build only */window.BSG_OPEN_ALL=true;</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
 <meta name="theme-color" content="#030814">
@@ -689,6 +688,73 @@ body{background:radial-gradient(900px 520px at 50% -80px,rgba(18,126,214,.16),tr
   .cpTraining .feedbackBox{font-size:12px!important}
 }
 @media (min-width:941px){.main.cpMain>.training.cpTraining{height:calc(100dvh - 76px)!important}.cpSvg{max-height:60dvh}}
+
+/* ═══ Readability pass (2026-10): larger type everywhere. Loaded last, so it wins over the older layers. ═══
+   Floors on a phone: body text 15px, answers 16px, small labels 12–13px, chart axis text ≥ 12px on screen. */
+.question{font-size:18px!important;line-height:1.45!important}
+.coachLine,.explain{font-size:15px!important;line-height:1.55!important}
+.answer,.main:has(>.training) .answer,.cpTraining .answer,.cpAnswers .answer{font-size:16px!important;line-height:1.45!important}
+.answer small,.answerHelp{font-size:13px!important}
+.feedbackBox{font-size:15px!important;line-height:1.55!important}
+.feedbackBox .ckMuted{font-size:14px!important}
+.qtag,.difficulty,.missionTag{font-size:13px!important}
+.trainTitle strong{font-size:18px!important}
+.trainTitle span{font-size:14px!important}
+.btn{font-size:15px!important}
+.hudpill,.lv{font-size:13px!important}
+.chartlegend,.ma-legend,.charttip{font-size:12.5px!important}
+.chartctl.v2 button,.chartctl.v3 button{font-size:12.5px!important}
+.coachSpeechTitle,.coachSpeechBody,.homeCoachSpeech b,.homeCoachSpeech span,.coachSpeak{font-size:14px!important;line-height:1.5!important}
+.coachQuick button{font-size:13px!important}
+.toast,.hintStep{font-size:15px!important}
+
+/* Home, course map, pages and modals */
+.ckDashboard .ckStrip .ckTileTxt b,.ckTileTxt b{font-size:15px!important}
+.ckDashboard .ckStrip .ckTileTxt small,.ckTileTxt small,.ckTileState{font-size:12.5px!important}
+.ckFeat b,.ckDashboard .ckFeat b{font-size:15px!important}
+.ckFeat small,.ckDashboard .ckFeat small{font-size:12px!important;position:relative;z-index:2;text-shadow:0 1px 3px #021019,0 0 8px #021019}
+.ckDashboard .ckFeatArt,.ckDashboard .ckFeat:nth-child(1) .ckFeatArt,.ckDashboard .ckFeat:nth-child(3) .ckFeatArt{width:62px!important;height:62px!important}
+.ckMod small,.ckModProg,.ckModCode,.ckStats span,.ckStats b small,.ckXpTxt,.ckPremium small{font-size:13px!important}
+.ckHome .ckCtaRow .ckBtn em,.ckBtn em{font-size:12.5px!important}
+.ckHelpGrid p,.ckInfoBox p,.ckArenaCard p,.ckArenaHead p,.ckPageSub,.ckNotice,.ckSmall{font-size:14.5px!important;line-height:1.55!important}
+.ckHelpGrid b,.ckLink{font-size:15px!important}
+.ckUiEyebrow,.brandsub,.ckDashHud .brandsub{font-size:11.5px!important}
+.v5Log small,.v5Scen small{font-size:13px!important}
+.v5Log b,.v5Step,.v5Dim span,.v5Habits span{font-size:14.5px!important}
+.worldCard .wc,.worldCard .ws,.worldsub,.missionrow .st,.missionrow .num{font-size:12.5px!important}
+.missionrow .tt{font-size:15px!important}
+.legal,.ckHome .legal,.footer,.tiny{font-size:12px!important}
+
+/* Case player (lessons 64–100) */
+.cpFig figcaption{font-size:15px!important;margin-bottom:4px!important}
+.cpLegend{font-size:13.5px!important;gap:12px!important}
+.cpLegend i{width:16px!important;height:4px!important}
+.cpNote{font-size:13px!important;color:#9fc0d4!important;margin:0 0 6px!important}
+.cpTable{font-size:14.5px!important}
+.cpTable th{font-size:13px!important}
+.cpTimeline li{font-size:14.5px!important;grid-template-columns:96px 1fr!important}
+.cpTimeline time{font-size:13px!important}
+.cpCard small,.cpCard span{font-size:13px!important}
+.cpCard b{font-size:19px!important}
+.cpText{font-size:15.5px!important}
+.cpBookHead{font-size:13px!important}
+.cpBookRow{font-size:15px!important}
+.cpBookLast{font-size:14px!important}
+/* SVG user units ≈ CSS px × 0.85–1.05 on phones, so 14 units renders at ≥ 12px. */
+.cpAx{font:700 14px var(--mono,monospace)!important}
+.cpMarkT{font:800 13px var(--font,system-ui)!important}
+/* Never stretch: the svg keeps its own aspect ratio (set inline) and scales uniformly. */
+.cpSvg{height:auto!important;max-height:none!important}
+.cpMulti .cpSvg{max-height:30dvh!important}
+@media (orientation:landscape) and (max-height:520px), (min-width:941px){
+  .cpTraining .question{font-size:17px!important}
+  .cpTraining .answer{font-size:15px!important;min-height:44px!important}
+  .cpTraining .explain,.cpTraining .coachLine,.cpTraining .feedbackBox{font-size:14px!important}
+  .cpSvg{max-height:60dvh!important;width:auto!important;max-width:100%!important;margin:0 auto}
+}
+
+/* Full-width buttons span the whole answer grid (bigger text no longer fits half a column). */
+.answers>.btn.full,.answers>.nextBtn{grid-column:1/-1!important;width:100%!important}
 </style>
 </head>
 <body>
@@ -1793,9 +1859,9 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
     [95,'攤平不會讓理由變對','價格變便宜，不代表你的論點變好了','AVERAGING','分辨計畫性加碼與套牢攤平。','加碼前問：原論點還成立嗎？失策點沒破嗎？總風險還在預算內嗎？','跌破失策還加碼，是在加大錯誤。'],
     [96,'結果對，不代表決策對','靠運氣賺錢，也可能是一個壞決策','PROCESS','用過程品質評估一筆交易，而不是只看結果。','好決策：有理由、有失策、風報比合理；結果好壞還有運氣成分。','賺錢不代表做對，虧錢也不代表做錯。'],
     [97,'寫下理由，再回頭看','交易日誌會抓出你一直重複的錯','JOURNAL','完成一份簡易交易日誌，並找出判斷對錯。','進場前寫下：理由、進場、失策、空間、最大虧損；事後對照哪一步對、哪一步錯。','只記得賺賠金額，學不到東西。'],
-    [98,'三層掃描','大盤 → 產業 → 個股','SCAN3','用真實歷史資料完成三層掃描並決定做、觀察或放棄。','先大盤、再產業、最後個股；名稱與未來都遮住，只能用當時資訊。','不要因為後來知道結果，就說當時一定看得出來。'],
+    [98,'三層掃描','大盤 → 產業 → 個股','SCAN3','完成三層掃描並決定做、觀察或放棄。','先大盤、再產業、最後個股；名稱與未來都遮住，只能用當時資訊。','不要因為後來知道結果，就說當時一定看得出來。'],
     [99,'四種證據一起看','價格 → 量能 → 消息 → 基本面','EVIDENCE4','分清楚事實與推測，用四種證據做判斷。','先寫事實，再寫推測，最後決定；說得出什麼情況代表看錯。','證據越多不等於越確定，互相矛盾時要降低信心。'],
-    [100,'最終畢業考：完整交易計畫','不是猜漲跌，而是做一個完整決策','GRADUATION','在真實歷史盲測中完成完整交易計畫，並逐日管理。','完整計畫：環境、位置、證據、是否交易、進場、失策、空間、部位、續抱與退出條件。','好決策可能虧錢，壞決策也可能剛好賺錢。']
+    [100,'最終畢業考：完整交易計畫','不是猜漲跌，而是做一個完整決策','GRADUATION','在盲測中完成完整交易計畫，並逐日管理。','完整計畫：環境、位置、證據、是否交易、進場、失策、空間、部位、續抱與退出條件。','好決策可能虧錢，壞決策也可能剛好賺錢。']
   ].forEach(function(a){mission({id:a[0],world:0,title:a[1],sub:a[2],skill:a[3],objective:a[4],rule:a[5],anti:a[6],focus:'concept',kind:'concept'});});
 
   var order=[],n=0;
@@ -1829,8 +1895,8 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
   L[64]={tag:'order_mechanics_error',per:2,takeaway:'股價高低不代表公司大小，乘上股數才是市值。',
     teach:[['股票是什麼','公司把所有權切成很多股份，買一股就擁有公司很小的一部分。'],['市值','市值 ≈ 股價 × 發行股數，才是市場給整家公司的價格。']],
     cases:function(D,h){var out=D.filter(function(x){return x.cap;}).map(function(x){var sharesYi=x.shares/1e8;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',title:'真實資料｜'+h.fmtD(x.asof),real:true,items:[{k:'收盤價',v:h.fmtN(x.close,1)+' 元'},{k:'發行股數',v:h.fmtN(sharesYi,1)+' 億股'},{k:'公司',v:x.name}]},
-        qs:[q('用收盤價和股數估計，'+x.name+' 這天的市值大約是多少？',[fmtYi(x.cap),fmtYi(x.cap/10),fmtYi(x.cap*10)],0,'市值 = '+h.fmtN(x.close,1)+' 元 × '+h.fmtN(sharesYi,1)+' 億股 ≈ '+fmtYi(x.cap)+'。',{1:'少乘了一個位數：股數單位是「億股」。',2:'多乘了一個位數，先把單位寫清楚再乘。'})]};});
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',title:'某家公司某一天的資料',real:true,items:[{k:'收盤價',v:h.fmtN(x.close,1)+' 元'},{k:'發行股數',v:h.fmtN(sharesYi,1)+' 億股'}]},
+        qs:[q('用收盤價和股數估計，這家公司這天的市值大約是多少？',[fmtYi(x.cap),fmtYi(x.cap/10),fmtYi(x.cap*10)],0,'市值 = '+h.fmtN(x.close,1)+' 元 × '+h.fmtN(sharesYi,1)+' 億股 ≈ '+fmtYi(x.cap)+'。',{1:'少乘了一個位數：股數單位是「億股」。',2:'多乘了一個位數，先把單位寫清楚再乘。'})]};});
       out.push({scene:{type:'cards',title:'兩家公司',demo:true,items:[{k:'A 公司股價',v:'1,000 元',sub:'發行 1 億股'},{k:'B 公司股價',v:'50 元',sub:'發行 100 億股'}]},
         qs:[q('A 股價 1,000 元、B 股價 50 元，哪一家公司在市場上比較值錢？',['A，因為股價高很多','B，市值 5,000 億比 A 的 1,000 億大','一樣大'],1,'A 市值 = 1,000 × 1 億 = 1,000 億；B = 50 × 100 億 = 5,000 億。股價高只代表每一股貴。',{0:'把「每一股的價格」當成「整家公司的價格」。',2:'沒有把股數算進去。'})]});
       return out;}};
@@ -1839,27 +1905,27 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
     cases:function(D,h){return D.map(function(x){var px=x.close,one=px*1000,budget=[30000,100000,300000,1000000].filter(function(b){return b>=px*10;})[0]||1000000,lotsN=Math.floor(budget/one),shares=Math.floor(budget/px);
       var ans=lotsN>=1?lotsN+' 張（再多出的錢可買零股）':'買不到一張，最多約 '+h.fmtN(shares)+' 股零股';
       var opts=[ans,lotsN>=1?(lotsN*10)+' 張':Math.floor(budget/px/10)+' 張',lotsN>=1?h.fmtN(Math.floor(budget/px))+' 張':'剛好 1 張'];
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',title:'真實收盤價｜'+h.fmtD(x.asof),real:true,items:[{k:x.name,v:h.fmtN(px,2)+' 元'},{k:'一張金額',v:h.fmtN(one)+' 元',hi:true},{k:'你的預算',v:h.fmtN(budget)+' 元'}]},
-        qs:[q('預算 '+h.fmtN(budget)+' 元（先不算手續費），用 '+h.fmtN(px,2)+' 元買 '+x.name+'，最多能買多少？',opts,0,'一張 = '+h.fmtN(px,2)+' × 1,000 = '+h.fmtN(one)+' 元；'+h.fmtN(budget)+' 元'+(lotsN>=1?'可買 '+lotsN+' 張。':'不夠一張，只能用零股，約 '+h.fmtN(shares)+' 股。'),{1:'把股價當成一張的價格，忘了一張是 1,000 股。',2:'把「股」當成「張」。'})]};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',title:'某檔股票的收盤價',real:true,items:[{k:'收盤價',v:h.fmtN(px,2)+' 元'},{k:'一張金額',v:h.fmtN(one)+' 元',hi:true},{k:'你的預算',v:h.fmtN(budget)+' 元'}]},
+        qs:[q('預算 '+h.fmtN(budget)+' 元（先不算手續費），用 '+h.fmtN(px,2)+' 元買這檔股票，最多能買多少？',opts,0,'一張 = '+h.fmtN(px,2)+' × 1,000 = '+h.fmtN(one)+' 元；'+h.fmtN(budget)+' 元'+(lotsN>=1?'可買 '+lotsN+' 張。':'不夠一張，只能用零股，約 '+h.fmtN(shares)+' 股。'),{1:'把股價當成一張的價格，忘了一張是 1,000 股。',2:'把「股」當成「張」。'})]};});}};
   L[66]={tag:'order_mechanics_error',per:2,takeaway:'限價保護價格但可能不成交，市價保證成交但價格不保證。',
     teach:[['委買委賣','買方掛的價叫委買（Bid），賣方掛的價叫委賣（Ask）。'],['成交','你要馬上買到，就得接受賣方掛的價；你掛的價沒人接，就只是排隊。']],
-    cases:function(D,h){var bk={type:'book',demo:true,title:'五檔（教學示意）',asks:[[50.5,32],[50.6,85],[50.7,40],[50.8,120],[50.9,66]],bids:[[50.4,58],[50.3,90],[50.2,140],[50.1,75],[50.0,210]],last:50.4};
+    cases:function(D,h){var bk={type:'book',demo:true,title:'五檔報價',asks:[[50.5,32],[50.6,85],[50.7,40],[50.8,120],[50.9,66]],bids:[[50.4,58],[50.3,90],[50.2,140],[50.1,75],[50.0,210]],last:50.4};
       return[{scene:bk,qs:[q('你想「馬上」買 1 張，送出市價買單，最可能成交在多少？',['50.5 元（最低委賣價）','50.4 元（最高委買價）','50.0 元'],0,'市價買單會去吃賣方掛出的最低價，也就是委賣第一檔 50.5 元。',{1:'50.4 是其他買方在排隊的價格，不是賣方願意賣的價格。',2:'50.0 是買方排隊最後面的價格，賣方不會用這個價賣給你。'})]},
         {scene:bk,qs:[q('你掛限價 50.2 元買 1 張，現在會發生什麼？',['排在委買 50.2 元等待，可能整天都不成交','立刻用 50.2 元成交','立刻用 50.5 元成交'],0,'限價買單「最多出這個價」。現在賣方最低要 50.5，沒人願意用 50.2 賣，你的單只會排隊。',{1:'有掛價不代表有人接。',2:'限價單不會用比你設定還高的價格成交。'})]},
         {scene:bk,qs:[q('同一檔股票，你掛限價 50.6 元買 1 張，會成交在多少？',['50.5 元，價格只會更好不會更差','50.6 元','不會成交'],0,'限價 50.6 代表最高願意出 50.6；賣方有人掛 50.5，所以用 50.5 成交。',{1:'限價是上限，不是一定成交在那個價。',2:'你的限價高於賣方最低價，會立刻成交。'})]}];}};
   L[67]={tag:'order_mechanics_error',per:2,takeaway:'五檔只告訴你「現在」誰在排隊，掛單隨時會撤，不是預測。',
     teach:[['五檔','最靠近成交價的五個委買價、五個委賣價和張數。'],['會撤單','大掛單可以一秒撤掉；看到的是意圖，不是承諾。']],
-    cases:function(D,h){var a={type:'book',demo:true,title:'09:05 五檔（教學示意）',asks:[[30.05,12],[30.1,18],[30.15,25],[30.2,30],[30.25,22]],bids:[[30.0,1500],[29.95,20],[29.9,35],[29.85,40],[29.8,28]],last:30.0};
-      var b={type:'book',demo:true,title:'09:06 同一檔一分鐘後（教學示意）',asks:[[29.95,40],[30.0,55],[30.05,60],[30.1,70],[30.15,50]],bids:[[29.9,30],[29.85,45],[29.8,60],[29.75,40],[29.7,80]],last:29.9};
+    cases:function(D,h){var a={type:'book',demo:true,title:'09:05 五檔',asks:[[30.05,12],[30.1,18],[30.15,25],[30.2,30],[30.25,22]],bids:[[30.0,1500],[29.95,20],[29.9,35],[29.85,40],[29.8,28]],last:30.0};
+      var b={type:'book',demo:true,title:'09:06 同一檔一分鐘後',asks:[[29.95,40],[30.0,55],[30.05,60],[30.1,70],[30.15,50]],bids:[[29.9,30],[29.85,45],[29.8,60],[29.75,40],[29.7,80]],last:29.9};
       return[{scene:a,qs:[q('委買 30.0 元掛了 1,500 張的大單，這代表什麼？',['現在有人在 30.0 排了大量買單，但隨時可以撤','主力一定會把股價拉上去','30.0 元一定跌不破'],0,'五檔只是此刻的排隊狀態。大單可能是真的想買，也可能只是掛著影響別人。',{1:'從「有人掛單」推論到「一定會漲」，多跳了好幾步。',2:'支撐要看真的成交與價格反應，不是看一筆可撤的掛單。'})]},
         {scene:b,qs:[q('一分鐘後 1,500 張大單不見了，價格跌到 29.9。學到什麼？',['掛單可以撤，五檔不能當成預測','一定是有人用 1,500 張砸下來','只要大單消失就該立刻賣出'],0,'大單消失可能是撤單、也可能被成交，五檔本身看不出來。它只告訴你「現在」。',{1:'五檔看不出是撤單還是成交。',2:'把一個看不清的訊號直接變成交易動作。'})]}];}};
   L[68]={tag:'order_mechanics_error',per:2,takeaway:'有價格不代表成交得到：漲停可能買不到，跌停可能賣不掉。',
     teach:[['漲跌幅限制','台股一般股票單日漲跌最多 10%。'],['鎖住','漲停價大量掛買、沒人賣，或跌停價大量掛賣、沒人買，就叫鎖住。']],
     cases:function(D,h){return D.map(function(x){var i=idxOf(x.chart.d,x.mark),up=x.kind==='limitUp';
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'真實歷史｜'+h.fmtD(x.mark)+(up?' 一字漲停':' 一字跌停'),real:true,data:h.slice(x.chart,0,i+1),marks:[{i:i,label:up?'漲停':'跌停'}]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'標記日'+(up?' 一字漲停':' 一字跌停'),real:true,data:h.slice(x.chart,0,i+1),marks:[{i:i,label:up?'漲停':'跌停'}]},
         qs:[q(up?'這天開盤就漲停、一整天沒打開，成交 '+lots(x.volLots)+'（平常約 '+lots(x.avgVolLots)+'）。想在這天用市價買進會怎樣？':'這天開盤就跌停、一整天沒打開，成交只有 '+lots(x.volLots)+'（平常約 '+lots(x.avgVolLots)+'）。你這天想停損賣出會怎樣？',
           up?['很可能排不到，大家都在漲停價排隊買','一定買得到，只是價格比較高','可以用比漲停更高的價格買到']:['很可能賣不掉，大家都在跌停價排隊賣','一定賣得掉，只是價格比較低','可以用比跌停更低的價格賣掉'],0,
-          (up?'一字漲停代表賣方很少，排隊買的人很多。':'一字跌停代表買方很少，排隊賣的人很多。')+'價格限制在 10%，超過的價格根本不能掛。這是 '+x.name+' 的真實紀錄。',
+          (up?'一字漲停代表賣方很少，排隊買的人很多。':'一字跌停代表買方很少，排隊賣的人很多。')+'價格限制在 10%，超過的價格根本不能掛。',
           {1:'有報價不代表有對手，鎖住時成交量很小。',2:'台股一般股票單日不能超過 10% 漲跌幅。'}),
           q('這件事對停損計畫的提醒是？',['停損價不一定成交得到，部位要小到「賣不掉也撐得住」','只要設了停損就不會虧超過設定','跌停就代表明天一定反彈'],0,'流動性風險是真的：連續鎖跌停時，停損單只能排隊。所以部位大小要預留這種情況。',{1:'停損單是委託，不是保證成交。',2:'鎖跌停之後可能續鎖，也可能打開，沒有一定。'},{scene:{type:'candles',title:'之後幾天（揭曉）',real:true,data:x.chart,cut:i+1,marks:[{i:i,label:up?'漲停':'跌停'}]}})]};});}};
   L[69]={tag:'order_mechanics_error',per:2,takeaway:'真正損益 = 價差 − 買賣手續費 − 證交稅；小價差常被成本吃光。',
@@ -1867,11 +1933,11 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
     cases:function(D,h){var R=h.rules;function cost(b,s,sh){var fb=Math.max(R.feeMin,Math.floor(b*sh*R.feeRate)),fs=Math.max(R.feeMin,Math.floor(s*sh*R.feeRate)),tax=Math.floor(s*sh*R.taxRate);return{fb:fb,fs:fs,tax:tax,net:(s-b)*sh-fb-fs-tax};}
       function mk(b,s,sh,label){var c=cost(b,s,sh),gross=(s-b)*sh;return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'table',demo:true,title:label,head:['項目','金額'],rows:[['買進 '+h.fmtN(sh)+' 股 @ '+b,h.fmtN(b*sh)],['賣出 @ '+s,h.fmtN(s*sh)],['價差',h.fmtN(gross)],['買進手續費','−'+h.fmtN(c.fb)],['賣出手續費','−'+h.fmtN(c.fs)],['證交稅 0.3%','−'+h.fmtN(c.tax)]],hi:[2]},
         qs:[q('扣掉所有成本後，這筆交易真正賺（賠）多少？',[h.fmtN(c.net)+' 元',h.fmtN(gross)+' 元',h.fmtN(gross-c.tax)+' 元'],0,'價差 '+h.fmtN(gross)+' − 手續費 '+h.fmtN(c.fb+c.fs)+' − 稅 '+h.fmtN(c.tax)+' = '+h.fmtN(c.net)+' 元。',{1:'只看價差，忘了買賣都有成本。',2:'只扣了稅，手續費也要扣兩次。'})]};}
-      return[mk(50,50.5,1000,'價差 1%（教學計算）'),mk(100,101,1000,'價差 1%，股價較高（教學計算）'),mk(20,20.2,2000,'價差 1%，零碎成本（教學計算）')];}};
+      return[mk(50,50.5,1000,'價差 1%'),mk(100,101,1000,'價差 1%，股價較高'),mk(20,20.2,2000,'價差 1%，零碎成本')];}};
   L[70]={tag:'price_reading_error',per:2,takeaway:'除權息讓圖上出現缺口，但股東拿到了股利；比較長期走勢要用還原價。',
     teach:[['除息','公司發現金股利，除息日股價會扣掉股利，叫參考價。'],['還原價','把歷年除權息加回去的價格，才能公平比較長期漲跌。']],
     cases:function(D,h){return D.map(function(x){var i=idxOf(x.chart.d,x.mark),drop=(x.reference/x.before-1)*100;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'真實歷史｜'+x.name+' '+h.fmtD(x.mark)+' 除'+(x.kind==='權'?'權':'息'),real:true,data:x.chart,marks:[{i:i,label:'除'+x.kind+'日'}]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'除'+(x.kind==='權'?'權':'息')+'日 = 標記處',real:true,data:x.chart,marks:[{i:i,label:'除'+x.kind+'日'}]},
         qs:[q('前一天收盤 '+x.before+' 元，除'+x.kind+'參考價 '+x.reference+' 元（'+h.pct(drop)+'）。圖上的這個跳空代表什麼？',['公司發放每股 '+h.fmtN(x.dividend,2)+' 元的股利，價格扣掉股利價值，不是崩盤','開盤就有人恐慌拋售','公司出了壞消息'],0,'參考價 = 前收 − 股利價值。股東手上的股價少了約 '+h.fmtN(x.before-x.reference,2)+' 元，但同時拿到等值的股利，總資產幾乎不變。',{1:'把公司行動造成的價格調整誤認成賣壓。',2:'價格跳空不一定有新聞，先查是不是除權息。'}),
           q('要比較這檔股票三年來的真正報酬，應該用哪種價格？',['還原價（把股利加回去）','原始收盤價','只看除息日之後的價格'],0,'原始價格每除息一次就往下跳一次，會低估報酬；還原價把這些調整加回去。',{1:'原始價會把配息誤算成虧損。',2:'截掉一段時間不能解決除權息的問題。'})]};});}};
 
@@ -1879,7 +1945,7 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
   var ENV_NAME={up:'上升',down:'下降',range:'盤整'};
   L[71]={tag:'market_context_error',per:2,takeaway:'先看大盤是順風還是逆風，個股訊號才知道要打幾折。',
     teach:[['大盤','加權指數代表整個上市市場的方向。'],['先判環境','高低點墊高＝上升；高低點降低＝下降；互相重疊＝盤整。']],
-    cases:function(D,h){return D.map(function(x){var k=x.env;return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('加權指數 80 個交易日（截至 '+h.fmtD(x.asof)+'）',x.d,[{name:'加權指數',values:x.line}]),
+    cases:function(D,h){return D.map(function(x){var k=x.env;return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('加權指數 80 個交易日',x.d,[{name:'加權指數',values:x.line}]),
       qs:[q('只看這段加權指數，大盤處在什麼環境？',['上升','下降','盤整'],{up:0,down:1,range:2}[k],'這段期間高低點'+(k==='up'?'持續墊高':k==='down'?'持續降低':'互相重疊、沒有方向')+'，是'+ENV_NAME[k]+'環境。',{0:'只看最後幾天的反彈，沒有比較整段高低點。',1:'只看最後幾天的下跌，沒有比較整段高低點。',2:'高低點其實有明確方向，不是來回重疊。'}),
         q(k==='down'?'在這種環境下，看到一檔個股出現突破訊號，合理的做法是？':'在這種環境下，個股的買進訊號應該怎麼看？',k==='down'?['降低信心或縮小部位，逆風訊號容易失敗','照常全力進場，個股和大盤無關','大盤下跌所以個股一定不會突破']:k==='up'?['順風環境，訊號可信度相對較高，但仍要看位置與失策','大盤上漲所以隨便買都會賺','上升環境不用設失策']:['方向不明，訊號要更挑，等突破區間再說','盤整代表一定會往上突破','盤整時不能交易'],0,
           k==='down'?'多數股票會受大盤拖累，逆風時突破失敗率較高，所以要打折。':k==='up'?'順風只是提高成功機率，不代表不會錯。':'盤整時大盤不提供方向，個股要靠自己的結構與位置。',
@@ -1888,169 +1954,170 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
   L[72]={tag:'market_context_error',per:2,takeaway:'強弱是跟大盤比出來的：大盤 +4%、個股 +2% 其實是相對弱。',
     teach:[['相對強弱','個股報酬 − 大盤報酬。'],['基準 100','把兩條線的起點都設成 100，就能直接比較誰走得比較好。']],
     cases:function(D,h){return D.map(function(x){var rel=x.stockRet-x.marketRet,ans=rel>0?0:1;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('20 個交易日（起點 = 100，截至 '+h.fmtD(x.asof)+'）',x.d,[{name:'某檔股票',values:x.stock,color:'#ffd44a'},{name:'加權指數',values:x.market,color:'#39f5ff',dash:true}],{base:100}),
-        qs:[q('這段期間個股 '+h.pct(x.stockRet)+'、大盤 '+h.pct(x.marketRet)+'。這檔股票相對大盤是？',['相對強','相對弱','一樣'],ans,'相對強弱 = '+h.pct(x.stockRet)+' − ('+h.pct(x.marketRet)+') = '+h.pct(rel)+'。'+(x.kind==='laggard'?'個股雖然有漲，但輸給大盤。':x.kind==='defensive'?'大盤下跌時它幾乎沒跌，是相對抗跌。':'它明顯跑贏大盤。')+'（'+x.name+'）',
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('20 個交易日',x.d,[{name:'某檔股票',values:x.stock,color:'#ffd44a'},{name:'加權指數',values:x.market,color:'#39f5ff',dash:true}],{base:100}),
+        qs:[q('這段期間個股 '+h.pct(x.stockRet)+'、大盤 '+h.pct(x.marketRet)+'。這檔股票相對大盤是？',['相對強','相對弱','一樣'],ans,'相對強弱 = '+h.pct(x.stockRet)+' − ('+h.pct(x.marketRet)+') = '+h.pct(rel)+'。'+(x.kind==='laggard'?'個股雖然有漲，但輸給大盤。':x.kind==='defensive'?'大盤下跌時它幾乎沒跌，是相對抗跌。':'它明顯跑贏大盤。'),
           {0:'只看個股自己有沒有漲，沒有跟大盤比。',1:'只看個股自己有沒有跌，沒有跟大盤比。'})]};});}};
   L[73]={tag:'market_context_error',per:2,takeaway:'個股要同時跟大盤、跟同產業比，才知道它是真的強還是只是跟著漲。',
     teach:[['三層','大盤 → 產業 → 個股。'],['產業指數','這裡用同產業股票的平均報酬當產業基準（產業分類為目前歸類）。']],
     cases:function(D,h){return D.map(function(x){var ans={withSector:0,ownStrength:1,lagSector:2}[x.kind];
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('20 個交易日（起點 = 100）｜'+x.industry,x.d,[{name:'個股',values:x.stock,color:'#ffd44a'},{name:x.industry+'平均',values:x.sector,color:'#ff6fa0'},{name:'加權指數',values:x.market,color:'#39f5ff',dash:true}],{base:100}),
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('20 個交易日｜'+x.industry,x.d,[{name:'個股',values:x.stock,color:'#ffd44a'},{name:x.industry+'平均',values:x.sector,color:'#ff6fa0'},{name:'加權指數',values:x.market,color:'#39f5ff',dash:true}],{base:100}),
         qs:[q('個股 '+h.pct(x.stockRet)+'、同產業平均 '+h.pct(x.sectorRet)+'、大盤 '+h.pct(x.marketRet)+'。最好的描述是？',['主要是整個產業在漲，個股跟著產業走','個股自己特別強，產業沒什麼漲','產業很強，這檔反而落後'],ans,
-          (ans===0?'個股和產業漲幅接近，強的是整個產業。':ans===1?'產業幾乎沒動，個股明顯領先，是個股自己的力量。':'同產業平均漲更多，這檔是產業裡的落後者。')+'（'+x.name+'，'+h.fmtD(x.asof)+'）',
+          (ans===0?'個股和產業漲幅接近，強的是整個產業。':ans===1?'產業幾乎沒動，個股明顯領先，是個股自己的力量。':'同產業平均漲更多，這檔是產業裡的落後者。'),
           {0:'只跟大盤比，沒有再跟同產業比。',1:'沒注意到同產業也一起漲。',2:'把跟著產業漲誤認成落後或領先。'})]};});}};
   L[74]={tag:'market_context_error',per:1,takeaway:'真正的強勢是一段時間持續跑贏大盤，不是某一天漲停。',
     teach:[['相對強弱線','個股 ÷ 大盤，線往上代表持續跑贏。'],['單日暴衝','一天大漲很吸睛，但不一定代表一段時間都強。']],
-    cases:function(D,h){return D.map(function(x){return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('40 個交易日 個股 ÷ 大盤（起點 = 100）',x.d,[{name:'A',values:x.spike.rel,color:'#ff6fa0'},{name:'B',values:x.steady.rel,color:'#ffd44a'}],{base:100}),
-      qs:[q('A 這段期間曾有單日 '+h.pct(x.spike.maxDay)+'；B 最大單日只有 '+h.pct(x.steady.maxDay)+'。哪一檔是持續的相對強勢？',['B','A','一樣強'],0,'B 的相對強弱線一路往上（整段 '+h.pct(x.steady.ret)+'），A 有一天暴衝，整段卻 '+h.pct(x.spike.ret)+'，大盤 '+h.pct(x.marketRet)+'。（A：'+x.spike.name+'、B：'+x.steady.name+'）',
+    cases:function(D,h){return D.map(function(x){return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines('40 個交易日｜個股 ÷ 大盤',x.d,[{name:'A',values:x.spike.rel,color:'#ff6fa0'},{name:'B',values:x.steady.rel,color:'#ffd44a'}],{base:100}),
+      qs:[q('A 這段期間曾有單日 '+h.pct(x.spike.maxDay)+'；B 最大單日只有 '+h.pct(x.steady.maxDay)+'。哪一檔是持續的相對強勢？',['B','A','一樣強'],0,'B 的相對強弱線一路往上（整段 '+h.pct(x.steady.ret)+'），A 有一天暴衝，整段卻 '+h.pct(x.spike.ret)+'，大盤 '+h.pct(x.marketRet)+'。',
         {1:'被單日漲幅吸引，沒看整段相對強弱。',2:'只看有沒有漲，沒比較持續性。'})]};});}};
   var BR={narrowUp:0,hiddenStrength:1,broadUp:2};
   L[75]={tag:'market_context_error',per:2,takeaway:'指數漲跌只說了一半，上漲／下跌家數告訴你是少數權值股還是全面行情。',
     teach:[['廣度','當天上漲家數與下跌家數。'],['補充證據','指數和家數方向不同時，代表力量集中在少數股票，不是預測公式。']],
     cases:function(D,h){return D.map(function(x){var n=x.up.length-1,ans=BR[x.kind];
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[lines('加權指數（截至 '+h.fmtD(x.asof)+'）',x.d,[{name:'加權指數',values:x.index}]),{type:'bars',title:'每日上漲家數（上）／下跌家數（下）',real:true,a:x.up,b:x.down,aLabel:'上漲',bLabel:'下跌'}]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[lines('加權指數',x.d,[{name:'加權指數',values:x.index}]),{type:'bars',title:'每日上漲家數（上）／下跌家數（下）',real:true,a:x.up,b:x.down,aLabel:'上漲',bLabel:'下跌'}]},
         qs:[q('最後一天加權指數 '+h.pct(x.indexChg,2)+'，上漲 '+x.up[n]+' 家、下跌 '+x.down[n]+' 家。這代表？',['指數漲但多數股票跌，上漲集中在少數大型股','指數跌但多數股票漲，賣壓集中在少數大型股','指數漲而且多數股票也漲，是全面上漲'],ans,
           ans===0?'加權指數由市值加權，少數大型股就能拉動指數。家數告訴你多數股票其實在跌。':ans===1?'指數被少數權值股拖累，但多數股票是上漲的。':'指數和家數方向一致，上漲很普遍。',
           {0:'指數方向和家數方向要分開看。',1:'先看家數是多數漲還是多數跌。',2:'沒有比較上漲與下跌家數。'})]};});}};
   L[76]={tag:'market_context_error',per:2,takeaway:'看成交金額，不是只看成交張數；部位要小到你想賣時賣得掉。',
     teach:[['成交金額','= 成交股數 × 價格，代表真的有多少錢在交易。'],['流動性','想賣的時候能不能用合理價格賣掉；平常成交金額越大越容易。']],
-    cases:function(D,h){return D.map(function(x){var a=x.cheap,b=x.rich,rows=[[a.name,h.fmtN(a.close,2),h.fmtN(a.volLots),h.fmtN(a.valueYi,2)],[b.name,h.fmtN(b.close,1),h.fmtN(b.volLots),h.fmtN(b.valueYi,2)]];if(x.thin)rows.push([x.thin.name,h.fmtN(x.thin.close,1),h.fmtN(x.thin.volLots),h.fmtN(x.thin.valueYi,3)]);
-      var qs=[q('同一天，哪一檔「真的有比較多錢」在交易？',[b.name+'（成交金額 '+h.fmtN(b.valueYi,1)+' 億）',a.name+'（成交 '+h.fmtN(a.volLots)+' 張比較多）','一樣多'],0,a.name+' 張數多但股價低，金額只有 '+h.fmtN(a.valueYi,1)+' 億；'+b.name+' 張數少但金額 '+h.fmtN(b.valueYi,1)+' 億。',{1:'張數多不等於錢多，要乘上價格。',2:'沒有換算成金額。'})];
-      if(x.thin)qs.push(q(x.thin.name+' 近 20 日平均成交金額只有約 '+h.fmtN(x.thin.avg20ValueYi*10000,0)+' 萬元。若想買 500 萬元的部位，最大的問題是？',['想賣的時候可能要很多天才賣得完，或被迫用差很多的價格賣','完全沒問題，有人在交易就能賣','低成交量代表一定會漲'],0,'500 萬占它一天成交的很大比例，進出都會推動價格。部位最好遠小於平常的成交金額。',{1:'有成交不代表能消化你的量。',2:'成交量低和漲跌方向無關。'}));
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'table',title:'真實資料｜'+h.fmtD(x.asof),real:true,head:['股票','收盤','成交張數','成交金額（億）'],rows:rows},qs:qs};});}};
+    cases:function(D,h){return D.map(function(x){var a=x.cheap,b=x.rich,rows=[['A 股',h.fmtN(a.close,2),h.fmtN(a.volLots),h.fmtN(a.valueYi,2)],['B 股',h.fmtN(b.close,1),h.fmtN(b.volLots),h.fmtN(b.valueYi,2)]];if(x.thin)rows.push(['C 股',h.fmtN(x.thin.close,1),h.fmtN(x.thin.volLots),h.fmtN(x.thin.valueYi,3)]);
+      var qs=[q('同一天，哪一檔「真的有比較多錢」在交易？',['B 股（成交金額 '+h.fmtN(b.valueYi,1)+' 億）','A 股（成交 '+h.fmtN(a.volLots)+' 張比較多）','一樣多'],0,'A 股張數多但股價低，金額只有 '+h.fmtN(a.valueYi,1)+' 億；B 股張數少但金額 '+h.fmtN(b.valueYi,1)+' 億。',{1:'張數多不等於錢多，要乘上價格。',2:'沒有換算成金額。'})];
+      if(x.thin)qs.push(q('C 股近 20 日平均成交金額只有約 '+h.fmtN(x.thin.avg20ValueYi*10000,0)+' 萬元。若想買 500 萬元的部位，最大的問題是？',['想賣的時候可能要很多天才賣得完，或被迫用差很多的價格賣','完全沒問題，有人在交易就能賣','低成交量代表一定會漲'],0,'500 萬占它一天成交的很大比例，進出都會推動價格。部位最好遠小於平常的成交金額。',{1:'有成交不代表能消化你的量。',2:'成交量低和漲跌方向無關。'}));
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'table',title:'同一天的成交資料',real:true,head:['股票','收盤','成交張數','成交金額（億）'],rows:rows},qs:qs};});}};
   var TD={aligned:0,headwind:1,sectorDrag:2};
   L[77]={tag:'market_context_error',per:2,takeaway:'先大盤、再產業、最後個股；三層都順，個股訊號才值得當真。',
     teach:[['由上往下','大盤決定順風逆風，產業決定資金在不在這裡，最後才看個股。'],['資訊要少','一次只看必要的三條線，不要被二十個指標淹沒。']],
     cases:function(D,h){return D.map(function(x){var ans=TD[x.kind],n=x.d.length;
       return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[lines('① 大盤（40 日 '+h.pct(x.marketRet40)+'）',x.d,[{name:'加權指數',values:x.market}]),lines('② '+x.industry+'平均（20 日 '+h.pct(x.sectorRet20)+'）',x.d,[{name:'產業',values:x.sector,color:'#ff6fa0'}]),
-          {type:'candles',title:'③ 個股（20 日 '+h.pct(x.stockRet20)+'）',real:h.fmtD(x.asof),data:x.stock,vol:false}]},
+          {type:'candles',title:'③ 個股（20 日 '+h.pct(x.stockRet20)+'）',real:true,data:x.stock,vol:false}]},
         qs:[q('用三層掃描，這檔股票此刻最好的描述是？',['三層都順：大盤上升、產業強、個股也強，可列入觀察','大盤逆風：個股雖然強，但要降低信心','產業拖累：大盤好，但這個產業在走弱'],ans,
           ['大盤、產業、個股方向一致，是條件最好的組合；接下來仍要看位置與失策。','大盤正在下降，個股獨強的訊號較容易被拖下來。','大盤不錯但產業在跌，資金不在這個產業，個股的強勢比較孤單。'][ans],
           {0:'只看個股，沒有往上看大盤或產業。',1:'沒注意到大盤的方向。',2:'沒有比較產業的走勢。'}),
-          q('揭曉：之後 20 個交易日，這檔股票 '+h.pct(x.reveal&&x.reveal.ret20)+'。這個結果代表當初的判斷？',['判斷看的是條件好壞，單一結果不能證明對錯','漲了就代表判斷正確','跌了就代表判斷錯誤'],0,'環境好只是提高機率。要用很多次的結果，而不是一次結果評價判斷。（'+x.name+'，'+h.fmtD(x.asof)+'）',
+          q('揭曉：之後 20 個交易日，這檔股票 '+h.pct(x.reveal&&x.reveal.ret20)+'。這個結果代表當初的判斷？',['判斷看的是條件好壞，單一結果不能證明對錯','漲了就代表判斷正確','跌了就代表判斷錯誤'],0,'環境好只是提高機率。要用很多次的結果，而不是一次結果評價判斷。',
             {1:'用結果倒推判斷。',2:'用結果倒推判斷。'},{tag:'no_trade_error',scene:{type:'candles',title:'揭曉：之後 20 天',real:true,data:h.concat(x.stock,x.reveal.stock),cut:n,vol:false}})]};});}};
 
   // ───────── MODULE 11 看懂題材、新聞與資金 ─────────
   var ROLE={done:'已經大漲過一段',start:'剛開始反應',flat:'幾乎沒動'};
   L[78]={tag:'news_causality_error',per:1,takeaway:'題材只是催化劑：同一個題材，有的漲完了、有的剛開始、有的根本不動。',
     teach:[['題材','讓市場注意某個產業或公司的故事。'],['位置','題材要放回價格位置看：已經漲很多的，風險已經不同。']],
-    cases:function(D,h){return D.map(function(x){var s=x.stocks;return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines(x.industry+'題材升溫時的三檔股票（60 日，起點 = 100）',x.d,[{name:'甲',values:s[0].line,color:'#ff6fa0'},{name:'乙',values:s[1].line,color:'#ffd44a'},{name:'丙',values:s[2].line,color:'#7ee0a0'}],{base:100}),
+    cases:function(D,h){return D.map(function(x){var s=x.stocks;return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:lines(x.industry+'題材升溫時的三檔股票（60 日）',x.d,[{name:'甲',values:s[0].line,color:'#ff6fa0'},{name:'乙',values:s[1].line,color:'#ffd44a'},{name:'丙',values:s[2].line,color:'#7ee0a0'}],{base:100}),
       qs:[q('同一個產業題材，哪一檔已經大漲過一段、追進去風險最高？',['甲','乙','丙'],0,'甲 60 日 '+h.pct(s[0].ret60)+'，已經反應很多；乙最近 10 天才開始動（'+h.pct(s[1].ret60)+'）；丙 '+h.pct(s[2].ret60)+' 幾乎沒反應。',{1:'乙才剛開始動，不是漲完。',2:'丙幾乎沒反應。'}),
-        q('揭曉：之後 20 天，甲 '+h.pct(x.reveal[s[0].code])+'、乙 '+h.pct(x.reveal[s[1].code])+'、丙 '+h.pct(x.reveal[s[2].code])+'。對題材最正確的態度是？',['題材只是線索，還要看位置、結構和失策','有題材就買，題材越熱越好','題材股一定會輪漲'],0,'同樣的題材，結果差很多。題材讓你知道「去哪裡看」，不是「直接買」。（甲：'+s[0].name+'、乙：'+s[1].name+'、丙：'+s[2].name+'）',{1:'把故事當成買進理由。',2:'把可能變成一定。'})]};});}};
+        q('揭曉：之後 20 天，甲 '+h.pct(x.reveal[s[0].code])+'、乙 '+h.pct(x.reveal[s[1].code])+'、丙 '+h.pct(x.reveal[s[2].code])+'。對題材最正確的態度是？',['題材只是線索，還要看位置、結構和失策','有題材就買，題材越熱越好','題材股一定會輪漲'],0,'同樣的題材，結果差很多。題材讓你知道「去哪裡看」，不是「直接買」。',{1:'把故事當成買進理由。',2:'把可能變成一定。'})]};});}};
   function newsTime(t){return String(t||'').slice(0,16).replace('T',' ');}
   L[79]={tag:'news_causality_error',per:2,takeaway:'每一則資訊先問「幾點公開」：公開之前的價格，不可能是被它推動的。',
     teach:[['available_at','資訊真正公開的時間。'],['只用當時知道的','回頭看歷史時，最常犯的錯就是用後來才知道的消息解釋之前的走勢。']],
-    cases:function(D,h){return D.map(function(x){var i=idxOf(x.chart.d,x.asof),nt=newsTime(x.news.time);
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'真實歷史｜'+h.fmtD(x.asof)+' 單日 '+h.pct(x.moveDay),real:true,data:h.slice(x.chart,0,i+1),marks:[{i:i,label:'大漲日'}]},{type:'timeline',title:'時間軸',real:true,items:[{t:h.fmtD(x.asof)+' 09:00',label:'開盤'},{t:h.fmtD(x.asof)+' 13:30',label:'收盤，當天漲 '+h.pct(x.moveDay),kind:'hi'},{t:nt,label:'新聞：'+x.news.title+(x.news.source?'（'+x.news.source+'）':''),kind:'news'}]}]},
-        qs:[q('這則新聞的公開時間是 '+nt+'。它能不能解釋 '+h.fmtD(x.asof)+' 當天盤中的大漲？',['不能，新聞在收盤後才公開，盤中的人看不到','可以，新聞內容和大漲有關','可以，同一天的新聞都算'],0,'公開時間在收盤之後，當天盤中的交易者不可能根據它下單。它最多是在「解釋」已經發生的事。',{1:'內容相關不代表時間上可能是原因。',2:'要看幾點公開，不是看哪一天。'})]};});}};
+    cases:function(D,h){return D.map(function(x){var i=idxOf(x.chart.d,x.asof),nt=h.relDay(x.news.time,x.asof);
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'大漲日 D0｜單日 '+h.pct(x.moveDay),real:true,data:h.slice(x.chart,0,i+1),marks:[{i:i,label:'大漲日'}]},{type:'timeline',title:'時間軸',real:true,items:[{t:'D0 09:00',label:'開盤'},{t:'D0 13:30',label:'收盤，當天漲 '+h.pct(x.moveDay),kind:'hi'},{t:nt,label:'新聞：'+h.anon(x.news.title,x)+(x.news.source?'（'+x.news.source+'）':''),kind:'news'}]}]},
+        qs:[q('這則新聞的公開時間是 '+nt+'。它能不能解釋 D0 當天盤中的大漲？',['不能，新聞在收盤後才公開，盤中的人看不到','可以，新聞內容和大漲有關','可以，同一天的新聞都算'],0,'公開時間在收盤之後，當天盤中的交易者不可能根據它下單。它最多是在「解釋」已經發生的事。',{1:'內容相關不代表時間上可能是原因。',2:'要看幾點公開，不是看哪一天。'})]};});}};
   L[80]={tag:'news_causality_error',per:2,takeaway:'正式公告 > 主管機關 > 可信媒體 > 評論分析 > 社群傳聞；等級越低越要查證。',
     teach:[['來源等級','同一件事，從公司公告看到和從論壇看到，可信度完全不同。'],['不是誰對誰錯','社群有時更快，但沒有查證前只能當線索。']],
-    cases:function(D,h){var src={type:'cards',demo:true,title:'五種消息來源（教學示意）',items:[{k:'①',v:'公司在公開資訊觀測站的重大訊息'},{k:'②',v:'金管會／證交所公告'},{k:'③',v:'主流財經媒體報導，引述公司說法'},{k:'④',v:'券商研究報告的預估'},{k:'⑤',v:'論壇：「聽說下個月有大單」'}]};
+    cases:function(D,h){var src={type:'cards',demo:true,title:'五種消息來源',items:[{k:'①',v:'公司在公開資訊觀測站的重大訊息'},{k:'②',v:'金管會／證交所公告'},{k:'③',v:'主流財經媒體報導，引述公司說法'},{k:'④',v:'券商研究報告的預估'},{k:'⑤',v:'論壇：「聽說下個月有大單」'}]};
       return[{scene:src,qs:[q('哪一個來源最適合當作「已確認的事實」？',['① 公司正式公告','③ 媒體報導','⑤ 論壇消息'],0,'正式公告有法律責任，是最接近事實的來源；媒體是轉述，論壇未經查證。',{1:'媒體是二手轉述，要回頭找原始公告。',2:'把傳聞當成事實。'})]},
         {scene:src,qs:[q('④ 券商報告說「預估明年 EPS 成長 30%」，這是什麼？',['分析師的推測，不是已發生的事實','公司已經確定的數字','一定會實現的預測'],0,'預估是推論，會修正、會落空。要和公司實際公布的數字分開。',{1:'把預估當成公告。',2:'預測沒有一定。'})]},
         {scene:src,qs:[q('看到 ⑤「聽說有大單」，比較好的處理方式是？',['當作線索，等正式公告或價格量能證實','馬上買，晚了就來不及','直接判定是假消息'],0,'傳聞可以提醒你注意，但在證實之前，不能當作交易理由。',{1:'用未證實的消息做決定。',2:'社群不一定錯，只是未經查證。'})]}];}};
   L[81]={tag:'news_causality_error',per:2,takeaway:'股價反應的是「比預期好或差多少」：大家早就知道的好消息，公布時常常不再漲。',
     teach:[['預期差','實際結果 − 市場原本的預期，才是新資訊。'],['先反應','月營收在次月 10 日前公布；公布前股價就可能先漲或先跌。']],
     cases:function(D,h){return D.map(function(x){var i1=idxOf(x.chart.d,x.monthEnd),i2=idxOf(x.chart.d,x.avail),n=x.chart.c.length,good=x.kind==='goodNoRise';
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'真實歷史｜營收月份 '+x.ym,real:true,data:x.chart,marks:[{i:i1,label:'營收月結束'},{i:i2,label:'公布期限'}],vol:false},{type:'cards',real:true,items:[{k:x.ym+' 營收',v:h.fmtN(x.rev,1)+' 億'},{k:'YoY',v:h.pct(x.yoy),hi:true},{k:'公布前 20 天股價',v:h.pct(x.preRet20)}]}]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'營收月份結束 → 公布期限',real:true,data:x.chart,marks:[{i:i1,label:'營收月結束'},{i:i2,label:'公布期限'}],vol:false},{type:'cards',real:true,items:[{k:'當月營收',v:h.fmtN(x.rev,1)+' 億'},{k:'YoY',v:h.pct(x.yoy),hi:true},{k:'公布前 20 天股價',v:h.pct(x.preRet20)}]}]},
         qs:[q(good?'營收 YoY '+h.pct(x.yoy)+' 大幅成長，但月底前 20 天股價已經 '+h.pct(x.preRet20)+'。公布後最合理的預期是？':'營收 YoY '+h.pct(x.yoy)+' 衰退，但月底前 20 天股價已經 '+h.pct(x.preRet20)+'。公布後最合理的預期是？',
             good?['好消息可能已經反應，公布後不一定再漲','營收大成長，公布後一定大漲','營收和股價無關']:['壞消息可能已經反應，公布後不一定再跌','營收衰退，公布後一定大跌','營收和股價無關'],0,
-            '揭曉：公布後 10 天股價 '+h.pct(x.reveal.ret10)+'。'+(good?'市場在公布前就把好消息算進去了，數字只要沒有比預期更好，就沒有新的買盤。':'壞消息早就反映在跌幅裡，數字沒有比預期更差，賣壓反而停了。')+'（'+x.name+'）',
+            '揭曉：公布後 10 天股價 '+h.pct(x.reveal.ret10)+'。'+(good?'市場在公布前就把好消息算進去了，數字只要沒有比預期更好，就沒有新的買盤。':'壞消息早就反映在跌幅裡，數字沒有比預期更差，賣壓反而停了。'),
             {1:'把「消息好壞」直接等同「股價漲跌」，忽略了預期。',2:'營收會影響股價，只是要看和預期的差距。'},{revealScene:{type:'candles',title:'揭曉：公布後 10 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,marks:[{i:i2,label:'公布期限'}],vol:false}}),
           q('從「預期差」的角度，真正會推動股價的是？',['結果和市場原本預期的差距','消息本身是好是壞','新聞標題的用字'],0,'市場價格已經包含大家的預期。只有比預期更好或更差，才是新資訊。',{1:'好壞是絕對的，價格反應的是相對預期。',2:'標題用字不等於資訊。'})]};});}};
   L[82]={tag:'news_causality_error',per:2,takeaway:'價格先大漲、新聞才出現，新聞是在解釋結果，不是新的買進理由。',
     teach:[['領先或落後','新聞出現前，價格是否已經先動？'],['看時間軸','把新聞時間放到 K 線上，答案常常很明顯。']],
-    cases:function(D,h){return D.map(function(x){var i=idxOf(x.chart.d,x.asof),nt=newsTime(x.news.time),n=x.chart.c.length;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'真實歷史｜新聞日 = 標記處',real:true,data:h.slice(x.chart,0,i+1),marks:[{i:i,label:'新聞'}]},{type:'timeline',items:[{t:nt,label:x.news.title+(x.news.source?'（'+x.news.source+'）':''),kind:'news'}]}]},
+    cases:function(D,h){return D.map(function(x){var i=idxOf(x.chart.d,x.asof),nt=h.relDay(x.news.time,x.asof),n=x.chart.c.length;
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'新聞日 D0 = 標記處',real:true,data:h.slice(x.chart,0,i+1),marks:[{i:i,label:'新聞'}]},{type:'timeline',items:[{t:nt,label:h.anon(x.news.title,x)+(x.news.source?'（'+x.news.source+'）':''),kind:'news'}]}]},
         qs:[q('新聞出現前 10 天，股價已經 '+h.pct(x.preRet10)+'。這則新聞比較像？',['落後：價格先動，新聞在解釋已經發生的漲幅','領先：新聞公布後股價才要開始漲','和股價無關'],0,'漲幅大多發生在新聞之前。看到新聞才追進去，常常是在別人獲利了結的位置。',{1:'沒有看新聞出現前的走勢。',2:'新聞可能在解釋這段走勢，只是時間在後面。'}),
-          q('揭曉：新聞後 10 天股價 '+h.pct(x.reveal&&x.reveal.ret10)+'。從這個案例學到？',['先確認價格是否已經反應，再決定新聞有沒有新資訊','新聞後一定會跌','新聞後一定會漲'],0,'結果可能漲也可能跌，重點是：新聞時價格已經反應很多，追進去的風險報酬變差。（'+x.name+'）',{1:'把一次結果當成規則。',2:'把一次結果當成規則。'},{scene:{type:'candles',title:'揭曉：新聞後 10 天',real:true,data:x.chart,cut:i+1,marks:[{i:i,label:'新聞'}]}})]};});}};
+          q('揭曉：新聞後 10 天股價 '+h.pct(x.reveal&&x.reveal.ret10)+'。從這個案例學到？',['先確認價格是否已經反應，再決定新聞有沒有新資訊','新聞後一定會跌','新聞後一定會漲'],0,'結果可能漲也可能跌，重點是：新聞時價格已經反應很多，追進去的風險報酬變差。',{1:'把一次結果當成規則。',2:'把一次結果當成規則。'},{scene:{type:'candles',title:'揭曉：新聞後 10 天',real:true,data:x.chart,cut:i+1,marks:[{i:i,label:'新聞'}]}})]};});}};
   L[83]={tag:'news_causality_error',per:2,takeaway:'法人單日買很多只是一天的資料；要看是否連續、價格有沒有跟上。',
     teach:[['三大法人','外資、投信、自營商。買賣超 = 買進 − 賣出。'],['連續性','一天的買超可能是調節、套利或換手，連續多天才比較有意義。']],
     cases:function(D,h){return D.map(function(x){var n=x.chart.c.length,spike=x.kind==='spike',flow=spike?x.foreign:x.trust,maxv=Math.max.apply(null,flow.map(Math.abs));
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'真實歷史（截至 '+h.fmtD(x.asof)+'）',real:true,data:x.chart,vol:false},lines((spike?'外資':'投信')+'每日買賣超（張）',x.chart.d,[{name:spike?'外資':'投信',values:flow,color:spike?'#39f5ff':'#ffd44a'}],{base:0,dp:0})]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'candles',title:'股價',real:true,data:x.chart,vol:false},lines((spike?'外資':'投信')+'每日買賣超（張）',x.chart.d,[{name:spike?'外資':'投信',values:flow,color:spike?'#39f5ff':'#ffd44a'}],{base:0,dp:0})]},
         qs:[q(spike?'最後一天外資買超 '+lots(last(flow))+'，是平常的好幾倍。這代表？':'投信最近 12 天裡有 10 天以上買超，股價同時走高。這代表？',spike?['只是一天的大量買超，還要看接下來是否持續、價格是否跟上','外資看好，股價一定會漲','外資買超就應該跟著買']:['有持續性，而且價格同步確認，是比較有份量的證據','投信買就一定會漲','法人資料沒有用'],0,
           spike?'單日資料噪音很大，可能是指數調整、換手或套利。':'連續買超加上價格確認，證據比單日強，但仍不是保證。',{1:'把單一證據當成結論。',2:spike?'把別人的動作直接變成自己的交易理由。':'法人資料有用，只是要看持續性。'}),
-          q('揭曉：之後 10 天股價 '+h.pct(x.reveal&&x.reveal.ret10)+'。正確的結論是？',['法人買賣超是證據之一，要和價格、位置一起看','法人永遠是對的','法人永遠是錯的'],0,(spike?'這次大買超之後股價反而下跌，單日法人買超不能保證方向。':'這次持續買超後的結果見上方。')+'（'+x.name+'）',{1:'把證據當成保證。',2:'用一次結果否定整類資料。'},{scene:{type:'candles',title:'揭曉：之後 10 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,vol:false}})]};});}};
+          q('揭曉：之後 10 天股價 '+h.pct(x.reveal&&x.reveal.ret10)+'。正確的結論是？',['法人買賣超是證據之一，要和價格、位置一起看','法人永遠是對的','法人永遠是錯的'],0,(spike?'這次大買超之後股價反而下跌，單日法人買超不能保證方向。':'這次持續買超後的結果見上方。'),{1:'把證據當成保證。',2:'用一次結果否定整類資料。'},{scene:{type:'candles',title:'揭曉：之後 10 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,vol:false}})]};});}};
   L[84]={tag:'news_causality_error',per:2,takeaway:'法人買多少要跟成交量比：大型股買 5,000 張可能很小，小型股 500 張可能很大。',
     teach:[['比例','買賣超 ÷ 當日成交量，看法人占了多少交易。'],['累積','近幾天的累積變化比單日更穩定。']],
     cases:function(D,h){return D.map(function(x){var a=x.big,b=x.small;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'table',title:'外資買賣超｜'+h.fmtD(x.asof),real:true,head:['股票','外資買超','當日成交','占成交量'],rows:[['A',lots(a.netLots),lots(a.volLots),h.fmtN(a.pct,1)+'%'],['B',lots(b.netLots),lots(b.volLots),h.fmtN(b.pct,1)+'%']]},
-        qs:[q('A 外資買超 '+lots(a.netLots)+'，B 只買 '+lots(b.netLots)+'。以份量來說，哪一檔的外資買盤比較重？',['B，占當天成交 '+h.fmtN(b.pct,1)+'%','A，張數多很多','一樣重'],0,'A 雖然張數大，只占成交 '+h.fmtN(a.pct,1)+'%；B 占 '+h.fmtN(b.pct,1)+'%，對 B 來說份量重得多。（A：'+a.name+'、B：'+b.name+'）',{1:'只看絕對張數，沒有除以成交量。',2:'沒有換算比例。'})]};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'table',title:'外資買賣超（同一天）',real:true,head:['股票','外資買超','當日成交','占成交量'],rows:[['A',lots(a.netLots),lots(a.volLots),h.fmtN(a.pct,1)+'%'],['B',lots(b.netLots),lots(b.volLots),h.fmtN(b.pct,1)+'%']]},
+        qs:[q('A 外資買超 '+lots(a.netLots)+'，B 只買 '+lots(b.netLots)+'。以份量來說，哪一檔的外資買盤比較重？',['B，占當天成交 '+h.fmtN(b.pct,1)+'%','A，張數多很多','一樣重'],0,'A 雖然張數大，只占成交 '+h.fmtN(a.pct,1)+'%；B 占 '+h.fmtN(b.pct,1)+'%，對 B 來說份量重得多。',{1:'只看絕對張數，沒有除以成交量。',2:'沒有換算比例。'})]};});}};
   L[85]={tag:'news_causality_error',per:2,takeaway:'資金流要問四件事：是否持續、占比是否升高、價格有沒有確認、是不是已經漲完。',
     teach:[['成交占比','某產業成交金額 ÷ 全市場成交金額。'],['不是必勝','資金湧入可能是買、也可能是賣；還沒驗證的規則不能當定律。']],
     cases:function(D,h){return D.map(function(x){var ans={noConfirm:0,lateChase:1,confirmed:2}[x.kind];
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[lines(x.industry+' 成交占比（%）',x.d,[{name:'成交占比',values:x.share,color:'#ffa95c'}]),lines(x.industry+' 平均股價（起點 = 100）',x.d,[{name:'產業平均',values:x.sector,color:'#ff6fa0'}],{base:100})]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[lines(x.industry+' 成交占比（%）',x.d,[{name:'成交占比',values:x.share,color:'#ffa95c'}]),lines(x.industry+' 平均股價',x.d,[{name:'產業平均',values:x.sector,color:'#ff6fa0'}],{base:100})]},
         qs:[q('這 40 天 '+x.industry+' 的成交占比明顯升高（之前 60 天產業已漲 '+h.pct(x.priorRun60)+'）。最好的解讀是？',['錢進來了，但價格沒有跟上，還不能當作買進證據','錢進來了，但產業之前已經大漲，可能是在高檔換手','錢進來、價格也確認上漲，而且之前沒大漲，證據較完整'],ans,
           ['成交熱絡但股價沒漲，可能是在出貨或多空拉鋸，沒有價格確認。','前面已經漲很多，資金湧入可能是後知後覺的追價。','成交占比升高、價格同步上漲、而且不是在高檔，三個條件都比較好。'][ans]+(x.reveal&&x.reveal.sectorRet20!=null?' 揭曉：之後 20 天產業 '+h.pct(x.reveal.sectorRet20)+'。':''),
           {0:'只看到錢進來，沒檢查價格。',1:'沒看之前已經漲了多少。',2:'把熱度當成確認。'})]};});}};
 
   // ───────── MODULE 12 看懂公司 ─────────
-  function revTable(x,h,hideReveal){var rows=x.rows.filter(function(r){return !(hideReveal&&r.reveal);});
-    return{type:'table',title:x.name?'月營收（億元）｜公布期限 = 次月 10 日':'月營收',real:true,head:['月份','營收','MoM','YoY'],rows:rows.map(function(r,i){var p=rows[i-1],ly=rows[i-12];return{cells:[r.ym,h.fmtN(r.rev,1),p&&p.rev?h.pct((r.rev/p.rev-1)*100):'—',ly&&ly.rev?h.pct((r.rev/ly.rev-1)*100):'—'],future:r.reveal};}),hi:[rows.length-1]};}
+    function revRef(x){var r=x.rows.filter(function(z){return !z.reveal;});return r[r.length-1].ym;}
+  function revTable(x,h,hideReveal){var rows=x.rows.filter(function(r){return !(hideReveal&&r.reveal);}),ref=revRef(x);
+    return{type:'table',title:'月營收（億元）｜公布期限 = 次月 10 日',real:true,head:['月份','營收','MoM','YoY'],rows:rows.map(function(r,i){var p=rows[i-1],ly=rows[i-12];return{cells:[h.relYm(r.ym,ref),h.fmtN(r.rev,1),p&&p.rev?h.pct((r.rev/p.rev-1)*100):'—',ly&&ly.rev?h.pct((r.rev/ly.rev-1)*100):'—'],future:r.reveal};}),hi:[rows.length-1]};}
   L[86]={tag:'fundamental_error',per:2,takeaway:'單月營收看 YoY 避開季節性，再看連續幾個月的方向。',
     teach:[['MoM','和上個月比，會受季節、工作天數影響。'],['YoY','和去年同月比，比較能看出真正成長。']],
-    cases:function(D,h){return D.map(function(x){var r=x.rows.filter(function(z){return !z.reveal;}),n=r.length-1,cur=r[n],prev=r[n-1],ly=r[n-12],mom=(cur.rev/prev.rev-1)*100,yoy=ly?(cur.rev/ly.rev-1)*100:null,qs=[];
-      if(x.kind==='momDropYoyUp')qs.push(q(cur.ym+' 營收 MoM '+h.pct(mom)+'、YoY '+h.pct(yoy)+'。營收是衰退了嗎？',['不一定：比去年同月還成長，MoM 下降可能是季節性','是，MoM 下降就是衰退','是，數字變小就是公司變差'],0,'YoY 比較的是同一個季節，仍然 '+h.pct(yoy)+'；單看 MoM 容易被淡旺季騙。（'+x.name+'）',{1:'只看 MoM，忽略季節性。',2:'沒有和去年同月比較。'}));
-      if(x.kind==='spike'){var nx=x.rows[x.rows.length-1];qs.push(q(cur.ym+' 營收突然是前三個月的 1.6 倍以上。最該先問什麼？',['這是一次性的出貨，還是會持續？要看接下來幾個月','公司從此變強了','營收暴增一定會讓股價大漲'],0,'單月暴增常見於一次性出貨或認列時點。揭曉：下個月 '+nx.ym+' 營收 '+h.fmtN(nx.rev,1)+' 億，'+(nx.rev<cur.rev*0.75?'明顯回落':'仍維持')+'。（'+x.name+'）',{1:'用一個月推論整體趨勢。',2:'把基本面數字直接換成股價結論。'},{revealScene:revTable(x,h,false)}));}
-      if(x.kind==='trend')qs.push(q('最近 6 個月營收大致逐月走高，最新 YoY '+h.pct(yoy)+'。這比單月暴增更有意義的原因是？',['連續性：多個月同方向，比較不像一次性','因為數字比較大','因為一定會反映在股價上'],0,'趨勢是多個月一起說話，比單一個月可靠。但仍要看毛利與獲利有沒有跟上。（'+x.name+'）',{1:'重點是方向的持續，不是數字大小。',2:'營收趨勢不等於股價。'}));
+    cases:function(D,h){return D.map(function(x){var r=x.rows.filter(function(z){return !z.reveal;}),n=r.length-1,cur=r[n],prev=r[n-1],ly=r[n-12],mom=(cur.rev/prev.rev-1)*100,yoy=ly?(cur.rev/ly.rev-1)*100:null,qs=[],ym=function(v){return h.relYm(v,cur.ym);};
+      if(x.kind==='momDropYoyUp')qs.push(q(ym(cur.ym)+'營收 MoM '+h.pct(mom)+'、YoY '+h.pct(yoy)+'。營收是衰退了嗎？',['不一定：比去年同月還成長，MoM 下降可能是季節性','是，MoM 下降就是衰退','是，數字變小就是公司變差'],0,'YoY 比較的是同一個季節，仍然 '+h.pct(yoy)+'；單看 MoM 容易被淡旺季騙。',{1:'只看 MoM，忽略季節性。',2:'沒有和去年同月比較。'}));
+      if(x.kind==='spike'){var nx=x.rows[x.rows.length-1];qs.push(q(ym(cur.ym)+'營收突然是前三個月的 1.6 倍以上。最該先問什麼？',['這是一次性的出貨，還是會持續？要看接下來幾個月','公司從此變強了','營收暴增一定會讓股價大漲'],0,'單月暴增常見於一次性出貨或認列時點。揭曉：下個月（'+ym(nx.ym)+'）營收 '+h.fmtN(nx.rev,1)+' 億，'+(nx.rev<cur.rev*0.75?'明顯回落':'仍維持')+'。',{1:'用一個月推論整體趨勢。',2:'把基本面數字直接換成股價結論。'},{revealScene:revTable(x,h,false)}));}
+      if(x.kind==='trend')qs.push(q('最近 6 個月營收大致逐月走高，最新 YoY '+h.pct(yoy)+'。這比單月暴增更有意義的原因是？',['連續性：多個月同方向，比較不像一次性','因為數字比較大','因為一定會反映在股價上'],0,'趨勢是多個月一起說話，比單一個月可靠。但仍要看毛利與獲利有沒有跟上。',{1:'重點是方向的持續，不是數字大小。',2:'營收趨勢不等於股價。'}));
       return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:revTable(x,h,true),qs:qs};});}};
-  function finRows(x,h,cols){return{type:'table',title:'季報（億元）｜可取得日 = 法定公布期限',real:true,head:['季度'].concat(cols.map(function(c){return c[0];})),rows:x.rows.map(function(r){return[r.q].concat(cols.map(function(c){return c[1](r);}));}),hi:[x.rows.length-1]};}
+  function finRows(x,h,cols){return{type:'table',title:'季報（億元）｜可取得日 = 法定公布期限',real:true,head:['季度'].concat(cols.map(function(c){return c[0];})),rows:x.rows.map(function(r){return[h.relQ(r.q,x.rows[x.rows.length-1].q)].concat(cols.map(function(c){return c[1](r);}));}),hi:[x.rows.length-1]};}
   function gm(r){return r.rev?r.gp/r.rev*100:null;} function om(r){return r.rev?r.op/r.rev*100:null;}
   L[87]={tag:'fundamental_error',per:2,takeaway:'賣得多不一定賺得多，毛利率告訴你每一塊錢營收留下多少。',
     teach:[['毛利率','= 毛利 ÷ 營收。'],['為什麼變','可能是產品組合、原料成本、定價能力或降價促銷。']],
     cases:function(D,h){return D.map(function(x){var r=x.rows,n=r.length-1,a=r[n],b=r[n-4]||r[0],cols=[['營收',function(z){return h.fmtN(z.rev,1);}],['毛利率',function(z){return h.fmtN(gm(z),1)+'%';}]];
       var vq=x.kind==='volumeNotQuality';
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q(a.q+' 營收比去年同季 '+h.pct((a.rev/b.rev-1)*100)+'，毛利率從 '+h.fmtN(gm(b),1)+'% 變成 '+h.fmtN(gm(a),1)+'%。這代表？',vq?['生意變大了，但每塊錢賺得比較少，要問是降價還是成本上升','營收成長就是公司變強','毛利率下降代表公司快倒了']:['營收差不多，但每塊錢留下更多，可能是產品組合或定價改善','營收沒成長所以沒有意義','毛利率上升一定代表有護城河'],0,
-        vq?'營收量變大、品質變差。要繼續看營益率和原因。':'毛利率改善是好跡象，但原因可能是短期的，不能直接寫死成護城河。',{1:vq?'只看營收成長，忽略賺錢能力。':'沒看到毛利率的變化。',2:vq?'把一個變化推論成極端結論。':'把可能的原因說成確定。'})].concat([q('（揭曉公司）這是 '+x.name+'。毛利率最適合用來回答什麼問題？',['產品本身賺錢的能力','公司最後淨賺多少','股價會不會漲'],0,'毛利率只到「產品成本」為止，還沒扣營業費用與業外。',{1:'淨利還要扣很多費用與稅。',2:'財務比率不直接等於股價。'})])};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q('最新一季（'+h.relQ(a.q,a.q)+'）營收比去年同季 '+h.pct((a.rev/b.rev-1)*100)+'，毛利率從 '+h.fmtN(gm(b),1)+'% 變成 '+h.fmtN(gm(a),1)+'%。這代表？',vq?['生意變大了，但每塊錢賺得比較少，要問是降價還是成本上升','營收成長就是公司變強','毛利率下降代表公司快倒了']:['營收差不多，但每塊錢留下更多，可能是產品組合或定價改善','營收沒成長所以沒有意義','毛利率上升一定代表有護城河'],0,
+        vq?'營收量變大、品質變差。要繼續看營益率和原因。':'毛利率改善是好跡象，但原因可能是短期的，不能直接寫死成護城河。',{1:vq?'只看營收成長，忽略賺錢能力。':'沒看到毛利率的變化。',2:vq?'把一個變化推論成極端結論。':'把可能的原因說成確定。'})].concat([q('毛利率最適合用來回答什麼問題？',['產品本身賺錢的能力','公司最後淨賺多少','股價會不會漲'],0,'毛利率只到「產品成本」為止，還沒扣營業費用與業外。',{1:'淨利還要扣很多費用與稅。',2:'財務比率不直接等於股價。'})])};});}};
   L[88]={tag:'fundamental_error',per:2,takeaway:'毛利率看產品，營益率看本業效率：扣掉研發、行銷、管理費用後才是本業真正賺多少。',
     teach:[['營業利益率','= 營業利益 ÷ 營收。'],['差在哪','毛利 − 營業費用 = 營業利益。']],
     cases:function(D,h){return D.map(function(x){var a=x.rows[x.rows.length-1],cols=[['營收',function(z){return h.fmtN(z.rev,1);}],['毛利率',function(z){return h.fmtN(gm(z),1)+'%';}],['營益率',function(z){return h.fmtN(om(z),1)+'%';}]],hi=x.kind==='highGrossLowOp';
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q(a.q+' 毛利率 '+h.fmtN(gm(a),1)+'%、營益率 '+h.fmtN(om(a),1)+'%。兩者的差距代表什麼？',hi?['營業費用吃掉了大部分（甚至全部）毛利，本業賺不太到錢','毛利率高所以本業一定很賺','營益率低代表產品賣不掉']:['費用控制得好，毛利不高但本業留得住','毛利率不高所以是爛生意','營益率比毛利率重要所以毛利率不用看'],0,
-        hi?(om(a)<0?'毛利率不低，但研發、行銷、管理費用比毛利還多，本業是虧損的。':'毛利率高，但研發、行銷、管理費用很重，最後本業留下的比例不高。'):'毛利率普通，但費用率低，本業效率反而不錯。'+'（'+x.name+'）',{1:'只看毛利率就下結論。',2:'把兩個比率的意思混在一起。'})]};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q('最新一季毛利率 '+h.fmtN(gm(a),1)+'%、營益率 '+h.fmtN(om(a),1)+'%。兩者的差距代表什麼？',hi?['營業費用吃掉了大部分（甚至全部）毛利，本業賺不太到錢','毛利率高所以本業一定很賺','營益率低代表產品賣不掉']:['費用控制得好，毛利不高但本業留得住','毛利率不高所以是爛生意','營益率比毛利率重要所以毛利率不用看'],0,
+        hi?(om(a)<0?'毛利率不低，但研發、行銷、管理費用比毛利還多，本業是虧損的。':'毛利率高，但研發、行銷、管理費用很重，最後本業留下的比例不高。'):'毛利率普通，但費用率低，本業效率反而不錯。',{1:'只看毛利率就下結論。',2:'把兩個比率的意思混在一起。'})]};});}};
   L[89]={tag:'fundamental_error',per:2,takeaway:'EPS 變多要看來源：本業成長可以延續，一次性收益不會每季都有。',
     teach:[['EPS','每股盈餘 = 稅後淨利 ÷ 股數。'],['業外','處分資產、匯兌、投資收益都算業外，可能只有一次。']],
     cases:function(D,h){return D.map(function(x){var a=x.rows[x.rows.length-1],p=x.rows[x.rows.length-2],cols=[['營業利益',function(z){return h.fmtN(z.op,1);}],['業外',function(z){return h.fmtN(z.nonop,1);}],['稅前',function(z){return h.fmtN(z.pre,1);}],['EPS',function(z){return h.fmtN(z.eps,2);}]];
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q(a.q+' EPS 從 '+h.fmtN(p.eps,2)+' 跳到 '+h.fmtN(a.eps,2)+' 元。看表格，主要的來源是？',['業外收益（'+h.fmtN(a.nonop,1)+' 億，占稅前一半以上）','本業大幅成長','股數變少'],0,'稅前 '+h.fmtN(a.pre,1)+' 億裡，業外就占 '+h.fmtN(a.nonop,1)+' 億。業外若是一次性，下季 EPS 可能回到原本水準。（'+x.name+'）',{1:'沒有拆開本業與業外。',2:'表格裡看不出股數變化，這是多加的推論。'})]};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q('最新一季 EPS 從 '+h.fmtN(p.eps,2)+' 跳到 '+h.fmtN(a.eps,2)+' 元。看表格，主要的來源是？',['業外收益（'+h.fmtN(a.nonop,1)+' 億，占稅前一半以上）','本業大幅成長','股數變少'],0,'稅前 '+h.fmtN(a.pre,1)+' 億裡，業外就占 '+h.fmtN(a.nonop,1)+' 億。業外若是一次性，下季 EPS 可能回到原本水準。',{1:'沒有拆開本業與業外。',2:'表格裡看不出股數變化，這是多加的推論。'})]};});}};
   L[90]={tag:'fundamental_error',per:2,takeaway:'帳上賺錢不等於收到錢：營業現金流長期跟不上獲利，要提高警覺。',
     teach:[['營業現金流','本業實際收進來的現金。'],['為什麼不同','賣了但還沒收到錢（應收帳款）、庫存增加，都會讓獲利和現金流不同步。']],
     cases:function(D,h){return D.map(function(x){var a=x.rows[x.rows.length-1],cols=[['稅後淨利',function(z){return h.fmtN(z.ni,1);}],['營業現金流（累計）',function(z){return h.fmtN(z.ocf,1);}]];
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q('最近四季都有獲利，但 '+a.q+' 年度累計營業現金流是 '+h.fmtN(a.ocf,1)+' 億。這代表？',['帳上獲利沒有變成現金流入，要去查原因','公司在作假帳','現金流不重要，有獲利就好'],0,'常見原因：客戶還沒付款（應收帳款增加）、庫存堆高，或今年繳了前一年高獲利的所得稅。一年不一定有問題，長期對不上就要小心。（'+x.name+'）',{1:'從一個數字跳到最嚴重的結論。',2:'忽略獲利品質。'})]};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:finRows(x,h,cols),qs:[q('最近四季都有獲利，但'+h.relQ(a.q,a.q)+' 的年度累計營業現金流是 '+h.fmtN(a.ocf,1)+' 億。這代表？',['帳上獲利沒有變成現金流入，要去查原因','公司在作假帳','現金流不重要，有獲利就好'],0,'常見原因：客戶還沒付款（應收帳款增加）、庫存堆高，或今年繳了前一年高獲利的所得稅。一年不一定有問題，長期對不上就要小心。',{1:'從一個數字跳到最嚴重的結論。',2:'忽略獲利品質。'})]};});}};
   L[91]={tag:'fundamental_error',per:2,takeaway:'負債不是一定壞，要看營業利益付不付得起利息。',
     teach:[['負債比','= 總負債 ÷ 總資產。'],['利息保障倍數','= 營業利益 ÷ 利息費用，越高越輕鬆。']],
     cases:function(D,h){return D.map(function(x){var dr=x.liab/x.assets*100,cov=x.opYear/x.interestYear,hi=x.kind==='highDebtCovered';
-      return{kind:x.kind,scene:{type:'cards',title:'真實資料｜'+x.year+' 年報（'+h.fmtD(x.asof)+' 可取得）',real:true,items:[{k:'負債比',v:h.fmtN(dr,1)+'%'},{k:'全年營業利益',v:h.fmtN(x.opYear,1)+' 億'},{k:'全年利息費用',v:h.fmtN(x.interestYear,2)+' 億'},{k:'利息保障倍數',v:h.fmtN(cov,1)+' 倍',hi:true}]},
+      return{kind:x.kind,scene:{type:'cards',title:'最新年報（公布後才可取得）',real:true,items:[{k:'負債比',v:h.fmtN(dr,1)+'%'},{k:'全年營業利益',v:h.fmtN(x.opYear,1)+' 億'},{k:'全年利息費用',v:h.fmtN(x.interestYear,2)+' 億'},{k:'利息保障倍數',v:h.fmtN(cov,1)+' 倍',hi:true}]},
         qs:[q('負債比 '+h.fmtN(dr,0)+'%、利息保障倍數 '+h.fmtN(cov,1)+' 倍。最合理的解讀是？',hi?['負債比偏高，但本業很輕鬆付得起利息','負債比超過 60% 一定危險','零負債才是好公司']:['負債比不算高，但本業賺的錢付利息很吃力','負債比低所以完全沒問題','利息保障倍數不重要'],0,
-          (hi?'產業特性或擴張需要用到負債，但全年營業利益是利息的 '+h.fmtN(cov,0)+' 倍，壓力不大。':'即使負債比不高，全年營業利益只有利息的 '+h.fmtN(cov,1)+' 倍，獲利再變差就會很辛苦。')+'（'+x.name+'）',{1:'只看負債比一個數字。',2:'忽略付息能力。'})]};});}};
+          (hi?'產業特性或擴張需要用到負債，但全年營業利益是利息的 '+h.fmtN(cov,0)+' 倍，壓力不大。':'即使負債比不高，全年營業利益只有利息的 '+h.fmtN(cov,1)+' 倍，獲利再變差就會很辛苦。'),{1:'只看負債比一個數字。',2:'忽略付息能力。'})]};});}};
   L[92]={tag:'fundamental_error',per:2,takeaway:'好公司 ≠ 好股票 ≠ 現在就是好買點；本益比要和成長一起看。',
     teach:[['本益比','= 股價 ÷ 近四季 EPS。'],['低不等於便宜','如果獲利接下來要衰退，現在的低本益比是假象。']],
     cases:function(D,h){return D.map(function(x){var trap=x.kind==='trap';
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',title:'真實資料｜'+h.fmtD(x.asof),real:true,items:[{k:'本益比',v:h.fmtN(x.per,1)+' 倍',hi:true},{k:'股價淨值比',v:h.fmtN(x.pbr,2)+' 倍'},{k:'近四季 EPS',v:h.fmtN(x.epsTTM,2)+' 元'}]},
-        qs:[q('本益比 '+h.fmtN(x.per,1)+' 倍。只看這個數字，可以說它「便宜」或「太貴」嗎？',['不行，要看接下來的獲利會成長還是衰退','可以，本益比低就是便宜','可以，本益比高就是太貴'],0,'本益比是用過去的 EPS 算的。揭曉：之後四季 EPS 合計 '+h.fmtN(x.reveal.epsNext4Q,2)+' 元（原本 '+h.fmtN(x.epsTTM,2)+'），'+(trap?'獲利大幅衰退，低本益比是陷阱。':'獲利大幅成長，高本益比被成長消化。')+(x.reveal.ret250!=null?' 一年後股價 '+h.pct(x.reveal.ret250)+'。':'')+'（'+x.name+'）',
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',title:'某檔股票某一天的估值',real:true,items:[{k:'本益比',v:h.fmtN(x.per,1)+' 倍',hi:true},{k:'股價淨值比',v:h.fmtN(x.pbr,2)+' 倍'},{k:'近四季 EPS',v:h.fmtN(x.epsTTM,2)+' 元'}]},
+        qs:[q('本益比 '+h.fmtN(x.per,1)+' 倍。只看這個數字，可以說它「便宜」或「太貴」嗎？',['不行，要看接下來的獲利會成長還是衰退','可以，本益比低就是便宜','可以，本益比高就是太貴'],0,'本益比是用過去的 EPS 算的。揭曉：之後四季 EPS 合計 '+h.fmtN(x.reveal.epsNext4Q,2)+' 元（原本 '+h.fmtN(x.epsTTM,2)+'），'+(trap?'獲利大幅衰退，低本益比是陷阱。':'獲利大幅成長，高本益比被成長消化。')+(x.reveal.ret250!=null?' 一年後股價 '+h.pct(x.reveal.ret250)+'。':''),
           {1:'沒考慮獲利會變。',2:'沒考慮成長會消化本益比。'})]};});}};
 
   // ───────── MODULE 13 管理風險與自己 ─────────
   L[93]={tag:'position_size_error',per:1,takeaway:'分散要分散「風險來源」：同產業五檔常常一起跌，等於沒分散。',
     teach:[['相關性','兩檔股票一起漲跌的程度，越接近 1 越同步。'],['真正的分散','不同產業、不同驅動因素。']],
     cases:function(D,h){return D.map(function(x){var a=x.same,b=x.mixed;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'table',title:'真實資料｜'+h.fmtD(x.from)+'～'+h.fmtD(x.to),real:true,head:['組合','相關性','全跌天數','最慘一天'],rows:[['A 同產業',h.fmtN(a.avgCorr,2),a.allDownDays+'/'+a.days,h.pct(a.worstDayPct,1)],['B 跨產業',h.fmtN(b.avgCorr,2),b.allDownDays+'/'+b.days,h.pct(b.worstDayPct,1)]]}]},
-        qs:[q('兩個組合都是 5 檔股票。哪一個真的有分散風險？',['B：不同產業，相關性較低、同時大跌的天數較少','A：5 檔都是好公司','一樣，都是 5 檔'],0,'A 的平均相關性 '+h.fmtN(a.avgCorr,2)+'，5 檔同一天全跌 '+a.allDownDays+' 天；B 只有 '+b.allDownDays+' 天。（A：'+a.names.join('、')+'；B：'+b.names.join('、')+'）',{1:'公司好壞和是否分散是兩件事。',2:'檔數多不等於分散。'})]};});}};
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'table',title:'同一段期間（'+a.days+' 個交易日）',real:true,head:['組合','相關性','全跌天數','最慘一天'],rows:[['A 同產業',h.fmtN(a.avgCorr,2),a.allDownDays+'/'+a.days,h.pct(a.worstDayPct,1)],['B 跨產業',h.fmtN(b.avgCorr,2),b.allDownDays+'/'+b.days,h.pct(b.worstDayPct,1)]]}]},
+        qs:[q('兩個組合都是 5 檔股票。哪一個真的有分散風險？',['B：不同產業，相關性較低、同時大跌的天數較少','A：5 檔都是好公司','一樣，都是 5 檔'],0,'A 的平均相關性 '+h.fmtN(a.avgCorr,2)+'，5 檔同一天全跌 '+a.allDownDays+' 天；B 只有 '+b.allDownDays+' 天。',{1:'公司好壞和是否分散是兩件事。',2:'檔數多不等於分散。'})]};});}};
   L[94]={tag:'position_size_error',per:2,takeaway:'把每一筆的失策虧損加起來，才是帳戶真正的總風險。',
     teach:[['單筆風險','這一筆跌到失策時虧多少。'],['總風險','所有部位同時跌到失策時的總虧損；高度相關時很容易同時發生。']],
-    cases:function(D,h){function mk(n,each,corr){return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',demo:true,title:'帳戶 100 萬（教學計算）',items:[{k:'持股數',v:n+' 檔'},{k:'每檔失策時虧損',v:each+'%（帳戶）'},{k:'持股關係',v:corr}]},
+    cases:function(D,h){function mk(n,each,corr){return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'cards',demo:true,title:'帳戶 100 萬',items:[{k:'持股數',v:n+' 檔'},{k:'每檔失策時虧損',v:each+'%（帳戶）'},{k:'持股關係',v:corr}]},
         qs:[q('如果這 '+n+' 檔同時跌到失策，帳戶最多虧多少？',[n*each+'%',each+'%',(n*each/2)+'%'],0,'總風險 = '+n+' × '+each+'% = '+(n*each)+'%。'+(corr.indexOf('不同')<0?'同產業、同題材的部位很可能同時發生。':'不同產業較不容易同時發生，但仍要以最壞情況規劃。'),{1:'只算了單筆風險。',2:'假設只有一半會同時發生，是樂觀的猜測。'})]};}
       return[mk(5,2,'5 檔都是同產業'),mk(4,1.5,'4 個不同產業'),mk(6,2.5,'都是同一個題材')];}};
   L[95]={tag:'invalidation_error',per:2,takeaway:'價格變便宜不代表論點變好；跌破失策還加碼，是在放大錯誤。',
     teach:[['計畫性加碼','原論點仍成立、失策沒破、總風險在預算內，照計畫加。'],['套牢攤平','只因為成本太高想拉低平均，論點早就不成立。']],
     cases:function(D,h){return D.map(function(x){var n=x.chart.c.length;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'真實歷史（截至 '+h.fmtD(x.asof)+'）',real:true,data:x.chart,lines:[{y:x.support,label:'原支撐／失策 '+x.support}],vol:false},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'決策日 = 最右邊',real:true,data:x.chart,lines:[{y:x.support,label:'原支撐／失策 '+x.support}],vol:false},
         qs:[q('你在支撐上方買進，失策設在支撐 '+x.support+' 下方。現在收盤跌破支撐。哪一個做法和原計畫一致？',['照計畫退出，論點已經失效','加碼攤平，把成本拉低','先不動，等它漲回來'],0,'失策就是「論點錯了」的地方。跌破後加碼，是在用更多錢押一個已經失效的理由。',{1:'把便宜當成理由，論點其實已經失效。',2:'用希望取代計畫。'}),
-          q('揭曉：之後 30 天股價 '+h.pct(x.reveal.ret30)+'。如果當時加碼，結果會是？',['虧損被放大，部位更大、跌更深','成本變低所以沒關係','加碼一定能等到解套'],0,'攤平讓虧損部位變大，只要跌勢延續，損失就擴大。（'+x.name+'）',{1:'平均成本低不代表虧損少。',2:'解套沒有保證，時間成本也是損失。'},{scene:{type:'candles',title:'揭曉：之後 30 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,lines:[{y:x.support,label:'失策'}],vol:false}})]};});}};
+          q('揭曉：之後 30 天股價 '+h.pct(x.reveal.ret30)+'。如果當時加碼，結果會是？',['虧損被放大，部位更大、跌更深','成本變低所以沒關係','加碼一定能等到解套'],0,'攤平讓虧損部位變大，只要跌勢延續，損失就擴大。',{1:'平均成本低不代表虧損少。',2:'解套沒有保證，時間成本也是損失。'},{scene:{type:'candles',title:'揭曉：之後 30 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,lines:[{y:x.support,label:'失策'}],vol:false}})]};});}};
   L[96]={tag:'no_trade_error',per:2,takeaway:'評價一筆交易要看過程：有理由、有失策、風報比合理；結果還有運氣成分。',
     teach:[['過程品質','進場前的理由、位置、失策與部位。'],['結果','可能被運氣影響，好決策會虧，壞決策會賺。']],
     cases:function(D,h){return D.map(function(x){var n=x.chart.c.length,lucky=x.kind==='luckyChase',dist=(last(x.chart.c)/x.ma20-1)*100;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'真實歷史（決策日 = 最右邊）',real:true,data:x.chart,lines:[{y:x.ma20,label:'MA20'},{y:x.swingLow,label:'近期低點'}],vol:false},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'決策日 = 最右邊',real:true,data:x.chart,lines:[{y:x.ma20,label:'MA20'},{y:x.swingLow,label:'近期低點'}],vol:false},
         qs:[q(lucky?'這筆交易：價格離 MA20 已經 '+h.pct(dist)+'，沒有設失策，衝動追高買進。結果之後 20 天 '+h.pct(x.reveal.ret20)+'。這是好決策嗎？':'這筆交易：上升結構、價格貼近 MA20（'+h.pct(dist)+'），失策設在近期低點 '+x.swingLow+' 下方。結果之後跌破失策出場，20 天 '+h.pct(x.reveal.ret20)+'。這是壞決策嗎？',
           lucky?['不是，結果賺錢是運氣，過程追高又沒失策','是，賺錢就是好決策','無法評價']:['不是，過程合理，虧損是交易的正常成本','是，虧錢就是壞決策','無法評價'],0,
-          lucky?'追高、沒失策的做法，重複很多次通常會出事；這次剛好沒事。':'有理由、有失策、照計畫出場。這種虧損是可接受的成本。'+'（'+x.name+'）',{1:'用結果評價過程。',2:'過程本身就能評價。'},{revealScene:{type:'candles',title:'揭曉：之後 20 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,vol:false}})]};});}};
+          lucky?'追高、沒失策的做法，重複很多次通常會出事；這次剛好沒事。':'有理由、有失策、照計畫出場。這種虧損是可接受的成本。',{1:'用結果評價過程。',2:'過程本身就能評價。'},{revealScene:{type:'candles',title:'揭曉：之後 20 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,vol:false}})]};});}};
   L[97]={tag:'invalidation_error',per:1,dataFrom:96,takeaway:'進場前寫下理由、進場、失策、空間與最大虧損，事後才知道哪一步錯。',
     teach:[['交易日誌','不是記帳，是記錄「當時為什麼這樣想」。'],['回頭看','對照結果，找出一直重複的錯。']],
     cases:function(D,h){return D.filter(function(x){var cl=x.chart.c[x.chart.c.length-1];return x.kind==='goodLoss'&&(cl-x.swingLow)/cl<=0.12;}).slice(0,3).map(function(x){var n=x.chart.c.length,cl=last(x.chart.c),lo=x.swingLow,risk=(cl-lo)/cl*100;
@@ -2059,7 +2126,7 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
         qs:[J('日誌第 1 欄「為什麼想買」，哪一句寫得最好？',['上升結構、回到 MA20 附近、近期低點有守住','感覺會漲','朋友說會漲'],0,'理由要寫成「可以被驗證的事實」，事後才能檢查。'),
           J('第 2 欄「失策點」應該寫？',['近期低點 '+lo+' 下方','買進價下跌 10%','不設，看情況'],0,'失策要放在「論點錯了」的地方，而不是固定百分比。'),
           J('第 3 欄「最大可承受損失」：帳戶 100 萬、單筆最多虧 1%，失策距離約 '+h.fmtN(risk,1)+'%，部位上限大約是？',(function(){var sz=Math.round(Math.min(100,1/Math.max(risk,0.1)*100)),alt=[10,50,30].filter(function(v){return v!==sz;})[0];return[sz+' 萬元','100 萬全部（不管失策）',alt+' 萬元（憑感覺）'];})(),0,'部位 = 可承受虧損 ÷ 失策距離 = 1 萬 ÷ '+h.fmtN(risk,1)+'%。'),
-          q('揭曉：之後 20 天 '+h.pct(x.reveal.ret20)+'。回頭看日誌，最該檢討哪一件事？',['照日誌的失策與部位執行了沒有，而不是只看賺賠','只要賺錢就不用檢討','虧錢就代表理由寫錯'],0,'日誌的價值在於找出「重複的錯」：沒照失策走、部位太大、理由太模糊。（'+x.name+'）',{1:'賺錢也可能是過程有問題。',2:'虧錢不一定是理由錯。'},{scene:{type:'candles',title:'揭曉：之後 20 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,lines:[{y:lo,label:'失策'}],vol:false}})]};});}};
+          q('揭曉：之後 20 天 '+h.pct(x.reveal.ret20)+'。回頭看日誌，最該檢討哪一件事？',['照日誌的失策與部位執行了沒有，而不是只看賺賠','只要賺錢就不用檢討','虧錢就代表理由寫錯'],0,'日誌的價值在於找出「重複的錯」：沒照失策走、部位太大、理由太模糊。',{1:'賺錢也可能是過程有問題。',2:'虧錢不一定是理由錯。'},{scene:{type:'candles',title:'揭曉：之後 20 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,lines:[{y:lo,label:'失策'}],vol:false}})]};});}};
 
   // ───────── MODULE 14 綜合畢業實戰 ─────────
   function base100(a){var b=null;for(var i=0;i<a.length&&b==null;i++)if(a[i])b=a[i];return a.map(function(v){return v==null||!b?null:Math.round(v/b*10000)/100;});}
@@ -2080,8 +2147,8 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
         q('② 再看產業最近 20 天（'+h.pct(s20)+'），資金在這裡嗎？',['產業在走強','產業在走弱','產業沒什麼變化'],s20>2?0:s20<-2?1:2,'產業平均 20 日 '+h.pct(s20)+'。',{},{scene:blindScene(x,h,2),tag:'market_context_error'}),
         q('③ 最後看個股。三層一起考慮，你的決定是？',['做（準備進場、先定失策）','觀察（條件還差一點）','放棄'],bc.call,bc.why,{0:'有一層條件不足，卻直接決定做。',1:'條件已經很清楚，觀察會錯過或拖延。',2:'放棄了條件其實不差的機會。'},{scene:blindScene(x,h,3),tag:bc.call===0?'no_trade_error':'chasing_error'}),
         q('揭曉：這是 '+x.name+'（'+x.industry+'），D0 = '+h.fmtD(x.asof)+'，之後 20 天 '+h.pct(x.reveal.ret20)+'。這個結果要怎麼看？',['評價看當時條件，結果只是一次樣本','結果好就代表我判斷對','結果差就代表三層掃描沒用'],0,'同樣的條件重複很多次，好條件的平均結果會比較好；單次結果有運氣。',{1:'用結果評價判斷。',2:'用一次結果否定方法。'},{scene:{type:'candles',title:'揭曉：之後 25 天',real:true,data:h.concat(x.stock,x.reveal.stock),cut:n}})]};});}};
-  function asofNews(x,h){return(x.news||[]).length?{type:'timeline',title:'當時已公開的新聞（D0 收盤前）',real:true,items:x.news.map(function(n){return{t:newsTime(n.time).replace(/^\d{4}-\d\d-\d\d/,'D0 或之前'),label:n.title,kind:'news'};})}:{type:'text',text:'D0 收盤前沒有找到這檔股票的新聞。沒有新聞也是一種資訊：價格的動作不是被消息推動的。'};}
-  function asofFund(x,h){var rows=(x.fundM||[]).slice(-4).map(function(r){return['營收 '+r.ym,h.fmtN(r.rev,1)+' 億',r.yoy==null?'—':h.pct(r.yoy)];}).concat((x.fundQ||[]).slice(-2).map(function(r){return['季報 '+r.q,'毛利率 '+h.fmtN(r.gm,1)+'%','EPS '+h.fmtN(r.eps,2)];}));
+  function asofNews(x,h){return(x.news||[]).length?{type:'timeline',title:'當時已公開的新聞（D0 收盤前）',real:true,items:x.news.map(function(n){return{t:h.relDay(n.time,x.asof),label:h.anon(n.title,x),kind:'news'};})}:{type:'text',text:'D0 收盤前沒有找到這檔股票的新聞。沒有新聞也是一種資訊：價格的動作不是被消息推動的。'};}
+  function asofFund(x,h){var refY=String(x.asof).slice(0,4)+'-01',rows=(x.fundM||[]).slice(-4).map(function(r){return['營收 '+h.relYm(r.ym,refY),h.fmtN(r.rev,1)+' 億',r.yoy==null?'—':h.pct(r.yoy)];}).concat((x.fundQ||[]).slice(-2).map(function(r){return['季報 '+h.relQ(r.q,refY),'毛利率 '+h.fmtN(r.gm,1)+'%','EPS '+h.fmtN(r.eps,2)];}));
     return{type:'table',title:'D0 當時已公布的基本面',real:true,head:['項目','數值','比較'],rows:rows.length?rows:[['（當時沒有可用資料）','','']]};}
   L[99]={tag:'news_causality_error',per:1,dataFrom:98,takeaway:'先寫事實，再寫推測，最後才決定；說不出「什麼情況代表看錯」就不要做。',
     teach:[['四種證據','價格、量能、消息、基本面。'],['事實 vs 推測','「營收 YoY +20%」是事實；「明年會更好」是推測。']],
@@ -2090,7 +2157,7 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
       return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'① 價格與成交量（名稱、日期已遮住）',data:x.stock,mask:true},qs:[
         q('① 價格：最近 20 天個股 '+h.pct(rel(c,20))+'，最後一天量是 20 日均量的 '+h.fmtN(vr,1)+' 倍。哪一句是「事實」？',['最近 20 天漲（跌）了 '+h.pct(rel(c,20))+'，今天量是均量的 '+h.fmtN(vr,1)+' 倍','主力在進貨','明天會繼續漲'],0,'事實是可以從資料直接讀出來的；「主力進貨」「明天會漲」都是推測。',{1:'把推測寫成事實。',2:'把預測寫成事實。'}),
         q('② 消息：看當時已公開的新聞，最好的使用方式是？',['確認公開時間在決策前，再判斷價格是否已經反應','新聞越多越該買','標題好就代表利多'],0,'消息要先確認時間，再看價格反應了多少。',{1:'用新聞數量取代判斷。',2:'標題不等於影響。'},{scene:asofNews(x,h)}),
-        q('③ 基本面'+(f?'：最新已公布營收 '+f.ym+' YoY '+h.pct(f.yoy):'')+'。這屬於？',['事實（已公布的數字），但它說的是過去','推測','和股價無關所以不用看'],0,'已公布的營收、季報是事實；它告訴你公司過去的狀況，未來要自己推論。',{1:'已公布的數字是事實。',2:'基本面是證據之一。'},{scene:asofFund(x,h)}),
+        q('③ 基本面'+(f?'：最新已公布營收（'+h.relYm(f.ym,String(x.asof).slice(0,4)+'-01')+'）YoY '+h.pct(f.yoy):'')+'。這屬於？',['事實（已公布的數字），但它說的是過去','推測','和股價無關所以不用看'],0,'已公布的營收、季報是事實；它告訴你公司過去的狀況，未來要自己推論。',{1:'已公布的數字是事實。',2:'基本面是證據之一。'},{scene:asofFund(x,h)}),
         q('④ 如果要做，「什麼情況代表看錯」？',['跌破近 15 日低點 '+h.fmtN(lo,2)+'，結構失效','跌 5% 就算錯','沒有，長期持有就好'],0,'失策要放在結構失效的位置，才能說清楚論點錯在哪裡。',{1:'固定百分比和結構無關。',2:'沒有失策等於沒有計畫。'},{tag:'invalidation_error'}),
         q('⑤ 四種證據一起看，現在值得冒這個風險嗎？',['值得，證據一致、失策清楚','先觀察，證據還不一致','不值得，條件不足'],bc.call,bc.why,{0:'證據還有缺口卻決定冒險。',1:'證據已經很明確。',2:'證據其實不差。'},{tag:'no_trade_error'}),
         q('揭曉：'+x.name+'，D0 = '+h.fmtD(x.asof)+'，之後 20 天 '+h.pct(x.reveal.ret20)+'。你的判斷是否可信，取決於？',['你寫下的事實、推測和失策是否清楚，而不是這一次漲跌','這次有沒有賺','新聞說對了沒'],0,'好的決策過程，長期才會有好結果。',{1:'用結果評價過程。',2:'消息只是證據之一。'},{scene:{type:'candles',title:'揭曉：之後 25 天',real:true,data:h.concat(x.stock,x.reveal.stock),cut:n}})]};});}};
@@ -2130,7 +2197,7 @@ root.BSG_CONTENT={WORLDS:WORLDS,MISSIONS:MISSIONS,FREE_THROUGH:6,PRODUCT_PRICE_T
 (function(root){
 'use strict';
 var COL={bg:'#050b17',grid:'rgba(70,118,155,.16)',up:'#ff465f',down:'#24d79b',text:'#eefaff',muted:'#7190a8',ma20:'#ffd44a',ma60:'#27c8ff',cyan:'#39f5ff',violet:'#9876ff'};
-var LABEL_FONT='800 11px -apple-system,"PingFang TC",sans-serif';
+var LABEL_FONT='800 13px -apple-system,"PingFang TC",sans-serif';
 // Layout contract (V3.6): nothing the lesson needs is ever drawn under the range buttons or the legend.
 //  TOP  — strip for the frame caption and the NOW tag
 //  CTL  — strip for range buttons (bottom-right) and the MA legend (bottom-left)
@@ -2160,11 +2227,11 @@ function create(wrap,opt){
   var lo=Infinity,hi=-Infinity,vmax=0;for(var i=first;i<=last;i++){lo=Math.min(lo,R.l[i]);hi=Math.max(hi,R.h[i]);vmax=Math.max(vmax,R.v[i]||0);} (d.lines||[]).forEach(function(z){if(z.price>0){lo=Math.min(lo,z.price);hi=Math.max(hi,z.price);}});(d.zones||[]).forEach(function(z){lo=Math.min(lo,z.lo);hi=Math.max(hi,z.hi);});
   var pad=(hi-lo)*.085||Math.max(1,hi*.02);lo-=pad;hi+=pad;function y(p){return padT+(hi-p)/(hi-lo)*(priceH-padT);}function yi(py){return hi-(py-padT)/(priceH-padT)*(hi-lo);}function x(ii){return blank+(ii-first+.5)*bw;}geo={y:y,yi:yi,x:x,bw:bw,first:first,last:last,plotW:plotW,priceH:priceH};
   var layout={W:W,H:H,plot:{x0:0,y0:padT,x1:plotW,y1:priceH},reserved:{top:[0,padT],ctl:[bottom,H],lane:laneOn?[laneTop,bottom]:null},bw:bw,labels:[],dots:[],lane:[],badges:[]};
-  ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.font='600 11px ui-monospace,Menlo,monospace';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.textBaseline='middle';var axisSeen={};for(var gy=0;gy<=4;gy++){var rawPy=padT+gy*(priceH-padT)/4,rawPv=yi(rawPy),pv=(window.BSG&&window.BSG.roundToTick)?window.BSG.roundToTick(rawPv):rawPv,pk=fmt(pv);if(axisSeen[pk])continue;axisSeen[pk]=1;var py=y(pv);ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(plotW,Math.round(py)+.5);ctx.stroke();if(!d.hideAxisTicks)ctx.fillText(pk,plotW+7,py);}for(var gx=1;gx<5;gx++){var xx=plotW*gx/5;ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,laneTop);ctx.stroke();}if(showVol){ctx.beginPath();ctx.moveTo(0,volTop-6);ctx.lineTo(W,volTop-6);ctx.stroke();}
+  ctx.strokeStyle=COL.grid;ctx.lineWidth=1;ctx.font='600 13px ui-monospace,Menlo,monospace';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.textBaseline='middle';var axisSeen={};for(var gy=0;gy<=4;gy++){var rawPy=padT+gy*(priceH-padT)/4,rawPv=yi(rawPy),pv=(window.BSG&&window.BSG.roundToTick)?window.BSG.roundToTick(rawPv):rawPv,pk=fmt(pv);if(axisSeen[pk])continue;axisSeen[pk]=1;var py=y(pv);ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(plotW,Math.round(py)+.5);ctx.stroke();if(!d.hideAxisTicks)ctx.fillText(pk,plotW+7,py);}for(var gx=1;gx<5;gx++){var xx=plotW*gx/5;ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,laneTop);ctx.stroke();}if(showVol){ctx.beginPath();ctx.moveTo(0,volTop-6);ctx.lineTo(W,volTop-6);ctx.stroke();}
   var taken=[];
   ctx.font=LABEL_FONT;
   (d.zones||[]).forEach(function(z){var yt=y(z.hi),yb=y(z.lo),col=z.color||COL.cyan;ctx.save();ctx.globalAlpha=z.alpha||.13;var zg=ctx.createLinearGradient(0,yt,0,yb);zg.addColorStop(0,col);zg.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=zg;ctx.fillRect(0,yt,plotW,Math.max(2,yb-yt));ctx.globalAlpha=.85;ctx.strokeStyle=col;ctx.setLineDash([5,5]);ctx.strokeRect(.5,yt+.5,plotW-1,Math.max(2,yb-yt));ctx.setLineDash([]);ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6;ctx.font=LABEL_FONT;var ly=Math.max(padT+7,yt+11);ctx.fillText(z.label||'',8,ly);var zw=ctx.measureText(z.label||'').width;taken.push({x0:6,y0:ly-7,x1:10+zw,y1:ly+7,t:z.label});ctx.restore();});
-  if(d.d0Idx>=first&&d.d0Idx<=last){var xd=x(d.d0Idx)+bw/2;ctx.save();ctx.setLineDash([3,5]);ctx.strokeStyle='rgba(80,230,255,.45)';ctx.beginPath();ctx.moveTo(xd,padT-4);ctx.lineTo(xd,laneTop);ctx.stroke();ctx.restore();ctx.fillStyle=COL.cyan;ctx.font='800 10px ui-monospace';ctx.textAlign='right';ctx.fillText('NOW',Math.max(28,Math.min(plotW-2,xd-3)),padT/2+2);ctx.textAlign='left';}
+  if(d.d0Idx>=first&&d.d0Idx<=last){var xd=x(d.d0Idx)+bw/2;ctx.save();ctx.setLineDash([3,5]);ctx.strokeStyle='rgba(80,230,255,.45)';ctx.beginPath();ctx.moveTo(xd,padT-4);ctx.lineTo(xd,laneTop);ctx.stroke();ctx.restore();ctx.fillStyle=COL.cyan;ctx.font='800 12px ui-monospace';ctx.textAlign='right';ctx.fillText('NOW',Math.max(28,Math.min(plotW-2,xd-3)),padT/2+2);ctx.textAlign='left';}
   var fset={},fl=(d.focusCandles||[]).filter(function(z){return z>=first&&z<=last;}).sort(function(a,b){return a-b;}),runs=[];fl.forEach(function(z){fset[z]=1;var r=runs[runs.length-1];if(r&&z<=r[1]+1)r[1]=z;else runs.push([z,z]);});
   runs.forEach(function(r){var x0=x(r[0])-bw*.5+1,x1=x(r[1])+bw*.5-1,wv=Math.max(14,x1-x0),cxm=(x0+x1)/2;ctx.save();ctx.globalAlpha=.12;ctx.fillStyle=COL.cyan;ctx.shadowColor=COL.cyan;ctx.shadowBlur=18;ctx.fillRect(cxm-wv/2,padT,wv,priceH-padT);ctx.restore();});
   for(var k=first;k<=last;k++){var o=R.o[k],h=R.h[k],l=R.l[k],c=R.c[k],up=c>=o,col=up?COL.up:COL.down,cx=x(k),body=Math.max(3,Math.min(bw*.78,22));
@@ -2177,11 +2244,11 @@ function create(wrap,opt){
     var imin=ip.range?ip.range[0]:(vals.length?Math.min.apply(null,vals):0),imax=ip.range?ip.range[1]:(vals.length?Math.max.apply(null,vals):1);
     if(!ip.range){imin=Math.min(imin,0);imax=Math.max(imax,0);if(imax===imin){imax+=1;imin-=1;}var ipp=(imax-imin)*.08;imax+=ipp;imin-=ipp;}
     function iy(v){return volTop+(imax-v)/(imax-imin)*volH;}
-    ctx.save();ctx.fillStyle='rgba(4,12,24,.72)';ctx.fillRect(0,volTop-5,plotW,volH+5);ctx.font='800 10px -apple-system,"PingFang TC",sans-serif';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.fillText(ip.type||'IND',6,volTop+8);
+    ctx.save();ctx.fillStyle='rgba(4,12,24,.72)';ctx.fillRect(0,volTop-5,plotW,volH+5);ctx.font='800 12px -apple-system,"PingFang TC",sans-serif';ctx.fillStyle=COL.muted;ctx.textAlign='left';ctx.fillText(ip.type||'IND',6,volTop+8);
     (ip.thresholds||[]).forEach(function(t){var yy=iy(t);ctx.strokeStyle='rgba(120,150,175,.25)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(plotW,yy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=COL.muted;ctx.fillText(String(t),plotW-26,yy-7);});
     if(ip.hist){var zero=iy(0);for(z=first;z<=last;z++){var hv=ip.hist[z];if(!Number.isFinite(hv))continue;var xx=x(z),yy=iy(hv),bw2=Math.max(2,Math.min(bw*.55,10));ctx.fillStyle=hv>=0?'rgba(255,70,95,.55)':'rgba(36,215,155,.55)';ctx.fillRect(xx-bw2/2,Math.min(zero,yy),bw2,Math.max(1,Math.abs(yy-zero)));}}
     series.forEach(function(s,si){ctx.strokeStyle=s.color||[COL.cyan,COL.ma20,COL.violet][si%3];ctx.lineWidth=1.6;ctx.beginPath();var on=false;for(z=first;z<=last;z++){var v=s.values&&s.values[z];if(!Number.isFinite(v)){on=false;continue;}var xx=x(z),yy=iy(v);if(!on){ctx.moveTo(xx,yy);on=true;}else ctx.lineTo(xx,yy);}ctx.stroke();var lv=s.values&&s.values[last];if(Number.isFinite(lv)){ctx.fillStyle=s.color||COL.cyan;ctx.fillText((s.name||'')+' '+(Math.abs(lv)>=100?lv.toFixed(0):lv.toFixed(1)),6+si*94,volTop+20);}});
-    if(ip.summary&&ip.summary.length){ctx.font='800 9px -apple-system,"PingFang TC",sans-serif';ctx.fillStyle='#c5d9e6';var sy=volTop+Math.min(volH-7,34);ip.summary.forEach(function(s,si){ctx.fillText(s,6+(si%2)*Math.max(150,plotW*.47),sy+Math.floor(si/2)*12);});}
+    if(ip.summary&&ip.summary.length){ctx.font='800 11px -apple-system,"PingFang TC",sans-serif';ctx.fillStyle='#c5d9e6';var sy=volTop+Math.min(volH-7,34);ip.summary.forEach(function(s,si){ctx.fillText(s,6+(si%2)*Math.max(150,plotW*.47),sy+Math.floor(si/2)*12);});}
     ctx.restore();
   }
   var mode=d.showMA===true?'both':d.showMA;if(mode==='ma20'||mode==='both')drawGlowLine(R.ma20,COL.ma20,first,last,x,y,2.1);if(mode==='ma60'||mode==='both')drawGlowLine(R.ma60,COL.ma60,first,last,x,y,2.1);
@@ -2190,7 +2257,7 @@ function create(wrap,opt){
   var guideLines=[],guideSeen={};(d.priceGuides||[]).forEach(function(p){if(!isFinite(p)||p<=0)return;var k=fmt(p);if(guideSeen[k])return;guideSeen[k]=1;guideLines.push({price:p,color:'#7890a4',label:'',dash:true,guide:true});});if(d.pricePickMode&&Number.isFinite(view.pick))guideLines.push({price:view.pick,color:'#39f5ff',label:'你的線',dash:false,guide:true});var lns=(d.lines||[]).concat(guideLines).filter(function(ln){return ln.price>0;}).map(function(ln){return {ln:ln,py:y(ln.price),by:y(ln.price)};}).sort(function(a,b){return a.py-b.py;});
   for(var q=1;q<lns.length;q++)if(lns[q].by<lns[q-1].by+21)lns[q].by=lns[q-1].by+21;
   if(lns.length&&lns[lns.length-1].by>priceH-10){var sh=lns[lns.length-1].by-(priceH-10);lns.forEach(function(L){L.by-=sh;});for(q=lns.length-2;q>=0;q--)if(lns[q].by>lns[q+1].by-21)lns[q].by=lns[q+1].by-21;}
-  lns.forEach(function(L){var ln=L.ln,py=L.py,by=L.by,col=ln.color||COL.cyan;ctx.save();ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=7;ctx.lineWidth=1.5;if(ln.dash)ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(plotW,py);if(Math.abs(by-py)>1)ctx.lineTo(plotW+3,by);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0;ctx.fillStyle=col;rr(ctx,plotW+1,by-10,axis-2,20,8);ctx.fill();ctx.fillStyle='#041019';ctx.font='800 10px ui-monospace,Menlo,monospace';ctx.fillText(fmt(ln.price),plotW+6,by+.5);layout.badges.push({t:ln.label||'',y0:by-10,y1:by+10,py:py});
+  lns.forEach(function(L){var ln=L.ln,py=L.py,by=L.by,col=ln.color||COL.cyan;ctx.save();ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=7;ctx.lineWidth=1.5;if(ln.dash)ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(plotW,py);if(Math.abs(by-py)>1)ctx.lineTo(plotW+3,by);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0;ctx.fillStyle=col;rr(ctx,plotW+1,by-10,axis-2,20,8);ctx.fill();ctx.fillStyle='#041019';ctx.font='800 12px ui-monospace,Menlo,monospace';ctx.fillText(fmt(ln.price),plotW+6,by+.5);layout.badges.push({t:ln.label||'',y0:by-10,y1:by+10,py:py});
     if(ln.label){ctx.font=LABEL_FONT;var tw=ctx.measureText(ln.label).width,cands=[{x1:plotW-5,yc:py-10},{x1:plotW-5,yc:py+11}],best=null;for(var cc=0;cc<cands.length;cc++){var b={x0:cands[cc].x1-tw,x1:cands[cc].x1,y0:cands[cc].yc-7,y1:cands[cc].yc+7};if(b.y0<padT||b.y1>priceH)continue;if(!taken.some(function(t){return overlap(t,b);})){best=b;break;}if(!best)best=b;}if(!best)best={x0:plotW-5-tw,x1:plotW-5,y0:py-17,y1:py-3};ctx.fillStyle=col;ctx.textAlign='right';ctx.fillText(ln.label,best.x1,(best.y0+best.y1)/2);ctx.textAlign='left';best.t=ln.label;taken.push(best);layout.labels.push({t:ln.label,box:best,kind:'line'});}
     ctx.restore();});
   var vis=markers.filter(function(m){return m.idx>=first&&m.idx<=last&&isFinite(m.price);});
@@ -2199,7 +2266,7 @@ function create(wrap,opt){
   if(path.length>1){ctx.save();ctx.strokeStyle='rgba(152,118,255,.85)';ctx.shadowColor=COL.violet;ctx.shadowBlur=6;ctx.lineWidth=1.8;ctx.beginPath();path.forEach(function(m,j){if(j)ctx.lineTo(m._x,m._y);else ctx.moveTo(m._x,m._y);});ctx.stroke();ctx.restore();}
   vis.forEach(function(m){var col=m.color||COL.cyan;ctx.save();ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(m._x,m._y,4.5,0,Math.PI*2);ctx.fill();ctx.restore();layout.dots.push({t:m.label,x:m._x,y:m._y,idx:m.idx});});
   ctx.font=LABEL_FONT;ctx.textBaseline='middle';
-  if(path.length){ctx.font='800 10px -apple-system,"PingFang TC",sans-serif';var order=[path[path.length-1],path[0]].concat(path.slice(1,-1)),laneBoxes=[],yc=laneTop+LANE/2;
+  if(path.length){ctx.font='800 12px -apple-system,"PingFang TC",sans-serif';var order=[path[path.length-1],path[0]].concat(path.slice(1,-1)),laneBoxes=[],yc=laneTop+LANE/2;
     order.forEach(function(m){var tw=ctx.measureText(m.label).width,b={x0:m._x-tw/2-1,x1:m._x+tw/2+1,y0:yc-7,y1:yc+7};if(b.x0<0||b.x1>W-2)return;if(laneBoxes.some(function(t){return overlap(t,b);}))return;laneBoxes.push(b);m._lane=b;});
     path.forEach(function(m){if(!m._lane)return;var col=m.color||COL.cyan;ctx.save();ctx.strokeStyle=col;ctx.globalAlpha=.32;ctx.setLineDash([2,3]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(m._x,m._y+6);ctx.lineTo(m._x,laneTop+1);ctx.stroke();ctx.restore();ctx.fillStyle=col;ctx.textAlign='center';ctx.fillText(m.label,m._x,yc);ctx.textAlign='left';layout.lane.push({t:m.label,box:m._lane,dot:{x:m._x,y:m._y}});});ctx.font=LABEL_FONT;}
   vis.filter(function(m){return !m.lane;}).forEach(function(m){var tw=ctx.measureText(m.label||'').width,th=14,cx=m._x,cy=m._y;
@@ -2210,8 +2277,8 @@ function create(wrap,opt){
     var best=null,bestCost=Infinity;seq.forEach(function(kind,rank){var p=at(kind),b={x0:p.x0-2,y0:p.y0,x1:p.x0+tw+2,y1:p.y0+th,leader:!!p.leader};var inb=b.x0>=2&&b.x1<=plotW-2&&b.y0>=padT&&b.y1<=priceH;var ov=0;taken.forEach(function(t){if(t.dot&&Math.abs(t.x0+6-cx)<.1&&Math.abs(t.y0+6-cy)<.1)return;ov+=area(t,b);});var mxc=(b.x0+b.x1)/2,myc=(b.y0+b.y1)/2,own=Math.hypot(mxc-cx,myc-cy),gOwn=Math.hypot(Math.max(0,b.x0-cx,cx-b.x1),Math.max(0,b.y0-cy,cy-b.y1)),mis=0;if(!b.leader)vis.forEach(function(o){if(o===m)return;var gO=Math.hypot(Math.max(0,b.x0-o._x,o._x-b.x1),Math.max(0,b.y0-o._y,o._y-b.y1));if(Math.hypot(mxc-o._x,myc-o._y)+2<own&&gO<gOwn)mis++;});var cost=(inb?0:1e6)+ov*100+mis*5000+rank;if(cost<bestCost){bestCost=cost;best=b;}});
     var col=m.color||COL.cyan;ctx.save();if(best.leader){var ex=best.x0>cx?best.x0:best.x1,ey=(best.y0+best.y1)/2;ctx.strokeStyle=col;ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx+(ex>cx?5:-5),cy);ctx.lineTo(ex+(ex>cx?-3:3),cy);ctx.lineTo(ex,ey);ctx.stroke();ctx.globalAlpha=1;}ctx.fillStyle='rgba(4,12,24,.72)';rr(ctx,best.x0,best.y0,best.x1-best.x0,best.y1-best.y0,4);ctx.fill();ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=5;ctx.fillText(m.label||'',best.x0+2,(best.y0+best.y1)/2+.5);ctx.restore();best.t=m.label;taken.push(best);layout.labels.push({t:m.label,box:best,kind:'marker',dot:{x:cx,y:cy},leader:!!best.leader});});
   if(view.cross&&typeof view.cross==='object'&&view.cross.i>=first&&view.cross.i<=last){var ci=view.cross.i,cxp=x(ci),cp=view.cross.price,dl=String(d.labelFor?d.labelFor(ci):ci);ctx.save();ctx.setLineDash([3,4]);ctx.strokeStyle='rgba(235,248,255,.6)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(cxp)+.5,padT);ctx.lineTo(Math.round(cxp)+.5,laneTop);ctx.stroke();
-    if(cp!=null){var cyp=Math.round(y(cp))+.5;ctx.beginPath();ctx.moveTo(0,cyp);ctx.lineTo(plotW,cyp);ctx.stroke();ctx.setLineDash([]);var cl=fmt(cp);ctx.font='800 11px ui-monospace,Menlo,monospace';ctx.fillStyle='#eaf7ff';rr(ctx,plotW+2,cyp-9,Math.max(ctx.measureText(cl).width+10,axis-6),18,4);ctx.fill();ctx.fillStyle='#04101c';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(cl,plotW+7,cyp+.5);}
-    ctx.setLineDash([]);ctx.font='800 10px ui-monospace,Menlo,monospace';var dw=ctx.measureText(dl).width+10,dx0=Math.max(0,Math.min(plotW-dw,cxp-dw/2));ctx.fillStyle='#eaf7ff';rr(ctx,dx0,priceH-17,dw,15,4);ctx.fill();ctx.fillStyle='#04101c';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(dl,dx0+5,priceH-9);ctx.restore();
+    if(cp!=null){var cyp=Math.round(y(cp))+.5;ctx.beginPath();ctx.moveTo(0,cyp);ctx.lineTo(plotW,cyp);ctx.stroke();ctx.setLineDash([]);var cl=fmt(cp);ctx.font='800 13px ui-monospace,Menlo,monospace';ctx.fillStyle='#eaf7ff';rr(ctx,plotW+2,cyp-9,Math.max(ctx.measureText(cl).width+10,axis-6),18,4);ctx.fill();ctx.fillStyle='#04101c';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(cl,plotW+7,cyp+.5);}
+    ctx.setLineDash([]);ctx.font='800 12px ui-monospace,Menlo,monospace';var dw=ctx.measureText(dl).width+10,dx0=Math.max(0,Math.min(plotW-dw,cxp-dw/2));ctx.fillStyle='#eaf7ff';rr(ctx,dx0,priceH-17,dw,15,4);ctx.fill();ctx.fillStyle='#04101c';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(dl,dx0+5,priceH-9);ctx.restore();
     var ohlc=d.crossOHLC!==undefined?!!d.crossOHLC:d.allowCross!==false;tip.style.display='block';tip.textContent=ohlc?dl+'  開 '+fmt(R.o[ci])+'  高 '+fmt(R.h[ci])+'  低 '+fmt(R.l[ci])+'  收 '+fmt(R.c[ci])+'  量 '+Math.round(R.v[ci]||0).toLocaleString('en-US'):dl+(cp!=null?'  價位 '+fmt(cp):'')+'｜作答後可看開高低收';layout.cross={i:ci,price:cp,ohlc:ohlc,text:tip.textContent};}else tip.style.display='none';
   layout.candles=[];for(k=first;k<=last;k++)layout.candles.push({idx:k,x:x(k),yh:y(R.h[k]),yl:y(R.l[k])});
   wrap.__bsgLayout=layout;
@@ -2295,7 +2362,7 @@ function home(){var next=nextMission(),m=CT.MISSIONS[next-1],done=S.completed.le
   '<div class="ckStats"><div><b>'+done+'<small>/'+CT.MISSIONS.length+'</small></b><span>關卡進度</span></div><div><b>'+S.streak+'</b><span>連勝</span></div><div><b>'+S.practice.correct+'</b><span>實戰答對</span></div></div></section>';
  var feats='<section class="ckFeatures">'+
   '<button class="ckFeat" data-act="overview">'+chickImg('scholar','ckFeatArt')+'<b>情境教學</b><small>從一根 K 到完整掃描，一次只學一件事</small></button>'+
-  '<button class="ckFeat" data-act="continueNext">'+chickImg('rookie','ckFeatArt')+'<b>互動練習</b><small>真實歷史 K 線，看圖作答</small></button>'+
+  '<button class="ckFeat" data-act="continueNext">'+chickImg('rookie','ckFeatArt')+'<b>互動練習</b><small>看圖作答，答完才解釋</small></button>'+
   '<button class="ckFeat" data-act="practiceHome">'+chickImg('god','ckFeatArt')+'<b>挑戰關卡</b><small>400 題混合實戰、100 題盲測</small></button></section>';
  var upNext=all?ORDER_IDS.slice(-3).map(function(x){return CT.MISSIONS[x-1];}):orderAfter(next,3);
  var strip='<section class="ckSection"><header class="ckSecHead"><h2>接下來的關卡</h2><button class="ckLink" data-act="overview">查看全部 ›</button></header><div class="ckStrip">'+upNext.map(missionCard).join('')+'</div></section>';
@@ -3616,7 +3683,7 @@ practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,
     card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
     card(2,'技能訓練場','第 '+pr.round+' 輪','學過的技能才會進題池，同一技能換很多張不同的歷史圖。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',av>=3)+
     card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 位置 → 證據 → 是否交易 → 進場與失策。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',coreComplete()&&ex.idx<100,'gold')+
-    card(4,'逐日實戰',dailyDone()+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
+    card(4,'逐日實戰',dailyDone()+' / '+DAILY_SCENARIOS.length,'歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
     card(5,'技術面畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成全部逐日實戰後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
     (v.final?'<button class="btn ghost full" data-act="finalReport">查看能力報告</button>':'')+'</main>'+bottomNav('practiceHome');};
 
@@ -3689,7 +3756,7 @@ function gradeAny(st){if(st.kind==='price')gradePrice(st);else if(st.kind==='can
 // ── outcome reveal (after the decision is committed) ──
 function outcomeStats(){var v=v5State();if(!v.outcomes)v.outcomes={};return v.outcomes;}
 function revealStep(Rfull,i,A,o){var H=20,end=Math.min(Rfull.c.length-1,i+H),out=outcomeOf(Rfull,i,A,H),Rr=upTo(Rfull,end);
-  var st={kind:'info',id:'reveal',family:null,tag:'揭曉',head:o.head,title:o.title,sub:'作答完成後才揭曉：D0 之後 20 天的真實走勢',text:'後來實際發生了什麼？',nextLabel:o.nextLabel||'下一張 →',R:Rr,out:out};
+  var st={kind:'info',id:'reveal',family:null,tag:'揭曉',head:o.head,title:o.title,sub:'作答完成後才揭曉：D0 之後 20 天的走勢',text:'後來實際發生了什麼？',nextLabel:o.nextLabel||'下一張 →',R:Rr,out:out};
   st.prepare=function(){var picked=o.picked(),stats=outcomeStats(),b=stats[picked]||(stats[picked]={n:0,target:0,stop:0,open:0});if(!st.counted){b.n++;b[out.res]++;st.counted=true;save();}
     var resTxt=out.res==='target'?'D+'+out.k+' 先碰到目標 '+px(A.target):out.res==='stop'?'D+'+out.k+' 先碰到失策 '+px(A.stop):'20 天內目標和失策都沒碰到';
     st.html='<strong>如果在 D0 收盤 '+px(A.c)+' 做多（失策 '+px(A.stop)+'、目標 '+px(A.target)+'）：</strong><br>'+esc(resTxt)+'，報酬 <b class="'+(out.ret>0?'up':out.ret<0?'down':'')+'">'+(out.ret*100).toFixed(2)+'%</b>。<br><span class="ckMuted">你的判斷：'+esc(CLS_TEXT[picked]||'—')+'｜標準答案：'+esc(CLS_TEXT[A.decision])+'</span><br><span class="ckMuted">你判斷「'+esc(CLS_TEXT[picked]||'—')+'」的圖累計 '+b.n+' 張：先到目標 '+b.target+'、先到失策 '+b.stop+'、都沒到 '+b.open+'。單一結果不代表決策對錯，要看很多張。</span>';};
@@ -3808,7 +3875,7 @@ dailyHome=function(){UI.screen='dailyHome';var v=v5State(),unlocked=dailyUnlocke
   DAILY_SCENARIOS.forEach(function(sc){(sets[sc.set||1]=sets[sc.set||1]||[]).push(sc);});
   var html=Object.keys(sets).map(function(n){var list=sets[n],done=list.filter(function(sc){return v.daily[sc.id]&&v.daily[sc.id].done;}).length;
     return'<section class="v5Set"><h2 class="v5SetHead">第 '+n+' 組<span>'+done+' / '+list.length+'</span></h2><div class="v5ScenGrid">'+list.map(function(sc){var r=v.daily[sc.id],dn=r&&r.done;return'<button class="ckCard v5Scen'+(dn?' done':'')+'" data-act="dailyStart" data-id="'+sc.id+'" '+(unlocked?'':'disabled')+'><b>'+esc(sc.id)+'</b><span>'+(dn?esc(sc.title):'未知的歷史案例')+'</span><small>'+(dn?'決策 '+r.decision+'｜損益 '+(r.pnl*100).toFixed(1)+'%':r&&r.k?'進行到 D+'+r.k:'D0～D+'+sc.days)+'</small></button>';}).join('')+'</div></section>';}).join('');
-  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Home"><h1 class="ckPageTitle">逐日實戰</h1><p class="ckMuted">'+DAILY_SCENARIOS.length+' 個真實歷史案例，每組 12 種情境各一個、順序打亂。每個案例一天一天揭曉，名稱做完才公布；決策品質和最終損益分開評分。做完一組就能挑戰畢業考。</p>'+
+  app.innerHTML=scan+hud(true)+'<main class="ckPage v5Home"><h1 class="ckPageTitle">逐日實戰</h1><p class="ckMuted">'+DAILY_SCENARIOS.length+' 個歷史案例，每組 12 種情境各一個、順序打亂。每個案例一天一天揭曉，名稱做完才公布；決策品質和最終損益分開評分。做完一組就能挑戰畢業考。</p>'+
     (unlocked?'':'<div class="ckCard ckNotice"><span>完成全部核心課程、技能訓練 60 題、混合盲測 20 張後開放。目前：課程 '+ORDER_IDS.filter(completed).length+' / '+ORDER_IDS.length+'｜訓練 '+S.practice.total+' / 60｜盲測 '+S.exam.idx+' / 20</span></div>')+html+'</main>'+bottomNav('practiceHome');};
 var _dailyStartRaw=ACT_V5.dailyStart;ACT_V5.dailyStart=function(el){if(!dailyUnlocked()){toast('先完成課程與基本混合訓練');return;}return _dailyStartRaw(el);};
 
@@ -3820,8 +3887,8 @@ practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,
     card(0,'起點測驗',pre.done?'已完成 '+pre.score.total+' 分':'建議先做','10 張陌生圖：判結構、畫支撐、做決策、畫失策。學完再用同難度的另一份測一次，看自己進步多少。','',pre.done?'重做':'開始測驗','startPre',true)+
     card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
     card(2,'技能訓練場','第 '+pr.round+' 輪','自己畫支撐壓力、點高低點、畫失策和目標；錯過的能力會在 5、20、60 題後換新圖再考。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span><span>待複習 <b>'+rv+'</b></span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',OPEN_ALL||av>=3)+
-    card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 畫支撐壓力 → 證據 → 是否交易 → 失策與目標，做完揭曉後來 20 天的真實走勢。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',(OPEN_ALL||coreComplete())&&ex.idx<100,'gold')+
-    card(4,'逐日實戰',dd+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
+    card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 畫支撐壓力 → 證據 → 是否交易 → 失策與目標，做完揭曉後來 20 天的走勢。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',(OPEN_ALL||coreComplete())&&ex.idx<100,'gold')+
+    card(4,'逐日實戰',dd+' / '+DAILY_SCENARIOS.length,'歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
     card(5,'技術面畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成一組逐日實戰（12 個案例）後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
     card(6,'畢業後測',post.done?post.score.total+' 分':'學習成效','和起點測驗同難度的另一份陌生圖，比較前後分數。完成畢業考後開放。','',post.done?'重做':'開始後測','startPost',retestUnlocked())+
     (pre.done||post.done?'<button class="btn ghost full" data-act="testReport">查看學習成效</button>':'')+
@@ -4005,7 +4072,7 @@ promptIntro=function(m){
 };
 function chartData(m,R){var q=criterion(m.id,R),i=q.i,showMA=false,zones=[],markers=[],lines=[],focus=[],last=i,showVolume=m.id>=25;if(m.id>=19&&m.id<23)showMA='ma20';if(m.id>=23)showMA='both';if(m.id<=6)focus=[i];if(m.id===7)markers.push({idx:i,price:q.res,label:'近期高點',color:'#ffd44a'});if(m.id===8){markers.push({idx:i-13,price:q.hi1,label:'前段高',color:'#9876ff'},{idx:i,price:q.hi2,label:'後段高',color:'#39f5ff'});}if(m.id===9){markers.push({idx:i-13,price:q.lo1,label:'前段低',color:'#9876ff'},{idx:i,price:q.lo2,label:'後段低',color:'#39f5ff'});}if(m.id>=13){var w=q.a*.35;zones.push({lo:q.sup-w,hi:q.sup+w,color:'#24d79b',label:'支撐候選',alpha:UI.hint? .16:.08},{lo:q.res-w,hi:q.res+w,color:'#ff9f43',label:'壓力候選',alpha:UI.hint? .16:.08});}if(m.id===19||m.id===20||m.id===21||m.id===22)lines.push({price:q.ma,color:'#ffd44a',label:'MA20'});if(m.id===23)lines.push({price:q.ma,color:'#ffd44a',label:'MA20'},{price:q.ma60,color:'#27c8ff',label:'MA60'});if(m.id===31)lines.push({price:Math.max(.01,q.sup-q.a*.45),color:'#ff465f',label:'失策參考',dash:true});if(m.id===32||m.id===33){var tg=q.res>q.c?q.res:maxA(R.h,i-60,i-1);lines.push({price:tg,color:'#ffd44a',label:'壓力/目標'});lines.push({price:Math.max(.01,q.sup-q.a*.45),color:'#ff465f',label:'失策',dash:true});}if(m.id===35){last=Math.min(X(3),R.c.length-1);lines.push({price:Math.max(.01,q.sup-q.a*.45),color:'#ff465f',label:'原失策',dash:true});}if(m.id===25||m.id===26)focus=[i];if(UI.hint>=2&&m.id>=13)lines.push({price:q.sup,color:'#24d79b',label:'支撐核心',dash:true},{price:q.res,color:'#ff9f43',label:'壓力核心',dash:true});return{R:R,lastIdx:last,d0Idx:i,showMA:showMA,showVolume:showVolume,zones:zones,markers:markers,lines:lines,focusCandles:focus,focusVolume:(m.id===25||m.id===26)?i:null,labelFor:function(k){return 'D'+(k-i);}};}
 function promptIntro(m){return '<div class="promptTop"><span class="qtag">MISSION '+dno(m.id)+'</span><span class="difficulty">LEARN</span></div><div class="question">'+esc(m.objective)+'</div><div class="explain"><strong style="color:var(--cyan)">只新增一件事：</strong> '+esc(m.rule)+'</div><div class="coachLine">AI 教練｜'+esc(m.anti)+'</div>';}
-function promptQuestion(m,R){var tag=UI.mode==='exam'?'盲測 '+((UI.scanIdx||0)+1)+' / 100':UI.mode==='practice'?'實戰 '+((UI.scanIdx||0)+1)+' / 400':'Q '+UI.exercise+' / '+exCount(m);var diff=UI.mode==='exam'?'NO HINT':UI.mode==='practice'?'RANDOM':(UI.exercise===1?'GUIDED':UI.exercise===2?'CHECK':'SOLO');return '<div class="promptTop"><span class="qtag">'+tag+'</span><span class="difficulty">'+diff+'</span></div><div class="question">'+esc(qtext(m,R,UI.exercise))+'</div><div class="explain">'+(UI.mode==='exam'?'不提示、不告訴題型來源。只用你已學會的掃描順序。':UI.mode==='practice'?'題型與年份打亂，不告訴你該看哪個指標。':UI.exercise===1?'先看圖，不用急。系統只考剛學的這一件事。':UI.exercise===exCount(m)?(UI.hint?'提示已打開，再試一次。':'最後一題：先不給提示，答錯才會出現。'):'換一張真實歷史圖，再認一次。')+'</div>'+(UI.hint&&UI.mode!=='exam'?'<div class="coachLine">提示 '+UI.hint+'｜'+esc(hints(m,R)[Math.min(UI.hint,hints(m,R).length)-1])+'</div>':'');}
+function promptQuestion(m,R){var tag=UI.mode==='exam'?'盲測 '+((UI.scanIdx||0)+1)+' / 100':UI.mode==='practice'?'實戰 '+((UI.scanIdx||0)+1)+' / 400':'Q '+UI.exercise+' / '+exCount(m);var diff=UI.mode==='exam'?'NO HINT':UI.mode==='practice'?'RANDOM':(UI.exercise===1?'GUIDED':UI.exercise===2?'CHECK':'SOLO');return '<div class="promptTop"><span class="qtag">'+tag+'</span><span class="difficulty">'+diff+'</span></div><div class="question">'+esc(qtext(m,R,UI.exercise))+'</div><div class="explain">'+(UI.mode==='exam'?'不提示、不告訴題型來源。只用你已學會的掃描順序。':UI.mode==='practice'?'題型與年份打亂，不告訴你該看哪個指標。':UI.exercise===1?'先看圖，不用急。系統只考剛學的這一件事。':UI.exercise===exCount(m)?(UI.hint?'提示已打開，再試一次。':'最後一題：先不給提示，答錯才會出現。'):'換一張圖，再認一次。')+'</div>'+(UI.hint&&UI.mode!=='exam'?'<div class="coachLine">提示 '+UI.hint+'｜'+esc(hints(m,R)[Math.min(UI.hint,hints(m,R).length)-1])+'</div>':'');}
 function answerHTML(m,R){if(UI.exercise===0)return '<button class="btn primary full pulse" data-act="beginQuestions">我看懂示範了，開始練 →</button><button class="answerHelp" data-act="hint">我還沒看懂，換更簡單的說法</button>';var q=question(m,R,UI.exercise),html=q.opts.map(function(o,idx){var cls='answer';if(UI.feedback&&idx===q.correct)cls+=' correct';if(UI.feedback&&UI.answer===idx&&idx!==q.correct)cls+=' wrong';return '<button class="'+cls+'" data-act="answer" data-i="'+idx+'" '+(UI.feedback?'disabled':'')+'>'+esc(o)+'</button>';}).join('');if(UI.feedback){var ok=UI.answer===q.correct,session=UI.mode==='practice'||UI.mode==='exam';html+='<div class="feedbackBox '+(ok?'':'bad')+'"><strong>'+(ok?'SCAN LOCKED｜你看對地方了':'MISREAD｜你看錯觀察點')+'</strong><br>'+esc(explain(m,R,UI.answer))+'</div><button class="btn '+(ok?'green':'ghost')+' full nextBtn" data-act="afterFeedback">'+(session?'下一題 →':ok?(UI.exercise>=exCount(m)?'完成本任務':'下一張圖 →'):'我懂了，重做這題')+'</button>';}else if(UI.mode!=='exam')html+='<button class="answerHelp" data-act="hint">我卡住了｜系統幫我拆小一步</button>';return html;}
 function training(){var m=UI.mission;if(!m){setupMission(nextMission(),0,'mission');m=UI.mission;}var R=getR(UI.roundId),w=CT.WORLDS[m.world-1],scanMode=UI.mode==='practice'||UI.mode==='exam',dots=Array.from({length:exCount(m)},function(_,k){return k+1;}).map(function(n){return'<i class="'+(UI.exercise===n?'on':UI.exercise>n?'done':'')+'"></i>';}).join('');var head=scanMode?'<div class="trainingHead"><div class="missionTag">'+(UI.mode==='exam'?'盲測':'實戰')+'</div><div class="trainTitle"><strong>第 '+((UI.scanIdx||0)+1)+' / '+(UI.mode==='exam'?100:400)+' 題</strong><span>'+(UI.mode==='exam'?'不提示、不顯示題型，只用你學會的掃描順序':'題型隨機，先自己判斷這題在問什麼')+'</span></div></div>':'<div class="trainingHead"><div class="missionTag">M'+dno(m.id)+'</div><div class="trainTitle"><strong>'+esc(m.title)+'</strong><span>'+esc(m.sub)+'</span></div><div class="stepDots">'+dots+'</div></div>';app.innerHTML=scan+hud(true)+'<div class="main'+(scanMode?' scanMain':'')+'">'+(scanMode?'':sidebar(m))+'<section class="training">'+head+'<div class="chartArea"><div class="chartFrame"><div id="v3Chart" class="chartwrap"></div></div></div><div class="lessonDock"><div class="dockGrid"><div class="prompt">'+(UI.exercise===0?promptIntro(m):promptQuestion(m,R))+'</div><div class="answers">'+answerHTML(m,R)+'</div></div></div></section></div><div class="debugBadge">產品測試版</div>';UI.chart=BSGChart.create(document.getElementById('v3Chart'),{getData:function(){return chartData(m,R);}});if(m.id<=6)UI.chart.setRange(20);else if(m.id<=18)UI.chart.setRange(60);else UI.chart.setRange(60);}
 function completeMission(){var m=UI.mission;if(!completed(m.id)){S.completed.push(m.id);S.completed.sort(function(a,b){return a-b;});S.xp+=120;S.coins+=80;S.streak+=1;S.lastMission=nextInOrder(m.id);var st=S.missionStats[m.id]||{wrong:0,hints:0};st.complete=true;S.missionStats[m.id]=st;save();}go('mastery');}
@@ -4086,30 +4153,37 @@ ACT.answer=function(el){var m=UI.mission,before=S.missionStats[m&&m.id]?S.missio
 var CP_COL=['#39f5ff','#ffd44a','#ff6fa0','#7ee0a0','#b18cff'];
 function fmtN(v,dp){if(v==null||!isFinite(v))return'—';return Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dp||0,maximumFractionDigits:dp==null?2:dp});}
 function fmtD(d){d=String(d);return d.length===8?d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6):d;}
+// Real dates never reach the screen: an 8-digit date label becomes "第 N 日"; other labels (D-80, D0) pass through.
+function relLab(v,i,base){return /^(19|20)\d{6}$/.test(String(v))?(base?(i===0?'起點':'第'+i+'日'):'第'+(i+1)+'日'):String(v);}
+// Uniform scaling only ("meet"), so chart text is never stretched; the box keeps the drawing's own aspect ratio.
+var CP_TALL=false;
+// Event label next to a vertical marker: right of the line, or left of it when it would run into the price axis.
+function cpMarkLabel(xx,right,L,T,label){var w=String(label).length*13+4,left=xx+4+w>right;return '<text x="'+(left?Math.max(L+w,xx-4):xx+4)+'" y="'+(T+13)+'" class="cpMarkT"'+(left?' text-anchor="end"':'')+'>'+esc(label)+'</text>';}
+function cpSvgTag(W,H,label,g){return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" style="aspect-ratio:'+W+'/'+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="'+esc(label)+'">'+g+'</svg>';}
 function cpRange(arrs){var lo=Infinity,hi=-Infinity;arrs.forEach(function(a){(a||[]).forEach(function(v){if(v!=null&&isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}});});if(!isFinite(lo)){lo=0;hi=1;}if(hi===lo){hi+=1;lo-=1;}var p=(hi-lo)*.08;return[lo-p,hi+p];}
-function svgLines(sc){var W=360,H=200,L=6,R=44,T=10,B=22,series=sc.series||[],n=Math.max.apply(null,series.map(function(s){return(s.values||[]).length;}).concat([2])),rg=sc.range||cpRange(series.map(function(s){return s.values;})),
+function svgLines(sc){var W=360,H=CP_TALL?270:200,L=6,R=58,T=10,B=22,series=sc.series||[],n=Math.max.apply(null,series.map(function(s){return(s.values||[]).length;}).concat([2])),rg=sc.range||cpRange(series.map(function(s){return s.values;})),
   x=function(i){return L+(W-L-R)*(n<=1?0:i/(n-1));},y=function(v){return T+(H-T-B)*(1-(v-rg[0])/(rg[1]-rg[0]));};
-  var g='';for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+3)+'" class="cpAx">'+fmtN(v,sc.dp==null?(rg[1]-rg[0]<20?1:0):sc.dp)+'</text>';}
+  var g='';for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+5)+'" class="cpAx">'+fmtN(v,sc.dp==null?(rg[1]-rg[0]<20?1:0):sc.dp)+'</text>';}
   if(sc.base!=null&&sc.base>rg[0]&&sc.base<rg[1])g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(sc.base)+'" y2="'+y(sc.base)+'" class="cpBase"/>';
-  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-B)+'" class="cpMark"/><text x="'+Math.min(W-R-2,Math.max(L+2,xx+3))+'" y="'+(T+10)+'" class="cpMarkT">'+esc(mk.label)+'</text>';});
+  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-B)+'" class="cpMark"/>'+cpMarkLabel(xx,W-R,L,T,mk.label);});
   series.forEach(function(s,k){var pts=[];(s.values||[]).forEach(function(v,i){if(v!=null&&isFinite(v))pts.push(x(i).toFixed(1)+','+y(v).toFixed(1));});g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+(s.color||CP_COL[k%5])+'" stroke-width="'+(s.width||2)+'"'+(s.dash?' stroke-dasharray="5 4"':'')+'/>';});
-  if(sc.labels&&sc.labels.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(fmtD(sc.labels[0]))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(fmtD(sc.labels[sc.labels.length-1]))+'</text>';
-  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+esc(sc.title||'走勢圖')+'">'+g+'</svg>';}
-function svgCandles(sc){var d=sc.data,n=d.c.length,W=360,H=sc.vol===false?200:230,L=4,R=44,T=10,PB=sc.vol===false?22:58,VH=34,rg=cpRange([d.h,d.l].concat((sc.lines||[]).map(function(l){return[l.y];}))),
+  if(sc.labels&&sc.labels.length){var nl=sc.labels.length;g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(relLab(sc.labels[0],0,sc.base===100))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(relLab(sc.labels[nl-1],nl-1,sc.base===100))+'</text>';}
+  return cpSvgTag(W,H,sc.title||'走勢圖',g);}
+function svgCandles(sc){var d=sc.data,n=d.c.length,W=360,H=(sc.vol===false?200:230)+(CP_TALL?50:0),L=4,R=58,T=10,PB=sc.vol===false?24:62,VH=34,rg=cpRange([d.h,d.l].concat((sc.lines||[]).map(function(l){return[l.y];}))),
   cw=(W-L-R)/Math.max(n,1),x=function(i){return L+cw*(i+.5);},y=function(v){return T+(H-T-PB)*(1-(v-rg[0])/(rg[1]-rg[0]));},vmax=Math.max.apply(null,(d.v||[0]).map(function(v){return v||0;}))||1,g='';
-  for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+3)+'" class="cpAx">'+fmtN(v,v<100?2:v<1000?1:0)+'</text>';}
+  for(var k=0;k<=3;k++){var v=rg[0]+(rg[1]-rg[0])*k/3,yy=y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(yy+5)+'" class="cpAx">'+fmtN(v,v<100?2:v<1000?1:0)+'</text>';}
   if(sc.cut!=null)g+='<rect x="'+(L+cw*sc.cut)+'" y="'+T+'" width="'+(W-R-L-cw*sc.cut)+'" height="'+(H-T-PB)+'" class="cpFuture"/>';
-  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-PB)+'" class="cpMark"/><text x="'+Math.min(W-R-30,Math.max(L+2,xx+3))+'" y="'+(T+10)+'" class="cpMarkT">'+esc(mk.label)+'</text>';});
+  (sc.marks||[]).forEach(function(mk){var xx=x(mk.i);g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(H-PB)+'" class="cpMark"/>'+cpMarkLabel(xx,W-R,L,T,mk.label);});
   (sc.lines||[]).forEach(function(l){var yy=y(l.y);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="cpLevel" stroke="'+(l.color||'#ffd44a')+'"/><text x="'+(L+3)+'" y="'+(yy-3)+'" class="cpMarkT" fill="'+(l.color||'#ffd44a')+'">'+esc(l.label)+'</text>';});
   for(var i=0;i<n;i++){var o=d.o[i],h=d.h[i],l=d.l[i],c=d.c[i];if(c==null)continue;if(o==null)o=c;var up=c>=o,col=up?'var(--up,#ff465f)':'var(--down,#24d79b)',bw=Math.max(1,cw*.62);
     g+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(h)+'" y2="'+y(l)+'" stroke="'+col+'"/><rect x="'+(x(i)-bw/2)+'" y="'+y(Math.max(o,c))+'" width="'+bw+'" height="'+Math.max(1,Math.abs(y(o)-y(c)))+'" fill="'+col+'"/>';
-    if(sc.vol!==false&&d.v&&d.v[i]!=null){var vh=VH*(d.v[i]/vmax);g+='<rect x="'+(x(i)-bw/2)+'" y="'+(H-22-vh)+'" width="'+bw+'" height="'+vh+'" class="cpVol"/>';}}
-  if(d.d&&d.d.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(sc.mask?'D-'+(sc.cut!=null?sc.cut-1:n-1):fmtD(d.d[0]))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(sc.mask?(sc.cut!=null&&sc.cut<n?'D+'+(n-sc.cut):'D0'):fmtD(d.d[n-1]))+'</text>';
-  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="K 線圖">'+g+'</svg>';}
-function svgBars(sc){var W=360,H=200,L=6,R=44,T=10,B=22,n=sc.a.length,vmax=Math.max.apply(null,sc.a.concat(sc.b))||1,cw=(W-L-R)/n,g='',mid=T+(H-T-B)/2,half=(H-T-B)/2-4;
+    if(sc.vol!==false&&d.v&&d.v[i]!=null){var vh=VH*(d.v[i]/vmax);g+='<rect x="'+(x(i)-bw/2)+'" y="'+(H-24-vh)+'" width="'+bw+'" height="'+vh+'" class="cpVol"/>';}}
+  if(d.d&&d.d.length)g+='<text x="'+L+'" y="'+(H-6)+'" class="cpAx">'+esc(sc.mask?'D-'+(sc.cut!=null?sc.cut-1:n-1):'第1日')+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" class="cpAx" text-anchor="end">'+esc(sc.mask?(sc.cut!=null&&sc.cut<n?'D+'+(n-sc.cut):'D0'):'第'+n+'日')+'</text>';
+  return cpSvgTag(W,H,'K 線圖',g);}
+function svgBars(sc){var W=360,H=CP_TALL?230:200,L=6,R=58,T=10,B=22,n=sc.a.length,vmax=Math.max.apply(null,sc.a.concat(sc.b))||1,cw=(W-L-R)/n,g='',mid=T+(H-T-B)/2,half=(H-T-B)/2-4;
   g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+mid+'" y2="'+mid+'" class="cpGrid"/><text x="'+(W-R+4)+'" y="'+(T+10)+'" class="cpAx">'+esc(sc.aLabel)+'</text><text x="'+(W-R+4)+'" y="'+(H-B)+'" class="cpAx">'+esc(sc.bLabel)+'</text>';
   for(var i=0;i<n;i++){var a=sc.a[i]/vmax*half,b=sc.b[i]/vmax*half,xx=L+cw*i+cw*.15,bw=cw*.7;g+='<rect x="'+xx+'" y="'+(mid-a)+'" width="'+bw+'" height="'+a+'" fill="var(--up,#ff465f)"'+(i===n-1?'':' opacity=".55"')+'/><rect x="'+xx+'" y="'+mid+'" width="'+bw+'" height="'+b+'" fill="var(--down,#24d79b)"'+(i===n-1?'':' opacity=".55"')+'/>';}
-  return '<svg class="cpSvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="上漲下跌家數">'+g+'</svg>';}
+  return cpSvgTag(W,H,'上漲下跌家數',g);}
 function sceneTable(sc){return '<div class="cpTableWrap"><table class="cpTable">'+(sc.head?'<thead><tr>'+sc.head.map(function(h){return'<th>'+esc(h)+'</th>';}).join('')+'</tr></thead>':'')+'<tbody>'+sc.rows.map(function(r,i){return'<tr'+((sc.hi||[]).indexOf(i)>=0?' class="hi"':'')+(r.future?' class="future"':'')+'>'+(r.cells||r).map(function(c){return'<td>'+(c&&c.html?c.html:esc(c))+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';}
 function sceneBook(sc){var row=function(p,q,side){return'<div class="cpBookRow '+side+'"><span>'+fmtN(p,2)+'</span><b>'+fmtN(q)+'</b></div>';};
   return '<div class="cpBook"><div class="cpBookCol"><div class="cpBookHead">委賣（Ask）</div>'+sc.asks.slice().reverse().map(function(a){return row(a[0],a[1],'ask');}).join('')+'</div><div class="cpBookCol"><div class="cpBookHead">委買（Bid）</div>'+sc.bids.map(function(a){return row(a[0],a[1],'bid');}).join('')+'</div>'+(sc.last!=null?'<div class="cpBookLast">最近成交 <b>'+fmtN(sc.last,2)+'</b></div>':'')+'</div>';}
@@ -4118,18 +4192,32 @@ function sceneCards(sc){return '<div class="cpCards">'+sc.items.map(function(it)
 function sceneText(sc){return '<div class="cpText">'+(sc.html||esc(sc.text))+'</div>';}
 function legend(series){return '<div class="cpLegend">'+series.map(function(s,k){return'<span><i style="background:'+(s.color||CP_COL[k%5])+'"></i>'+esc(s.name)+'</span>';}).join('')+'</div>';}
 function renderScene(sc){if(!sc)return'';var body='';
-  if(sc.type==='multi')return '<div class="cpMulti">'+sc.parts.map(renderScene).join('')+'</div>';
+  if(sc.type==='multi'){var was=CP_TALL;CP_TALL=false;var out='<div class="cpMulti">'+sc.parts.map(renderScene).join('')+'</div>';CP_TALL=was;return out;}
   if(sc.type==='lines')body=legend(sc.series)+svgLines(sc);else if(sc.type==='candles')body=svgCandles(sc);else if(sc.type==='bars')body=svgBars(sc);
   else if(sc.type==='table')body=sceneTable(sc);else if(sc.type==='book')body=sceneBook(sc);else if(sc.type==='timeline')body=sceneTimeline(sc);else if(sc.type==='cards')body=sceneCards(sc);else body=sceneText(sc);
-  var badge=sc.demo?'<span class="cpBadge demo">教學示意，非真實歷史資料</span>':sc.real?'<span class="cpBadge real">真實歷史資料'+(sc.real===true?'':'｜'+esc(sc.real))+'</span>':'';
-  return '<figure class="cpFig cp-'+sc.type+'">'+(sc.title||badge?'<figcaption>'+(sc.title?'<b>'+esc(sc.title)+'</b>':'')+badge+'</figcaption>':'')+body+(sc.note?'<p class="cpNote">'+esc(sc.note)+'</p>':'')+'</figure>';}
+  // Data provenance (sc.real / sc.demo) stays in the scene object only; nothing is badged on screen.
+  var note=sc.note||(sc.type==='lines'&&sc.base===100?'起點統一設為 100，方便比較相對強弱':'');
+  return '<figure class="cpFig cp-'+sc.type+'">'+(sc.title?'<figcaption><b>'+esc(sc.title)+'</b></figcaption>':'')+(note?'<p class="cpNote cpNoteTop">'+esc(note)+'</p>':'')+body+'</figure>';}
 
 // ── case player ──
 function cpHash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return(h>>>0)/4294967296;}
 var CP_HELP={fmtN:fmtN,fmtD:fmtD,pct:function(v,dp){return v==null?'—':(v>0?'+':'')+fmtN(v,dp==null?1:dp)+'%';},rules:CT.MARKET_RULES,
   slice:function(c,a,b){var o={};Object.keys(c).forEach(function(k){o[k]=c[k].slice(a,b);});return o;},
   concat:function(a,b){var o={};Object.keys(a).forEach(function(k){o[k]=(a[k]||[]).concat(b[k]||[]);});return o;},
-  maskName:function(){return'某檔股票';},hash:cpHash};
+  maskName:function(){return'某檔股票';},hash:cpHash,
+  // anon: strip the company's name / code and any calendar year from free text (news titles etc.).
+  anon:function(t,x){t=String(t||'');var ns=[];(function walk(o){if(!o||typeof o!=='object')return;if(typeof o.name==='string')ns.push(o.name);if(typeof o.code==='string')ns.push(o.code);if(Array.isArray(o.names))ns=ns.concat(o.names);(Array.isArray(o)?o:Object.keys(o).map(function(k){return k==='reveal'?null:o[k];})).forEach(walk);})(x);
+    ns.filter(function(n){return n&&n.length>=2;}).sort(function(a,b){return b.length-a.length;}).forEach(function(n){t=t.split(n).join('這家公司');});t=t.replace(/這家公司[(（]這家公司[)）]/g,'這家公司');
+    cpAllNames().forEach(function(n){t=t.split(n).join('某公司');});
+    return t.replace(/(19|20)\d\d[\/\-.](\d\d?)[\/\-.](\d\d?)/g,'某日').replace(/[(（]?\b\d{1,2}\/\d{1,2}\b[)）]?/g,'某日').replace(/(19|20)\d\d\s*年/g,'').replace(/\s+-\s+[^-]*$/,'').trim();},
+  // relYm / relQ: "2022-03" -> "今年 3 月" / "今年 Q1", relative to the reference month (the decision month).
+  relYear:function(y,ref){var d=+y-(+ref);return d===0?'今年':d===-1?'去年':d===-2?'前年':d===1?'明年':(d>0?d+' 年後':(-d)+' 年前');},
+  relYm:function(ym,ref){var a=String(ym).split('-'),b=String(ref).split('-');return CP_HELP.relYear(a[0],b[0])+' '+(+a[1])+' 月';},
+  relQ:function(q,ref){var a=String(q).split('-'),b=String(ref).split('-');return CP_HELP.relYear(a[0],b[0])+' Q'+Math.ceil(+a[1]/3);},
+  // relDay: news timestamp relative to the decision day D0 (yyyymmdd) -> "D0 18:20", "D+1 08:05", "D-2 21:00".
+  relDay:function(ts,d0){ts=String(ts||'');var m=ts.match(/^(\d{4})-(\d\d)-(\d\d)[ T](\d\d:\d\d)/);if(!m)return ts;var s=String(d0),a=Date.UTC(+m[1],+m[2]-1,+m[3]),b=Date.UTC(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8)),k=Math.round((a-b)/864e5);return 'D'+(k===0?'0':k>0?'+'+k:k)+' · '+m[4];}};
+var CP_NAMES=null;function cpAllNames(){if(CP_NAMES)return CP_NAMES;var set={};(function walk(o){if(!o||typeof o!=='object')return;if(typeof o.name==='string'&&o.name.length>=2)set[o.name]=1;if(typeof o.code==='string'&&o.code.length>=4)set[o.code]=1;if(Array.isArray(o.names))o.names.forEach(function(n){set[n]=1;});(Array.isArray(o)?o:Object.keys(o).map(function(k){return o[k];})).forEach(walk);})(C100);
+  CP_NAMES=Object.keys(set).sort(function(a,b){return b.length-a.length;});return CP_NAMES;}
 function cpSpec(id){return L100[id];}
 function cpBuild(m){var spec=cpSpec(m.id);if(!spec)return null;var data=C100[String(spec.dataFrom||m.id)]||[],all=spec.cases(data,CP_HELP)||[],st=S.missionStats[m.id]||{},attempt=st.attempts||0;
   all=all.filter(Boolean);if(!all.length)return null;var per=Math.min(spec.per||2,all.length),order=all.map(function(c,i){return{c:c,k:cpHash(S.seed+'|'+m.id+'|'+attempt+'|'+i)};}).sort(function(a,b){return a.k-b.k;}).map(function(x){return x.c;});
@@ -4165,7 +4253,8 @@ function cpTraining(){var m=UI.mission,P=UI.cp;if(!P){P=UI.cp=cpBuild(m);}
       ans=opts.map(function(o,i){return'<button class="answer'+(i===q.correct&&!q.grade?' correct':i===P.answer?(ok?' correct':' wrong'):'')+'" disabled>'+esc(o)+'</button>';}).join('')+
         '<div class="feedbackBox'+(ok?'':' bad')+'">'+(q.grade?'<strong>已記錄｜</strong><b>參考：</b>'+esc(why||''):(ok?'<strong>答對｜</strong>':'<strong>答錯｜</strong>')+(!ok&&wr?'<b>你多推論了：</b>'+esc(wr)+'<br>':'')+'<b>事實是：</b>'+esc(why||''))+'</div>'+
         '<button class="btn primary full nextBtn" data-act="cpAfter">'+(ok?'下一步 →':'我懂了，重做這題')+'</button>';}}
-  app.innerHTML=scan+hud(true)+'<div class="main cpMain"><section class="training cpTraining">'+cpHead(m)+'<div class="chartArea cpScene">'+renderScene(scene)+'</div><div class="lessonDock"><div class="dockGrid"><div class="prompt">'+prompt+'</div><div class="answers cpAnswers">'+ans+'</div></div></div></section></div>';
+  CP_TALL=!!(window.matchMedia&&matchMedia('(orientation:portrait) and (max-width:940px)').matches);var sceneHtml=renderScene(scene);CP_TALL=false;
+  app.innerHTML=scan+hud(true)+'<div class="main cpMain"><section class="training cpTraining">'+cpHead(m)+'<div class="chartArea cpScene">'+sceneHtml+'</div><div class="lessonDock"><div class="dockGrid"><div class="prompt">'+prompt+'</div><div class="answers cpAnswers">'+ans+'</div></div></div></section></div>';
   var dock=app.querySelector('.lessonDock');if(dock)dock.scrollTop=0;}
 var _cpTrainingOrig=training;
 training=function(){var m=UI.mission;if(m&&m.type==='concept'&&UI.mode==='mission'){destroyChart();cpTraining();return;}_cpTrainingOrig();};
@@ -4184,7 +4273,7 @@ var _cpRankName=rankName;rankName=function(){return graduated()?'股神候補（
 
 window.BSG100={version:CT.CURRICULUM_VERSION,order:function(){return ORDER_IDS.slice();},displayNo:function(id){return CT.displayNo(id);},frontier:frontierPos,makeup:makeupIds,
   next:function(){return nextMission();},unlocked:function(id){return unlocked(id);},graduated:graduated,weak:weakSummary,weakNames:WEAK_NAMES,cases:function(id){return C100[String(id)]||[];},
-  spec:function(id){return cpSpec(id);},help:CP_HELP,allCases:function(id){var sp=cpSpec(id);return sp?sp.cases(C100[String(sp.dataFrom||id)]||[],CP_HELP).filter(Boolean):[];},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;}};
+  spec:function(id){return cpSpec(id);},help:CP_HELP,allCases:function(id){var sp=cpSpec(id);return sp?sp.cases(C100[String(sp.dataFrom||id)]||[],CP_HELP).filter(Boolean):[];},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;},renderScene:renderScene};
 render();
 })();
 // 從菜雞到股神 — text coach + SFX only. No synthesized voice.
@@ -4907,8 +4996,8 @@ render();
       '<article><strong>01</strong><div><b>技術面 63 關</b><p>單根 K 線、結構、支撐壓力、均線、量價、進場、失策、風報比，到 MACD、KD、RSI 怎麼用、怎麼失效。</p></div></article>'+
       '<article><strong>02</strong><div><b>市場與題材</b><p>真的下單怎麼成交、大盤與產業、相對強弱、新聞時間軸、法人與資金流。</p></div></article>'+
       '<article><strong>03</strong><div><b>公司與自己</b><p>營收、毛利、EPS、現金流與估值的白話版，再加上分散、總風險、攤平與交易日誌。</p></div></article>'+
-      '<article><strong>04</strong><div><b>最終畢業考</b><p>真實歷史台股盲測：名稱、日期、未來全部遮住，做完整交易計畫後一天一天揭曉。</p></div></article>'+
-      '</div><div class="ckInfoBox"><b>資料與用途</b><p>案例使用真實歷史行情與當時已公開的資料；標示「教學示意」的畫面是為了說明規則，不是歷史紀錄。不是即時行情，也不是投資建議，不保證任何報酬。</p></div>');
+      '<article><strong>04</strong><div><b>最終畢業考</b><p>台股歷史盲測：名稱、日期、未來全部遮住，做完整交易計畫後一天一天揭曉。</p></div></article>'+
+      '</div><div class="ckInfoBox"><b>資料與用途</b><p>本課程的案例取自台股歷史行情，已匿名化與指數化：作答時不顯示公司、代號與真實日期，只用當時已公開的資料。下單五檔、成本計算等少數畫面是為了說明規則的教學示意。不是即時行情，也不是投資建議，不保證任何報酬。</p></div>');
   }
   function profile(){
     var s=state()||{},done=(s.completed||[]).length,pr=s.practice||{},ex=s.exam||{},rate=pr.total?Math.round(pr.correct/pr.total*100):0,total=courseTotal();
