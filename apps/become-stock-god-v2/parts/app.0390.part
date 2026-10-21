@@ -145,6 +145,6 @@ var _cpRankName=rankName;rankName=function(){return graduated()?'股神候補（
 
 window.BSG100={version:CT.CURRICULUM_VERSION,order:function(){return ORDER_IDS.slice();},displayNo:function(id){return CT.displayNo(id);},frontier:frontierPos,makeup:makeupIds,
   next:function(){return nextMission();},unlocked:function(id){return unlocked(id);},graduated:graduated,weak:weakSummary,weakNames:WEAK_NAMES,cases:function(id){return C100[String(id)]||[];},
-  spec:function(id){return cpSpec(id);},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;}};
+  spec:function(id){return cpSpec(id);},help:CP_HELP,allCases:function(id){var sp=cpSpec(id);return sp?sp.cases(C100[String(sp.dataFrom||id)]||[],CP_HELP).filter(Boolean):[];},build:function(id){return cpBuild(CT.MISSIONS[id-1]);},player:function(){return UI.cp;}};
 render();
 })();

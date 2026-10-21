@@ -247,7 +247,7 @@
       return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'candles',title:'交易日誌案例（決策日 = 最右邊）',real:true,data:x.chart,lines:[{y:x.ma20,label:'MA20'},{y:lo,label:'近期低點 '+lo}],vol:false},
         qs:[J('日誌第 1 欄「為什麼想買」，哪一句寫得最好？',['上升結構、回到 MA20 附近、近期低點有守住','感覺會漲','朋友說會漲'],0,'理由要寫成「可以被驗證的事實」，事後才能檢查。'),
           J('第 2 欄「失策點」應該寫？',['近期低點 '+lo+' 下方','買進價下跌 10%','不設，看情況'],0,'失策要放在「論點錯了」的地方，而不是固定百分比。'),
-          J('第 3 欄「最大可承受損失」：帳戶 100 萬、單筆最多虧 1%，失策距離約 '+h.fmtN(risk,1)+'%，部位上限大約是？',[h.fmtN(Math.min(100,1/Math.max(risk,0.1)*100),0)+' 萬元','100 萬全部','10 萬元'],0,'部位 = 可承受虧損 ÷ 失策距離 = 1 萬 ÷ '+h.fmtN(risk,1)+'%。'),
+          J('第 3 欄「最大可承受損失」：帳戶 100 萬、單筆最多虧 1%，失策距離約 '+h.fmtN(risk,1)+'%，部位上限大約是？',(function(){var sz=Math.round(Math.min(100,1/Math.max(risk,0.1)*100)),alt=[10,50,30].filter(function(v){return v!==sz;})[0];return[sz+' 萬元','100 萬全部（不管失策）',alt+' 萬元（憑感覺）'];})(),0,'部位 = 可承受虧損 ÷ 失策距離 = 1 萬 ÷ '+h.fmtN(risk,1)+'%。'),
           q('揭曉：之後 20 天 '+h.pct(x.reveal.ret20)+'。回頭看日誌，最該檢討哪一件事？',['照日誌的失策與部位執行了沒有，而不是只看賺賠','只要賺錢就不用檢討','虧錢就代表理由寫錯'],0,'日誌的價值在於找出「重複的錯」：沒照失策走、部位太大、理由太模糊。（'+x.name+'）',{1:'賺錢也可能是過程有問題。',2:'虧錢不一定是理由錯。'},{scene:{type:'candles',title:'揭曉：之後 20 天',real:true,data:h.concat(x.chart,x.reveal.chart),cut:n,lines:[{y:lo,label:'失策'}],vol:false}})]};});}};
 
   // ───────── MODULE 14 綜合畢業實戰 ─────────

@@ -25,5 +25,5 @@
   CT.ORDER=[1,2,3,4,5,51,6, 7,8,9,10,11,52,12, 13,14,15,53,16,17,18,54,55, 19,20,21,22,23,24, 25,26,56,27,28,57,29,30, 31,32,33,58,34,35,36,
             37,38,39,40,41,59,42,43,60,44,61,45,46, 47,48,62,49,63,50];
   // Five product layers after/around the core lessons (see app.0300 for the engines).
-  CT.LAYERS={core:'核心教學',drills:'技能訓練場',mixed:'混合判圖',daily:'逐日實戰',final:'股神畢業考'};
+  CT.LAYERS={core:'核心教學',drills:'技能訓練場',mixed:'混合判圖',daily:'逐日實戰',final:'技術面畢業考'};
 })(window);

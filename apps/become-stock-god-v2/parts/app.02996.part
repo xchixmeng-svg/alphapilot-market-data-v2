@@ -172,7 +172,7 @@ function testReport(){UI.screen='testReport';var a=testState('pre'),b=testState(
     (sa&&sb?'<section class="ckCard"><p>'+(sb.total-sa.total>=15?'進步明顯：你現在判圖的能力和剛開始時已經不一樣。':sb.total-sa.total>0?'有進步，但幅度不大：回訓練場把待複習的能力練到熟。':'沒有進步：這代表練習方式要調整，先看哪個面向沒有提升。')+'</p></section>':'')+
     '<button class="btn primary full" data-act="practiceHome">回到實戰艙</button></main>'+bottomNav('practiceHome');}
 ACT_V5.startPre=function(){startTest('pre');};
-ACT_V5.startPost=function(){if(!retestUnlocked()){toast('完成股神畢業考後開放畢業後測');return;}startTest('post');};
+ACT_V5.startPost=function(){if(!retestUnlocked()){toast('完成技術面畢業考後開放畢業後測');return;}startTest('post');};
 ACT_V5.testReport=function(){go('testReport');};
 
 // ── Layer 4: daily scenarios grouped in sets ──
@@ -188,18 +188,18 @@ var _dailyStartRaw=ACT_V5.dailyStart;ACT_V5.dailyStart=function(el){if(!dailyUnl
 practiceHome=function(){var v=v5State(),core=ORDER_IDS.filter(completed).length,total=ORDER_IDS.length,av=availableDrills().length,pr=S.practice,ex=S.exam,rate=function(o){return o.total?Math.round(o.correct/o.total*100)+'%':'—';},du=dailyUnlocked(),fu=finalUnlocked(),pre=testState('pre'),post=testState('post'),rv=reviewCount(),dd=dailyDone();
   function card(n,title,tag,desc,prog,btn,act,on,cls){return'<section class="ckCard ckArenaCard v5Layer'+(on?'':' locked')+'"><header><span class="v5Step">'+n+'</span><b>'+title+'</b><span class="ckTag'+(cls?' '+cls:'')+'">'+tag+'</span></header><p class="ckMuted">'+desc+'</p>'+prog+'<button class="ckBtn '+(cls==='gold'?'ckGold':'ckCyan')+'" data-act="'+act+'" '+(on?'':'disabled')+'>'+btn+' ›</button></section>';}
   app.innerHTML=scan+hud(true)+'<main class="ckPage ckArena">'+(OPEN_ALL?'<div class="ckCard ckNotice v5TestMode"><span>測試版：全部內容已開放，不需要照順序解鎖。正式版仍會一層一層開放。</span></div>':'')+
-    '<div class="ckArenaHead">'+chickImg(fu&&v.final?'god':'scholar','ckAvatar')+'<div><h1 class="ckPageTitle">實戰艙</h1><p class="ckMuted">起點測驗 → 核心教學 → 技能訓練場 → 混合判圖 → 逐日實戰 → 股神畢業考 → 畢業後測。</p></div></div>'+
+    '<div class="ckArenaHead">'+chickImg(fu&&v.final?'god':'scholar','ckAvatar')+'<div><h1 class="ckPageTitle">實戰艙</h1><p class="ckMuted">起點測驗 → 核心教學 → 技能訓練場 → 混合判圖 → 逐日實戰 → 技術面畢業考 → 畢業後測。</p></div></div>'+
     card(0,'起點測驗',pre.done?'已完成 '+pre.score.total+' 分':'建議先做','10 張陌生圖：判結構、畫支撐、做決策、畫失策。學完再用同難度的另一份測一次，看自己進步多少。','',pre.done?'重做':'開始測驗','startPre',true)+
     card(1,'核心教學','課程','每個能力：教學 → 圖例示範 → 有提示 → 少提示 → 無提示。','<div class="ckXp"><i style="width:'+Math.round(core/total*100)+'%"></i></div><div class="ckArenaStats"><span>已完成 <b>'+core+' / '+total+'</b></span></div>','完整課程','overview',true)+
     card(2,'技能訓練場','第 '+pr.round+' 輪','自己畫支撐壓力、點高低點、畫失策和目標；錯過的能力會在 5、20、60 題後換新圖再考。目前題池 '+av+' 種題型。','<div class="ckXp"><i style="width:'+(pr.idx/4)+'%"></i></div><div class="ckArenaStats"><span>本輪 <b>'+pr.idx+' / 400</b></span><span>答對 <b>'+pr.correct+' / '+pr.total+'</b>（'+rate(pr)+'）</span><span>待複習 <b>'+rv+'</b></span></div>',pr.idx?'繼續訓練':'開始訓練','startPractice',OPEN_ALL||av>=3)+
     card(3,'混合判圖盲測','正式成績','100 張陌生圖，不告訴你題型：結構 → 畫支撐壓力 → 證據 → 是否交易 → 失策與目標，做完揭曉後來 20 天的真實走勢。','<div class="ckXp gold"><i style="width:'+Math.min(100,ex.idx)+'%"></i></div><div class="ckArenaStats"><span>進度 <b>'+Math.min(100,ex.idx)+' / 100</b></span><span>判斷正確 <b>'+ex.correct+' / '+ex.total+'</b>（'+rate(ex)+'）</span></div>',ex.idx>=100?'盲測已完成':ex.idx?'繼續盲測':'開始盲測','startExam',(OPEN_ALL||coreComplete())&&ex.idx<100,'gold')+
     card(4,'逐日實戰',dd+' / '+DAILY_SCENARIOS.length,'真實歷史案例一天一天揭曉，決策品質與最終損益分開評分。完成課程、訓練 60 題、盲測 20 張後開放。','',du?'選擇案例':'尚未開放','dailyOpen',du)+
-    card(5,'股神畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成一組逐日實戰（12 個案例）後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
+    card(5,'技術面畢業考',v.final?'總分 '+v.final.total:'最後一關','完全無提示的陌生圖：判斷、點高低點、畫支撐壓力、決策、進場、失策、R:R、逐日管理持倉。完成一組逐日實戰（12 個案例）後開放。','',v.final?'重考':'開始考試','startFinal',fu,'gold')+
     card(6,'畢業後測',post.done?post.score.total+' 分':'學習成效','和起點測驗同難度的另一份陌生圖，比較前後分數。完成畢業考後開放。','',post.done?'重做':'開始後測','startPost',retestUnlocked())+
     (pre.done||post.done?'<button class="btn ghost full" data-act="testReport">查看學習成效</button>':'')+
     (v.final?'<button class="btn ghost full" data-act="finalReport">查看能力報告</button>':'')+'</main>'+bottomNav('practiceHome');};
 var _v6Render=render;render=function(){if(UI.screen==='testReport')return testReport();return _v6Render();};
-ACT_V5.startFinal=function(){if(!finalUnlocked()){toast('完成一組逐日實戰後才開放股神畢業考');return;}startFinal();};
+ACT_V5.startFinal=function(){if(!finalUnlocked()){toast('完成一組逐日實戰後才開放技術面畢業考');return;}startFinal();};
 
 window.BSG_V6={cases:CASES,clearClass:clearClass,outcome:outcomeOf,review:V5.drills.review,tests:{state:testState,start:startTest,score:testScore},openAll:OPEN_ALL,unlocked:function(id){return unlocked(id);},premiumNeeded:function(id){return premiumNeeded(id);}};
 // keep the test / audit surface pointing at the current rules

@@ -176,6 +176,22 @@ try {
     check(!r.bad.length, '22/23 causality: ' + r.bad.slice(0, 10).join('; '))
     await ctx.close() }
 
+  // 24–27 on every rotation: every case question of every lesson has unique options, a valid answer, feedback; every lesson has cases
+  { const { p, ctx } = await open({ width: 390, height: 844 }, baseSave())
+    const r = await p.evaluate(() => { const B = window.BSG100, bad = [], per = {}
+      for (let id = 64; id <= 100; id++) { const cs = B.allCases(id); per[id] = cs.length; if (!cs.length) bad.push(id + ' has no cases')
+        cs.forEach((c, k) => (c.qs || []).forEach((q, j) => { const tag = id + '#' + k + 'q' + j
+          if (q.info) return
+          if (!Array.isArray(q.options) || q.options.length < 2) bad.push(tag + ' options')
+          else if (new Set(q.options).size !== q.options.length) bad.push(tag + ' duplicate options ' + JSON.stringify(q.options))
+          if (!q.grade && !(q.correct >= 0 && q.correct < q.options.length)) bad.push(tag + ' correct index')
+          const why = typeof q.why === 'function' ? 'fn' : q.why; if (!why) bad.push(tag + ' no feedback')
+          if (typeof q.text !== 'function' && /undefined|NaN/.test(q.text + JSON.stringify(q.options) + (typeof q.why === 'string' ? q.why : ''))) bad.push(tag + ' undefined/NaN in text') })) }
+      return { bad, per } })
+    report.allCases = r.per
+    check(!r.bad.length, '24-27 case questions: ' + r.bad.slice(0, 12).join('; '))
+    await ctx.close() }
+
   // smoke: home -> overview -> lesson -> back -> continue -> reload
   { const { p, ctx, errs } = await open({ width: 390, height: 844 }, baseSave({ completed: [1, 2, 3] }))
     await p.locator('[data-act="overview"]').first().tap(); await p.waitForSelector('.ckOverview')
