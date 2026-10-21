@@ -1,7 +1,23 @@
 {
   "cleanUrls": true,
   "headers": [
-    { "source": "/(index.html)?", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-    { "source": "/(bgm.mp3|landing.webp|app-icon.webp|icon-192.png|icon-512.png|apple-touch-icon.png)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] }
+    {
+      "source": "/(index.html)?",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/(bgm.mp3|landing.webp|app-icon.webp|coach.webp|hero.webp|chick-rookie.webp|chick-scholar.webp|chick-god.webp|icon-192.png|icon-512.png|apple-touch-icon.png)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    }
   ]
 }
