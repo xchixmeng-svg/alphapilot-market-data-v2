@@ -220,7 +220,7 @@
   L[93]={tag:'position_size_error',per:1,takeaway:'分散要分散「風險來源」：同產業五檔常常一起跌，等於沒分散。',
     teach:[['相關性','兩檔股票一起漲跌的程度，越接近 1 越同步。'],['真正的分散','不同產業、不同驅動因素。']],
     cases:function(D,h){return D.map(function(x){var a=x.same,b=x.mixed;
-      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'table',title:'真實資料｜'+h.fmtD(x.from)+'～'+h.fmtD(x.to),real:true,head:['組合','平均相關性','5 檔同一天全跌的天數','最慘一天'],rows:[['A：同產業 5 檔',h.fmtN(a.avgCorr,2),a.allDownDays+' / '+a.days,h.pct(a.worstDayPct,2)],['B：5 個不同產業',h.fmtN(b.avgCorr,2),b.allDownDays+' / '+b.days,h.pct(b.worstDayPct,2)]]}]},
+      return{kind:(typeof x!=='undefined'&&x)?(x.kind||x.env||x.tag||null):null,scene:{type:'multi',parts:[{type:'table',title:'真實資料｜'+h.fmtD(x.from)+'～'+h.fmtD(x.to),real:true,head:['組合','相關性','全跌天數','最慘一天'],rows:[['A 同產業',h.fmtN(a.avgCorr,2),a.allDownDays+'/'+a.days,h.pct(a.worstDayPct,1)],['B 跨產業',h.fmtN(b.avgCorr,2),b.allDownDays+'/'+b.days,h.pct(b.worstDayPct,1)]]}]},
         qs:[q('兩個組合都是 5 檔股票。哪一個真的有分散風險？',['B：不同產業，相關性較低、同時大跌的天數較少','A：5 檔都是好公司','一樣，都是 5 檔'],0,'A 的平均相關性 '+h.fmtN(a.avgCorr,2)+'，5 檔同一天全跌 '+a.allDownDays+' 天；B 只有 '+b.allDownDays+' 天。（A：'+a.names.join('、')+'；B：'+b.names.join('、')+'）',{1:'公司好壞和是否分散是兩件事。',2:'檔數多不等於分散。'})]};});}};
   L[94]={tag:'position_size_error',per:2,takeaway:'把每一筆的失策虧損加起來，才是帳戶真正的總風險。',
     teach:[['單筆風險','這一筆跌到失策時虧多少。'],['總風險','所有部位同時跌到失策時的總虧損；高度相關時很容易同時發生。']],
@@ -300,8 +300,8 @@
         q('4 位置：收盤離 MA20 '+h.pct(dist)+'，上方前高約 '+h.fmtN(hi,2)+'。',['位置舒服（不遠、上方有空間）','位置延伸（離均線太遠）','上方壓力太近'],dist>12?1:room<stopD*1.5?2:0,dist>12?'離 MA20 超過 12%，位置延伸。':room<stopD*1.5?'上方前高的空間不到失策距離的 1.5 倍，壓力太近。':'離均線不遠，上方空間足夠。',null,{grade:function(i){var a=dist>12?1:room<stopD*1.5?2:0;return g('location',i===a,'chasing_error');}}),
         q('5 證據：消息與基本面（見上方）你怎麼使用？',['只用 D0 之前已公開的資訊，當作輔助','新聞越多越好','標題好就加分'],0,'消息與基本面先確認公開時間，再當作輔助證據。',null,{grade:function(i){return g('causality',i===0,'news_causality_error');},scene:{type:'multi',parts:[asofNews(x,h),asofFund(x,h)]}}),
         q('6 是否交易？',['做','觀察','放棄'],bc.call,bc.why,null,{grade:function(i){return g('evidence',i===bc.call,'no_trade_error');},scene:blindScene(x,h,3)}),
-        q('7 失策點放在哪裡？',['近 15 日低點 '+h.fmtN(lo,2)+' 下方','進場價 −3%','不設'],0,'失策放在結構失效的位置：近 15 日低點下方。',null,{grade:function(i){return g('stop',i===0,'invalidation_error');}}),
-        q('8 部位：帳戶 100 萬、單筆最多虧 1%，失策距離 '+h.fmtN(stopD,1)+'%。部位？',['約 '+h.fmtN(Math.min(100,100/Math.max(stopD,0.5)),0)+' 萬','100 萬全押','越看好越多'],0,'部位 = 1 萬 ÷ 失策距離 '+h.fmtN(stopD,1)+'%。',null,{grade:function(i){return g('size',i===0,'position_size_error');}}),
+        q('7 失策點放在哪裡？',['近 15 日低點 '+h.fmtN(lo,2)+' 下方','進場價 −3%','不設'],0,'失策放在結構失效的位置：近 15 日低點下方。',null,{grade:function(i){var o=g('stop',i===0,'invalidation_error'),r=g('risk',i===0);o.risk=r.risk;o._risk=r._risk;return o;}}),
+        q('8 部位：帳戶 100 萬、單筆最多虧 1%，失策距離 '+h.fmtN(stopD,1)+'%。部位？',['約 '+h.fmtN(Math.min(100,100/Math.max(stopD,0.5)),0)+' 萬','100 萬全押','越看好越多'],0,'部位 = 1 萬 ÷ 失策距離 '+h.fmtN(stopD,1)+'%。',null,{grade:function(i){var o=g('size',i===0,'position_size_error'),r=g('risk',i===0);o.risk=r.risk;o._risk=r._risk;return o;}}),
         q('9 進場方式？',['等收盤確認或回測守住再進','現在不管位置直接追','掛很低的價等它跌下來'],dist>12?1:0,'先讓市場確認，不追在延伸的位置。',null,{grade:function(i){return g('chase',i!==1||dist<=4,'chasing_error');}})];
       [5,10,15,20].forEach(function(k){qs.push(q('揭曉到 D+'+k+'：收盤 '+h.fmtN(f.c[k-1],2)+'（'+h.pct((f.c[k-1]/cl-1)*100)+'）'+(act(k).broke?'，期間曾跌破失策 '+h.fmtN(lo,2):'，失策沒有被跌破')+'。你要？',['持有','加碼','減碼','退出','繼續觀察（未持有）'],-1,tradeOk?(act(k).broke?'失策被跌破：照計畫退出。':'失策沒破、理由還在：續抱，或照計畫加碼／減碼。'):(act(k).broke?'原本沒進場；就算有進場也該退出。':'原本判斷不交易：繼續觀察，不因為後來的漲跌改寫當初的判斷。'),null,{
         grade:function(i){var a=act(k),ok=tradeOk?(a.broke?i===3:(i===0||i===1||i===2)):(i===4||(a.broke&&i===3));return g('manage',ok,a.broke?'invalidation_error':'no_trade_error');},
