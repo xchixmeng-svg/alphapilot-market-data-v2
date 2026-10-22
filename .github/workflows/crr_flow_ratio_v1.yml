@@ -1,0 +1,34 @@
+name: CRR Flow-Ratio v1 Validation
+
+on:
+  pull_request:
+    paths:
+      - 'research/crr_flow_ratio_v1.py'
+      - 'research/prereg_crr_flow_ratio_v1.json'
+      - '.github/workflows/crr_flow_ratio_v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install pandas numpy pyarrow requests beautifulsoup4 lxml
+      - name: Run preregistered CRR flow-ratio study
+        run: python research/crr_flow_ratio_v1.py
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crr-flow-ratio-v1-results
+          path: research/out/crr-flow-ratio-v1
+          if-no-files-found: warn
+          retention-days: 14
