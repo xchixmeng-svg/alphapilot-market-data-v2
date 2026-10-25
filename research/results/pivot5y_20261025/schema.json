@@ -1,0 +1,62 @@
+{
+  "2020": [
+    "date",
+    "code",
+    "name",
+    "volume",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "2021": [
+    "date",
+    "code",
+    "name",
+    "volume",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "2022": [
+    "date",
+    "code",
+    "name",
+    "volume",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "2023": [
+    "date",
+    "code",
+    "name",
+    "volume",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "2024": [
+    "date",
+    "code",
+    "name",
+    "volume",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "2025": [
+    "date",
+    "code",
+    "name",
+    "volume",
+    "open",
+    "high",
+    "low",
+    "close"
+  ]
+}
