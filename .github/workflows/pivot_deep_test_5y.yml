@@ -1,0 +1,45 @@
+name: Pivot Engine 5Y Deep Test
+
+on:
+  push:
+    branches:
+      - research/pivot-deep-test-20261025
+    paths:
+      - 'research/pivot5y.py'
+      - '.github/workflows/pivot_deep_test_5y.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install research dependencies
+        run: pip install pandas==2.3.3 numpy==2.3.4 pyarrow==21.0.0
+
+      - name: Run isolated 2020-2025 deep test
+        run: python research/pivot5y.py
+
+      - name: Commit research results to research branch only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/results/pivot5y_20261025
+          if git diff --cached --quiet; then
+            echo "No result changes."
+            exit 0
+          fi
+          git commit -m "research: pivot 5y deep-test results"
+          git push
