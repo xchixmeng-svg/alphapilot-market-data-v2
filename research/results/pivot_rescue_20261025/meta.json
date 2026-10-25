@@ -1,0 +1,20 @@
+{
+  "candidate_signals": 449,
+  "institutional_coverage": 1.0,
+  "modes": [
+    "IMM",
+    "C1",
+    "HIGH1",
+    "HIGH3",
+    "2UP"
+  ],
+  "filters": [
+    "ALL",
+    "F3_POS",
+    "T5_POS",
+    "ALL5_POS",
+    "F3_T5",
+    "F3_OR_T5"
+  ],
+  "note": "All institutional sums use data available through signal date T. Confirmation uses post-signal closes; entry occurs next open, preserving causality."
+}
