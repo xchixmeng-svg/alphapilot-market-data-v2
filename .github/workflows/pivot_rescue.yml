@@ -1,0 +1,28 @@
+name: Pivot Rescue Test
+on:
+  push:
+    branches: [research/pivot-deep-test-20261025]
+    paths:
+      - 'research/pivot_rescue.py'
+      - '.github/workflows/pivot_rescue.yml'
+permissions:
+  contents: write
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas==2.3.3 numpy==2.3.4 pyarrow==21.0.0
+      - run: python research/pivot_rescue.py
+      - shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/results/pivot_rescue_20261025
+          git diff --cached --quiet && exit 0
+          git commit -m "research: pivot rescue test results"
+          git push
