@@ -1,0 +1,45 @@
+{
+  "columns": [
+    "date",
+    "market",
+    "code",
+    "foreign_net",
+    "trust_net",
+    "dealer_net"
+  ],
+  "dtypes": {
+    "date": "int64",
+    "market": "object",
+    "code": "object",
+    "foreign_net": "float64",
+    "trust_net": "float64",
+    "dealer_net": "float64"
+  },
+  "rows": 2355146,
+  "head": [
+    {
+      "date": "20200102",
+      "market": "TPEX",
+      "code": "1240",
+      "foreign_net": "nan",
+      "trust_net": "nan",
+      "dealer_net": "nan"
+    },
+    {
+      "date": "20200102",
+      "market": "TPEX",
+      "code": "1268",
+      "foreign_net": "nan",
+      "trust_net": "nan",
+      "dealer_net": "nan"
+    },
+    {
+      "date": "20200102",
+      "market": "TPEX",
+      "code": "1336",
+      "foreign_net": "nan",
+      "trust_net": "nan",
+      "dealer_net": "nan"
+    }
+  ]
+}
