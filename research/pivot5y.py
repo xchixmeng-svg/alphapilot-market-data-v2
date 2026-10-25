@@ -14,7 +14,7 @@ def norm(x):
     cs=x.columns; mp={'date':col(cs,'date','日期'),'code':col(cs,'code','stock_id','代號'),'name':col(cs,'name','名稱'),'open':col(cs,'open','開盤'),'high':col(cs,'high','最高','max'),'low':col(cs,'low','最低','min'),'close':col(cs,'close','收盤'),'volume':col(cs,'volume','成交量')}
     miss=[k for k,v in mp.items() if k!='name' and v is None]
     if miss: raise ValueError((miss,list(cs)))
-    z=pd.DataFrame({k:(x[v] if v is not None else '') for k,v in mp.items()}); z.date=pd.to_datetime(z.date,errors='coerce'); z.code=z.code.astype(str).str.extract(r'(\d{4})',expand=False)
+    z=pd.DataFrame({k:(x[v] if v is not None else '') for k,v in mp.items()}); ds=z.date.astype(str).str.replace(r'\.0$','',regex=True).str.strip(); z.date=pd.to_datetime(ds,format='%Y%m%d',errors='coerce') if ds.str.fullmatch(r'\d{8}').mean()>.8 else pd.to_datetime(z.date,errors='coerce'); z.code=z.code.astype(str).str.extract(r'(\d{4})',expand=False)
     for c in 'open high low close volume'.split(): z[c]=pd.to_numeric(z[c],errors='coerce')
     z=z.dropna(subset=['date','code','open','high','low','close','volume']); z=z[(z.open>0)&(z.high>0)&(z.low>0)&(z.close>0)&~z.code.str.startswith('00')]
     return z
