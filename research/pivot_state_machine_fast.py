@@ -69,7 +69,8 @@ def enrich(g):
     return g
 
 def out(g,sig,ei):
-    e=float(g.loc[ei,'open']);
+    if ei>=len(g): return None
+    e=float(g.loc[ei,'open'])
     if not np.isfinite(e) or e<=0:return None
     fw=g.iloc[ei:min(ei+30,len(g))]
     if len(fw)==0 or (fw.ret1.abs()>.15).any():return None
@@ -93,6 +94,7 @@ def main():
         g=enrich(rawg); years=g.date.dt.year
         acts=np.where(((years>=2021)&(years<=2025)&(g.ignite|g.break60)).to_numpy())[0]
         for a in acts:
+            if a+1>=len(g): continue
             bactive={b:bool(g.loc[max(0,a-20):a,b].fillna(False).any()) for b in bases}
             if not any(bactive.values()):continue
             modes=chip_modes(inst,g.loc[a,'date'],code)
