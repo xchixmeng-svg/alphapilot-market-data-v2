@@ -1,0 +1,4 @@
+{
+  "riskon": "cross-sectional fraction close>MA20 >=50% AND median 20d stock return >0; evaluated on trigger close, enter next open",
+  "posthoc": true
+}
