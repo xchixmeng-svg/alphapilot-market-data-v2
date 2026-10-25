@@ -1,0 +1,7 @@
+{
+  "history": "2007-2025",
+  "rules": 12,
+  "split": "2021-23/2024/2025",
+  "purpose": "daily-only control for state-machine sequencing; weekly/monthly KD intentionally omitted",
+  "selection_uses_2025": false
+}
