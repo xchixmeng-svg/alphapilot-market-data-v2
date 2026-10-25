@@ -54,21 +54,20 @@ def kd_from_bars(b):
 def period_kd(g,freq):
     q=g.set_index('date').resample(freq).agg(open=('open','first'),high=('high','max'),low=('low','min'),close=('close','last'),volume=('volume','sum')).dropna()
     q=kd_from_bars(q)
-    # strict point-in-time: only completed period values become available in NEXT period
     q[['K','D','gold']]=q[['K','D','gold']].shift(1)
     return q[['K','D','gold']]
 
 def enrich(g):
     g=g.copy().reset_index(drop=True); c,o,h,l,v=g.close,g.open,g.high,g.low,g.volume
     prev=c.shift(1); g['ret1']=c/prev-1
-    for n in [5,10,20,60,120,240,1200,2400]: g[f'ma{n}']=c.rolling(n,min_periods=max(20,int(n*.8))).mean()
+    for n in [5,10,20,60,120,240,1200,2400]:
+        mp=n if n<60 else max(20,int(n*.8))
+        g[f'ma{n}']=c.rolling(n,min_periods=mp).mean()
     g['ma20_up']=g.ma20>g.ma20.shift(5); g['ma60_up']=g.ma60>g.ma60.shift(10); g['ma240_up']=g.ma240>g.ma240.shift(20)
-    # long-horizon price stage, based only on prior/current history
     min5=c.rolling(1200,min_periods=900).min(); max5=c.rolling(1200,min_periods=900).max()
     min10=c.rolling(2400,min_periods=1800).min(); max10=c.rolling(2400,min_periods=1800).max()
     g['pos5']=(c-min5)/(max5-min5).replace(0,np.nan)*100
     g['pos10']=(c-min10)/(max10-min10).replace(0,np.nan)*100
-    # completed weekly/monthly KD mapped to daily by period membership
     wk=period_kd(g,'W-FRI'); mo=period_kd(g,'ME')
     wk_map={p:(r.K,r.D,bool(r.gold) if pd.notna(r.gold) else False) for p,r in wk.iterrows()}
     mo_map={p:(r.K,r.D,bool(r.gold) if pd.notna(r.gold) else False) for p,r in mo.iterrows()}
@@ -77,22 +76,18 @@ def enrich(g):
         wp=dte.to_period('W-FRI').end_time.normalize(); mp=dte.to_period('M').end_time.normalize()
         wvals.append(wk_map.get(wp,(np.nan,np.nan,False))); mvals.append(mo_map.get(mp,(np.nan,np.nan,False)))
     g[['wK','wD','wGold']]=pd.DataFrame(wvals,index=g.index); g[['mK','mD','mGold']]=pd.DataFrame(mvals,index=g.index)
-    # structure windows; all end before today where appropriate
     l1=l.shift(45).rolling(20,min_periods=15).min(); l2=l.shift(8).rolling(25,min_periods=18).min()
     midh=h.shift(25).rolling(20,min_periods=15).max()
     g['W_SETUP']=(np.abs(l1/l2-1)<=0.08) & (midh/np.minimum(l1,l2)-1>=0.07) & (c>g.ma20)
     g['W_BREAK']=g.W_SETUP & (c>midh)
-    # inverse H&S proxy: head lower than two shoulders; neckline break
     ls=l.shift(50).rolling(18,min_periods=12).min(); hd=l.shift(28).rolling(18,min_periods=12).min(); rs=l.shift(8).rolling(16,min_periods=10).min()
     shoulders=(np.abs(ls/rs-1)<=0.10); head_ok=(hd<np.minimum(ls,rs)*0.97)&(hd>np.minimum(ls,rs)*0.78)
     neck=h.shift(8).rolling(42,min_periods=25).max()
     g['IHS_SETUP']=shoulders&head_ok&(c>g.ma20)
     g['IHS_BREAK']=g.IHS_SETUP&(c>neck)
-    # rounding-bottom proxy: long MA60 decline transitions to flat/up, price reclaims MA20; not a proprietary definition
     g['ROUND_TURN']=(g.ma60.shift(20)<g.ma60.shift(40)) & (g.ma60>=g.ma60.shift(10)) & (c>g.ma20) & g.ma20_up
     spread=(pd.concat([g.ma5,g.ma10,g.ma20],axis=1).max(axis=1)-pd.concat([g.ma5,g.ma10,g.ma20],axis=1).min(axis=1))/c
     g['MA_SQUEEZE']=(spread.shift(1)<0.025)&(c>g.ma5)&(c>g.ma10)&(c>g.ma20)&(g.ma5>g.ma5.shift(1))
-    # public-evidence style low-stage states
     g['LT5_MA']=c<=g.ma1200
     g['LT10_MA']=c<=g.ma2400
     g['LT5_POS30']=g.pos5<=30
@@ -105,7 +100,6 @@ def enrich(g):
     g['MO_GOLD_LOW']=g.mGold & (g.mK<=40)
     g['KD_MULTI_LOW']=(g.wK<=30)&(g.mK<=35)
     g['KD_MLOW_WGOLD']=(g.mK<=35)&g.wGold&(g.wK<=45)
-    # MA support/alignment confirmation
     g['MA_SUPPORT']=(c>=g.ma20)&(g.ma60>=g.ma60.shift(10)*0.99)
     g['MA_LONG_OK']=g.ma240_up | (c>=g.ma240)
     return g
