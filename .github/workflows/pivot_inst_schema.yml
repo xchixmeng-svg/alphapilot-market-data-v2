@@ -1,0 +1,28 @@
+name: Pivot Institutional Schema
+on:
+  push:
+    branches: [research/pivot-deep-test-20261025]
+    paths:
+      - 'research/inst_schema.py'
+      - '.github/workflows/pivot_inst_schema.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas==2.3.3 pyarrow==21.0.0
+      - run: python research/inst_schema.py
+      - shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/results/pivot_inst_schema_20261025
+          git diff --cached --quiet && exit 0
+          git commit -m "research: institutional schema result"
+          git push
