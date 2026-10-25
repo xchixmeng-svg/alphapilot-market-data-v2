@@ -1,0 +1,41 @@
+{
+  "base_signals": {
+    "PRE15": 449,
+    "P20": 647
+  },
+  "patterns": [
+    "S_MA60_OK",
+    "S_MA60_TURN",
+    "S_DEDUCT_FLIP",
+    "S_MA60_RETEST",
+    "S_VOL_LEAD",
+    "S_ABSORB",
+    "S_SHAKE_RECOVER",
+    "S_RS_DAY",
+    "S_RS5",
+    "S_BASE40_BREAK",
+    "S_BASE60_BREAK",
+    "REF_MA_SQUEEZE"
+  ],
+  "modifiers": [
+    "NONE",
+    "T5",
+    "T20",
+    "T5T20",
+    "F20",
+    "ALL20"
+  ],
+  "windows": [
+    3,
+    5,
+    10
+  ],
+  "rules_tested": 432,
+  "selected_pre_holdout": 16,
+  "split": {
+    "train": "2021-2023",
+    "validation": "2024",
+    "holdout": "2025"
+  },
+  "notes": "Independent quantitative proxies inspired only by public descriptions: volume-price, accumulation/shakeout, MA60 direction/deduction, low-stage rotation/relative-strength. Not a proprietary-formula reconstruction."
+}
