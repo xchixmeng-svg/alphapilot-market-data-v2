@@ -1,0 +1,15 @@
+{
+  "bases": [
+    "PRE_POS15_K20_S5_REV",
+    "P10",
+    "P20",
+    "K15",
+    "K25",
+    "S4",
+    "S6",
+    "NOREV"
+  ],
+  "fixed_trigger_family": "reclaim MA5/MA10 within 5 sessions AND trust 5-day net >0; enter next open",
+  "purpose": "post-hoc neighborhood robustness after strict-base family emerged; 2025 is no longer pristine for family discovery",
+  "rows": 2918850
+}
