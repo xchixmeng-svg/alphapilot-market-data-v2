@@ -1,0 +1,43 @@
+{
+  "rows": 0,
+  "stocks": 0,
+  "volume_q": [
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN
+  ],
+  "vmed20_q": [
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN
+  ],
+  "close_q": [
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN
+  ],
+  "pos_nonnull": 0,
+  "k_nonnull": 0,
+  "atr_nonnull": 0,
+  "price5": 0,
+  "vmed_ge_200k": 0,
+  "vmed_ge_200": 0,
+  "atr_lt_20pct": 0,
+  "all_200k": 0,
+  "all_200": 0
+}
