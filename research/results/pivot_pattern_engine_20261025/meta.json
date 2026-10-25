@@ -1,0 +1,43 @@
+{
+  "base_signals": {
+    "PRE15": 449,
+    "P20": 647
+  },
+  "patterns": [
+    "P_XIANREN_RAW",
+    "P_XIANREN_RISE",
+    "P_XIANREN_CONFIRM",
+    "P_HAMMER",
+    "P_ENGULF",
+    "P_FALSE_BREAK",
+    "P_INSIDE_BREAK",
+    "P_BOX_BREAK",
+    "P_MA_SQUEEZE",
+    "P_VOL_DRY_REV",
+    "P_SQUEEZE_BREAK",
+    "P_N_BREAK",
+    "P_W_BREAK",
+    "P_RETEST_HOLD",
+    "P_MA_RECLAIM"
+  ],
+  "modifiers": [
+    "NONE",
+    "T5",
+    "F5",
+    "ALL5"
+  ],
+  "windows": [
+    3,
+    5,
+    10
+  ],
+  "rules_tested": 360,
+  "selected_before_holdout": 11,
+  "split": {
+    "train": "2021-2023",
+    "validation": "2024",
+    "holdout": "2025"
+  },
+  "selection_note": "2025 holdout is not used to select rules. Pattern at T is evaluated using data through T only; entry is T+1 open. Forward windows containing >15% one-day jumps are excluded as corporate-action-like anomalies.",
+  "xianren_note": "XIANREN variants are independent quantitative proxies for long-upper-wick / probe behavior; they are not claimed to reproduce any proprietary definition."
+}
