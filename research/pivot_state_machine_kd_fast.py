@@ -39,9 +39,9 @@ def outcome(g,s,e):
  r={'signal_date':g.loc[s,'date'],'entry_date':g.loc[e,'date'],'entry':p}
  for n in [5,10,20,30]:
   w=g.iloc[e:min(e+n,len(g))];r[f'r{n}']=w.iloc[-1].close/p-1;r[f'mfe{n}']=w.high.max()/p-1;r[f'mae{n}']=w.low.min()/p-1
- w=g.iloc[e:min(e+20,len(g))];u=np.where(w.high.to_numpy()>=p*1.10)[0];d=np.where(w.low.to_numpy()<=p*.95)[0];ui=u[0] if len(u) else999;di=d[0] if len(d) else999;r['ft']=1 if ui<di else(-1 if di<ui else0);return r
+ w=g.iloc[e:min(e+20,len(g))];u=np.where(w.high.to_numpy()>=p*1.10)[0];d=np.where(w.low.to_numpy()<=p*.95)[0];ui=u[0] if len(u) else 999;di=d[0] if len(d) else 999;r['ft']=1 if ui<di else(-1 if di<ui else 0);return r
 def modes(I,d,c):
- a,b=I.get((d,c),(np.nan,np.nan));z=['NONE'];
+ a,b=I.get((d,c),(np.nan,np.nan));z=['NONE']
  if np.isfinite(a) and a>0:z.append('T5')
  if np.isfinite(a) and np.isfinite(b) and a>0 and b>0:z.append('T5T20')
  return z
