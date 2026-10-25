@@ -1,0 +1,4 @@
+{
+  "selection": "TRAIN 2021-23 then VAL 2024; HOLD 2025 reported only",
+  "note": "2025 already seen in earlier family work, so this is robustness not pristine discovery"
+}
