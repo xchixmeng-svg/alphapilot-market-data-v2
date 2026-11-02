@@ -1,7 +1,7 @@
 {
   "dataset_version": "AlphaPilot-Data-V3.8",
   "trade_date": "2026-11-02",
-  "generated_at": "2026-11-03T05:57:18.907480+08:00",
+  "generated_at": "2026-11-03T07:08:38.740273+08:00",
   "status": "PASS",
   "sources": {
     "twse_ohlcv": "TWSE dated MI_INDEX",
