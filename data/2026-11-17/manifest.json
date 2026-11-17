@@ -1,0 +1,32 @@
+{
+  "dataset_version": "AlphaPilot-Data-V3.8",
+  "trade_date": "2026-11-17",
+  "generated_at": "2026-11-18T05:00:02.327229+08:00",
+  "status": "PASS",
+  "sources": {
+    "twse_ohlcv": "TWSE dated MI_INDEX",
+    "twse_institutional": "TWSE T86",
+    "tpex_ohlcv": "TPEx dated dailyQuotes / dailyTrade",
+    "tpex_institutional": "TPEx dated dailyQuotes / dailyTrade"
+  },
+  "source_dates": {
+    "twse_ohlcv": "2026-11-17",
+    "twse_institutional": "2026-11-17",
+    "tpex_ohlcv": "2026-11-17",
+    "tpex_institutional": "2026-11-17"
+  },
+  "coverage": {
+    "twse": {
+      "price_codes": 1230,
+      "institutional_codes": 1220,
+      "overlap": 1220,
+      "coverage": 0.991869918699187
+    },
+    "tpex": {
+      "price_codes": 1008,
+      "institutional_codes": 891,
+      "overlap": 891,
+      "coverage": 0.8839285714285714
+    }
+  }
+}
