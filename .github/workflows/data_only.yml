@@ -70,4 +70,6 @@ jobs:
             exit 0
           fi
           git commit -m "data: Taiwan market data ${TRADE_DATE}"
-          git push
+          # 其他工作（例如歷史補抓）可能同時推送，失敗就先合併最新再推，最多 5 次
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep 10; done
+          exit 1
