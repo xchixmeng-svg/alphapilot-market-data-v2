@@ -1,0 +1,47 @@
+name: One-time history backfill (monthly revenue 2013+, TPEx institutional 2020-2025)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/backfill_revenue.py'
+      - 'scripts/backfill_tpex_inst.py'
+      - '.github/workflows/backfill_history.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: history-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        job: [revenue, tpex_inst]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.5 pandas==2.2.3 lxml==5.3.0 pyarrow==18.1.0
+      - name: Run
+        continue-on-error: true
+        run: |
+          if [ "${{ matrix.job }}" = "revenue" ]; then python scripts/backfill_revenue.py 2013; else python scripts/backfill_tpex_inst.py 2020 2025; fi
+      - name: Commit results
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/extra data/history/tpex_institutional_2020_2025 2>/dev/null || true
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "data: history backfill (${{ matrix.job }})"
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep 10; done
+          exit 1
