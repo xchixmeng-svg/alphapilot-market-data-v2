@@ -1,0 +1,12 @@
+{
+ "selfcheck": {
+  "date": "2026-11-17",
+  "matched": 891,
+  "rate": {
+   "foreign_net": 1.0,
+   "trust_net": 1.0,
+   "dealer_net": 1.0
+  }
+ },
+ "errors": []
+}
