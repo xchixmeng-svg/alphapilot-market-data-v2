@@ -1,7 +1,7 @@
 {
   "dataset_version": "AlphaPilot-Data-V3.8",
   "trade_date": "2026-11-19",
-  "generated_at": "2026-11-19T18:05:42.678376+08:00",
+  "generated_at": "2026-11-20T04:43:24.722748+08:00",
   "status": "PASS",
   "sources": {
     "twse_ohlcv": "TWSE dated MI_INDEX",
@@ -18,9 +18,9 @@
   "coverage": {
     "twse": {
       "price_codes": 1232,
-      "institutional_codes": 1217,
-      "overlap": 1217,
-      "coverage": 0.9878246753246753
+      "institutional_codes": 1220,
+      "overlap": 1220,
+      "coverage": 0.9902597402597403
     },
     "tpex": {
       "price_codes": 1006,
