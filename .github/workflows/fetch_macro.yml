@@ -1,0 +1,38 @@
+name: Macro daily (USD/TWD, VIX, US10Y from FRED)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/fetch_macro.py', '.github/workflows/fetch_macro.yml']
+  schedule:
+    - cron: "23 22 * * *"   # 06:23 Taipei（美國前一天的資料已公布）
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macro
+  cancel-in-progress: false
+
+jobs:
+  macro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pandas==2.2.3
+      - run: python scripts/fetch_macro.py
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/extra/macro
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "data: macro (FRED) $(date -u +%F)"
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep 10; done
+          exit 1
