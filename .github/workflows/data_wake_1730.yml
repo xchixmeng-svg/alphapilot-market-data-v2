@@ -1,8 +1,9 @@
-name: Wake data fetch at 17:32 Taipei (no token needed)
+name: Wake data fetch at 18:05 Taipei (no token needed)
 
-# GitHub 排程常延遲幾小時，所以在下午先排幾個「鬧鐘」：哪一個先開始跑，就在機器上等到 17:32，
+# GitHub 排程常延遲幾小時，所以在下午先排幾個「鬧鐘」：哪一個先開始跑，就在機器上等到 18:05，
+# （fetch_today.py 18:00 以後才把「今天」當成已收盤的交易日，2026-11-19 17:32 實測抓到的是前一天，所以改 18:05）
 # 然後用 GitHub 內建的 GITHUB_TOKEN 叫「Taiwan Market Data Only」立刻開始（workflow_dispatch 允許內建金鑰觸發）。
-# 就算三個鬧鐘都晚到 17:32 以後才開始，也是一開始就叫，不會比原本差。今天資料已經在 repo 就不叫。
+# 就算三個鬧鐘都晚到 18:05 以後才開始，也是一開始就叫，不會比原本差。今天資料已經在 repo 就不叫。
 # 公開 repo 的 Actions 免費，等待時間不花錢。
 
 on:
@@ -13,7 +14,7 @@ on:
   schedule:
     - cron: "7 6 * * 1-5"    # 14:07 Taipei
     - cron: "37 7 * * 1-5"   # 15:37 Taipei
-    - cron: "7 9 * * 1-5"    # 17:07 Taipei
+    - cron: "37 9 * * 1-5"   # 17:37 Taipei
 
 permissions:
   contents: read
@@ -31,16 +32,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: .github
-      - name: Wait until 17:32 Taipei, then start the data fetch
+      - name: Wait until 18:05 Taipei, then start the data fetch
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           now=$(TZ=Asia/Taipei date +%s)
-          target=$(TZ=Asia/Taipei date -d "$(TZ=Asia/Taipei date +%F) 17:32" +%s)
+          target=$(TZ=Asia/Taipei date -d "$(TZ=Asia/Taipei date +%F) 18:05" +%s)
           today=$(TZ=Asia/Taipei date +%F)
           wait=$((target - now))
-          echo "台北時間 $(TZ=Asia/Taipei date '+%F %T')，距 17:32 還有 ${wait} 秒"
+          echo "台北時間 $(TZ=Asia/Taipei date '+%F %T')，距 18:05 還有 ${wait} 秒"
           if [ "$wait" -gt 0 ]; then sleep "$wait"; fi
           if curl -sf "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/data/${today}/manifest.json" >/dev/null; then
             echo "今天（${today}）的資料已經在 repo，不用再叫"; exit 0
