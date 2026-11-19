@@ -25,7 +25,7 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 
 def get(url):
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=30) as r:
         b = r.read()
     for enc in ("big5", "cp950", "utf-8"):
         try:
@@ -40,21 +40,22 @@ def num(s):
 
 
 def parse(html):
-    tables = pd.read_html(io.StringIO(html))
+    """每張產業表的資料列：代號, 名稱, 當月營收, 上月營收, 去年當月, 上月比較%, 去年同月%, 當月累計, 去年累計, 前期比較%, 備註
+    （2026-11-19 在台灣網路打開 113 年 1 月上市頁實測：台積電一列正好 11 格，順序如上）。表頭有換行，所以用位置取值。"""
     out = []
-    for t in tables:
-        cols = [" ".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in t.columns]
-        t.columns = cols
-        code = next((c for c in cols if "公司代號" in c), None)
-        cur = next((c for c in cols if "當月營收" in c and "累計" not in c), None)
-        mom = next((c for c in cols if "上月比較" in c), None)
-        yoy = next((c for c in cols if "去年同月" in c), None)
-        if not (code and cur):
+    for t in pd.read_html(io.StringIO(html)):
+        if t.shape[1] < 10:
             continue
-        d = pd.DataFrame({"code": t[code].astype(str).str.strip(), "revenue_thousand": num(t[cur]),
-                          "mom_pct": num(t[mom]) if mom else None, "yoy_pct": num(t[yoy]) if yoy else None})
-        out.append(d[d.code.str.fullmatch(r"\d{4}")])
-    return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
+        v = t.iloc[:, :7].copy()
+        v.columns = ["code", "name", "cur", "prev", "ly", "mom", "yoy"]
+        v["code"] = v["code"].astype(str).str.strip()
+        v = v[v["code"].str.fullmatch(r"\d{4}")]
+        if v.empty:
+            continue
+        out.append(pd.DataFrame({"code": v["code"], "revenue_thousand": num(v["cur"]),
+                                 "mom_pct": num(v["mom"]), "yoy_pct": num(v["yoy"])}))
+    df = pd.concat(out, ignore_index=True).drop_duplicates("code") if out else pd.DataFrame()
+    return df
 
 
 def main(y0=2013, y1=None, sleep=3.0):
@@ -65,6 +66,8 @@ def main(y0=2013, y1=None, sleep=3.0):
     frames = [pd.read_csv(OUT, dtype={"code": str, "period": str, "available_date": str})] if OUT.exists() else []
     log = []
     for y in range(y0, y1 + 1):
+        if log and log[-1].startswith("前 20 次"):
+            break
         for m in range(1, 13):
             if (y, m) >= (now.year, now.month):
                 break
@@ -74,19 +77,17 @@ def main(y0=2013, y1=None, sleep=3.0):
                     continue
                 got = None
                 for host in HOSTS:
-                    rows = []
+                    # _0 頁已「包含國內及國外公司」（2026-11-19 在台灣網路實測確認），不另抓 _1
                     try:
-                        for kind in (0, 1):
-                            html = get(f"{host}/nas/t21/{mk}/t21sc03_{y - 1911}_{m}_{kind}.html")
-                            df = parse(html)
-                            if len(df):
-                                rows.append(df)
-                            time.sleep(sleep)
+                        df = parse(get(f"{host}/nas/t21/{mk}/t21sc03_{y - 1911}_{m}_0.html"))
                     except Exception as e:  # noqa
                         log.append(f"{key} {host}: {type(e).__name__} {e}"[:200])
+                        print(log[-1], flush=True)
+                        time.sleep(sleep)
                         continue
-                    if rows:
-                        got = pd.concat(rows, ignore_index=True)
+                    time.sleep(sleep)
+                    if len(df):
+                        got = df
                         break
                 if got is None or len(got) < 50:
                     log.append(f"{key}: 沒抓到（{0 if got is None else len(got)} 筆）")
@@ -100,9 +101,13 @@ def main(y0=2013, y1=None, sleep=3.0):
                 frames.append(got)
                 done.add(key)
                 print(f"{key}: {len(got)} 家", flush=True)
+            if len(log) >= 20 and not done:  # 一開始連續失敗 20 次 → 多半是被擋，不要空等好幾小時
+                log.append("前 20 次全部失敗，判定此環境連不到觀測站，提早結束")
+                break
             if frames and m % 6 == 0:  # 每半年存一次進度
                 save(frames, done)
-    save(frames, done)
+    if frames:
+        save(frames, done)
     (ROOT / "data" / "extra" / "_status").mkdir(parents=True, exist_ok=True)
     (ROOT / "data" / "extra" / "_status" / "revenue_backfill.json").write_text(
         json.dumps({"months_done": len(done), "errors": log[-200:]}, ensure_ascii=False, indent=1), encoding="utf-8")
