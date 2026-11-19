@@ -7,6 +7,9 @@ name: Wake data fetch at 17:32 Taipei (no token needed)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/data_wake_1730.yml']   # 修改這個檔時當天也會啟動一次（測試用）
   schedule:
     - cron: "7 6 * * 1-5"    # 14:07 Taipei
     - cron: "37 7 * * 1-5"   # 15:37 Taipei
