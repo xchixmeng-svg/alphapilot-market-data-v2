@@ -1,4 +1,4 @@
-name: Macro daily (USD/TWD, VIX, US10Y from FRED)
+name: Macro daily (USD/TWD, TAIEX, VIX, SOX, US10Y)
 
 on:
   workflow_dispatch:

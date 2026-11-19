@@ -1,35 +1,55 @@
 #!/usr/bin/env python3
-"""總經與匯率日資料（美國聯準會 FRED，官方、免金鑰），存 data/extra/macro/{series}.csv（date,value）。
-  DEXTAUS  新台幣兌美元（1 美元可換多少台幣；數字變大 = 台幣貶值）
-  VIXCLS   美國 VIX 恐慌指數
-  DGS10    美國 10 年期公債殖利率
-每次整份覆蓋（FRED 會修正舊值）。"""
-import io, sys, urllib.request
+"""匯率、大盤、恐慌指數日資料，存 data/extra/macro/{name}.csv（date,close）。
+來源：Yahoo Finance 日線（免金鑰；FRED 會擋 GitHub 機器，2026-11-19 實測連線逾時）。
+  TWD    TWD=X   1 美元換多少台幣（數字變大 = 台幣貶值）
+  TAIEX  ^TWII   加權指數
+  VIX    ^VIX    美國 VIX 恐慌指數
+  SOX    ^SOX    費城半導體指數
+  US10Y  ^TNX    美國 10 年期公債殖利率（×1，單位 %）
+每次整份重抓、覆蓋（Yahoo 偶爾修正舊值）。任何一項失敗只記錄，不影響其他項。"""
+import json, sys, time, urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "extra" / "macro"
-SERIES = ["DEXTAUS", "VIXCLS", "DGS10"]
+SYMS = {"TWD": "TWD=X", "TAIEX": "^TWII", "VIX": "^VIX", "SOX": "^SOX", "US10Y": "^TNX"}
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36"}
+
+def yahoo(sym):
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}"
+           f"?period1=946684800&period2={int(time.time())}&interval=1d&includeAdjustedClose=true")
+    for host in ("query1", "query2"):
+        try:
+            req = urllib.request.Request(url.replace("query1", host), headers=UA)
+            j = json.loads(urllib.request.urlopen(req, timeout=30).read())
+            r = j["chart"]["result"][0]
+            ts = r["timestamp"]; q = r["indicators"]["quote"][0]
+            off = r["meta"].get("gmtoffset", 0)
+            df = pd.DataFrame({"date": [datetime.fromtimestamp(t + off, timezone.utc).strftime("%Y-%m-%d") for t in ts],
+                               "open": q["open"], "high": q["high"], "low": q["low"], "close": q["close"]})
+            return df.dropna(subset=["close"]).drop_duplicates("date", keep="last")
+        except Exception as e:  # noqa
+            err = e
+    raise err
 
 def main():
+    import urllib.parse  # noqa
     OUT.mkdir(parents=True, exist_ok=True)
-    bad = 0
-    for s in SERIES:
+    ok = 0
+    for name, sym in SYMS.items():
         try:
-            req = urllib.request.Request(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={s}", headers={"User-Agent": "Mozilla/5.0"})
-            raw = urllib.request.urlopen(req, timeout=60).read().decode()
-            df = pd.read_csv(io.StringIO(raw))
-            df.columns = ["date", "value"]
-            df["value"] = pd.to_numeric(df["value"], errors="coerce")
-            df = df.dropna()
+            df = yahoo(sym)
             if len(df) < 1000:
                 raise RuntimeError(f"只有 {len(df)} 筆")
-            df.to_csv(OUT / f"{s}.csv", index=False)
-            print(f"✅ {s}: {len(df)} 筆 {df.date.iloc[0]}～{df.date.iloc[-1]}")
+            df.to_csv(OUT / f"{name}.csv", index=False)
+            ok += 1
+            print(f"✅ {name} ({sym}): {len(df)} 筆 {df.date.iloc[0]}～{df.date.iloc[-1]} 最新 {df.close.iloc[-1]:.3f}")
         except Exception as e:  # noqa
-            bad += 1
-            print(f"❌ {s}: {e}")
-    sys.exit(1 if bad == len(SERIES) else 0)
+            print(f"❌ {name} ({sym}): {e}")
+        time.sleep(2)
+    sys.exit(0 if ok else 1)
 
 if __name__ == "__main__":
+    import urllib.parse
     main()
