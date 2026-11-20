@@ -15,26 +15,21 @@ H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/
 
 
 def night_session(day):
-    """台指期（TX）近月：日盤、夜盤最後成交價。來源：期交所開放資料 DailyMarketReportFut（最新一個交易日）。"""
-    r = requests.get("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", headers={"accept": "application/json", **H}, timeout=(15, 60))
+    """台指期（TXF）近月夜盤最後成交價與參考價（日盤收盤）。來源：期交所行情網（mis.taifex.com.tw），盤後時段。"""
+    body = {"MarketType": "1", "SymbolType": "F", "KindID": "1", "CID": "TXF", "ExpireMonth": "", "RowSize": "全部",
+            "PageNo": "", "SortColumn": "", "AscDesc": "A"}
+    r = requests.post("https://mis.taifex.com.tw/futures/api/getQuoteList", json=body,
+                      headers={"Content-Type": "application/json", "Referer": "https://mis.taifex.com.tw/futures/", **H}, timeout=(15, 60))
     js = r.json()
-    if not js:
-        raise RuntimeError("開放資料是空的")
-    print("期交所開放資料欄位：", list(js[0].keys()))
-    x = pd.DataFrame(js)
-    col = lambda *names: next(c for c in x.columns if any(n.lower() in c.lower() for n in names))
-    cc, cm, cl, cs = col("Contract"), col("ContractMonth", "Month"), col("Last", "Close"), col("TradingSession", "Session")
-    x = x[(x[cc].astype(str).str.strip() == "TX") & ~x[cm].astype(str).str.contains("/|W", regex=True)].copy()
-    x[cl] = pd.to_numeric(x[cl], errors="coerce")
-    x = x.dropna(subset=[cl])
-    near = sorted(x[cm].astype(str).str.strip().unique())[0]
-    x = x[x[cm].astype(str).str.strip() == near]
-    ses = x[cs].astype(str)
-    dr, nr = x[ses.str.contains("一般|Regular", regex=True)], x[ses.str.contains("盤後|After", regex=True)]
-    print("TX 近月", near, x[[cs, cl]].to_dict("records"))
-    if dr.empty or nr.empty:
-        raise RuntimeError(f"日盤 {len(dr)} 筆、夜盤 {len(nr)} 筆")
-    return float(dr[cl].iloc[0]), float(nr[cl].iloc[0])
+    rows = (js.get("RtData") or {}).get("QuoteList") or []
+    print("行情網筆數", len(rows), rows[:2])
+    rows = [q for q in rows if str(q.get("CLastPrice", "")).strip() not in ("", "-", "0") and "/" not in str(q.get("DispCName", ""))]
+    if not rows:
+        raise RuntimeError("行情網沒有夜盤成交")
+    q = rows[0]                                   # 第一筆是近月
+    last = float(str(q["CLastPrice"]).replace(",", "")); ref = float(str(q["CRefPrice"]).replace(",", ""))
+    print("夜盤", q.get("DispCName"), q.get("CDate"), q.get("CTime"), last, ref)
+    return ref, last
 
 
 def us_last():
