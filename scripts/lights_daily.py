@@ -259,7 +259,7 @@ def main():
     margin_ok = credit_update(recent)
     m, lev = credit()
     try:
-        mrs = maint_ratio(m)
+        mrs = maint_ratio(m, days=150)
     except Exception as e:  # noqa
         print("維持率算不出來：", e); mrs = pd.Series(dtype=float)
 
@@ -331,6 +331,21 @@ def main():
         signal = bool(vix_ok and ((base_sig and margin25) or seq))
     else:
         signal = bool(vix_ok and base_sig)
+    # ---- 預估真底（跌破 20% 那天算一次：(維持率估＋切割線共振區中間)÷2×0.945，歷史誤差約 ±5%）----
+    bottom_est = None
+    s20 = next((k for k in range(h, i + 1) if cv[k] <= cv[h] * 0.80), None)
+    if s20 is not None and pd.Timestamp(D.index[s20]) in mrs.index:
+        cs = float(cv[s20]); Mv = cs * 125 / float(mrs[D.index[s20]])
+        lv = sorted(v for v, _ in fib_levels(c.iloc[:s20 + 1]) if v < cs)
+        zs = []
+        for v in lv:
+            grp = [x for x in lv if abs(x / v - 1) <= 0.015]
+            if len(grp) >= 3: zs.append((min(grp), max(grp), len(grp)))
+        Fv = (lambda z: (z[0] + z[1]) / 2)(max(zs, key=lambda z: (z[2], z[0]))) if zs else (max(lv) if lv else None)
+        if Fv:
+            e = (Mv + Fv) / 2 * 0.945
+            bottom_est = {"date": D.index[s20].strftime("%Y%m%d"), "est": round(e), "lo": round(e * 0.95), "hi": round(e * 1.05),
+                          "maint_est": round(Mv), "fib_mid": round(Fv)}
     f10 = fn.rolling(10).sum()
     f10q = f10.iloc[max(0, i - 499):i + 1].quantile(0.10)
     foreign_heavy = bool(f10.iloc[i] <= f10q)
@@ -392,7 +407,7 @@ def main():
                    "⚪ 不在切割線（上 " + "／".join(f"{v:,.0f}" for v, _ in above) + "　下 " + "／".join(f"{v:,.0f}" for v, _ in below) + "）"),
         f"輔助：恐慌 {on(panic)}　個股背離 {dv(div_stock)}　匯率背離 {dv(div_twd)}　VIX 背離 {dv(div_vix)}",
         f"　（站上 20 日線 {r.br*100:.0f}%｜台幣 {r.twd:.3f}｜VIX {r.vix:.1f}）" + ("" if newlow else "　今天沒創新低，背離不適用"),
-        (f"　融資維持率 {mrs.iloc[-1]:.0f}%（{mrs.index[-1]:%m/%d}，5 天前 {mrs.iloc[-6]:.0f}%，近 30 天最低 {mrs.min():.0f}%；過去大跌真底多在 120～131）"
+        (f"　融資維持率 {mrs.iloc[-1]:.0f}%（{mrs.index[-1]:%m/%d}，5 天前 {mrs.iloc[-6]:.0f}%，近 30 天最低 {mrs.iloc[-30:].min():.0f}%；過去大跌真底多在 120～131）"
          if len(mrs) >= 6 else "　融資維持率：資料不足"),
         "",
         "燈號組合解讀",
@@ -406,6 +421,9 @@ def main():
     if sw:
         lines.append(f"• 抓底條件：主燈 {on(L_margin or L_inst)} 切割線 {on(bool(near))} 恐慌過 {on(panic20)} 台幣守住 {on(twd_ok)} VIX≥25 {on(vix_ok)}（{D.vix_us.iloc[i]:.1f}）"
                      + (f" 融資少25% {on(margin25)}（{m_dd*100:.0f}%）順序規則 {on(seq)}" if ev_type == "慢跌型" else ""))
+    if bottom_est:
+        lines.append(f"• 預估真底 約 {bottom_est['est']:,}（±5%：{bottom_est['lo']:,}～{bottom_est['hi']:,}）"
+                     f"，{bottom_est['date'][4:6]}/{bottom_est['date'][6:]} 跌破 20% 時算：維持率估 {bottom_est['maint_est']:,}、切割線 {bottom_est['fib_mid']:,}")
     if signal: lines.append("• 🎯 抓底訊號成立：下個交易日開盤進場，不停損")
     elif sw: lines.append("• 抓底訊號未出現")
     if not margin_ok:
@@ -434,6 +452,7 @@ def main():
                       "vix_ok": vix_ok, "margin25": margin25, "seq": seq, "foreign_heavy": foreign_heavy},
            "event_type": ev_type, "vix_us": round(float(D.vix_us.iloc[i]), 1),
            "maint_ratio": (round(float(mrs.iloc[-1]), 1) if len(mrs) else None),
+           "bottom_est": bottom_est,
            "maint_ratio_date": (mrs.index[-1].strftime("%Y%m%d") if len(mrs) else None),
            "scenario": dict(zip(["fast", "deeper", "bear"], map(int, ps))), "state": st}
     (OUT / f"{ymd}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
