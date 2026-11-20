@@ -262,6 +262,12 @@ def main():
     today = now.strftime("%Y-%m-%d")
     if today > day and pd.Timestamp(today) in tx.index and fetch_today_prices(today):
         day = today
+    # 過了午夜或完整資料還沒進來：用已抓到的當天收盤價（_today）中最新、且 TAIEX 有資料的那天
+    if TODAY.exists():
+        for f in sorted(TODAY.glob("*.csv")):
+            d2 = f"{f.stem[:4]}-{f.stem[4:6]}-{f.stem[6:]}"
+            if d2 > day and pd.Timestamp(d2) in tx.index:
+                day = d2
     ymd = day.replace("-", "")
     T = pd.Timestamp(day)
     if T not in tx.index:
