@@ -13,9 +13,13 @@ OUT = ROOT / "data" / "history" / "taifex" / "raw"
 OUT.mkdir(parents=True, exist_ok=True)
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36",
      "Referer": "https://www.taifex.com.tw/cht/3/futContractsDate"}
-y0 = int(sys.argv[1]) if len(sys.argv) > 1 else 2008
 today = date.today()
-months = [(y, m) for y in range(y0, today.year + 1) for m in range(1, 13) if date(y, m, 1) <= today]
+if len(sys.argv) > 1 and sys.argv[1] == "recent":     # 每天用：只更新這個月和上個月
+    pm = (today.year - (today.month == 1), (today.month - 2) % 12 + 1)
+    months = [pm, (today.year, today.month)]
+else:
+    y0 = int(sys.argv[1]) if len(sys.argv) > 1 else 2008
+    months = [(y, m) for y in range(y0, today.year + 1) for m in range(1, 13) if date(y, m, 1) <= today]
 URL = {"fut": "https://www.taifex.com.tw/cht/3/futContractsDateDown",
        "pc": "https://www.taifex.com.tw/cht/3/pcRatioDown"}
 shown = set()
@@ -24,7 +28,7 @@ for y, m in months:
     last = min(today, date.fromordinal(end.toordinal() - 1))
     for kind, url in URL.items():
         f = OUT / f"{kind}_{y}{m:02d}.csv"
-        if f.exists() and f.stat().st_size > 200 and (y, m) != (today.year, today.month):
+        if f.exists() and f.stat().st_size > 200 and b"DOCTYPE" not in f.read_bytes()[:80] and (y, m) != (today.year, today.month):
             continue
         data = {"queryStartDate": f"{y}/{m:02d}/01", "queryEndDate": last.strftime("%Y/%m/%d")}
         if kind == "fut": data["commodityId"] = "TXF"

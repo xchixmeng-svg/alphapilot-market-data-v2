@@ -31,6 +31,10 @@ jobs:
       - name: Refresh macro (TAIEX/TWD/VIX)
         continue-on-error: true
         run: python scripts/fetch_macro.py
+      - name: Refresh TAIFEX (外資台指期未平倉、P/C 比)
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python -u scripts/backfill_taifex.py recent
       - name: Lights
         run: python scripts/lights_daily.py
       - name: Commit
@@ -38,7 +42,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f data/extra/lights data/extra/macro data/history/credit
+          git add -f data/extra/lights data/extra/macro data/history/credit data/history/taifex
           git diff --cached --quiet && { echo "nothing new"; exit 0; }
           git commit -m "data: daily lights $(TZ=Asia/Taipei date +%F_%H%M)"
           for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep 10; done

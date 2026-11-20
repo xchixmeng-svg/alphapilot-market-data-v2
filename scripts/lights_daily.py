@@ -179,6 +179,20 @@ def credit():
     return m.sort_index(), lev.sort_index()
 
 
+def taifex_foreign():
+    """外資台指期（TXF）多空未平倉口數淨額，讀 data/history/taifex/raw/fut_*.csv 最近幾個月。"""
+    import io
+    rows = []
+    for f in sorted((DATA / "history" / "taifex" / "raw").glob("fut_*.csv"))[-3:]:
+        t = f.read_bytes().decode("big5", "replace")
+        if "DOCTYPE" in t[:80]:
+            continue
+        x = pd.read_csv(io.StringIO(t), index_col=False)
+        x = x[x["身份別"].astype(str).str.contains("外資")]
+        rows.append(pd.Series(x["多空未平倉口數淨額"].astype(float).values, index=pd.to_datetime(x["日期"])))
+    return pd.concat(rows).sort_index() if rows else pd.Series(dtype=float)
+
+
 def maint_ratio(m, days=30):
     """大盤融資維持率（估算）＝ Σ 個股融資張數×1000×收盤價 ÷ 上市融資金額。回傳最近 days 天。"""
     yrs = sorted(CREDIT.glob("stock_margin_*.parquet"))[-1:]
@@ -258,6 +272,10 @@ def main():
     recent = [d.strftime("%Y%m%d") for d in tx.index[tx.index <= T][-8:]]
     margin_ok = credit_update(recent)
     m, lev = credit()
+    try:
+        fut = taifex_foreign()
+    except Exception as e:  # noqa
+        print("外資台指期讀不到：", e); fut = pd.Series(dtype=float)
     try:
         mrs = maint_ratio(m, days=150)
     except Exception as e:  # noqa
@@ -403,6 +421,8 @@ def main():
         f"　（站上 20 日線 {r.br*100:.0f}%｜台幣 {r.twd:.3f}｜VIX {r.vix:.1f}）" + ("" if newlow else "　今天沒創新低，背離不適用"),
         (f"　融資維持率 {mrs.iloc[-1]:.0f}%（{mrs.index[-1]:%m/%d}，5 天前 {mrs.iloc[-6]:.0f}%，近 30 天最低 {mrs.iloc[-30:].min():.0f}%；過去大跌真底多在 120～131）"
          if len(mrs) >= 6 else "　融資維持率：資料不足"),
+        (f"　外資台指期淨{'空' if fut.iloc[-1] < 0 else '多'}單 {abs(fut.iloc[-1]):,.0f} 口（{fut.index[-1]:%m/%d}，5 天前 {abs(fut.iloc[-6]):,.0f}；"
+         f"2024、2025 見底時約 3～4 萬口且在回補）" if len(fut) >= 6 else "　外資台指期：資料不足"),
         "",
         "燈號組合解讀",
     ]
@@ -447,6 +467,7 @@ def main():
            "event_type": ev_type, "vix_us": round(float(D.vix_us.iloc[i]), 1),
            "maint_ratio": (round(float(mrs.iloc[-1]), 1) if len(mrs) else None),
            "bottom_est": bottom_est,
+           "foreign_fut_net": (int(fut.iloc[-1]) if len(fut) else None),
            "maint_ratio_date": (mrs.index[-1].strftime("%Y%m%d") if len(mrs) else None),
            "scenario": dict(zip(["fast", "deeper", "bear"], map(int, ps))), "state": st}
     (OUT / f"{ymd}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))

@@ -2,11 +2,6 @@ name: One-time backfill (TAIFEX futures OI + P/C ratio)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/backfill_taifex.py'
-      - '.github/workflows/backfill_taifex.yml'
 
 permissions:
   contents: write
