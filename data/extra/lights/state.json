@@ -1,0 +1,14 @@
+{
+ "state": "cash",
+ "stop": 37737,
+ "entry_date": "2026-11-11",
+ "entry_px": 43135,
+ "last_date": "2026-11-20",
+ "base": {
+  "state": "bottom",
+  "stop": 37737,
+  "entry_date": "2026-11-11",
+  "entry_px": 43135,
+  "last_date": "2026-11-19"
+ }
+}
