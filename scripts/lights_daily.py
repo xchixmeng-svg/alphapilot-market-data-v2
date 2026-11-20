@@ -340,6 +340,9 @@ def main():
         e = float(ma240.iloc[s20]) * 0.764
         bottom_est = {"date": D.index[s20].strftime("%Y%m%d"), "est": round(e), "lo": round(e * 0.97), "hi": round(e * 1.03),
                       "ma240": round(float(ma240.iloc[s20]))}
+    f10 = fn.rolling(10).sum()
+    f10q = f10.iloc[max(0, i - 499):i + 1].quantile(0.10)
+    foreign_heavy = bool(f10.iloc[i] <= f10q)
 
     # ---- 系統部位（整合版狀態機，每天只處理一次）----
     OUT.mkdir(parents=True, exist_ok=True)
