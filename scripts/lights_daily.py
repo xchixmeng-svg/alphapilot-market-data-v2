@@ -42,6 +42,53 @@ def macro(name):
     return s
 
 
+TODAY = OUT / "_today"
+
+
+def fetch_today_prices(day):
+    """收盤後直接向證交所／櫃買中心抓當天收盤價（不等晚上的完整流程）。存 data/extra/lights/_today/。"""
+    import csv, io, requests
+    ymd = day.replace("-", "")
+    TODAY.mkdir(parents=True, exist_ok=True)
+    f = TODAY / f"{ymd}.csv"
+    if f.exists():
+        return True
+    H = {"User-Agent": "Mozilla/5.0", "Accept": "application/json,text/plain,*/*"}
+    rows = []
+    try:
+        j = requests.get("https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
+                         params={"date": ymd, "type": "ALLBUT0999", "response": "json"}, headers=H, timeout=(15, 60)).json()
+        for t in j.get("tables") or []:
+            fl = t.get("fields") or []
+            if "證券代號" in fl and "收盤價" in fl and "成交金額" in fl:
+                a, b, v = fl.index("證券代號"), fl.index("收盤價"), fl.index("成交金額")
+                for r in t.get("data") or []:
+                    try:
+                        rows.append((day, str(r[a]).strip(), float(str(r[b]).replace(",", "")), float(str(r[v]).replace(",", ""))))
+                    except ValueError:
+                        pass
+        roc = f"{int(ymd[:4]) - 1911:03d}/{ymd[4:6]}/{ymd[6:]}"
+        x = requests.get("https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes",
+                         params={"date": roc, "response": "csv"}, headers=H, timeout=(15, 60)).content.decode("cp950")
+        lines = x.splitlines()
+        if len(lines) > 3 and roc in lines[1]:
+            for r in csv.DictReader(io.StringIO("\n".join(lines[2:]))):
+                try:
+                    code = str(r.get("代號", "")).strip(); cl = float(str(r.get("收盤", "")).replace(",", ""))
+                    val = float(str(r.get("成交金額(元)", r.get("成交金額", ""))).replace(",", ""))
+                    rows.append((day, code, cl, val))
+                except (ValueError, TypeError):
+                    pass
+    except Exception as e:  # noqa
+        print("當天收盤價抓不到：", e)
+    if len(rows) < 1500:
+        print(f"當天收盤價不足（{len(rows)} 筆），先不用")
+        return False
+    pd.DataFrame(rows, columns=["trade_date", "stock_id", "close", "trading_value"]).to_csv(f, index=False)
+    print(f"當天收盤價 {len(rows)} 筆")
+    return True
+
+
 def breadth(days=90):
     ds = sorted(p.name for p in DATA.glob("20??-??-??") if (p / "normalized" / "twse_ohlcv.csv").exists())[-days:]
     rows = []
@@ -52,6 +99,10 @@ def breadth(days=90):
                 x = pd.read_csv(f, dtype={"stock_id": str}, encoding="utf-8-sig",
                                 usecols=["trade_date", "stock_id", "close", "trading_value"])
                 rows.append(x)
+    for f in sorted(TODAY.glob("*.csv")) if TODAY.exists() else []:
+        d = f.stem[:4] + "-" + f.stem[4:6] + "-" + f.stem[6:]
+        if d > (ds[-1] if ds else ""):
+            rows.append(pd.read_csv(f, dtype={"stock_id": str}))
     z = pd.concat(rows)
     z = z[z.stock_id.str.fullmatch(r"\d{4}")]
     px = z.pivot_table(index="trade_date", columns="stock_id", values="close")
@@ -155,10 +206,18 @@ def fib_levels(close):
 
 # ---------- 主程式 ----------
 def main():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("Asia/Taipei"))
+    stage = sys.argv[1] if len(sys.argv) > 1 else ("evening" if now.hour >= 21 or now.hour < 6 else
+                                                     "data" if now.hour >= 17 else "afternoon" if now.hour >= 16 else "early")
     day = latest_day()
+    tx = macro("TAIEX")
+    today = now.strftime("%Y-%m-%d")
+    if today > day and pd.Timestamp(today) in tx.index and fetch_today_prices(today):
+        day = today
     ymd = day.replace("-", "")
     T = pd.Timestamp(day)
-    tx = macro("TAIEX")
     if T not in tx.index:
         print(f"TAIEX 還沒有 {day} 的資料，停止"); sys.exit(0)
     tw = macro("TWD").close
@@ -262,7 +321,7 @@ def main():
         "",
         "底燈",
         f"主燈：融資 {on(L_margin)}（融資減幅 {m_dd*100:.0f}% vs 大盤 {r.dd*100:.0f}%，正2 融資 5 日 {lev5*100:+.0f}%）",
-        f"　　　法人 {on(L_inst)}（外資 {fn.iloc[i]:+,.0f} 億，10 天最大賣超 {fmin10:,.0f} 億）",
+        (f"　　　法人 {on(L_inst)}（外資 {fn.iloc[i]:+,.0f} 億，10 天最大賣超 {fmin10:,.0f} 億）" if fn.iloc[i] == fn.iloc[i] else "　　　法人 ⚪（今天外資數字約 15:00 公布）"),
         "位置：" + ("🟢 在切割線 " + "、".join(f"{v:,.0f}" for v, _ in near) if near else
                    "⚪ 不在切割線（上 " + "／".join(f"{v:,.0f}" for v, _ in above) + "　下 " + "／".join(f"{v:,.0f}" for v, _ in below) + "）"),
         f"輔助：恐慌 {on(panic)}　個股背離 {dv(div_stock)}　匯率背離 {dv(div_twd)}　VIX 背離 {dv(div_vix)}",
@@ -284,7 +343,19 @@ def main():
     lines += [f"最有機會：{best}", "", f"系統部位：{pos_txt}" + (f"\n⚠️ {action}" if action else "")]
     text = "\n".join(lines)
 
-    res = {"date": ymd, "text": text, "margin_ok": bool(margin_ok), "signal": signal, "switch": bool(sw), "green": g,
+    prev = {}
+    if (OUT / "latest.json").exists():
+        try:
+            prev = json.loads((OUT / "latest.json").read_text())
+        except Exception:  # noqa
+            prev = {}
+    key = {"money": bool(L_money), "people": bool(L_people), "price": bool(L_price), "margin": L_margin, "inst": L_inst,
+           "div_stock": bool(div_stock), "div_twd": bool(div_twd), "signal": signal, "action": action}
+    changed = prev.get("date") != ymd or prev.get("key") != key
+    notify = stage in ("early", "afternoon") or changed
+    stamp = {"early": "14:40 初版", "afternoon": "16:10 加外資／台幣", "data": "晚間完整股價", "evening": "21:40 加融資"}.get(stage, stage)
+    text = text.replace("\n\n開關", f"（{stamp}）\n\n開關", 1)
+    res = {"date": ymd, "stage": stage, "notify": bool(notify), "key": key, "text": text, "margin_ok": bool(margin_ok), "signal": signal, "switch": bool(sw), "green": g,
            "lights": {"money": bool(L_money), "people": bool(L_people), "price": bool(L_price), "margin": L_margin,
                       "inst": L_inst, "panic": bool(panic), "div_stock": bool(div_stock), "div_twd": bool(div_twd),
                       "div_vix": bool(div_vix), "near_fib": bool(near)},

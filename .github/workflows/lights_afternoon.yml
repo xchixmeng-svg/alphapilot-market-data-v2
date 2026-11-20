@@ -1,0 +1,54 @@
+name: Afternoon lights (14:40 / 16:10)
+
+# GitHub 的排程常常延遲，所以提早叫醒、在機器上等到準確時間再跑（同 data_wake_1730 的做法）。
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 5 * * 1-5"    # 13:07 台北
+    - cron: "37 5 * * 1-5"   # 13:37 台北（備援）
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lights-pm
+  cancel-in-progress: false
+
+jobs:
+  pm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.5 pandas==2.2.3 pyarrow==18.1.0
+      - name: Two passes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          today=$(TZ=Asia/Taipei date +%Y%m%d)
+          wait_until() { while [ "$(TZ=Asia/Taipei date +%H%M)" -lt "$1" ]; do sleep 30; done; }
+          commit() {
+            git add -f data/extra/lights data/extra/macro data/history/credit
+            git diff --cached --quiet && return 0
+            git commit -q -m "data: lights $1 $(TZ=Asia/Taipei date +%F_%H%M)"
+            for i in 1 2 3 4 5; do git pull --rebase -q && git push -q && return 0; sleep 10; done
+          }
+          done_stage() { python3 -c "import json,sys;d=json.load(open('data/extra/lights/latest.json'));sys.exit(0 if d.get('date')=='$today' and d.get('stage')=='$1' else 1)" 2>/dev/null; }
+          git pull -q --rebase || true
+          if done_stage afternoon; then echo "今天下午兩次都跑過了"; exit 0; fi
+          if [ "$(TZ=Asia/Taipei date +%H%M)" -lt 1600 ] && ! done_stage early; then
+            wait_until 1440
+            git pull -q --rebase || true
+            python scripts/fetch_macro.py || true
+            python scripts/lights_daily.py early || true
+            commit early || true
+          fi
+          wait_until 1610
+          git pull -q --rebase || true
+          python scripts/fetch_macro.py || true
+          python scripts/lights_daily.py afternoon || true
+          commit afternoon || true
