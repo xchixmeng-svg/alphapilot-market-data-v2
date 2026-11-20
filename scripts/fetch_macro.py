@@ -6,7 +6,7 @@
   VIX    ^VIX    美國 VIX 恐慌指數
   SOX    ^SOX    費城半導體指數
   US10Y  ^TNX    美國 10 年期公債殖利率（×1，單位 %）
-每次整份重抓、覆蓋（Yahoo 偶爾修正舊值）。任何一項失敗只記錄，不影響其他項。"""
+每次整份重抓（Yahoo 偶爾修正舊值），舊檔有、新資料沒有的日期保留。任何一項失敗只記錄，不影響其他項。"""
 import json, sys, time, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,7 +42,11 @@ def main():
             df = yahoo(sym)
             if len(df) < 1000:
                 raise RuntimeError(f"只有 {len(df)} 筆")
-            df.to_csv(OUT / f"{name}.csv", index=False)
+            f = OUT / f"{name}.csv"
+            if f.exists():   # Yahoo 跨日時偶爾少給最後一天：保留舊檔裡新資料沒有的日期
+                old = pd.read_csv(f, dtype={"date": str})
+                df = pd.concat([df, old[~old.date.isin(df.date)]]).sort_values("date").reset_index(drop=True)
+            df.to_csv(f, index=False)
             ok += 1
             print(f"✅ {name} ({sym}): {len(df)} 筆 {df.date.iloc[0]}～{df.date.iloc[-1]} 最新 {df.close.iloc[-1]:.3f}")
         except Exception as e:  # noqa
