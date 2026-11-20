@@ -1,2 +1,3 @@
 # 原始下載檔不進 repo（每天約 3.3MB，一年 1GB+）；整理好的 normalized/ 照常保存
 data/20??-??-??/raw/
+__pycache__/
