@@ -179,6 +179,31 @@ def credit():
     return m.sort_index(), lev.sort_index()
 
 
+def maint_ratio(m, days=30):
+    """大盤融資維持率（估算）＝ Σ 個股融資張數×1000×收盤價 ÷ 上市融資金額。回傳最近 days 天。"""
+    yrs = sorted(CREDIT.glob("stock_margin_*.parquet"))[-1:]
+    sm = pd.concat([pd.read_parquet(f) for f in yrs])
+    sm = sm[sm.margin_bal > 0]
+    sm["d"] = pd.to_datetime(sm.date.astype(str))
+    keep = sorted(sm.d.unique())[-days:]
+    sm = sm[sm.d.isin(keep)]
+    rows = []
+    for d in keep:
+        ds = pd.Timestamp(d).strftime("%Y-%m-%d")
+        f = DATA / ds / "normalized" / "twse_ohlcv.csv"
+        if f.exists():
+            x = pd.read_csv(f, dtype={"stock_id": str}, encoding="utf-8-sig", usecols=["stock_id", "close"])
+        elif (TODAY / f"{ds.replace('-', '')}.csv").exists():
+            x = pd.read_csv(TODAY / f"{ds.replace('-', '')}.csv", dtype={"stock_id": str}, usecols=["stock_id", "close"])
+        else:
+            continue
+        j = sm[sm.d == d].merge(x, left_on="code", right_on="stock_id")
+        if len(j) < 500 or pd.Timestamp(d) not in m.index:
+            continue
+        rows.append((pd.Timestamp(d), (j.margin_bal * 1000 * j.close).sum() / (m.loc[pd.Timestamp(d), "margin_bal_k"] * 1000) * 100))
+    return pd.Series(dict(rows)).sort_index()
+
+
 # ---------- 切割線 ----------
 def zigzag(c, th):
     piv, mode, h, l = [], 0, 0, 0
@@ -233,6 +258,10 @@ def main():
     recent = [d.strftime("%Y%m%d") for d in tx.index[tx.index <= T][-8:]]
     margin_ok = credit_update(recent)
     m, lev = credit()
+    try:
+        mrs = maint_ratio(m)
+    except Exception as e:  # noqa
+        print("維持率算不出來：", e); mrs = pd.Series(dtype=float)
 
     D = tx[["open", "high", "low", "close"]].copy()
     D = D[D.index <= T]
@@ -365,6 +394,8 @@ def main():
                    "⚪ 不在切割線（上 " + "／".join(f"{v:,.0f}" for v, _ in above) + "　下 " + "／".join(f"{v:,.0f}" for v, _ in below) + "）"),
         f"輔助：恐慌 {on(panic)}　個股背離 {dv(div_stock)}　匯率背離 {dv(div_twd)}　VIX 背離 {dv(div_vix)}",
         f"　（站上 20 日線 {r.br*100:.0f}%｜台幣 {r.twd:.3f}｜VIX {r.vix:.1f}）" + ("" if newlow else "　今天沒創新低，背離不適用"),
+        (f"　融資維持率 {mrs.iloc[-1]:.0f}%（{mrs.index[-1]:%m/%d}，5 天前 {mrs.iloc[-6]:.0f}%，近 30 天最低 {mrs.min():.0f}%；過去大跌真底多在 120～131）"
+         if len(mrs) >= 6 else "　融資維持率：資料不足"),
         "",
         "燈號組合解讀",
     ]
@@ -377,7 +408,7 @@ def main():
     if sw:
         lines.append(f"• 抓底條件：主燈 {on(L_margin or L_inst)} 切割線 {on(bool(near))} 恐慌過 {on(panic20)} 台幣守住 {on(twd_ok)} VIX≥25 {on(vix_ok)}（{D.vix_us.iloc[i]:.1f}）"
                      + (f" 融資少25% {on(margin25)}（{m_dd*100:.0f}%）順序規則 {on(seq)}" if ev_type == "慢跌型" else ""))
-    if signal: lines.append("• ⛔ 抓底訊號成立")
+    if signal: lines.append("• 🎯 抓底訊號成立：下個交易日開盤進場，不停損")
     elif sw: lines.append("• 抓底訊號未出現")
     if not margin_ok:
         lines.append("• 今天的融資資料約 21:00 公布，融資燈先用昨天的數字，22:00 會再推一次完整版")
@@ -404,6 +435,8 @@ def main():
                       "div_vix": bool(div_vix), "near_fib": bool(near), "panic20": panic20, "twd_ok": twd_ok,
                       "vix_ok": vix_ok, "margin25": margin25, "seq": seq, "foreign_heavy": foreign_heavy},
            "event_type": ev_type, "vix_us": round(float(D.vix_us.iloc[i]), 1),
+           "maint_ratio": (round(float(mrs.iloc[-1]), 1) if len(mrs) else None),
+           "maint_ratio_date": (mrs.index[-1].strftime("%Y%m%d") if len(mrs) else None),
            "scenario": dict(zip(["fast", "deeper", "bear"], map(int, ps))), "state": st}
     (OUT / f"{ymd}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
     (OUT / "latest.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
