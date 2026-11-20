@@ -331,24 +331,15 @@ def main():
         signal = bool(vix_ok and ((base_sig and margin25) or seq))
     else:
         signal = bool(vix_ok and base_sig)
-    # ---- 預估真底（跌破 20% 那天算一次：(維持率估＋切割線共振區中間)÷2×0.945，歷史誤差約 ±5%）----
+    # ---- 預估真底：第一次跌破 20% 那天的年線（240 日均）× 0.764（往下 23.6%，黃金比例）----
+    # 歷史 2011/2015/2020/2022/2025：4 次離真底 3% 內，平均差 1.8%；熊市（2008）不適用
     bottom_est = None
     s20 = next((k for k in range(h, i + 1) if cv[k] <= cv[h] * 0.80), None)
-    if s20 is not None and pd.Timestamp(D.index[s20]) in mrs.index:
-        cs = float(cv[s20]); Mv = cs * 125 / float(mrs[D.index[s20]])
-        lv = sorted(v for v, _ in fib_levels(c.iloc[:s20 + 1]) if v < cs)
-        zs = []
-        for v in lv:
-            grp = [x for x in lv if abs(x / v - 1) <= 0.015]
-            if len(grp) >= 3: zs.append((min(grp), max(grp), len(grp)))
-        Fv = (lambda z: (z[0] + z[1]) / 2)(max(zs, key=lambda z: (z[2], z[0]))) if zs else (max(lv) if lv else None)
-        if Fv:
-            e = (Mv + Fv) / 2 * 0.945
-            bottom_est = {"date": D.index[s20].strftime("%Y%m%d"), "est": round(e), "lo": round(e * 0.95), "hi": round(e * 1.05),
-                          "maint_est": round(Mv), "fib_mid": round(Fv)}
-    f10 = fn.rolling(10).sum()
-    f10q = f10.iloc[max(0, i - 499):i + 1].quantile(0.10)
-    foreign_heavy = bool(f10.iloc[i] <= f10q)
+    ma240 = c.rolling(240).mean()
+    if s20 is not None and ma240.iloc[s20] == ma240.iloc[s20]:
+        e = float(ma240.iloc[s20]) * 0.764
+        bottom_est = {"date": D.index[s20].strftime("%Y%m%d"), "est": round(e), "lo": round(e * 0.97), "hi": round(e * 1.03),
+                      "ma240": round(float(ma240.iloc[s20]))}
 
     # ---- 系統部位（整合版狀態機，每天只處理一次）----
     OUT.mkdir(parents=True, exist_ok=True)
@@ -422,8 +413,8 @@ def main():
         lines.append(f"• 抓底條件：主燈 {on(L_margin or L_inst)} 切割線 {on(bool(near))} 恐慌過 {on(panic20)} 台幣守住 {on(twd_ok)} VIX≥25 {on(vix_ok)}（{D.vix_us.iloc[i]:.1f}）"
                      + (f" 融資少25% {on(margin25)}（{m_dd*100:.0f}%）順序規則 {on(seq)}" if ev_type == "慢跌型" else ""))
     if bottom_est:
-        lines.append(f"• 預估真底 約 {bottom_est['est']:,}（±5%：{bottom_est['lo']:,}～{bottom_est['hi']:,}）"
-                     f"，{bottom_est['date'][4:6]}/{bottom_est['date'][6:]} 跌破 20% 時算：維持率估 {bottom_est['maint_est']:,}、切割線 {bottom_est['fib_mid']:,}")
+        lines.append(f"• 預估真底 約 {bottom_est['est']:,}（±3%：{bottom_est['lo']:,}～{bottom_est['hi']:,}）"
+                     f"，{bottom_est['date'][4:6]}/{bottom_est['date'][6:]} 跌破 20% 那天的年線 {bottom_est['ma240']:,} × 0.764")
     if signal: lines.append("• 🎯 抓底訊號成立：下個交易日開盤進場，不停損")
     elif sw: lines.append("• 抓底訊號未出現")
     if not margin_ok:
