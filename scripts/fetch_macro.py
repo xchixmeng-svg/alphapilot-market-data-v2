@@ -6,6 +6,7 @@
   VIX    ^VIX    美國 VIX 恐慌指數
   SOX    ^SOX    費城半導體指數
   US10Y  ^TNX    美國 10 年期公債殖利率（×1，單位 %）
+  SPX    ^GSPC   S&P 500
 每次整份重抓（Yahoo 偶爾修正舊值），舊檔有、新資料沒有的日期保留。任何一項失敗只記錄，不影響其他項。"""
 import json, sys, time, urllib.request
 from datetime import datetime, timezone
@@ -13,7 +14,7 @@ from pathlib import Path
 import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "extra" / "macro"
-SYMS = {"TWD": "TWD=X", "TAIEX": "^TWII", "VIX": "^VIX", "SOX": "^SOX", "US10Y": "^TNX"}
+SYMS = {"TWD": "TWD=X", "TAIEX": "^TWII", "VIX": "^VIX", "SOX": "^SOX", "US10Y": "^TNX", "SPX": "^GSPC"}
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36"}
 
 def yahoo(sym):

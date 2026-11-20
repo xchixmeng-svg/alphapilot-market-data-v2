@@ -1,0 +1,40 @@
+name: Morning lights (夜盤＋美股，早上推播)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 23 * * 0-4"    # 07:05 台北（週一～週五早上）
+    - cron: "35 23 * * 0-4"   # 07:35 台北（補跑）
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lights
+  cancel-in-progress: false
+
+jobs:
+  morning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.5 pandas==2.2.3
+      - name: Refresh macro
+        continue-on-error: true
+        run: python scripts/fetch_macro.py
+      - name: Morning text
+        run: python scripts/lights_morning.py
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/extra/lights data/extra/macro
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "data: morning lights $(TZ=Asia/Taipei date +%F_%H%M)"
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep 10; done
+          exit 1

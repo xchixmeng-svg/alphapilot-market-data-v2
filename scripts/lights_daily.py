@@ -397,59 +397,70 @@ def main():
         sf.write_text(json.dumps(st, ensure_ascii=False, indent=1))
     pos_txt = {"in": "持有中", "cash": "空手（等抓底訊號）", "bottom": "抓底單持有中（不停損）"}[st["state"]]
 
-    # ---- 劇本機率（依歷史次數的粗估，每天隨燈號調整，非保證）----
-    p1, p2, p3 = 55, 35, 10
-    if div_stock: p1 += 10; p2 -= 10
-    if div_twd: p1 += 5; p2 -= 5
-    if L_margin or L_inst: p1 += 10; p2 -= 5; p3 -= 5
-    if newlow and not div_stock: p1 -= 5; p2 += 5
-    hi_days = len(c.iloc[max(0, i - 249):i + 1]) - 1 - int(np.argmax(c.iloc[max(0, i - 249):i + 1].values))
-    if hi_days > 60: p1 -= 10; p3 += 10
-    if r.close < 33260: p1, p2, p3 = 10, 40, 50
-    ps = np.clip(np.array([p1, p2, p3], dtype=float), 2, None); ps = np.round(ps / ps.sum() * 100).astype(int)
-    names = ["① 急跌見底（35,500～36,000 一帶止跌）", "② 再殺一段到 33,260～33,731 共振區", "③ 轉成熊市（跌破 31,723）"]
-    best = names[int(ps.argmax())].split("（")[0]
-
     on = lambda b: "🟡" if b else "⚪"
-    dv = lambda b: ("🟡" if b else "⚪") if newlow else "－"
-    lines = [
-        f"📊 {day[5:].replace('-', '/')} 燈號　大盤 {r.close:,.0f}（{(r.close / c.iloc[i-1] - 1)*100:+.1f}%）距高點 {r.dd*100:.1f}%",
-        "",
-        f"開關：{'⛔ 下跌中（找底模式）' if sw else '正常'}　事件類型：{ev_type}",
-        f"方向三燈：錢 {on(L_money)}　人 {on(L_people)}　價 {on(L_price)}（{g} 綠）",
-        "",
-        "底燈",
-        f"主燈：融資 {on(L_margin)}（融資減幅 {m_dd*100:.0f}% vs 大盤 {r.dd*100:.0f}%，正2 融資 5 日 {lev5*100:+.0f}%）",
-        (f"　　　法人 {on(L_inst)}（外資 {fn.iloc[i]:+,.0f} 億，10 天最大賣超 {fmin10:,.0f} 億）" if fn.iloc[i] == fn.iloc[i] else "　　　法人 ⚪（今天外資數字約 15:00 公布）"),
-        "位置：" + ("🟡 在切割線 " + "、".join(f"{v:,.0f}" for v, _ in near) if near else
-                   "⚪ 不在切割線（上 " + "／".join(f"{v:,.0f}" for v, _ in above) + "　下 " + "／".join(f"{v:,.0f}" for v, _ in below) + "）"),
-        f"輔助：恐慌 {on(panic)}　個股背離 {dv(div_stock)}　匯率背離 {dv(div_twd)}　VIX 背離 {dv(div_vix)}",
-        f"　（站上 20 日線 {r.br*100:.0f}%｜台幣 {r.twd:.3f}｜VIX {r.vix:.1f}）" + ("" if newlow else "　今天沒創新低，背離不適用"),
-        (f"　融資維持率 {mrs.iloc[-1]:.0f}%（{mrs.index[-1]:%m/%d}，5 天前 {mrs.iloc[-6]:.0f}%，近 30 天最低 {mrs.iloc[-30:].min():.0f}%；過去大跌真底多在 120～131）"
-         if len(mrs) >= 6 else "　融資維持率：資料不足"),
-        (f"　外資台指期淨{'空' if fut.iloc[-1] < 0 else '多'}單 {abs(fut.iloc[-1]):,.0f} 口（{fut.index[-1]:%m/%d}，5 天前 {abs(fut.iloc[-6]):,.0f}；"
-         f"2024、2025 見底時約 3～4 萬口且在回補）" if len(fut) >= 6 else "　外資台指期：資料不足"),
-        "",
-        "燈號組合解讀",
-    ]
-    if newlow and not div_stock: lines.append("• 創新低且多數個股跟跌：全面下跌，斷頭潮可能還在")
-    if newlow and div_stock: lines.append("• 指數破底但多數個股沒破：只剩權值股在殺，接近底部（歷史約 2/3 是真底）")
-    if div_twd: lines.append("• 匯率背離：大盤破底但台幣沒創新弱，外資匯出放慢")
-    if div_stock and div_twd: lines.append("• 個股＋匯率雙背離：歷史 7 次中 6 次是真底")
-    if not L_margin: lines.append("• 融資燈沒亮：" + ("正2 槓桿還在增加" if lev5 > 0 else "融資減幅還不夠"))
-    if L_inst: lines.append("• 法人燈亮：外資賣壓衰竭或轉買")
+    hi_lv = lambda xs: "／".join(f"{v:,.0f}" for v, _ in xs[:1])
+    md = f"{day[5:7]}/{day[8:10]}"
+    # 狀態行
+    if signal:
+        status = "🎯 抓底訊號成立　明天開盤進場，不停損"
+    elif action.startswith("出場"):
+        status = "⛔ 出場訊號　明天開盤出場"
+    elif sw:
+        status = f"⛔ 下跌中　{ev_type}　系統{pos_txt.replace('（等抓底訊號）', '')}"
+    else:
+        status = f"正常　系統{pos_txt.replace('（等抓底訊號）', '')}"
+    lines = [f"📊 {md} 探底燈號",
+             f"大盤 {r.close:,.0f}　{(r.close / c.iloc[i-1] - 1)*100:+.1f}%　距高點 {r.dd*100:.1f}%",
+             status]
+    if action and not signal and not action.startswith("出場"):
+        lines.append(f"⚠️ {action}")
+    br20 = D.br.iloc[i - 19:i + 1].min()
+    tw20 = D.twd.iloc[i - 20:i].max()
+    # 各燈原因
+    if L_margin:
+        why_m = f"融資少 {-m_dd*100:.0f}%（大盤 {r.dd*100:.0f}%），正2融資 5天沒增加"
+    elif m_dd > r.dd:
+        why_m = f"融資少 {-m_dd*100:.0f}%，還沒比大盤（{r.dd*100:.0f}%）多"
+    else:
+        why_m = f"融資少 {-m_dd*100:.0f}% 已夠，但正2融資 5天 {lev5*100:+.0f}%，散戶還在加碼"
+    if fn.iloc[i] != fn.iloc[i]:
+        why_i = "今天外資數字約 15:00 公布"
+    elif L_inst:
+        why_i = f"外資賣壓衰竭或轉買（今天 {fn.iloc[i]:+,.0f}億，10天最大賣超 {fmin10:,.0f}億）"
+    else:
+        why_i = f"外資{'還在賣' if fn.iloc[i] < 0 else '小買'} {fn.iloc[i]:+,.0f}億，賣壓還沒衰竭（10天最大賣超 {fmin10:,.0f}億）"
     if sw:
-        lines.append(f"• 抓底條件：主燈 {on(L_margin or L_inst)} 切割線 {on(bool(near))} 恐慌過 {on(panic20)} 台幣守住 {on(twd_ok)} VIX≥25 {on(vix_ok)}（{D.vix_us.iloc[i]:.1f}）"
-                     + (f" 融資少25% {on(margin25)}（{m_dd*100:.0f}%）順序規則 {on(seq)}" if ev_type == "慢跌型" else ""))
+        lines += ["", "抓底條件",
+                  f"{on(twd_ok)} 台幣守住　{r.twd:.3f}，" + ("沒有再創新弱" if twd_ok else f"還在創 20 天新弱（前高 {tw20:.3f}）"),
+                  f"{on(panic20)} 恐慌過　站上月線 {r.br*100:.0f}%" + ("" if panic20 else f"，20 天內最低 {br20*100:.0f}%，還沒到 10%"),
+                  f"{on(vix_ok)} 美股恐慌　VIX {D.vix_us.iloc[i]:.1f}，" + ("超過 25" if vix_ok else "還沒到 25"),
+                  f"{on(L_margin)} 融資燈　{why_m}",
+                  f"{on(L_inst)} 法人燈　{why_i}",
+                  f"{on(bool(near))} 切割線　" + (f"在切割線 {hi_lv(near)}" if near else
+                                                  f"上 {hi_lv(above)}　下 {hi_lv(below)}")]
+        if ev_type == "慢跌型":
+            lines += [f"{on(margin25)} 慢跌型：融資少 25%　目前少 {-m_dd*100:.0f}%",
+                      f"{on(seq)} 慢跌型：順序規則（人回來＋外資 3 天轉買）"]
+        miss = [n for n, ok in [("台幣守住", twd_ok), ("恐慌過", panic20), ("美股恐慌", vix_ok),
+                                ("融資或法人燈", L_margin or L_inst), ("切割線", bool(near))] if not ok]
+        if ev_type == "慢跌型" and not (margin25 or seq): miss.append("融資少 25% 或順序規則")
+        if not signal and miss:
+            lines += ["", "還差：" + "、".join(miss)]
+    if st["state"] == "in":
+        lines += ["", f"出場條件：三燈 錢 {on(not L_money)} 人 {on(not L_people)} 價 {on(not L_price)} 全紅　"
+                      f"{on(r.dd <= -0.07)} 跌超過 7%　{on(foreign_heavy)} 外資大賣"]
     if bottom_est:
-        lines.append(f"• 預估真底 約 {bottom_est['est']:,}（±3%：{bottom_est['lo']:,}～{bottom_est['hi']:,}）"
-                     f"，{bottom_est['date'][4:6]}/{bottom_est['date'][6:]} 跌破 20% 那天的年線 {bottom_est['ma240']:,} × 0.764")
-    if signal: lines.append("• 🎯 抓底訊號成立：下個交易日開盤進場，不停損")
-    elif sw: lines.append("• 抓底訊號未出現")
+        lines += ["", f"預估真底　{bottom_est['est']:,}（{bottom_est['lo']:,}～{bottom_est['hi']:,}）",
+                  f"　{bottom_est['date'][4:6]}/{bottom_est['date'][6:]} 跌破 20% 那天的年線 {bottom_est['ma240']:,} × 0.764"]
+    obs = []
+    if len(mrs) >= 6:
+        obs.append(f"融資維持率　{mrs.iloc[-1]:.0f}%（5天前 {mrs.iloc[-6]:.0f}%）真底多在 120～131")
+    if len(fut) >= 6:
+        obs.append(f"外資期貨{'空' if fut.iloc[-1] < 0 else '多'}單　{abs(fut.iloc[-1]):,.0f}口（5天前 {abs(fut.iloc[-6]):,.0f}）見底時通常在回補")
+    if obs:
+        lines += ["", "觀察"] + obs
     if not margin_ok:
-        lines.append("• 今天的融資資料約 21:00 公布，融資燈先用昨天的數字，22:00 會再推一次完整版")
-    lines += ["", "劇本機率（依歷史次數粗估，非保證）"] + [f"{n}：約 {p}%" for n, p in zip(names, ps)]
-    lines += [f"最有機會：{best}", "", f"系統部位：{pos_txt}" + (f"\n⚠️ {action}" if action else "")]
+        lines += ["", "（今天融資資料還沒公布，融資燈先用昨天的數字）"]
     text = "\n".join(lines)
 
     prev = {}
@@ -463,8 +474,6 @@ def main():
            "panic20": panic20, "twd_ok": twd_ok, "vix_ok": vix_ok}
     changed = prev.get("date") != ymd or prev.get("key") != key
     notify = stage in ("early", "afternoon") or changed
-    stamp = {"early": "14:40 初版", "afternoon": "16:10 加外資／台幣", "data": "晚間完整股價", "evening": "21:40 加融資"}.get(stage, stage)
-    text = text.replace("\n\n開關", f"（{stamp}）\n\n開關", 1)
     res = {"date": ymd, "stage": stage, "notify": bool(notify), "key": key, "text": text, "margin_ok": bool(margin_ok), "signal": signal, "switch": bool(sw), "green": g,
            "lights": {"money": bool(L_money), "people": bool(L_people), "price": bool(L_price), "margin": L_margin,
                       "inst": L_inst, "panic": bool(panic), "div_stock": bool(div_stock), "div_twd": bool(div_twd),
@@ -475,7 +484,7 @@ def main():
            "bottom_est": bottom_est,
            "foreign_fut_net": (int(fut.iloc[-1]) if len(fut) else None),
            "maint_ratio_date": (mrs.index[-1].strftime("%Y%m%d") if len(mrs) else None),
-           "scenario": dict(zip(["fast", "deeper", "bear"], map(int, ps))), "state": st}
+           "state": st}
     (OUT / f"{ymd}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
     (OUT / "latest.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
     print(text)
