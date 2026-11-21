@@ -31,6 +31,9 @@ jobs:
       - name: Refresh macro (TAIEX/TWD/VIX)
         continue-on-error: true
         run: python scripts/fetch_macro.py
+      - name: Refresh TWD 16:00 (CBC)
+        continue-on-error: true
+        run: python -u scripts/fetch_twd_tpe.py
       - name: Refresh TAIFEX (外資台指期未平倉、P/C 比)
         continue-on-error: true
         timeout-minutes: 5

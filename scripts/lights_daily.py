@@ -273,6 +273,12 @@ def main():
     if T not in tx.index:
         print(f"TAIEX 還沒有 {day} 的資料，停止"); sys.exit(0)
     tw = macro("TWD").close
+    try:  # 台北外匯 16:00 收盤（央行），沒有的日子才用 Yahoo
+        tpe = pd.read_csv(MACRO / "TWD_TPE.csv", parse_dates=["date"]).set_index("date").twd_tpe
+        tw = tpe.reindex(tw.index.union(tpe.index)).combine_first(tw)
+        print("台幣用台北16:00，最新", tpe.index.max().date(), "；今天有" if T in tpe.index else "；今天沒有，用 Yahoo")
+    except Exception as e:  # noqa
+        print("TWD_TPE 讀不到：", e)
     vx = macro("VIX").close
     br = breadth()
     recent = [d.strftime("%Y%m%d") for d in tx.index[tx.index <= T][-8:]]
