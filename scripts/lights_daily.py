@@ -229,14 +229,19 @@ def zigzag(c, th):
     return piv
 
 
+FIB_INFO = {}   # 切割線名稱 → (起點價, 起點日, 高點價, 高點日)
+
+
 def fib_levels(close):
     c = close.values
     out = []
+    FIB_INFO.clear()
     for th in (0.10, 0.15, 0.20):
         piv = zigzag(c, th)
         for k in range(len(piv) - 1, 0, -1):
             if piv[k][0] == "H" and piv[k - 1][0] == "L":
                 A, H = c[piv[k - 1][1]], c[piv[k][1]]
+                FIB_INFO[f"{int(th*100)}%波段"] = (A, close.index[piv[k - 1][1]], H, close.index[piv[k][1]])
                 for r in (0.382, 0.5, 0.618, 0.786, 0.809, 1.0):
                     out.append((H - (H - A) * r, f"{int(th*100)}%波段 {r}"))
                 break
@@ -245,6 +250,7 @@ def fib_levels(close):
         lo_i = yr.iloc[: int(yr.values.argmax()) + 1].idxmin()
         A, H = yr[lo_i], yr.max()
         if H / A > 1.15:
+            FIB_INFO["今年這段"] = (A, lo_i, H, yr.idxmax())
             for r in (0.382, 0.5, 0.618, 0.786, 0.809, 1.0):
                 out.append((H - (H - A) * r, f"今年這段 {r}"))
     return out
@@ -381,6 +387,9 @@ def main():
     if st.get("rule") != "v2":      # 2026-11-20 換成整合版：照新規則重放，10/30 出場、11/10 因 VIX 20 不買 → 空手
         st = {"rule": "v2", "state": "cash", "exit_date": "2026-10-30", "exit_px": 45212, "last_date": "2026-11-19"}
     action = ""
+    hi_px = bottom_est["hi"] if bottom_est else None
+    price_ok = bool(hi_px is None or r.close <= hi_px)       # 底價區：跌破 20% 才有；沒有預估就不限制
+    WAIT_MAX = 120
     if st.get("last_date") == day and "base" in st:      # 同一天第二次跑（例如融資資料晚到）：從當天開始前的狀態重算
         st = st["base"]
     if st.get("last_date", "") < day:
@@ -389,82 +398,141 @@ def main():
         s_ = st["state"]
         if s_ == "in" and exitE:
             st.update(state="cash", exit_date=day, exit_px=round(float(r.close)))
-            action = "出場訊號（三燈全紅＋跌超過 7%＋外資大賣）：下個交易日開盤出場"
+            action = "exit"
         elif s_ == "cash":
-            if signal:
-                st.update(state="bottom", entry_date="下個交易日開盤", signal_date=day)
-                action = "抓底訊號：下個交易日開盤買進，不停損，長期持有"
+            if signal and price_ok:
+                st.update(state="bottom", signal_date=day); action = "bottom"
+            elif signal and st.get("expired_est") != (bottom_est or {}).get("date"):
+                st.update(state="wait", wait_since=day, wait_n=0, wait_hi=hi_px, wait_est=bottom_est["date"])
+                action = "wait"
             elif g >= 2:
-                st["state"] = "in"; action = "三燈兩綠：下個交易日開盤回場"
+                st["state"] = "in"; action = "back"
+        elif s_ == "wait":
+            st["wait_n"] = st.get("wait_n", 0) + 1
+            if r.close <= st.get("wait_hi", hi_px or 0):
+                st.update(state="bottom", signal_date=day); action = "bottom"
+            elif st["wait_n"] >= WAIT_MAX:     # 這一段下跌不再抓底，等三燈亮兩盞回場
+                st.update(state="cash", expired_est=st.get("wait_est")); action = "expire"
         elif s_ == "bottom":
             if g >= 2:
-                st["state"] = "in"; action = "三燈兩綠：抓底單轉為正常持有"
+                st["state"] = "in"; action = "back"
         st["last_date"] = day
         sf.write_text(json.dumps(st, ensure_ascii=False, indent=1))
-    pos_txt = {"in": "持有中", "cash": "空手（等抓底訊號）", "bottom": "抓底單持有中（不停損）"}[st["state"]]
+    state = st["state"]
 
     on = lambda b: "🟡" if b else "⚪"
-    hi_lv = lambda xs: "／".join(f"{v:,.0f}" for v, _ in xs[:1])
     md = f"{day[5:7]}/{day[8:10]}"
-    # 狀態行
-    if signal:
-        status = "🎯 抓底訊號成立　明天開盤進場，不停損"
-    elif action.startswith("出場"):
-        status = "⛔ 出場訊號　明天開盤出場"
-    elif sw:
-        status = f"⛔ 下跌中　{ev_type}　系統{pos_txt.replace('（等抓底訊號）', '')}"
+    dmd = lambda ts: f"{ts.month}/{ts.day}"
+    ymd_md = lambda s8: f"{int(s8[4:6])}/{int(s8[6:8])}"
+    # ---- 6 盞抓底條件 ----
+    lamp4 = bool(L_margin or L_inst)
+    if ev_type == "慢跌型":
+        lamp4 = bool((lamp4 and margin25) or seq)
+    lamps = [twd_ok, panic20, vix_ok, lamp4, bool(near), price_ok]
+    n_on = sum(lamps)
+    # ---- 開頭：階段＋要做的事 ----
+    if action == "exit":
+        head = ["⚠️ 出場訊號", "👉 明早開盤，持股全部賣出",
+                "三燈全滅＋跌超過 7%＋外資大賣，先離場，之後等抓底"]
+    elif action == "bottom":
+        head = ["🎯 抓底訊號", "👉 明早開盤抓底買進，不設停損，長期持有",
+                "抓底條件 6 盞全亮"]
+    elif action == "back":
+        head = ["回到正常操作", "👉 明早開盤起，照選股推播買賣",
+                "三燈亮兩盞，市場恢復正常" + ("（抓底股轉成一般持股）" if st["base"].get("state") == "bottom" else "")]
+    elif state == "wait":
+        head = [f"⛔ 探底中　燈號湊齊，等底價（第 {st.get('wait_n', 0)} 天／{WAIT_MAX} 天）", "👉 空手，不要買",
+                f"等大盤收盤跌到 {st.get('wait_hi', hi_px):,} 以下，就叫你抓底；{WAIT_MAX} 天內沒跌到就不抓底"]
+    elif state == "cash":
+        head = ["⛔ 探底中　空手", "👉 空手，不要買",
+                "等抓底條件 6 盞全亮，才會叫你進場" + ("（120 天沒等到底價，這次不抓底，等三燈亮兩盞回場）" if action == "expire" else "")]
+    elif state == "bottom":
+        head = ["抓底股持有中", "👉 抓底股續抱，不停損", "三燈亮兩盞時，轉回正常操作"]
     else:
-        status = f"正常　系統{pos_txt.replace('（等抓底訊號）', '')}"
-    lines = [f"📊 {md} 探底燈號",
-             f"大盤 {r.close:,.0f}　{(r.close / c.iloc[i-1] - 1)*100:+.1f}%　距高點 {r.dd*100:.1f}%",
-             status]
-    if action and not signal and not action.startswith("出場"):
-        lines.append(f"⚠️ {action}")
-    br20 = D.br.iloc[i - 19:i + 1].min()
-    tw20 = D.twd.iloc[i - 20:i].max()
-    # 各燈原因
-    if L_margin:
-        why_m = f"融資少 {-m_dd*100:.0f}%（大盤 {r.dd*100:.0f}%），正2融資 5天沒增加"
-    elif m_dd > r.dd:
-        why_m = f"融資少 {-m_dd*100:.0f}%，還沒比大盤（{r.dd*100:.0f}%）多"
-    else:
-        why_m = f"融資少 {-m_dd*100:.0f}% 已夠，但正2融資 5天 {lev5*100:+.0f}%，散戶還在加碼"
-    if fn.iloc[i] != fn.iloc[i]:
-        why_i = "今天外資數字約 15:00 公布"
-    elif L_inst:
-        why_i = f"外資賣壓衰竭或轉買（今天 {fn.iloc[i]:+,.0f}億，10天最大賣超 {fmin10:,.0f}億）"
-    else:
-        why_i = f"外資{'還在賣' if fn.iloc[i] < 0 else '小買'} {fn.iloc[i]:+,.0f}億，賣壓還沒衰竭（10天最大賣超 {fmin10:,.0f}億）"
+        head = ["正常操作中", "👉 照選股推播買賣",
+                "大盤跌超過 10%，注意下面的出場條件" if sw else "大盤正常"]
+    lines = [f"📊 {md} 大盤燈號"] + head
+    if sw and state in ("cash", "wait") and action not in ("bottom", "back"):
+        lines.append(f"抓底條件　已亮 {n_on}／6")
+    lines += ["", f"大盤 {r.close:,.0f}　今天 {(r.close / c.iloc[i-1] - 1)*100:+.1f}%　離高點 {r.dd*100:.1f}%"]
+    if state in ("cash", "wait") and st.get("exit_date"):
+        ed = st["exit_date"]; lines.append(f"系統空手（{int(ed[5:7])}/{int(ed[8:10])} 在 {st.get('exit_px', 0):,} 出場）")
+    if sw and ev_type != "未定":
+        lines.append("急跌型：一年高點後 35 天內就跌超過 12%" if ev_type == "急跌型" else
+                     "慢跌型：跌得比較慢，融資要多降一點才算數")
+    # ---- 各盞燈的說明 ----
+    br20 = D.br.iloc[i - 19:i + 1]
+    tw20 = D.twd.iloc[i - 20:i]
+
+    def fib_why(v, n):
+        key, ratio = n.rsplit(" ", 1)
+        info = FIB_INFO.get(key)
+        src = "今年起漲點" if key == "今年這段" else f"{key[:-2]}波段低點"
+        if not info:
+            return f"{n}"
+        A, Ad, H, Hd = info
+        return f"{src} {A:,.0f}（{dmd(Ad)}）→ 高點 {H:,.0f}（{dmd(Hd)}）\n　　　往回跌 {float(ratio)*100:.1f}% ＝ {v:,.0f}"
+
     if sw:
-        lines += ["", "抓底條件",
-                  f"{on(twd_ok)} 台幣守住　{r.twd:.3f}，" + ("沒有再創新弱" if twd_ok else f"還在創 20 天新弱（前高 {tw20:.3f}）"),
-                  f"{on(panic20)} 恐慌過　站上月線 {r.br*100:.0f}%" + ("" if panic20 else f"，20 天內最低 {br20*100:.0f}%，還沒到 10%"),
-                  f"{on(vix_ok)} 美股恐慌　VIX {D.vix_us.iloc[i]:.1f}，" + ("超過 25" if vix_ok else "還沒到 25"),
-                  f"{on(L_margin)} 融資燈　{why_m}",
-                  f"{on(L_inst)} 法人燈　{why_i}",
-                  f"{on(bool(near))} 切割線　" + (f"在切割線 {hi_lv(near)}" if near else
-                                                  f"上 {hi_lv(above)}　下 {hi_lv(below)}")]
+        lines += ["", "━━ 抓底條件（6 盞全亮才進場）━━", ""]
+        lines += [f"① {on(twd_ok)} 台幣守住", "規則：台幣沒有比前 20 天更弱",
+                  f"現在：{r.twd:.3f}，前 20 天最弱 {tw20.max():.3f}（{dmd(tw20.idxmax())}）",
+                  ("→ 外資沒有加速把錢匯走" + ("，但只差 %.3f，要注意" % (tw20.max() - r.twd) if 0 < tw20.max() - r.twd < 0.05 else ""))
+                  if twd_ok else "→ 台幣還在變弱，外資還在把錢匯走", ""]
+        lines += [f"② {on(panic20)} 恐慌過", "規則：最近 20 天內，上漲家數曾少於 10%",
+                  f"現在：今天 {r.br*100:.1f}% 的股票上漲，20 天內最低 {br20.min()*100:.1f}%（{dmd(br20.idxmin())}）",
+                  "→ 市場已經出現過殺盤" if panic20 else "→ 還沒出現全面殺盤", ""]
+        lines += [f"③ {on(vix_ok)} 美股恐慌", "規則：美股 VIX 恐慌指數超過 25",
+                  f"現在：{D.vix_us.iloc[i]:.1f}", "→ 全球一起恐慌" if vix_ok else "→ 美股還不夠恐慌", ""]
+        lines += [f"④ {on(lamp4)} 融資燈 或 法人燈（亮一盞就算）" + ("，慢跌型還要融資少 25%" if ev_type == "慢跌型" else ""),
+                  f"融資燈 {on(L_margin)}", "規則：融資減少得比大盤多，而且正2融資 5 天沒增加",
+                  f"現在：融資少 {-m_dd*100:.0f}% {'✓' if m_dd < r.dd else '✗'}（大盤 {r.dd*100:.0f}%），"
+                  f"正2融資 5 天 {lev5*100:+.0f}% {'✓' if lev5 <= 0 else '✗'}",
+                  "→ 散戶已經認賠" if L_margin else ("→ 散戶還在借錢加碼，還沒認賠" if lev5 > 0 else "→ 融資還沒降夠"),
+                  f"法人燈 {on(L_inst)}", "規則：外資大賣之後，賣超縮小到 10 天最大賣超的一半以下，或轉買"]
+        if fn.iloc[i] != fn.iloc[i]:
+            lines += ["現在：今天外資數字約 15:00 公布"]
+        else:
+            lines += [f"現在：今天 {fn.iloc[i]:+,.0f} 億，10 天內最大 {fmin10:,.0f} 億",
+                      "→ 外資賣壓衰竭" if L_inst else "→ 外資還在賣"]
         if ev_type == "慢跌型":
-            lines += [f"{on(margin25)} 慢跌型：融資少 25%　目前少 {-m_dd*100:.0f}%",
-                      f"{on(seq)} 慢跌型：順序規則（人回來＋外資 3 天轉買）"]
-        miss = [n for n, ok in [("台幣守住", twd_ok), ("恐慌過", panic20), ("美股恐慌", vix_ok),
-                                ("融資或法人燈", L_margin or L_inst), ("切割線", bool(near))] if not ok]
-        if ev_type == "慢跌型" and not (margin25 or seq): miss.append("融資少 25% 或順序規則")
-        if not signal and miss:
+            lines += [f"慢跌型 {on(margin25)} 融資少 25%（目前少 {-m_dd*100:.0f}%）　或 {on(seq)} 順序規則（人回來＋外資 3 天轉買）"]
+        lines += [""]
+        lines += [f"⑤ {on(bool(near))} 切割線", "規則：大盤碰到切割線，誤差 1.5% 內"]
+        if near:
+            v, n = near[0]; lines += [f"現在：碰到 {v:,.0f}", "算法：" + fib_why(v, n)]
+        elif below:
+            v, n = below[0]; lines += [f"現在：下一條 {v:,.0f}，還要跌 {(1 - v / r.close)*100:.0f}%", "算法：" + fib_why(v, n)]
+        lines += [""]
+        lines += [f"⑥ {on(price_ok)} 底價區"]
+        if bottom_est:
+            lines += [f"規則：大盤收盤在 {bottom_est['hi']:,} 以下",
+                      "現在：已進入底價區" if price_ok else f"現在：還要跌 {(1 - bottom_est['hi'] / r.close)*100:.0f}%",
+                      f"算法：{ymd_md(bottom_est['date'])} 第一次跌破 20%",
+                      f"　　　那天的年線 {bottom_est['ma240']:,} × 0.764 ＝ {bottom_est['est']:,}",
+                      f"　　　上下留 3% ＝ {bottom_est['lo']:,}～{bottom_est['hi']:,}"]
+            zone = sorted({round(v) for v, _ in lv_all if bottom_est["lo"] * 0.985 <= v <= bottom_est["hi"] * 1.015}, reverse=True)
+            if zone:
+                lines.append("區內切割線：" + "、".join(f"{v:,}" for v in zone) + ("（兩種算法指向同一區）" if len(zone) else ""))
+        else:
+            lines += ["規則：跌超過 20% 才算得出預估真底", "現在：還沒跌到 20%，這盞先算亮"]
+        names = ["① 台幣守住", "② 恐慌過", "③ 美股恐慌", "④ 融資或法人燈", "⑤ 切割線", "⑥ 底價區"]
+        miss = [nm for nm, ok in zip(names, lamps) if not ok]
+        if miss and state in ("cash", "wait"):
             lines += ["", "還差：" + "、".join(miss)]
-    if st["state"] == "in":
-        lines += ["", f"出場條件：三燈 錢 {on(not L_money)} 人 {on(not L_people)} 價 {on(not L_price)} 全紅　"
-                      f"{on(r.dd <= -0.07)} 跌超過 7%　{on(foreign_heavy)} 外資大賣"]
-    if bottom_est:
-        lines += ["", f"預估真底　{bottom_est['est']:,}（{bottom_est['lo']:,}～{bottom_est['hi']:,}）",
-                  f"　{bottom_est['date'][4:6]}/{bottom_est['date'][6:]} 跌破 20% 那天的年線 {bottom_est['ma240']:,} × 0.764"]
+    if state == "in":
+        lines += ["", "━━ 出場條件（三個都成立才出場）━━",
+                  f"{on(g == 0)} 三燈全滅　錢 {on(L_money)} 人 {on(L_people)} 價 {on(L_price)}（現在亮 {g} 盞）",
+                  f"{on(r.dd <= -0.07)} 大盤離高點跌超過 7%（現在 {r.dd*100:.1f}%）",
+                  f"{on(foreign_heavy)} 外資 10 天賣超是近兩年最大的 10%"]
     obs = []
     if len(mrs) >= 6:
-        obs.append(f"融資維持率　{mrs.iloc[-1]:.0f}%（5天前 {mrs.iloc[-6]:.0f}%）真底多在 120～131")
+        obs += [f"融資維持率 {mrs.iloc[-1]:.0f}%（5 天前 {mrs.iloc[-6]:.0f}%）", "　歷史真底多在 120～131"]
     if len(fut) >= 6:
-        obs.append(f"外資期貨{'空' if fut.iloc[-1] < 0 else '多'}單　{abs(fut.iloc[-1]):,.0f}口（5天前 {abs(fut.iloc[-6]):,.0f}）見底時通常在回補")
+        obs += [f"外資期貨{'空' if fut.iloc[-1] < 0 else '多'}單 {abs(fut.iloc[-1]):,.0f} 口（5 天前 {abs(fut.iloc[-6]):,.0f}）",
+                "　見底時通常會開始回補"]
     if obs:
-        lines += ["", "觀察"] + obs
+        lines += ["", "━━ 觀察（不影響進場）━━"] + obs
     if not margin_ok:
         lines += ["", "（今天融資資料還沒公布，融資燈先用昨天的數字）"]
     text = "\n".join(lines)
@@ -476,15 +544,15 @@ def main():
         except Exception:  # noqa
             prev = {}
     key = {"money": bool(L_money), "people": bool(L_people), "price": bool(L_price), "margin": L_margin, "inst": L_inst,
-           "div_stock": bool(div_stock), "div_twd": bool(div_twd), "signal": signal, "action": action,
+           "div_stock": bool(div_stock), "div_twd": bool(div_twd), "signal": signal, "action": action, "state": state, "price_ok": price_ok,
            "panic20": panic20, "twd_ok": twd_ok, "vix_ok": vix_ok}
     changed = prev.get("date") != ymd or prev.get("key") != key
     notify = stage in ("early", "afternoon") or changed
     res = {"date": ymd, "stage": stage, "notify": bool(notify), "key": key, "text": text, "margin_ok": bool(margin_ok), "signal": signal, "switch": bool(sw), "green": g,
-           "lights": {"money": bool(L_money), "people": bool(L_people), "price": bool(L_price), "margin": L_margin,
+           "lamps_on": n_on, "lights": {"money": bool(L_money), "people": bool(L_people), "price": bool(L_price), "margin": L_margin,
                       "inst": L_inst, "panic": bool(panic), "div_stock": bool(div_stock), "div_twd": bool(div_twd),
                       "div_vix": bool(div_vix), "near_fib": bool(near), "panic20": panic20, "twd_ok": twd_ok,
-                      "vix_ok": vix_ok, "margin25": margin25, "seq": seq, "foreign_heavy": foreign_heavy},
+                      "vix_ok": vix_ok, "price_ok": price_ok, "margin25": margin25, "seq": seq, "foreign_heavy": foreign_heavy},
            "event_type": ev_type, "vix_us": round(float(D.vix_us.iloc[i]), 1),
            "maint_ratio": (round(float(mrs.iloc[-1]), 1) if len(mrs) else None),
            "bottom_est": bottom_est,
