@@ -1,0 +1,39 @@
+{
+ "cash": 1000000,
+ "pos": {},
+ "mode": "cash",
+ "peak": 1000000,
+ "ix0": null,
+ "carry": [],
+ "pend": {
+  "sells": [],
+  "buys": [],
+  "sellall": false,
+  "day": "2026-11-20",
+  "px": {}
+ },
+ "why": {},
+ "last_date": "2026-11-20",
+ "version": "v2",
+ "eq": {
+  "2026-11-20": 1000000
+ },
+ "base": {
+  "cash": 1000000,
+  "pos": {},
+  "mode": "cash",
+  "peak": 1000000,
+  "ix0": null,
+  "carry": [],
+  "pend": {
+   "sells": [],
+   "buys": [],
+   "sellall": false
+  },
+  "why": {},
+  "last_date": "",
+  "version": "v2",
+  "eq": {}
+ },
+ "value": 1000000
+}
