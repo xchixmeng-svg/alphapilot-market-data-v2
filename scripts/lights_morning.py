@@ -42,8 +42,28 @@ def us_last():
     return out
 
 
+def us_expected(now):
+    """昨晚應有的美股收盤日（美東日期）＝台北今天的前一個平日（美股假日當天本來就不會有，06:45 後就不等）。"""
+    d = now.date() - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d.strftime("%Y-%m-%d")
+
+
 def main():
+    now = datetime.now(ZoneInfo("Asia/Taipei"))
     lj = json.loads((OUT / "latest.json").read_text())
+    exp = us_expected(now)
+    vix_last = ""
+    try:
+        vix_last = str(pd.read_csv(MAC / "VIX.csv").dropna(subset=["close"]).date.iloc[-1])[:10]
+    except Exception as e:  # noqa
+        print("VIX 讀不到：", e)
+    fresh = vix_last >= exp
+    if lj.get("stage") == "morning" and str(lj.get("morning_at", ""))[:10] == now.strftime("%Y-%m-%d") and lj.get("us_fresh"):
+        print("今天早上版已完成，不重跑"); return
+    if not fresh and now.hour * 60 + now.minute < 6 * 60 + 45:
+        print(f"VIX 最新 {vix_last}，還沒有 {exp} 收盤，等下一次"); return
     if lj.get("stage") == "morning":
         base = json.loads((OUT / f"{lj['date']}.json").read_text())   # 早上重跑：從前一晚的版本重做
     else:
@@ -65,8 +85,7 @@ def main():
     lines = base["text"].split("\n")
     at = next((k + 1 for k, x in enumerate(lines) if x.startswith("大盤 ")), 3)
     text = "\n".join(lines[:at] + extra + lines[at:])
-    now = datetime.now(ZoneInfo("Asia/Taipei"))
-    res = dict(base, stage="morning", notify=True, text=text, morning_at=now.strftime("%Y-%m-%d %H:%M"))
+    res = dict(base, stage="morning", notify=True, text=text, morning_at=now.strftime("%Y-%m-%d %H:%M"), us_fresh=bool(fresh))
     (OUT / "latest.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
     print(text)
 
