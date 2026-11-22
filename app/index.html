@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101318">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AlphaPilot">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>AlphaPilot</title>
+<style>
+/* Quiet Professional Trading Terminal：深灰底、卡片只亮一階、幾乎無光暈。
+   顏色只有：橘（Momentum／行動）、藍（Stable）、綠（正報酬／買進）、紅（負報酬／出場／風險）、灰白。 */
+:root{
+  --bg:#101318;--surf:#171B21;--surf2:#1E232B;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.14);
+  --text:#E9EBEE;--mute:#9AA1AB;--faint:#6F7680;
+  --mom:#F08A3E;--mom-dim:rgba(240,138,62,.13);--stb:#5E9EEA;--stb-dim:rgba(94,158,234,.13);
+  --pos:#3FB68B;--neg:#EF5A55;
+  --r:14px;--hdr:56px;--nav:62px;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  font-family:-apple-system,"SF Pro Text","PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{overflow-x:hidden}
+html,body{margin:0;background:var(--bg);color:var(--text);font-size:17px;line-height:1.5}
+body{padding-top:calc(var(--hdr) + var(--st));padding-bottom:calc(var(--nav) + var(--sb) + 16px)}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+button{font:inherit;color:inherit}
+a{color:var(--stb)}
+/* 頂列：固定、內容從安全區下方開始，不會被動態島／狀態列蓋住 */
+header{position:fixed;top:0;left:0;right:0;z-index:20;padding:var(--st) 12px 0 16px;height:calc(var(--hdr) + var(--st));
+  background:rgba(16,19,24,.96);backdrop-filter:saturate(1.2) blur(10px);-webkit-backdrop-filter:saturate(1.2) blur(10px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.brand{font-size:21px;font-weight:700;letter-spacing:-.01em;flex:none}
+.dstate{font-size:14px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dstate .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--faint);margin-right:6px;vertical-align:1px}
+.dstate.ok .dot{background:var(--pos)}.dstate.warn .dot{background:var(--mom)}.dstate.err .dot{background:var(--neg)}
+.sp{flex:1}
+.ib{all:unset;cursor:pointer;min-width:44px;height:44px;display:grid;place-items:center;border-radius:12px;color:var(--mute);flex:none}
+.ib:active{background:var(--surf2)}.ib:focus-visible{outline:2px solid var(--stb)}
+.ib svg{width:24px;height:24px}
+main{max-width:720px;margin:0 auto;padding:6px 16px 0}
+/* 底部導覽：只有圖示＋文字、無填色，和行動按鈕外觀不同 */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:rgba(23,27,33,.97);backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:var(--sb)}
+nav button{all:unset;flex:1;height:var(--nav);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:13px;color:var(--faint);cursor:pointer}
+nav button svg{width:24px;height:24px}
+nav button[aria-current=page]{color:var(--text)}
+nav button:active{color:var(--mute)}nav button:focus-visible{outline:2px solid var(--stb);outline-offset:-4px}
+/* 型階：正文 17、次要 15、標籤 14；沒有 11–12px 的關鍵資訊 */
+h1{font-size:30px;line-height:1.2;margin:14px 0 4px;font-weight:700;letter-spacing:-.02em}
+h2{font-size:21px;margin:26px 0 10px;font-weight:650;letter-spacing:-.01em}
+.sub{color:var(--mute);font-size:15px}.meta{color:var(--faint);font-size:14px}
+.big{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.up{color:var(--pos)}.down{color:var(--neg)}
+.inp{box-sizing:border-box;width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:inherit;font-size:16px}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:10px 0}
+.tap{cursor:pointer;display:block;text-decoration:none;color:inherit}
+.tap:active{background:var(--surf2)}.tap:focus-visible{outline:2px solid var(--stb);outline-offset:2px}
+.row{display:flex;align-items:center;gap:10px}
+.chev{color:var(--faint);font-size:24px;line-height:1;flex:none}
+/* 模式切換：真的切換資料來源 */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.mode{all:unset;cursor:pointer;border-radius:var(--r);padding:14px 16px;background:var(--surf);border:1px solid var(--line);min-height:44px}
+.mode .t{font-size:17px;font-weight:650}.mode .n{font-size:30px;font-weight:700;line-height:1.2;margin-top:2px}.mode .d{font-size:14px;color:var(--mute)}
+.mode.m .t,.mode.m .n{color:var(--mom)}.mode.s .t,.mode.s .n{color:var(--stb)}
+.mode.m[aria-pressed=true]{border-color:rgba(240,138,62,.5);background:linear-gradient(0deg,var(--mom-dim),var(--mom-dim)),var(--surf)}
+.mode.s[aria-pressed=true]{border-color:rgba(94,158,234,.5);background:linear-gradient(0deg,var(--stb-dim),var(--stb-dim)),var(--surf)}
+.mode[aria-pressed=false]{opacity:.6}.mode:active{transform:scale(.985)}.mode:focus-visible{outline:2px solid var(--stb)}
+/* 今日動作：每格可點，點進去看是哪幾檔 */
+.acts{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.act{all:unset;cursor:pointer;text-align:center;border-radius:12px;padding:10px 0 8px;background:var(--surf2);min-height:44px}
+.act b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}.act span{font-size:14px;color:var(--mute)}
+.act:active{background:#262c36}.act:focus-visible{outline:2px solid var(--stb)}
+.act.BUY b{color:var(--pos)}.act.ADD b,.act.TRIM b{color:var(--mom)}.act.EXIT b{color:var(--neg)}.act.zero b{color:var(--faint)}
+/* 動作標籤：主要動作（買進／加碼／減碼／出場）填色；次要（續抱／等待）只有框線。標籤不是按鈕，不會下單。 */
+.tag{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:8px;font-size:15px;font-weight:650;white-space:nowrap;flex:none}
+.tag.BUY{background:var(--pos);color:#0b1a13}.tag.SIGNAL{border:1px solid var(--pos);color:var(--pos)}.tag.ADD,.tag.TRIM{background:var(--mom);color:#1f1206}
+.tag.EXIT,.tag.EXIT_REALLOCATE,.tag.AVOID{background:var(--neg);color:#210807}
+.tag.HOLD,.tag.WAIT,.tag.READY,.tag.EXIT_WATCH,.tag.UNKNOWN,.tag.INSUFFICIENT_EVIDENCE,.tag.DATA_STALE,.tag.BASE_DATA_ONLY,.tag.PENDING_LOCAL,.tag.NONE{border:1px solid var(--line2);color:var(--text)}
+.tag.DORMANT,.tag.EMERGING,.tag.CONFIRMING,.tag.ADVANCING,.tag.OVERHEATED,.tag.FADING{border:1px solid var(--line2);color:var(--text)}
+.tag.READY{border-color:rgba(63,182,139,.55)}.tag.EXIT_WATCH{border-color:rgba(239,90,85,.55)}
+.eng{font-size:14px;font-weight:600}.eng.M{color:var(--mom)}.eng.S{color:var(--stb)}
+/* 清單列：整列可點 */
+.list{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:10px 0}
+.li{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);min-height:44px}
+.li:last-child{border-bottom:0}
+.li .nm{font-size:18px;font-weight:650}.li .why{font-size:15px;color:var(--mute);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.li .main{flex:1;min-width:0}.li .rt{text-align:right;flex:none}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--surf2);border-radius:12px;padding:12px 14px}.stat .k{font-size:14px;color:var(--mute)}.stat .v{font-size:20px;font-weight:650;margin-top:2px}
+.v.CONFIRMED,.v.VALID,.v.SUFFICIENT{color:var(--pos)}.v.PARTIAL,.v.LIMITED{color:var(--mom)}.v.UNKNOWN,.v.UNVERIFIED,.v.UNAVAILABLE{color:var(--faint)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:16px;margin:0}.kv dt{color:var(--mute)}.kv dd{margin:0;text-align:right}
+.note{border-radius:12px;padding:14px 16px;margin:10px 0;font-size:16px;background:var(--surf);border:1px solid var(--line)}
+.note.warn{border-color:rgba(240,138,62,.4)}.note.err{border-color:rgba(239,90,85,.45)}
+.empty{color:var(--mute);padding:22px 16px;text-align:center}
+.sk{background:linear-gradient(90deg,var(--surf) 0,var(--surf2) 50%,var(--surf) 100%);background-size:200% 100%;border-radius:var(--r);height:84px;margin:10px 0}
+@media (prefers-reduced-motion:no-preference){.sk{animation:sh 1.2s linear infinite}@keyframes sh{to{background-position:-200% 0}}}
+/* 按鈕：default／pressed／loading／disabled／success／error */
+.btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;
+  font-size:16px;font-weight:650;border:1px solid var(--line2);background:var(--surf2)}
+.btn:active{transform:scale(.98);background:#262c36}.btn:focus-visible{outline:2px solid var(--stb)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.btn.loading::before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--mute);border-top-color:transparent;animation:spin .8s linear infinite}
+.btn.ok{border-color:rgba(63,182,139,.6)}.btn.bad{border-color:rgba(239,90,85,.6)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.seg{display:flex;background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:3px;margin:10px 0}
+.seg button{all:unset;flex:1;text-align:center;min-height:44px;border-radius:9px;font-size:16px;color:var(--mute);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--surf2);color:var(--text);font-weight:650}
+.seg button:focus-visible{outline:2px solid var(--stb)}
+details{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);margin:10px 0}
+summary{cursor:pointer;padding:14px 16px;font-size:18px;font-weight:650;list-style:none;min-height:44px;display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(45deg);transition:transform .15s;flex:none}
+details[open] summary::after{transform:rotate(-135deg)}
+details>div{padding:0 16px 16px;font-size:16px}
+.ev{border-left:3px solid var(--line2);padding:4px 12px;margin:12px 0;font-size:16px;overflow-wrap:anywhere}
+.ev.UNAVAILABLE{opacity:.6}
+ul.plain{margin:6px 0;padding-left:20px}ul.plain li{margin:4px 0}
+.tl{position:relative;padding-left:20px}.tl::before{content:"";position:absolute;left:5px;top:8px;bottom:6px;width:1px;background:var(--line2)}
+.tl>div{position:relative;margin:0 0 14px}.tl>div::before{content:"";position:absolute;left:-19px;top:8px;width:9px;height:9px;border-radius:50%;background:var(--faint)}
+.chart{width:100%;height:auto;display:block}.chart text{font-size:24px;fill:var(--mute)}
+.search{width:100%;font:inherit;font-size:18px;padding:13px 16px;border-radius:12px;border:1px solid var(--line2);background:var(--surf);color:var(--text);-webkit-appearance:none}
+.search:focus{outline:2px solid var(--stb);outline-offset:1px}
+.tbl{width:100%;border-collapse:collapse;font-size:15px}.tbl th,.tbl td{padding:10px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}.tbl th{color:var(--mute);font-weight:500}
+.wrap{overflow-x:auto}
+.long{overflow-wrap:anywhere}
+/* 個股頁：左邊判斷、右邊價格角色梯 */
+.hero{display:grid;grid-template-columns:1fr 150px;gap:10px;align-items:start;margin-top:4px}
+.ladder{width:100%;height:auto;display:block}.ladder text{font-size:19px;fill:var(--mute)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.pill{display:inline-flex;align-items:baseline;gap:6px;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:16px}
+.pill .k{color:var(--mute);font-size:14px}.pill .v{font-weight:650}
+.pill .v.CONFIRMED,.pill .v.VALID,.pill .v.SUFFICIENT{color:var(--pos)}.pill .v.PARTIAL,.pill .v.LIMITED{color:var(--mom)}.pill .v.UNKNOWN,.pill .v.UNVERIFIED,.pill .v.UNAVAILABLE{color:var(--faint)}
+.plan{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:15px;color:var(--mute);margin-top:6px}
+.chain>div{border-left:3px solid var(--line2);padding:6px 12px;margin:8px 0}.chain>div.ok{border-left-color:var(--pos)}.chain>div.na{opacity:.65}
+@media (min-width:1024px){main{max-width:1400px}.desk{display:grid;grid-template-columns:minmax(360px,1fr) 1.2fr minmax(340px,1fr);gap:20px;align-items:start}
+  .dcol{position:sticky;top:calc(var(--hdr) + var(--st) + 8px);max-height:calc(100vh - var(--hdr) - var(--nav) - 40px);overflow:auto;padding-right:4px}}
+/* all:unset 會把 box-sizing 也重設，放在最後補回，避免寬 100% 的按鈕撐破版面 */
+.btn,.mode,.act,.ib,nav button,.seg button{box-sizing:border-box}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">AlphaPilot</span>
+  <span id="dstate" class="dstate"><span class="dot"></span>讀取中</span>
+  <span class="sp"></span>
+  <button class="ib" id="b-menu" aria-label="系統狀態與說明"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+</header>
+<main id="view"><div class="sk"></div><div class="sk"></div><div class="sk"></div></main>
+<nav aria-label="主要頁面">
+  <button data-r="radar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg>行情雷達</button>
+  <button data-r="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>今日決策</button>
+  <button data-r="mine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 19V10M11 19V5M17 19v-7M3 19h18"/></svg>我的持股</button>
+  <button data-r="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>搜尋</button>
+</nav>
+<script src="app.js"></script>
+</body>
+</html>
