@@ -9,7 +9,7 @@ on:
     - cron: "37 13 * * 1-5"   # 21:37 台北：融資資料公布後再算一次（22:00 推完整版）
   push:
     branches: [main]
-    paths: ['scripts/lights_daily.py', 'scripts/picks_daily.py', 'scripts/picks_core.py', '.github/workflows/lights_daily.yml']
+    paths: ['scripts/lights_daily.py', 'scripts/picks_daily.py', 'scripts/picks_core.py', 'scripts/site_data.py', '.github/workflows/lights_daily.yml']
 
 permissions:
   contents: write
@@ -54,3 +54,15 @@ jobs:
           git commit -m "data: daily lights $(TZ=Asia/Taipei date +%F_%H%M)"
           for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep 10; done
           exit 1
+      - name: App 資料（alphapilot-app 讀這裡，推到 site-data 分支）
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -u scripts/site_data.py
+          git add -f data/extra/picks/industry_stages.json 2>/dev/null && ! git diff --cached --quiet && \
+            git commit -qm "data: industry stages" && for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 5; done
+          cd site_out && git init -q -b site-data && git add -A && \
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "site $(TZ=Asia/Taipei date +%F_%H%M)" && \
+            git push -fq "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" site-data

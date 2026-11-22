@@ -257,7 +257,7 @@ def main():
     text = "\n".join(lines)
     has_orders = bool(sells or sellall or nbuy > 0 or alarms)
     tsmc = F.close.get("2330")
-    out = {"date": ymd, "version": "v2", "mode": st["mode"], "notify": has_orders, "text": text, "value": round(val), "alarms": alarms,
+    out = {"date": ymd, "version": "v2", "mode": st["mode"], "notify": has_orders, "text": text, "value": round(val), "alarms": alarms, "checks": checks,
            "tsmc_close": (round(float(tsmc), 1) if tsmc == tsmc else None),
            "picks": [dict(code=b["code"], name=F.name.get(b["code"], ""), market="", kind=b["kind"],
                           buy_max=round(float(F.close.get(b["code"])) * 1.092, 2)) for b in buys[:nbuy]],
