@@ -10,7 +10,7 @@
         三燈 < 2 或熊市指標（大盤在季線下且季線 20 天前比較高）→ 不買新股
         帳戶從高點回落 20%：三燈 < 3 → 多頭股全賣、不買；三燈 = 3 → 高點重設
   共同：燈號出場訊號 → 全賣；每檔帳戶 9%，最多 10 檔，資金最多 90%；買賣各扣 0.3%
-        開盤漲停（≥ 前收 ×1.092）買不到換下一檔；沒有開盤價就延後賣；連續 20 天沒價格用最後收盤價出清
+        開盤漲停（≥ 前收 ×1.092）買不到換下一檔；股數：夠 1 張只買整張，不到 1 張全用零股（不混買）；沒有開盤價就延後賣；連續 20 天沒價格用最後收盤價出清
 """
 import math
 
@@ -29,7 +29,23 @@ def nav(st, px):
     return st["cash"] + sum(p["sh"] * (px.get(c) if px.get(c) == px.get(c) and px.get(c) is not None else p["epx"]) for c, p in st["pos"].items())
 
 
-def execute(st, day, opn, lim_open, lim_ref, lim, last_px, days_since_px, fractional=True):
+def lot_shares(amt, px, cap=None):
+    """每檔 9% 是「規劃金額」。買整張就整張、買零股就零股，不混：
+    規劃金額換算成張數四捨五入（例：1 張 8 萬買 1 張、2 張 10 萬買 2 張）；現金不夠就少買一張；
+    連 0.5 張都不到 → 全部用零股（整數股）。"""
+    if not (px and px > 0):
+        return 0
+    one = px * (1 + CIN) * 1000
+    lots = math.floor(amt / one + 0.5)
+    if cap is not None:
+        lots = min(lots, math.floor(cap / one))
+    if lots >= 1:
+        return lots * 1000
+    odd = math.floor(amt / (px * (1 + CIN)))
+    return min(odd, 999) if odd > 0 else 0
+
+
+def execute(st, day, opn, lim_open, lim_ref, lim, last_px, days_since_px, fractional=True, size=None):
     """第 N+1 天開盤：先賣後買。opn: code→今天開盤（成交價）；lim_open／lim_ref: 判斷開盤漲停用的開盤價和前收
     （線上用原始價格，除權息日用參考價，不用到當天收盤）；lim: 漲停門檻倍數；
     last_px: code→最後一筆收盤；days_since_px: code→距最後一筆價格幾個交易日。回傳成交紀錄。"""
@@ -65,8 +81,9 @@ def execute(st, day, opn, lim_open, lim_ref, lim, last_px, days_since_px, fracti
             x = opn.get(c); pc = lim_ref.get(c); xo = lim_open.get(c, x)
             if not (x == x and x) or (pc == pc and pc and xo == xo and xo >= pc * lim):
                 continue
-            amt = min(st["cash"] - val * (1 - MAXN * SLOT), val * SLOT)
-            sh = amt / (x * (1 + CIN)) if fractional else math.floor(amt / (x * (1 + CIN)))
+            cap = st["cash"] - val * (1 - MAXN * SLOT)
+            amt = min(cap, val * SLOT)
+            sh = size(c, amt, x, cap) if size else (amt / (x * (1 + CIN)) if fractional else lot_shares(amt, x, cap))
             if sh <= 0:
                 continue
             st["pos"][c] = dict(sh=sh, kind=b["kind"], ent=day, epx=x, sig=pend.get("day"))

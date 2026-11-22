@@ -155,7 +155,7 @@ def main():
             print("除權息參考價讀不到：", e)
         last_px = {c: v[0] for c, v in held_last.items()}
         since = {c: v[1] for c, v in held_last.items()}
-        done = K.execute(st, day, opn, lim_open, lim_ref, 1.092, last_px, since, fractional=False)   # 實際股數：整數（整張＋零股）
+        done = K.execute(st, day, opn, lim_open, lim_ref, 1.092, last_px, since, fractional=False)   # 實際股數：夠 1 張只買整張，不到 1 張全用零股（lot_shares）
     # 2) 收盤判斷
     act = (lj.get("key") or {}).get("action", "")
     act = act if act in ("exit", "bottom", "back") else ""
