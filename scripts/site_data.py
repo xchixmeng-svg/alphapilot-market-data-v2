@@ -220,13 +220,14 @@ def flows(a, day, imap, window=20):
 
 
 # ---------- 個股 ----------
-def stocks(a, names, imap, ins, day, yoy, v2codes):
+def stocks(a, names, imap, ins, day, yoy, v2codes, yoy_prev):
     a = a[a.date <= day]
     g = a.groupby("code")
     a = a.assign(ma20=g.close.transform(lambda x: x.rolling(20).mean()), ma60=g.close.transform(lambda x: x.rolling(60).mean()))
     a = a.assign(h250=g.close.transform(lambda x: x.rolling(250, min_periods=120).max()), ret60=g.close.transform(lambda x: x / x.shift(60) - 1),
                  v5=g.value.transform(lambda x: x.rolling(5, min_periods=3).mean()), v20=g.value.transform(lambda x: x.rolling(20, min_periods=15).mean()),
-                 nd=g.cumcount() + 1)
+                 nd=g.cumcount() + 1, l250=g.close.transform(lambda x: x.rolling(250, min_periods=120).min()),
+                 r20=g.close.transform(lambda x: x / x.shift(20) - 1))
     tail = a.groupby("code").tail(80)
     inst = {}
     if ins is not None:
@@ -248,7 +249,11 @@ def stocks(a, names, imap, ins, day, yoy, v2codes):
         w(f"stocks/{code}.json", {"code": code, "name": nm, "industry": ind, "bars": b, "inst": inst.get(code),
                                   "rev_yoy": fnum(yoy.get(code), 1), "v2": v2codes.get(code),
                                   "chk": {"vs_h250": fnum(x.close.iloc[-1] / x.h250.iloc[-1] - 1), "vol_ratio": fnum(x.v5.iloc[-1] / x.v20.iloc[-1], 2),
-                                          "val20": fnum(x.v20.iloc[-1], 0), "ret60": fnum(x.ret60.iloc[-1])}})
+                                          "val20": fnum(x.v20.iloc[-1], 0), "ret60": fnum(x.ret60.iloc[-1])},
+                                  "hc": {"r20": fnum(x.r20.iloc[-1]), "dev20": fnum(x.close.iloc[-1] / x.ma20.iloc[-1] - 1), "dev60": fnum(x.close.iloc[-1] / x.ma60.iloc[-1] - 1),
+                                         "vs_l250": fnum(x.close.iloc[-1] / x.l250.iloc[-1] - 1), "vol1": fnum(x.value.iloc[-1] / x.v20.iloc[-1], 2),
+                                         "chg1": fnum(x.close.iloc[-1] / x.close.iloc[-2] - 1) if len(x) > 1 else None,
+                                         "black": bool(x.close.iloc[-1] < x.open.iloc[-1]), "yoy_prev3": fnum(yoy_prev.get(code), 1)}})
     w("search/index.json", sorted(idx))
     return len(idx)
 
@@ -327,16 +332,21 @@ def main():
     mi = market_index(a, day)
     fl, ins = flows(a, day, imap)
     rf = DATA / "extra" / "revenue_history.csv"
-    yoy = {}
+    yoy, yoy_prev = {}, {}
     if rf.exists():
         rv = pd.read_csv(rf, dtype={"code": str, "available_date": str})
         rv["ad"] = pd.to_datetime(rv.available_date); rv["yoy"] = pd.to_numeric(rv.yoy_pct, errors="coerce")
-        yoy = rv[rv.ad <= day].sort_values(["ad", "period"]).groupby("code").yoy.last().to_dict()
+        rr = rv[rv.ad <= day].sort_values(["ad", "period"])
+        yoy = rr.groupby("code").yoy.last().to_dict()
+        yoy_prev = rr.groupby("code").yoy.apply(lambda x: x.iloc[-4:-1].mean() if len(x) >= 4 else float("nan")).to_dict()
     v2codes = v2(day, a)
     bt = DATA / "extra" / "picks_backtest_v2.json"
     if bt.exists():
         (OUT / "backtest.json").write_text(bt.read_text())
-    n = stocks(a, names, imap.to_dict(), ins, day, yoy, v2codes)
+    n = stocks(a, names, imap.to_dict(), ins, day, yoy, v2codes, yoy_prev)
+    ht = DATA / "extra" / "health_table.json"
+    if ht.exists():
+        (OUT / "health.json").write_text(ht.read_text())
     w("build.json", {"date": day.strftime("%Y%m%d"), "built_at": pd.Timestamp.now(tz="Asia/Taipei").strftime("%Y-%m-%d %H:%M"),
                      "stocks": n, "inst_ok": fl.get("inst_ok"), "market_status": mi["status"]})
     print("App 資料完成：", day.date(), "個股", n, "產業", len(fl.get("industries", [])))
