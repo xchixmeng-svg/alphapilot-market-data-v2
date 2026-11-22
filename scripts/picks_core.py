@@ -41,7 +41,7 @@ def lot_shares(amt, px, cap=None):
         lots = min(lots, math.floor(cap / one))
     if lots >= 1:
         return lots * 1000
-    odd = math.floor(amt / (px * (1 + CIN)))
+    odd = math.floor((amt if cap is None else min(amt, cap)) / (px * (1 + CIN)))
     return min(odd, 999) if odd > 0 else 0
 
 
