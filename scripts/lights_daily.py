@@ -265,6 +265,8 @@ def main():
                                                      "data" if now.hour >= 17 else "afternoon" if now.hour >= 16 else "early")
     day = latest_day()
     tx = macro("TAIEX")
+    # 11/22：休市日（颱風等）Yahoo 會原封不動複製前一天的指數，那天不算交易日
+    tx = tx[~(tx[["open", "high", "low", "close"]] == tx[["open", "high", "low", "close"]].shift(1)).all(axis=1)]
     today = now.strftime("%Y-%m-%d")
     if today > day and pd.Timestamp(today) in tx.index and fetch_today_prices(today):
         day = today
@@ -388,7 +390,8 @@ def main():
         st = {"rule": "v2", "state": "cash", "exit_date": "2026-10-30", "exit_px": 45212, "last_date": "2026-11-19"}
     action = ""
     hi_px = bottom_est["hi"] if bottom_est else None
-    price_ok = bool(hi_px is None or r.close <= hi_px)       # 底價區：跌破 20% 才有；沒有預估就不限制
+    # 底價區：跌破 20% 才有；沒有預估就不限制。11/22 起：急跌型不用等底價（V 型反彈常常不會跌到底價），慢跌型才要等
+    price_ok = bool(hi_px is None or r.close <= hi_px or ev_type == "急跌型")
     WAIT_MAX = 120
     if st.get("last_date") == day and "base" in st:      # 同一天第二次跑（例如融資資料晚到）：從當天開始前的狀態重算
         st = st["base"]
@@ -504,10 +507,11 @@ def main():
         elif below:
             v, n = below[0]; lines += [f"現在：下一條 {v:,.0f}，還要跌 {(1 - v / r.close)*100:.0f}%", "算法：" + fib_why(v, n)]
         lines += [""]
-        lines += [f"⑥ {on(price_ok)} 底價區"]
+        lines += [f"⑥ {on(price_ok)} 底價區" + ("（急跌型不用等，這盞算亮）" if ev_type == "急跌型" else "")]
         if bottom_est:
             lines += [f"規則：大盤收盤在 {bottom_est['hi']:,} 以下",
-                      "現在：已進入底價區" if price_ok else f"現在：還要跌 {(1 - bottom_est['hi'] / r.close)*100:.0f}%",
+                      "現在：已進入底價區" if r.close <= bottom_est["hi"] else
+                      (f"現在：還要跌 {(1 - bottom_est['hi'] / r.close)*100:.0f}%" + ("（急跌型不用等到這裡）" if ev_type == "急跌型" else "")),
                       f"算法：{ymd_md(bottom_est['date'])} 第一次跌破 20%",
                       f"　　　那天的年線 {bottom_est['ma240']:,} × 0.764 ＝ {bottom_est['est']:,}",
                       f"　　　上下留 3% ＝ {bottom_est['lo']:,}～{bottom_est['hi']:,}"]

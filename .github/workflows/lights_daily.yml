@@ -9,7 +9,7 @@ on:
     - cron: "37 13 * * 1-5"   # 21:37 台北：融資資料公布後再算一次（22:00 推完整版）
   push:
     branches: [main]
-    paths: ['scripts/lights_daily.py', 'scripts/picks_daily.py', '.github/workflows/lights_daily.yml']
+    paths: ['scripts/lights_daily.py', 'scripts/picks_daily.py', 'scripts/picks_core.py', '.github/workflows/lights_daily.yml']
 
 permissions:
   contents: write
