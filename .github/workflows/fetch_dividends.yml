@@ -1,0 +1,34 @@
+name: One-off dividends 2008-2025
+
+on:
+  workflow_dispatch:
+  push:
+    paths: [".github/workflows/fetch_dividends.yml", "scripts/fetch_dividends.py"]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.5
+      - name: Run
+        continue-on-error: true
+        run: python -u scripts/fetch_dividends.py
+      - name: Commit
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data/extra/dividends/*.json 2>/dev/null || true
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "data: dividends 2008-2025 (one-off)"
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && exit 0; sleep $((RANDOM % 20 + 5)); done
+          exit 1
