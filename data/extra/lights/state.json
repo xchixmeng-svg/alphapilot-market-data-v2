@@ -3,12 +3,12 @@
  "state": "cash",
  "exit_date": "2026-10-30",
  "exit_px": 45212,
- "last_date": "2026-11-20",
+ "last_date": "2026-11-23",
  "base": {
   "rule": "v2",
   "state": "cash",
   "exit_date": "2026-10-30",
   "exit_px": 45212,
-  "last_date": "2026-11-19"
+  "last_date": "2026-11-20"
  }
 }
