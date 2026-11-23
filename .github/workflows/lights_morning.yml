@@ -2,6 +2,8 @@ name: Morning lights (夜盤＋美股，早上推播)
 
 on:
   workflow_dispatch:
+  push:
+    paths: [".github/workflows/lights_morning.yml"]   # 11/24：GitHub 排程大延遲時，改這個檔就能手動補跑
   schedule:
     # 11/22：提早準備，07:00 由 Cloudflare 早報準時一起推。美股 VIX 收盤＝台北 05:15（冬令）／04:15（夏令），
     # 04:20 起每 30 分鐘跑一次；VIX 還沒有昨晚收盤就先不寫，等下一次（06:45 以後不再等，有什麼用什麼）。
