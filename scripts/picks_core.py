@@ -1,4 +1,5 @@
-"""選股核心（V2，2026-11-22 凍結）：線上 picks_daily.py 和歷史對帳共用這一份。
+"""選股核心（V2.1＝影子 A 升正式，2026-11-23）：V2 加兩條：漲 100% 後從最高收盤回落 15% 賣（鎖利）、訊號日已連 4 根漲停不買（在 picks_daily 的候選篩）。
+原 V2（2026-11-22 凍結）：線上 picks_daily.py 和歷史對帳共用這一份。
 
 全部 N+1：第 N 天收盤後判斷（decide），第 N+1 天開盤成交（execute）。
   抓底：燈號抓底訊號 → 買離 250 日最高跌最深的 10 檔（20 日均成交額 ≥ 3,000 萬、上市 ≥ 120 天）
@@ -7,6 +8,7 @@
   多頭：創 250 日新高、5 日均成交額 > 20 日均 ×2、20 日均成交額 ≥ 3,000 萬、上市 ≥ 250 天、
         最新已公布月營收年增 > 20%，依 60 日漲幅排序取前 40，有空位依序買
         收盤 < 買價 ×0.9 停損；收盤 < 60 日均線出場
+        V2.1：收盤曾 ≥ 買價 ×2 之後，收盤 < 持有期最高收盤 ×0.85 → 鎖利賣出
         三燈 < 2 或熊市指標（大盤在季線下且季線 20 天前比較高）→ 不買新股
         帳戶從高點回落 20%：三燈 < 3 → 多頭股全賣、不買；三燈 = 3 → 高點重設
   共同：燈號出場訊號 → 全賣；每檔帳戶 9%，最多 10 檔，資金最多 90%；買賣各扣 0.3%
@@ -15,6 +17,7 @@
 import math
 
 SLOT, MAXN, TP, STOP, BRAKE, VOLR, DS = 0.09, 10, 0.50, -0.10, 0.20, 2.0, 0.20
+ARM, TRAIL, LU = 1.0, 0.15, 4     # V2.1 鎖利：漲 100% 後回落 15%；連 LU 根漲停不買（設 None 就是原 V2）
 CIN, COUT = 0.003, 0.003
 CASH0 = 1_000_000
 
@@ -141,8 +144,11 @@ def decide(st, day, close, ma60, act, g, taiex, bear, candA, candM):
         x = close.get(c)
         if p["kind"] == "多頭" and x == x and x is not None:
             m = ma60.get(c)
+            p["pk"] = max(p.get("pk") or p["epx"], x)
             if STOP and x < p["epx"] * (1 + STOP):
                 sells.append(c); why[c] = f"收盤虧{int(-STOP * 100)}%停損"
+            elif TRAIL and p["pk"] >= p["epx"] * (1 + ARM) and x < p["pk"] * (1 - TRAIL):
+                sells.append(c); why[c] = f"鎖利：漲{int(ARM * 100)}%後從最高回落{int(TRAIL * 100)}%"
             elif m == m and m is not None and x < m:
                 sells.append(c); why[c] = "跌破季線"
     room = MAXN - len([c for c in pos if c not in sells])

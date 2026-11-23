@@ -75,12 +75,17 @@ def features(day):
     a["val5"] = g.value.transform(lambda x: x.rolling(5, min_periods=3).mean())
     a["n"] = g.cumcount() + 1
     a["prev_raw"] = g.close.shift(1)
+    try:   # V2.1：訊號日已連 LU 根漲停（收盤漲幅 ≥ 9.4%）不買
+        lu = (a.close / a.prev_raw - 1 >= 0.094).astype(int)
+        a["lu_n"] = lu.groupby(a.code).transform(lambda x: x.rolling(K.LU or 1, min_periods=1).sum())
+    except Exception as e:  # noqa
+        print("連漲停計算失敗：", e); a["lu_n"] = 0
     today = a[a.date == t].set_index("code")
     lastrow = a.groupby("code").tail(1).set_index("code")
     F = pd.DataFrame({
         "close": today.acl, "open": today.aop, "raw_open": today.open, "prev_raw": today.prev_raw,
         "ma60": today.ma60, "toh": today.acl / today.h250 - 1, "ret60": today.ret60,
-        "val20": today.val20, "val5": today.val5, "n": today.n})
+        "val20": today.val20, "val5": today.val5, "n": today.n, "lu_n": today.lu_n})
     F["name"] = [names.get(c, "") for c in F.index]
     ti = {d: i for i, d in enumerate(sorted(a.date.unique()))}
     held_last = {c: (float(lastrow.at[c, "acl"]), ti[t] - ti[lastrow.at[c, "date"]]) for c in lastrow.index}
@@ -170,6 +175,8 @@ def main():
     def candM():
         x = F[(F.val20 >= 3e7) & (F.n >= 250) & (F.toh >= -0.001) & (F.val5 > F.val20 * K.VOLR)]
         x = x[[yoy.get(c, np.nan) > 20 for c in x.index]]
+        if K.LU:
+            x = x[~(x.lu_n >= K.LU)]
         return list(x.sort_values("ret60", ascending=False).index[:40])
 
     sells, buys, sellall, room, log = K.decide(st, day, close, ma, act, g3, taiex, bear, candA, candM)
@@ -241,7 +248,7 @@ def main():
             else:
                 why = (f"創一年新高、60 天 {F.ret60.get(c) * 100:+.0f}%、量 {F.val5.get(c) / F.val20.get(c):.1f} 倍、"
                        f"營收年增 {yoy.get(c, float('nan')):+.0f}%")
-                stop = f"停損：收盤跌破 {x * 0.9:.1f}（−10%）或跌破季線 {F.ma60.get(c):.1f}"
+                stop = f"停損：收盤跌破 {x * 0.9:.1f}（−10%）或跌破季線 {F.ma60.get(c):.1f}；漲到 {x * 2:.1f}（2 倍）後從最高回落 15% 鎖利"
             lines.append(f"{tag} {F.name.get(c, '')} {c}　收 {x:.2f}　約 {lot(sh)}")
             lines.append(f"　　{why}｜{stop}")
         lines.append("開盤漲停就買不到，改買下一檔")
@@ -257,7 +264,7 @@ def main():
     text = "\n".join(lines)
     has_orders = bool(sells or sellall or nbuy > 0 or alarms)
     tsmc = F.close.get("2330")
-    out = {"date": ymd, "version": "v2", "mode": st["mode"], "notify": has_orders, "text": text, "value": round(val), "alarms": alarms, "checks": checks,
+    out = {"date": ymd, "version": "v2.1", "mode": st["mode"], "notify": has_orders, "text": text, "value": round(val), "alarms": alarms, "checks": checks,
            "tsmc_close": (round(float(tsmc), 1) if tsmc == tsmc else None),
            "picks": [dict(code=b["code"], name=F.name.get(b["code"], ""), market="", kind=b["kind"],
                           buy_max=round(float(F.close.get(b["code"])) * 1.092, 2)) for b in buys[:nbuy]],
