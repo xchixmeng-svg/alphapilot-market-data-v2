@@ -41,3 +41,5 @@ def _tpex_tls_compatible_get(self, url, *args, **kwargs):
 
 requests.Session.get = _tpex_tls_compatible_get
 runpy.run_path("scripts/fetch_today.py", run_name="__main__")
+
+# rerun 2026-11-23 補跑（排程未觸發）
