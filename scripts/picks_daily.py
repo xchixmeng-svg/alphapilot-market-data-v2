@@ -25,7 +25,7 @@ DATA = ROOT / "data"
 OUT = DATA / "extra" / "picks"
 LIGHTS = DATA / "extra" / "lights"
 # 正常範圍（V2 回測 2008～2025 的最差值）與警戒線
-NORMAL = {"dd": (-28.5, -35), "year": (-22.4, -28), "win30": (17, 13), "streak": (19, 24)}
+NORMAL = {"dd": (-27.7, -35), "year": (-18.4, -28), "win30": (17, 13), "streak": (16, 24)}   # V2.1 回測（2026-11-23）
 
 
 # ---------- 資料 ----------
