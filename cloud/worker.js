@@ -738,16 +738,36 @@ async function ghWake(env, now, by) {
   if (r.status !== 204) throw new Error("GitHub 回應 " + r.status + "：" + (await r.text()).slice(0, 200));
 }
 // 11/22：晚上選股推播（GitHub 21:37 後算好；有買賣單才推；內容變了會再推一次「更新」）
+// 11/24：晚上結論分兩次。18:30 起資料一算好就先推「初步結論」（明天進不進場、還差哪盞燈）；
+// 21:30 融資公布、21:45 重算後，只有結論改變（燈數、狀態、要買賣的股票）才再推一次，沒變就不吵。
 async function picksPush(env, now) {
   try {
     const T = tw(now);
-    if (T.hm < "21:45" || T.hm > "23:55") return;
-    const j = await getJson("picks/latest.json", now);
-    if (j.date !== T.ymd || !j.notify || !j.text) return;
-    const k = "pickspush:" + j.date, h = hash(j.text), old = await env.BRIEF.get(k);
-    if (old === h) return;
-    await env.BRIEF.put(k, h, { expirationTtl: 7 * 86400 });
-    await tg(env, env.CHAT_ID, (old ? "（更新）" : "") + esc(j.text));
+    if (T.hm < "18:30" || T.hm > "23:55" || isHoliday(T.ymd, env) || T.wd < 1 || T.wd > 5) return;
+    const L = await getJson("lights/latest.json", now);
+    if (!L || L.date !== T.ymd || L.stage !== "data" || !L.text) return;
+    let P = null;
+    try { P = await getJson("picks/latest.json", now); } catch (e) { P = null; }
+    if (P && P.date !== T.ymd) P = null;
+    if (!P && T.hm < "19:30") return;                       // 選股通常和燈號同時好；19:30 前再等一下
+    const orders = P && P.notify && P.text ? P.text : "";
+    const key = JSON.stringify([L.key && L.key.state, L.key && L.key.action, !!L.signal, L.lamps_on, L.green, hash(orders)]);
+    const final = !!L.margin_ok;
+    const k = "eve:" + T.ymd;
+    let st = null; try { st = JSON.parse((await env.BRIEF.get(k)) || "null"); } catch (e) { st = null; }
+    if (st && (st.final || (!final && st.key === key))) return;
+    if (st && final && st.key === key) { await env.BRIEF.put(k, JSON.stringify({ key, final: true }), { expirationTtl: 7 * 86400 }); return; }
+    const lines = L.text.split("\n");
+    const head = []; for (const x of lines) { if (!x.trim()) break; head.push(x); }
+    const miss = lines.find((x) => x.startsWith("還差"));
+    const md = T.ymd.slice(4, 6).replace(/^0/, "") + "/" + T.ymd.slice(6).replace(/^0/, "");
+    const title = !st ? (final ? `🌙 今晚結論 ${md}` : `🌙 今晚結論 ${md}（初步）`) : `🌙 今晚結論 ${md}（融資公布後有變）`;
+    const msg = [title, ...head.filter((x) => !x.startsWith("📊"))];
+    if (miss) msg.push(miss);
+    msg.push(orders ? "\n" + orders : (P ? "\n明天沒有要買賣的" : ""));
+    if (!final) msg.push("\n（融資 21:30 公布，21:45 重算；結論有變才會再通知你）");
+    await tg(env, env.CHAT_ID, esc(msg.filter((x) => x !== "").join("\n")));
+    await env.BRIEF.put(k, JSON.stringify({ key, final }), { expirationTtl: 7 * 86400 });
   } catch (e) { /* 下一個 5 分鐘再試 */ }
 }
 
