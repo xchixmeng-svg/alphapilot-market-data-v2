@@ -273,7 +273,7 @@ def v2(day, a):
     if eq:
         d0 = min(eq)
         e = pd.Series(eq).sort_index()
-        cmp_.append({"name": "V2（正式）", "value": e.iloc[-1], "ret": e.iloc[-1] / 1e6 - 1, "dd": e.iloc[-1] / e.max() - 1, "since": d0})
+        cmp_.append({"name": "V2.1（正式）", "value": e.iloc[-1], "ret": e.iloc[-1] / 1e6 - 1, "dd": e.iloc[-1] / e.max() - 1, "since": d0})
         try:
             p50 = []
             for d in daily_dirs():
