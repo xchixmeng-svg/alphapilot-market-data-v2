@@ -1,16 +1,16 @@
 {
  "date": "20261123",
- "run_at": "2026-11-24T10:16:51+08:00",
+ "run_at": "2026-11-24T17:46:16+08:00",
  "items": {
   "月營收": {
    "ok": true,
    "rows": 1989,
-   "sec": 5.3
+   "sec": 7.3
   },
   "除權息": {
-   "ok": true,
-   "rows": 943,
-   "sec": 1.9
+   "ok": false,
+   "error": "HTTPError: HTTP Error 307: Temporary Redirect",
+   "trace": "et-data-v2/alphapilot-market-data-v2/scripts/apfetch/fetch_corp.py\", line 45, in fetch_twse\n    with urllib.request.urlopen(req, timeout=60) as r:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/alphapilot-market-data-v2/alphapilot-market-data-v2/scripts/fetch_snapshots.py\", line 50, in _urlopen\n    return _real_urlopen(req, *a, **k)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 215, in urlopen\n    return opener.open(url, data, timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 521, in open\n    response = meth(req, response)\n               ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 630, in http_response\n    response = self.parent.error(\n               ^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 559, in error\n    return self._call_chain(*args)\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 492, in _call_chain\n    result = func(*args)\n             ^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 639, in http_error_default\n    raise HTTPError(req.full_url, code, msg, hdrs, fp)\nurllib.error.HTTPError: HTTP Error 307: Temporary Redirect\n"
   },
   "產業分類": {
    "ok": true,
@@ -20,7 +20,7 @@
   "集保": {
    "ok": true,
    "rows": "20261120 已存在",
-   "sec": 2.6
+   "sec": 3.0
   }
  },
  "note": "不是交易日當天執行（例如隔天早上補抓），公告／估值／股數是『當下快照』，不能標成前一天，這次跳過"
