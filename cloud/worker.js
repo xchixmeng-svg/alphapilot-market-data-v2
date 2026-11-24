@@ -745,7 +745,7 @@ async function picksPush(env, now) {
     const T = tw(now);
     if (T.hm < "18:30" || T.hm > "23:55" || isHoliday(T.ymd, env) || T.wd < 1 || T.wd > 5) return;
     const L = await getJson("lights/latest.json", now);
-    if (!L || L.date !== T.ymd || L.stage !== "data" || !L.text) return;
+    if (!L || L.date !== T.ymd || !["data", "evening"].includes(L.stage) || !L.text) return;   // 18:20 那次是 data，21:45 融資後是 evening
     let P = null;
     try { P = await getJson("picks/latest.json", now); } catch (e) { P = null; }
     if (P && P.date !== T.ymd) P = null;
