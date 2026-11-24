@@ -1,7 +1,7 @@
 {
  "date": "20261124",
  "stage": "data",
- "notify": true,
+ "notify": false,
  "key": {
   "money": false,
   "people": false,
