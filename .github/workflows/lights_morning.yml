@@ -2,6 +2,8 @@ name: Morning lights (夜盤＋美股，早上推播)
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [lights-morning]   # 11/24：Cloudflare Worker 準時叫醒（GitHub 排程常延遲）
   push:
     paths: [".github/workflows/lights_morning.yml"]   # 11/24：GitHub 排程大延遲時，改這個檔就能手動補跑
   schedule:

@@ -2,6 +2,8 @@ name: TWD 16:00 close (CBC)
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [twd-now]   # 11/24：Cloudflare Worker 準時叫醒（GitHub 排程常延遲）
   push:
     paths: [".github/workflows/fetch_twd_tpe.yml", "scripts/fetch_twd_tpe.py"]
   schedule:

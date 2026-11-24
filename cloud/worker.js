@@ -685,6 +685,48 @@ async function autoWake(env, now) {
     await env.BRIEF.put("refresh:last", JSON.stringify({ at: now, by: "auto" }), { expirationTtl: 7 * 86400 });
   } catch (e) { await tg(env, env.CHAT_ID, `⚠️ 自動補抓資料失敗：${esc(String(e.message || e))}`); }
 }
+// 11/24：Cloudflare 當鬧鐘。GitHub 自己的排程常延遲好幾小時，所以每個固定時間由這裡直接叫 GitHub 立刻跑（通常 1 分鐘內開始）。
+// GitHub 原本的排程保留當備援；同一件事跑兩次沒關係（程式會覆蓋成同一個結果）。只在台股交易日叫。
+const CLOCK = [
+  { at: "06:30", type: "lights-morning",   what: "早上燈號（含美股資料）" },
+  { at: "06:50", type: "lights-morning",   what: "早上燈號（備援）" },
+  { at: "13:10", type: "lights-afternoon", what: "下午燈號" },
+  { at: "13:40", type: "lights-afternoon", what: "下午燈號（備援）" },
+  { at: "17:30", type: "twd-now",          what: "台幣收盤價" },
+  { at: "17:35", type: "fetch-now",        what: "晚上抓資料" },
+  { at: "21:45", type: "lights-night",     what: "晚上燈號（融資公布後）" },
+  { at: "22:15", type: "lights-night",     what: "晚上燈號（備援）" },
+];
+async function clockWake(env, now) {
+  const T = tw(now);
+  if (!env.GH_TOKEN || isHoliday(T.ymd, env) || T.wd < 1 || T.wd > 5) return;
+  const m = mins(T.hm);
+  for (const c of CLOCK) {
+    const d = m - mins(c.at);
+    if (d < 0 || d >= 15) continue;                       // 到點後 15 分鐘內（5 分鐘排程至少碰到 3 次）
+    const k = `clock:${T.ymd}:${c.at}`;
+    if (await env.BRIEF.get(k)) continue;
+    try {
+      await ghDispatch(env, c.type, { date: T.ymd, at: T.hm, by: "clock" });
+      await env.BRIEF.put(k, "1", { expirationTtl: 2 * 86400 });
+      if (c.type === "fetch-now") await env.BRIEF.put("refresh:last", JSON.stringify({ at: now, by: "clock" }), { expirationTtl: 7 * 86400 });
+    } catch (e) {
+      if (d >= 10) {                                       // 最後一次機會也失敗才通知，避免一直吵
+        await env.BRIEF.put(k, "fail", { expirationTtl: 2 * 86400 });
+        await tg(env, env.CHAT_ID, `⚠️ ${c.at} 叫 GitHub 跑「${c.what}」失敗：${esc(String(e.message || e))}\n可以到 App 系統頁按「立即抓資料」，或跟 Claude 說`);
+      }
+    }
+  }
+}
+async function ghDispatch(env, type, payload) {
+  const r = await fetch("https://api.github.com/repos/" + DATA_REPO + "/dispatches", {
+    method: "POST",
+    headers: { authorization: "Bearer " + env.GH_TOKEN, accept: "application/vnd.github+json",
+               "user-agent": "alphapilot-brief-worker", "content-type": "application/json" },
+    body: JSON.stringify({ event_type: type, client_payload: payload }),
+  });
+  if (r.status !== 204) throw new Error("GitHub 回應 " + r.status + "：" + (await r.text()).slice(0, 200));
+}
 async function ghWake(env, now, by) {
   const t = tw(now);
   const r = await fetch("https://api.github.com/repos/" + DATA_REPO + "/dispatches", {
@@ -712,6 +754,7 @@ async function picksPush(env, now) {
 async function dispatch(env, now) {
   await lightsPush(env, now);
   await picksPush(env, now);
+  await clockWake(env, now);
   await autoWake(env, now);
   const T = tw(now), done = [];
   for (const id of plan(now, env)) {

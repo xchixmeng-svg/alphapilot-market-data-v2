@@ -2,6 +2,8 @@ name: Daily lights (燈號)
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [lights-night]   # 11/24：Cloudflare Worker 準時叫醒（GitHub 排程常延遲）
   workflow_run:
     workflows: ["Taiwan Market Data Only"]
     types: [completed]
