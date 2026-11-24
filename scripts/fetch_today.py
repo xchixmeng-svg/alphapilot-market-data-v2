@@ -32,7 +32,8 @@ TPEX_DAILY_INST = "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade"
 
 def expected_session():
     """Last completed TWSE session at the scheduled evening run time."""
-    anchor = now.date() if now.hour >= 18 else now.date() - timedelta(days=1)
+    # 11/24：Cloudflare 17:35 準時叫醒，所以 17:30 起就算今天（官方 T86/上櫃資料 16:30 前都已公布；萬一還沒有，這次失敗，18:30 起每小時自動補）
+    anchor = now.date() if (now.hour, now.minute) >= (17, 30) else now.date() - timedelta(days=1)
     holidays = get_json("twse_holiday_schedule", HOLIDAYS)
     if not isinstance(holidays, list) or not holidays:
         raise RuntimeError("cannot verify official TWSE holiday calendar")
