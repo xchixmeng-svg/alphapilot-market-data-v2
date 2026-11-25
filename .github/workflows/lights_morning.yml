@@ -6,15 +6,7 @@ on:
     types: [lights-morning]   # 11/24：Cloudflare Worker 準時叫醒（GitHub 排程常延遲）
   push:
     paths: [".github/workflows/lights_morning.yml"]   # 11/24：GitHub 排程大延遲時，改這個檔就能手動補跑
-  schedule:
-    # 11/22：提早準備，07:00 由 Cloudflare 早報準時一起推。美股 VIX 收盤＝台北 05:15（冬令）／04:15（夏令），
-    # 04:20 起每 30 分鐘跑一次；VIX 還沒有昨晚收盤就先不寫，等下一次（06:45 以後不再等，有什麼用什麼）。
-    - cron: "20 20 * * 0-4"   # 04:20 台北
-    - cron: "50 20 * * 0-4"   # 04:50
-    - cron: "20 21 * * 0-4"   # 05:20
-    - cron: "50 21 * * 0-4"   # 05:50
-    - cron: "20 22 * * 0-4"   # 06:20
-    - cron: "50 22 * * 0-4"   # 06:50
+  # 11/25：GitHub 自己的排程常延遲好幾小時，已改由 Cloudflare Worker 準時叫醒（repository_dispatch）
 
 permissions:
   contents: write

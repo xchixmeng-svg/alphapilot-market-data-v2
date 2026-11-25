@@ -11,10 +11,7 @@ on:
   push:
     branches: [main]
     paths: ['.github/workflows/data_wake_1730.yml']   # 修改這個檔時當天也會啟動一次（測試用）
-  schedule:
-    - cron: "7 6 * * 1-5"    # 14:07 Taipei
-    - cron: "37 7 * * 1-5"   # 15:37 Taipei
-    - cron: "37 9 * * 1-5"   # 17:37 Taipei
+  # 11/25：GitHub 自己的排程常延遲好幾小時，已改由 Cloudflare Worker 準時叫醒（repository_dispatch）
 
 permissions:
   contents: read

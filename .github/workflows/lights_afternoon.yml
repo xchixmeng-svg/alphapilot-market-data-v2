@@ -5,9 +5,7 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [lights-afternoon]   # 11/24：Cloudflare Worker 準時叫醒（GitHub 排程常延遲）
-  schedule:
-    - cron: "7 5 * * 1-5"    # 13:07 台北
-    - cron: "37 5 * * 1-5"   # 13:37 台北（備援）
+  # 11/25：GitHub 自己的排程常延遲好幾小時，已改由 Cloudflare Worker 準時叫醒（repository_dispatch）
 
 permissions:
   contents: write
