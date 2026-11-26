@@ -457,6 +457,9 @@ def main():
     lines = [f"📊 {md} 大盤燈號"] + head
     if sw and state in ("cash", "wait") and action not in ("bottom", "back"):
         lines.append(f"抓底條件　已亮 {n_on}／6")
+    back_show = state in ("cash", "bottom") and action not in ("bottom", "back", "exit")
+    if back_show:   # 11/26：另一條路，三燈亮兩盞就回多頭（不用等抓底）
+        lines.append(f"回場三燈　已亮 {g}／3（亮 2 盞就回多頭）")
     lines += ["", f"大盤 {r.close:,.0f}　今天 {(r.close / c.iloc[i-1] - 1)*100:+.1f}%　離高點 {r.dd*100:.1f}%"]
     if state in ("cash", "wait") and st.get("exit_date"):
         ed = st["exit_date"]; lines.append(f"系統空手（{int(ed[5:7])}/{int(ed[8:10])} 在 {st.get('exit_px', 0):,} 出場）")
@@ -524,6 +527,17 @@ def main():
         miss = [nm for nm, ok in zip(names, lamps) if not ok]
         if miss and state in ("cash", "wait"):
             lines += ["", "還差：" + "、".join(miss)]
+    if back_show:
+        tw_need = float(D.twd.iloc[i - 59:i + 1].max()) * 0.985
+        mid60 = (float(c.iloc[i - 59:i + 1].max()) + float(c.iloc[i - 59:i + 1].min())) / 2
+        lines += ["", "━━ 回場三燈（亮 2 盞就回多頭，不用等抓底）━━",
+                  f"錢 {on(L_money)}　台幣比近 60 天最弱時升值 1.5%",
+                  f"　現在 {float(r.twd):.3f}，要到 {tw_need:.3f} 以下",
+                  f"人 {on(L_people)}　站上月線的股票超過一半",
+                  f"　現在 {float(r.br)*100:.1f}%，要到 50% 以上" if r.br == r.br else "　今天沒有資料",
+                  f"價 {on(L_price)}　大盤高於近 60 天最高和最低的中間",
+                  f"　現在 {float(r.close):,.0f}，要到 {mid60:,.0f} 以上",
+                  f"→ 現在亮 {g} 盞" + ("，明早開盤回多頭" if g >= 2 else f"，還差 {2 - g} 盞")]
     if state == "in":
         lines += ["", "━━ 出場條件（三個都成立才出場）━━",
                   f"{on(g == 0)} 三燈全滅　錢 {on(L_money)} 人 {on(L_people)} 價 {on(L_price)}（現在亮 {g} 盞）",
