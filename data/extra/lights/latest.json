@@ -1,7 +1,7 @@
 {
  "date": "20261127",
- "stage": "evening",
- "notify": false,
+ "stage": "early",
+ "notify": true,
  "key": {
   "money": false,
   "people": false,
