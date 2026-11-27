@@ -1,16 +1,16 @@
 {
  "date": "20261127",
- "run_at": "2026-11-28T05:23:49+08:00",
+ "run_at": "2026-11-28T05:40:54+08:00",
  "items": {
   "月營收": {
    "ok": true,
    "rows": 1989,
-   "sec": 2.4
+   "sec": 2.3
   },
   "除權息": {
    "ok": true,
    "rows": 945,
-   "sec": 1.1
+   "sec": 1.3
   },
   "產業分類": {
    "ok": true,
@@ -18,9 +18,9 @@
    "sec": 0.0
   },
   "集保": {
-   "ok": false,
-   "error": "URLError: <urlopen error timed out>",
-   "trace": "line 19, in fetch_tdcc\n    with urllib.request.urlopen(req, timeout=120) as r:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/work/alphapilot-market-data-v2/alphapilot-market-data-v2/scripts/fetch_snapshots.py\", line 50, in _urlopen\n    return _real_urlopen(req, *a, **k)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 215, in urlopen\n    return opener.open(url, data, timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 515, in open\n    response = self._open(req, data)\n               ^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 532, in _open\n    result = self._call_chain(self.handle_open, protocol, protocol +\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 492, in _call_chain\n    result = func(*args)\n             ^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 1405, in https_open\n    return self.do_open(http.client.HTTPSConnection, req,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/urllib/request.py\", line 1360, in do_open\n    raise URLError(err)\nurllib.error.URLError: <urlopen error timed out>\n"
+   "ok": true,
+   "rows": "20261127：50898 列",
+   "sec": 2.2
   }
  },
  "note": "不是交易日當天執行（例如隔天早上補抓），公告／估值／股數是『當下快照』，不能標成前一天，這次跳過"
